@@ -67,8 +67,10 @@
 #include "render/Lighting.hpp"
 
 #include <algorithm>
+#include <utility>
 
 #include "render/LightRenderer.hpp"
+#include "render/Localization.hpp"
 
 namespace Penumbra::Render {
 
@@ -92,7 +94,7 @@ float LightingHeight(const Eth::SpriteDraw& sprite, const Eth::RenderSnapshot& s
 } // namespace
 
 SpriteLighting ComputeSpriteLighting(const Eth::SpriteDraw& sprite, const Eth::RenderSnapshot& snapshot,
-                                     TextureCache& textures) {
+                                     TextureCache& textures, const Localization* localization) {
     SpriteLighting lighting;
     lighting.ambient = glm::min(glm::vec3(1.0f), snapshot.ambient + glm::vec3(sprite.emissive));
     lighting.lit = sprite.applyLight && (snapshot.pixelShaders || kLightWithoutPixelShaders);
@@ -105,7 +107,16 @@ SpriteLighting ComputeSpriteLighting(const Eth::SpriteDraw& sprite, const Eth::R
     // does not read, lights flat - 0.7.12 fell back to data/default_nm.png,
     // (127, 127, 255), which is the engine's flat default too.
     if (lighting.lit && snapshot.pixelShaders && !sprite.normal.empty()) {
-        lighting.normalKey = textures.Key(kNormalFolder + sprite.normal, TextureVariant::Normal);
+        // ENHANCED (E5): the menu buttons' map embosses their Portuguese; its
+        // English variant (strings.json "images") embosses the English labels
+        // the albedo shows. The key is the variant's own path, so a language
+        // switch lands on a different texture.
+        std::string path = kNormalFolder + sprite.normal;
+        if (localization != nullptr) {
+            std::string variant = localization->ImageVariant(path, localization->CurrentLanguage());
+            if (!variant.empty()) path = std::move(variant);
+        }
+        lighting.normalKey = textures.Key(path, TextureVariant::Normal);
     }
     return lighting;
 }

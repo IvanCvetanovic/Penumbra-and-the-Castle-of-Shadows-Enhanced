@@ -33,6 +33,12 @@
 // pixels, white, unlit, drawn behind rank 0 (ETHEngine.cpp:594-606 drew it
 // before the scene with the camera at 0,0). The clear colour behind it is
 // CameraRig's.
+//
+// ENHANCED (E5): with a Localization set, an entity image that has words baked
+// into it (the menu buttons, the title logo) is drawn from its variant in the
+// current language (strings.json "images"), and so is its normal map
+// (ComputeSpriteLighting). A slot remembers the language it resolved in, so a
+// language switch at run time swaps the texture on the next draw.
 
 #include <cstddef>
 #include <cstdint>
@@ -45,6 +51,7 @@
 
 #include "eth/Snapshot.hpp"
 #include "render/DrawOrder.hpp"
+#include "render/Localization.hpp"
 #include "render/TextureCache.hpp"
 #include "render/View.hpp"
 
@@ -64,6 +71,10 @@ public:
 
     void Attach(entt::registry& registry, TextureCache& textures);
     void Detach(entt::registry& registry);
+
+    // The layer's Localization (it must outlive this), for the images with
+    // words in them; nullptr (the default) draws every image as the original.
+    void SetLocalization(const Localization* localization) { m_localization = localization; }
 
     // Once a frame (idempotent: any number of frames a tick). `order` is
     // ComputeDrawOrder(snapshot), computed once a frame and shared with the
@@ -101,11 +112,17 @@ private:
         bool used = false;
         int entityId = -1;
         // What the albedo key was last resolved from, so a still sprite asks
-        // the texture cache nothing.
+        // the texture cache nothing - the language included, so a switch
+        // re-resolves it.
         std::string sprite;
         TextureVariant variant = TextureVariant::Sprite;
+        Language language = Language::Portuguese;
+        std::string albedoPath;     // the file drawn: "entities/<sprite>" or its variant
         std::string albedoKey;
     };
+
+    // "entities/<sprite>", or its variant in the current language.
+    std::string imagePath(const std::string& relativePath) const;
 
     entt::entity makeQuad(entt::registry& registry, const char* tag);
     Slot& slotFor(entt::registry& registry, int entityId);
@@ -115,6 +132,7 @@ private:
     void hide(entt::registry& registry, entt::entity quad);
 
     TextureCache* m_textures = nullptr;
+    const Localization* m_localization = nullptr;
     // Keyed by entity id, and by an occurrence count above it on the (never
     // expected) frame one id is drawn twice, so neither steals the other's quad.
     std::unordered_map<std::uint64_t, Slot> m_slots;

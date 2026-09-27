@@ -41,7 +41,12 @@ struct SpriteLighting {
     std::string normalKey;
 };
 
+class Localization;
+
+// `localization` (optional) swaps a normal map with words embossed in it (the
+// menu buttons') for its variant in the current language, as the sprite
+// renderer swaps the image itself (E5).
 SpriteLighting ComputeSpriteLighting(const Eth::SpriteDraw& sprite, const Eth::RenderSnapshot& snapshot,
-                                     TextureCache& textures);
+                                     TextureCache& textures, const Localization* localization = nullptr);
 
 } // namespace Penumbra::Render

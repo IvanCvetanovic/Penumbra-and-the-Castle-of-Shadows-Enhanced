@@ -74,17 +74,22 @@ ShadowGeometry ShadowRenderer::ComputeShadow(const Eth::SpriteDraw& caster, cons
     const float entityZ = std::max(0.0f, pe.z);
 
     if (g.baked && capBakedLength) {
-        // ENHANCEMENT (ShadowRenderer.hpp, LENGTH): the far end at most where
-        // the light still reaches, at the caster's height. The far apex lies
-        // planarDist + 0.79 + length - (length/6 - entityZ) from the light, so
-        // length <= (reach - planarDist - 0.79 - entityZ) * 6/5. Never shorter
-        // than the caster is tall, 0.7.12's own minimum (:901) - and not floored
-        // at the real-time length, which shadowLengthScale can put far past the
-        // light (pvp_lv2's single_tile_shadow: 9.5 x 64 = 608 against a
-        // crystal reaching 236).
+        // ENHANCEMENT (ShadowRenderer.hpp, LENGTH): the visible end at most
+        // where the light still reaches, at the caster's height. Along the
+        // strip's middle the texture's v runs from 1 at the base, planarDist -
+        // 0.21 - push from the light, to 0 at the apex, planarDist + 0.79 +
+        // length - push, with push = length/6 - entityZ; so v = kFadedV lies
+        // planarDist + entityZ + 0.79 - kFadedV + length (1 - 1/6 - kFadedV)
+        // out, and length <= (reach - planarDist - entityZ - 0.79 + kFadedV)
+        // / (5/6 - kFadedV), that is x 96/65 for shadow.dds. Never shorter than the
+        // caster is tall, 0.7.12's own minimum (:901) - and not floored at the
+        // real-time length, which shadowLengthScale can put far past the light
+        // (pvp_lv2's single_tile_shadow: 9.5 x 64 = 608 against a crystal
+        // reaching 236).
         const float dz = pl.z - pe.z;
         const float reach = std::sqrt(std::max(0.0f, squaredRange - dz * dz));
-        const float fits = (reach - planarDist - kOriginY - entityZ) * (6.0f / 5.0f);
+        const float fits =
+            (reach - planarDist - entityZ - kOriginY + kFadedV) / (5.0f / 6.0f - kFadedV);
         g.length = std::min(g.length, std::max(height, fits));
     }
 

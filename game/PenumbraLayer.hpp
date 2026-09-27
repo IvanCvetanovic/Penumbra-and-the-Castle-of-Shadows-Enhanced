@@ -2,6 +2,7 @@
 
 #include <filesystem>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -25,10 +26,15 @@
 #include "render/TextureCache.hpp"
 #include "render/View.hpp"
 
+namespace Supersonic {
+class WindowControl;
+}
+
 namespace Penumbra {
 
 namespace Eth {
 class Machine;
+class Scene;
 struct InputFrame;
 }
 
@@ -46,6 +52,10 @@ struct InputFrame;
 //    the menus, laid out for 1024x768, keep that size and are pillarboxed.
 //  - Settings (render/Settings.hpp) persist in the user directory; the
 //    original's own options switches are seeded from them.
+//  - The window follows the scripts (E2): SetWindowProperties's windowed flag
+//    (Alt+Enter, the options screen's switch) and its mode list go to the
+//    engine's WindowControl, and HideCursor hides the system pointer, as
+//    0.7.12 did while cursor.ent was drawn in its place.
 class PenumbraLayer final : public Supersonic::EngineLayer {
 public:
     static constexpr float kTick = 1.0f / 60.0f;
@@ -62,9 +72,18 @@ public:
     struct Options {
         std::filesystem::path userDir;      // where saves and settings go; empty = none
         std::string startScene;             // "" = the menu, as the original boots
-        glm::uvec2 windowPixels{1366, 768}; // what the window opens at (for the logical width)
+        glm::uvec2 windowPixels{1366, 768}; // what the window opens at; then kept current (for the logical width)
         std::vector<DevHold> holds;
-        Render::Settings settings;          // loaded by main (it also sizes the window)
+        Render::Settings settings;          // as loaded from the user directory (main also sizes the window)
+        bool startFullscreen = false;       // what the window opens as (flags over the settings)
+        // This run's overrides (--lang, --widescreen): they change what is
+        // shown and never reach settings.json, which keeps what the player chose.
+        std::optional<std::string> languageOverride;
+        std::optional<bool> widescreenOverride;
+        // --cursor x,y: the scripts' cursor pinned at a logical-screen point,
+        // for headless captures of the mouse-driven menu (the live OS pointer
+        // otherwise decides which panel a capture shows).
+        std::optional<glm::vec2> devCursor;
     };
 
     explicit PenumbraLayer(Options options);
@@ -84,6 +103,19 @@ private:
     Eth::vector2 LogicalScreenFor(const std::string& sceneFile) const;
     void ApplyDevHolds(Eth::InputFrame& frame) const;
     void StartDevScene();
+    // The engine's window, or null (a host that publishes none).
+    static Supersonic::WindowControl* WindowControlOf(entt::registry& registry);
+    // What the scripts asked of the window this tick, handed to the engine.
+    void ApplyWindowRequest(entt::registry& registry);
+    // GetVideoMode's list, from the monitor the window is on.
+    void RefreshVideoModes(entt::registry& registry);
+    // The HUD's and the sprites' language, from m_settings (or --lang).
+    void ApplyLanguage();
+    // What this run shows: the settings unless a flag overrides them.
+    bool Widescreen() const;
+    bool Portuguese() const;
+    // Writes m_settings to the user directory and re-applies what it drives.
+    void SaveSettings();
 
     Options m_options;
     Render::Settings m_settings;
@@ -103,6 +135,11 @@ private:
     bool m_pillarbox = true;
     unsigned m_ticks = 0;
     bool m_devStarted = false;
+    // The last windowed/fullscreen state asked of the engine. Not the Machine's
+    // (SetWindowProperties overwrites it before the layer sees the request) and
+    // not WindowControl::IsFullscreen (a frame late).
+    bool m_windowFullscreen = false;
+    const Eth::Scene* m_modesScene = nullptr;   // the scene the mode list was read for
 };
 
 } // namespace Penumbra

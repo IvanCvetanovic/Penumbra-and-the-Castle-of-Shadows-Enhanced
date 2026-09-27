@@ -6,6 +6,13 @@
 //                          KEY is a K_ name without the prefix: RIGHT, UP, S, D, SPACE, CTRL...
 //   --lang pt|en           this run's language, over the settings
 //   --widescreen on|off    this run's view, over the settings
+//   --cursor <x>,<y>       pin the scripts' cursor at a logical-screen point (menu captures)
+// --lang and --widescreen are never saved; --window implies a windowed run
+// unless --fullscreen is given too.
+//
+// Engine flags that matter here: --window WxH (the windowed size, over the
+// settings), --fullscreen / --windowed (this run only, over the settings; never
+// saved), --frames N and --screenshot <absolute path> for headless captures.
 
 #include <cstdlib>
 #include <exception>
@@ -13,6 +20,7 @@
 #include <iostream>
 #include <map>
 #include <memory>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -85,6 +93,16 @@ int main(int argc, char** argv) {
             languageOverride = argv[++i];
         } else if (arg == "--widescreen" && hasValue) {
             widescreenOverride = argv[++i];
+        } else if (arg == "--cursor" && hasValue) {
+            const std::string value = argv[++i];
+            const std::size_t comma = value.find(',');
+            try {
+                if (comma == std::string::npos) throw std::invalid_argument("no comma");
+                layerOptions.devCursor = glm::vec2(std::stof(value.substr(0, comma)), std::stof(value.substr(comma + 1)));
+            } catch (const std::exception&) {
+                std::cerr << "[Penumbra] --cursor wants x,y in the logical screen, got " << value << std::endl;
+                return EXIT_FAILURE;
+            }
         } else {
             engineArgs.push_back(argv[i]);
         }
@@ -116,17 +134,29 @@ int main(int argc, char** argv) {
         layerOptions.userDir,
         Penumbra::Render::Settings::Defaults(Penumbra::Render::Settings::SystemLanguageIsPortuguese()), &warning);
     if (!warning.empty()) std::cerr << "[Penumbra] settings: " << warning << std::endl;
-    if (languageOverride == "pt" || languageOverride == "en") settings.language = languageOverride;
-    if (widescreenOverride == "on") settings.widescreen = true;
-    if (widescreenOverride == "off") settings.widescreen = false;
+    // Run-only: the layer shows them and never saves them into settings.json.
+    if (languageOverride == "pt" || languageOverride == "en") layerOptions.languageOverride = languageOverride;
+    if (widescreenOverride == "on") layerOptions.widescreenOverride = true;
+    if (widescreenOverride == "off") layerOptions.widescreenOverride = false;
     layerOptions.settings = settings;
+
+    // --window names a window: without --fullscreen it is a windowed run
+    // whatever the settings say, so a player's saved fullscreen never turns a
+    // headless capture into a 1920x1200 one.
+    if (options.windowWidth > 0 && !options.fullscreen) options.windowed = true;
 
     manifest.width = static_cast<uint32_t>(settings.windowWidth);
     manifest.height = static_cast<uint32_t>(settings.windowHeight);
+    manifest.fullscreen = settings.fullscreen;
     uint32_t width = 0;
     uint32_t height = 0;
     Supersonic::GameRuntime::ResolveWindowSize(manifest, options.windowWidth, options.windowHeight, width, height);
     layerOptions.windowPixels = {width, height};
+    // The same answer SupersonicApp reaches (--windowed, --fullscreen, then the
+    // settings): the scripts' own idea of the window must start from what the
+    // window really is, or the menu's switch undoes a flag on its first frame.
+    layerOptions.startFullscreen =
+        Supersonic::GameRuntime::ResolveFullscreen(manifest, options.fullscreen, options.windowed);
 
     try {
         Supersonic::SupersonicApp app(options, &manifest);

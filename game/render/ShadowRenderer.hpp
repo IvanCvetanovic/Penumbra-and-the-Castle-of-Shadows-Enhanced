@@ -37,13 +37,24 @@
 //     which is what "remove this light's contribution" amounts to. 0.7.12's
 //     baked alpha of 1 x opacity over everything would paint the ambient black.
 //   - LENGTH: factor 8 for baked pairs - the long menu barrel shadows - but
-//     (ENHANCEMENT, switchable, on) cut so the far end stops where the light
-//     stops reaching, never shorter than the caster is tall. A baked shadow
-//     faded out with its light, because it only removed that light; a live one
-//     would darken plain ambient far past the light's range (tile_shadow is
-//     64 x 8 x 1.5 = 768 px against a torch's 227; pvp_lv2's
-//     single_tile_shadow, x 9.5, 2432 px against a crystal's 236). Real-time
-//     shadows are not cut: 0.7.12 drew them over everything too.
+//     (ENHANCEMENT, switchable, on) cut so the shadow's VISIBLE end - where
+//     shadow.dds turns clear, v = kFadedV - stops where the light stops
+//     reaching, never shorter than the caster is tall. A baked shadow faded
+//     out with its light, because it only removed that light; a live one
+//     would darken plain ambient past the light's range. Cutting the visible
+//     end rather than the strip's apex is the longest cut that darkens
+//     nothing out there (the last 5/32 of the strip is clear anyway), and
+//     along the menu barrels' axes it follows the original's baked falloff:
+//     modelled with hPixelLight, a strip cut at its apex fades 0.08-0.12 (in
+//     shadowed/lit ratio) too early, one cut at its visible end is within
+//     0.02-0.06, and the uncut x8 drawn live is 0.23-0.34 too dark. It binds
+//     on every baked pair shipped (70 of them): the menu's barrels and devils
+//     (58 x 8 = 464 px against torches reaching 255 and blue lights 231:
+//     barrel 117 by torch 107 keeps 246), tile_shadow in level1-3 and pvp_lv2
+//     (64 x 8 x 1.5 = 768 px against torches and crystals: 64-505 kept) and
+//     pvp_lv2's single_tile_shadow (x 9.5: 2432 px, or 669 by the projection
+//     rule; 32-307 kept). Real-time shadows are not cut: 0.7.12 drew them
+//     over everything too.
 //
 // DRAWN as one MeshRegistry mesh per shadow (MeshComponent::meshKey), black
 // (MaterialComponent::albedoColor (0,0,0,alpha)) through shadow.dds's alpha,
@@ -121,6 +132,9 @@ public:
     static constexpr float kOriginX = 0.5f;
     static constexpr float kOriginY = 0.79f;
     static constexpr int kMinAlpha8 = 8;
+    // shadow.dds's alpha is 0 in rows 0-4 (docs/spec/21 §2.6): the strip is
+    // clear for v < 5/32, so its visible end lies that far short of its apex.
+    static constexpr float kFadedV = 5.0f / 32.0f;
     // Below this the light is straight over the caster: no direction to cast
     // along (the shader would normalise a zero vector).
     static constexpr float kMinPlanarDistance = 1e-3f;

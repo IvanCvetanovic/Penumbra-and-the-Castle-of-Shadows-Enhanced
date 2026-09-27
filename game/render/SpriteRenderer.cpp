@@ -152,6 +152,14 @@ void SpriteRenderer::Detach(entt::registry& registry) {
     m_textures = nullptr;
 }
 
+std::string SpriteRenderer::imagePath(const std::string& relativePath) const {
+    if (m_localization != nullptr) {
+        std::string variant = m_localization->ImageVariant(relativePath, m_localization->CurrentLanguage());
+        if (!variant.empty()) return variant;
+    }
+    return relativePath;
+}
+
 entt::entity SpriteRenderer::QuadFor(int entityId) const {
     const auto it = m_slots.find(PoolKey(entityId, 0));
     return (it != m_slots.end() && it->second.used) ? it->second.quad : entt::null;
@@ -220,6 +228,8 @@ void SpriteRenderer::Draw(entt::registry& registry, const Eth::RenderSnapshot& s
     if (m_textures == nullptr) return;
     m_visible = 0;
     for (auto& [key, slot] : m_slots) slot.used = false;
+    const Language language =
+        m_localization != nullptr ? m_localization->CurrentLanguage() : Language::Portuguese;
 
     for (std::size_t i = 0; i < snapshot.sprites.size(); ++i) {
         const Eth::SpriteDraw& sprite = snapshot.sprites[i];
@@ -228,10 +238,13 @@ void SpriteRenderer::Draw(entt::registry& registry, const Eth::RenderSnapshot& s
 
         Slot& slot = slotFor(registry, sprite.entityId);
         const TextureVariant variant = VariantFor(sprite.blendMode);
-        if (slot.albedoKey.empty() || slot.sprite != sprite.sprite || slot.variant != variant) {
+        if (slot.albedoKey.empty() || slot.sprite != sprite.sprite || slot.variant != variant ||
+            slot.language != language) {
             slot.sprite = sprite.sprite;
             slot.variant = variant;
-            slot.albedoKey = m_textures->Key("entities/" + sprite.sprite, variant);
+            slot.language = language;
+            slot.albedoPath = imagePath("entities/" + sprite.sprite);
+            slot.albedoKey = m_textures->Key(slot.albedoPath, variant);
         }
         // An image that would not read is drawn as nothing (TextureCache logged
         // it once); the quad stays in the pool, unused.
@@ -279,7 +292,7 @@ void SpriteRenderer::drawSprite(entt::registry& registry, const Eth::RenderSnaps
     Assign(transform.scale, scale);
     Assign(transform.rotation, glm::vec3(0.0f, 0.0f, rotationZ));
 
-    const SpriteLighting lighting = ComputeSpriteLighting(sprite, snapshot, *m_textures);
+    const SpriteLighting lighting = ComputeSpriteLighting(sprite, snapshot, *m_textures, m_localization);
     const Look look = LookFor(sprite, lighting);
 
     // The 2D record exactly as MPR's tint() writes it: always enabled, so the
@@ -296,7 +309,7 @@ void SpriteRenderer::drawSprite(entt::registry& registry, const Eth::RenderSnaps
     const std::string& normal = lighting.lit ? lighting.normalKey : std::string();
 
     glm::vec2 bitmap = sprite.bitmapSize;
-    if (!(bitmap.x > 0.0f && bitmap.y > 0.0f)) bitmap = glm::vec2(m_textures->Size("entities/" + sprite.sprite));
+    if (!(bitmap.x > 0.0f && bitmap.y > 0.0f)) bitmap = glm::vec2(m_textures->Size(slot.albedoPath));
     glm::vec2 uvScale(1.0f);
     glm::vec2 uvOffset(0.0f);
     FrameUv(sprite, bitmap, uvScale, uvOffset);

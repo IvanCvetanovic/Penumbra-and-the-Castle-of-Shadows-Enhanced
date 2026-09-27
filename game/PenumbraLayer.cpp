@@ -11,6 +11,7 @@
 #include "core/Application.hpp"
 #include "core/Log.hpp"
 #include "core/SimulationClock.hpp"
+#include "core/WindowControl.hpp"
 #include "eth/Machine.hpp"
 #include "render/DrawOrder.hpp"
 
@@ -37,7 +38,7 @@ PenumbraLayer::~PenumbraLayer() = default;
 
 Eth::vector2 PenumbraLayer::LogicalScreenFor(const std::string& sceneFile) const {
     constexpr float kHeight = 768.0f;
-    if (!m_settings.widescreen || IsFixedLayoutScene(sceneFile)) return {1024.0f, kHeight};
+    if (!Widescreen() || IsFixedLayoutScene(sceneFile)) return {1024.0f, kHeight};
     // E1: as wide as the window's shape, never narrower than the original.
     // Fixed per scene: the scripts read GetScreenSize() every frame, but a
     // scene's spawn triggers and camera dead zone should not move under a
@@ -52,8 +53,14 @@ void PenumbraLayer::OnAttach(entt::registry& registry) {
     if (auto* clock = registry.ctx().find<Supersonic::SimulationClock>()) clock->fixedDelta = kTick;
 
     m_localization.Load();
-    m_localization.SetLanguage(m_settings.language == "pt" ? Render::Language::Portuguese
-                                                           : Render::Language::English);
+    ApplyLanguage();
+
+    // Fullscreen from the first frame is the monitor's size, not the one main()
+    // asked for: the first scene's widescreen width follows what is shown.
+    if (Supersonic::WindowControl* window = WindowControlOf(registry); window != nullptr && window->IsFullscreen()) {
+        const glm::uvec2 size = window->WindowSize();
+        if (size.x > 0 && size.y > 0) m_options.windowPixels = size;
+    }
 
     Eth::MachineConfig config;
     config.userRoot = m_options.userDir.string();
@@ -71,7 +78,10 @@ void PenumbraLayer::OnAttach(entt::registry& registry) {
     // The original's option switches, remembered across launches (E6).
     Script::g_controls.setCurrent(static_cast<Eth::uint>(m_settings.controls.joystickLayout));
     Script::g_enablePS.setCurrent(m_settings.pixelShaders ? 0u : 1u);
-    Script::g_windowed.setCurrent(m_settings.fullscreen ? 1u : 0u);
+    // Row 1 is "Tela-cheia". From what the window opens as, not the settings: a
+    // --windowed or --fullscreen run would otherwise be switched back by the
+    // menu's first frame (menu.as:103-106).
+    Script::g_windowed.setCurrent(m_options.startFullscreen ? 1u : 0u);
     m_input.SetControls(m_settings.controls);
 
     // Textures first: a key handed out before the registry is attached is
@@ -80,6 +90,7 @@ void PenumbraLayer::OnAttach(entt::registry& registry) {
     m_rig.Attach(registry);
     m_fonts.Attach(registry);
     m_sprites.Attach(registry, m_textures);
+    m_sprites.SetLocalization(&m_localization);   // E5: the menu's worded images and their normal maps
     m_shadows.Attach(registry, m_textures);
     m_lights.Attach(registry, m_textures);
     m_particles.Attach(registry, m_textures);
@@ -90,8 +101,14 @@ void PenumbraLayer::OnAttach(entt::registry& registry) {
         Script::RegisterAll(*m_machine);
         m_machine->Boot(Script::ScriptMain);
     }
-    // main() asked for a 1024x768 window; the settings decide the window now.
-    m_machine->Window().changed = false;
+    // ScriptMain asked for a 1024x768 window (main.as:144); the settings and the
+    // flags decided the window already. Its Windowed() must say what the window
+    // is, as 0.7.12's did, for the menu's switch to agree with it.
+    Eth::WindowRequest& windowRequest = m_machine->Window();
+    windowRequest.windowed = !m_options.startFullscreen;
+    windowRequest.changed = false;
+    m_windowFullscreen = m_options.startFullscreen;
+    RefreshVideoModes(registry);
 
     // The first tick runs before any OnUpdate has measured the window.
     Eth::RenderSnapshot seed;
@@ -115,6 +132,83 @@ void PenumbraLayer::OnDetach(entt::registry& registry) {
     m_machine.reset();
 }
 
+Supersonic::WindowControl* PenumbraLayer::WindowControlOf(entt::registry& registry) {
+    auto* const* window = registry.ctx().find<Supersonic::WindowControl*>();
+    return window != nullptr ? *window : nullptr;
+}
+
+bool PenumbraLayer::Widescreen() const {
+    return m_options.widescreenOverride.value_or(m_settings.widescreen);
+}
+
+bool PenumbraLayer::Portuguese() const {
+    return m_options.languageOverride.value_or(m_settings.language) == "pt";
+}
+
+void PenumbraLayer::ApplyLanguage() {
+    m_localization.SetLanguage(Portuguese() ? Render::Language::Portuguese : Render::Language::English);
+}
+
+void PenumbraLayer::SaveSettings() {
+    ApplyLanguage();
+    std::string error;
+    if (!m_options.userDir.empty() && !m_settings.Save(m_options.userDir, &error)) {
+        SUPERSONIC_LOG_WARN("Penumbra") << "settings not saved: " << error << std::endl;
+    }
+}
+
+void PenumbraLayer::RefreshVideoModes(entt::registry& registry) {
+    Supersonic::WindowControl* window = WindowControlOf(registry);
+    if (window == nullptr) return;
+    // E2: each size once. 0.7.12 listed every refresh rate of a size again, as
+    // identical "WxHx32" lines (videoModes.as:99-101); the port opens a window
+    // or covers the monitor at its current rate, so a rate is nothing to pick.
+    std::vector<Eth::videoMode> modes;
+    for (const Supersonic::DisplayMode& mode : window->DisplayModes()) {
+        const bool listed = std::any_of(modes.begin(), modes.end(), [&](const Eth::videoMode& m) {
+            return m.width == mode.width && m.height == mode.height;
+        });
+        if (!listed) modes.push_back(Eth::videoMode{mode.width, mode.height, Eth::PF32BIT});
+    }
+    m_machine->SetVideoModes(std::move(modes));
+}
+
+// SetWindowProperties as the scripts use it: the windowed flag flipped
+// (Alt+Enter or the options screen's switch, menu.as:108-119), or a line of the
+// mode list with the flag as it was (videoModes.as:110).
+void PenumbraLayer::ApplyWindowRequest(entt::registry& registry) {
+    Eth::WindowRequest& request = m_machine->Window();
+    if (!request.changed) return;
+    request.changed = false;
+    Supersonic::WindowControl* window = WindowControlOf(registry);
+
+    const bool fullscreen = !request.windowed;
+    if (fullscreen != m_windowFullscreen) {
+        // Only the flag: the size that comes with it is the logical screen's
+        // (menu.as:111), which is not the window's here. The window keeps its
+        // windowed size to come back to.
+        m_windowFullscreen = fullscreen;
+        if (window != nullptr) window->SetFullscreen(fullscreen);
+        if (fullscreen != m_settings.fullscreen) {
+            m_settings.fullscreen = fullscreen;
+            SaveSettings();
+        }
+        return;
+    }
+
+    // A mode picked from the list. 0.7.12 switched the display to it; the port
+    // sizes the window to it (the size to return to, while fullscreen) and
+    // renders at that size.
+    if (window == nullptr || !window->SetWindowedSize(request.width, request.height)) return;
+    const int width = static_cast<int>(request.width);
+    const int height = static_cast<int>(request.height);
+    if (width != m_settings.windowWidth || height != m_settings.windowHeight) {
+        m_settings.windowWidth = width;
+        m_settings.windowHeight = height;
+        SaveSettings();
+    }
+}
+
 void PenumbraLayer::ApplyDevHolds(Eth::InputFrame& frame) const {
     for (const DevHold& hold : m_options.holds) {
         if (m_ticks >= hold.from && m_ticks <= hold.to) frame.keys[static_cast<std::size_t>(hold.key)] = true;
@@ -133,7 +227,6 @@ void PenumbraLayer::StartDevScene() {
 }
 
 void PenumbraLayer::OnFixedUpdate(entt::registry& registry, float fixedDelta) {
-    (void)registry;
     (void)fixedDelta;
     Eth::Machine::Scope scope(*m_machine);
 
@@ -141,6 +234,7 @@ void PenumbraLayer::OnFixedUpdate(entt::registry& registry, float fixedDelta) {
     m_input.SetPlayer2Pad(static_cast<int>(Script::getPlayerJoystick(1)));
     Eth::InputFrame frame = m_input.BuildTick(m_view);
     ApplyDevHolds(frame);
+    if (m_options.devCursor) frame.cursor = frame.cursorAbsolute = *m_options.devCursor;
     m_machine->Frame(frame);   // steps the key and button state machines itself
     ++m_ticks;
 
@@ -152,20 +246,13 @@ void PenumbraLayer::OnFixedUpdate(entt::registry& registry, float fixedDelta) {
     Eth::vector2 warp;
     if (m_machine->Input().TakeCursorRequest(warp)) m_input.WarpCursor(warp, m_view);
 
-    Eth::WindowRequest& window = m_machine->Window();
-    if (window.changed) {
-        window.changed = false;
-        // The options screen and Alt+Enter ask for windowed or full screen.
-        // The engine cannot switch yet; the choice is remembered for the next
-        // launch.
-        const bool fullscreen = !window.windowed;
-        if (fullscreen != m_settings.fullscreen) {
-            m_settings.fullscreen = fullscreen;
-            std::string error;
-            if (!m_options.userDir.empty() && !m_settings.Save(m_options.userDir, &error)) {
-                SUPERSONIC_LOG_WARN("Penumbra") << "settings not saved: " << error << std::endl;
-            }
-        }
+    ApplyWindowRequest(registry);
+
+    // The monitor's modes are read when a scene opens, not every tick: the
+    // options screen is a scene, and the window may have moved screens since.
+    if (m_machine->CurrentScene() != m_modesScene) {
+        m_modesScene = m_machine->CurrentScene();
+        RefreshVideoModes(registry);
     }
 
     // The options screen's switches are the original's own globals; keep the
@@ -176,10 +263,7 @@ void PenumbraLayer::OnFixedUpdate(entt::registry& registry, float fixedDelta) {
         m_settings.controls.joystickLayout = layout;
         m_settings.pixelShaders = pixelShaders;
         m_input.SetControls(m_settings.controls);
-        std::string error;
-        if (!m_options.userDir.empty() && !m_settings.Save(m_options.userDir, &error)) {
-            SUPERSONIC_LOG_WARN("Penumbra") << "settings not saved: " << error << std::endl;
-        }
+        SaveSettings();
     }
 
     if (m_machine->QuitRequested()) Supersonic::Application::RequestQuit();
@@ -188,6 +272,19 @@ void PenumbraLayer::OnFixedUpdate(entt::registry& registry, float fixedDelta) {
 void PenumbraLayer::OnUpdate(entt::registry& registry, float deltaTime) {
     (void)deltaTime;
     const Eth::RenderSnapshot& snapshot = m_machine->Snapshot();
+
+    if (Supersonic::WindowControl* window = WindowControlOf(registry)) {
+        // 0.7.12 hid the system pointer while the scripts asked (main.as:133)
+        // and drew cursor.ent in its place. Every frame is cheap: it does
+        // nothing when the request already stands, and the focus and editor
+        // vetoes stay Input's.
+        window->SetCursorVisible(!snapshot.cursorHidden);
+        // The next scene is as wide as the window is by then (E1), after a
+        // fullscreen switch or a picked mode. Zero while minimised: keep the last.
+        const glm::uvec2 size = window->WindowSize();
+        if (size.x > 0 && size.y > 0) m_options.windowPixels = size;
+    }
+
     m_view = m_rig.Update(registry, snapshot, m_pillarbox);
     const Render::DrawOrder order = Render::ComputeDrawOrder(snapshot);
     m_sprites.Draw(registry, snapshot, m_view, order);

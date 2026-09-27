@@ -12,7 +12,8 @@
 //     extrude, push back): a straight-down case, and a diagonal one that only
 //     comes out right with the rotation's sign convention right. Then the
 //     length rules (x2 live, x8 baked, the 2.2h stretch, the enhanced range
-//     cap), each early-out, and the alpha byte.
+//     cap on the visible end), each early-out, and the alpha byte; and one
+//     menu barrel with menu.esc's own numbers.
 //   - The light mapping: intensity x particle ratio only for dynamic lights,
 //     the halo's ratio for all, ConvertToDW, the flicker's bounds.
 //   - The pools on a bare registry: the same snapshot drawn twice changes
@@ -251,33 +252,41 @@ void ShadowLengths() {
     CHECK(baked.visible);
     CHECK(baked.baked);
     CHECK(Near(baked.length, 400.0f));
-    // ... which the enhanced port cuts to end where the light stops reaching:
-    // (sqrt(200^2 - 10^2) - 100 - 0.79 - 0) x 6/5 = 118.75, above the live 100.
+    // ... which the enhanced port cuts so that its visible end - v = 5/32,
+    // where shadow.dds turns clear - is where the light stops reaching:
+    // (sqrt(200^2 - 10^2) - 100 - 0 - 0.79 + 5/32) x 96/65 = 146.39, above the
+    // live 100.
     const Render::ShadowGeometry capped =
         ShadowRenderer::ComputeShadow(caster, Light(above, true), glm::vec3(0.0f), true);
-    CHECK_MSG(Near(capped.length, 118.7518f), std::to_string(capped.length));
-    // Its far apex is then at the light's reach.
-    CHECK(Near(glm::length(capped.vertices[2] - glm::vec2(100.0f, 0.0f)), std::sqrt(200.0f * 200.0f - 100.0f), 1e-2f));
+    CHECK_MSG(Near(capped.length, 146.3868f), std::to_string(capped.length));
+    // That visible end, 5/32 of the way from the apex to the base's middle,
+    // is then at the light's reach, and only the clear tail lies past it.
+    const float reach = std::sqrt(200.0f * 200.0f - 100.0f);
+    const glm::vec2 cappedBase = 0.5f * (capped.vertices[1] + capped.vertices[3]);
+    const glm::vec2 visibleEnd = capped.vertices[2] + ShadowRenderer::kFadedV * (cappedBase - capped.vertices[2]);
+    CHECK_MSG(Near(glm::length(visibleEnd - glm::vec2(100.0f, 0.0f)), reach, 1e-2f),
+              std::to_string(glm::length(visibleEnd - glm::vec2(100.0f, 0.0f))));
+    CHECK(glm::length(capped.vertices[2] - glm::vec2(100.0f, 0.0f)) > reach);
     // The cap may go under the live length - range 150 leaves
-    // (sqrt(150^2 - 10^2) - 100.79) x 6/5 = 58.65 of the live 100 ...
+    // (sqrt(150^2 - 10^2) - 100.79 + 5/32) x 96/65 = 72.42 of the live 100 ...
     Eth::LightDraw shortReach = Light(above, true);
     shortReach.range = 150.0f;
     const Render::ShadowGeometry shorter = ShadowRenderer::ComputeShadow(caster, shortReach, glm::vec3(0.0f), true);
     CHECK(shorter.visible);
-    CHECK_MSG(Near(shorter.length, 58.6516f), std::to_string(shorter.length));
+    CHECK_MSG(Near(shorter.length, 72.4173f), std::to_string(shorter.length));
     CHECK_EQ(shorter.alpha8, 140);   // (1 - 10100/22500) x 255 = 140.5
-    // ... but not under the caster's height, 0.7.12's own minimum: range 142
-    // leaves 49.03, and the shadow keeps 50.
-    shortReach.range = 142.0f;
+    // ... but not under the caster's height, 0.7.12's own minimum: range 134
+    // leaves 48.73, and the shadow keeps 50.
+    shortReach.range = 134.0f;
     const Render::ShadowGeometry floor = ShadowRenderer::ComputeShadow(caster, shortReach, glm::vec3(0.0f), true);
     CHECK(floor.visible);
     CHECK_MSG(Near(floor.length, 50.0f), std::to_string(floor.length));
-    CHECK_EQ(floor.alpha8, 127);     // (1 - 10100/20164) x 255 = 127.3
+    CHECK_EQ(floor.alpha8, 111);     // (1 - 10100/17956) x 255 = 111.6
     // A huge shadowLengthScale is cut all the same (pvp_lv2's 9.5): 400 x 9.5
-    // uncapped, 118.75 capped, as at scale 1.
+    // uncapped, 146.39 capped, as at scale 1.
     caster.shadowLengthScale = 9.5f;
     CHECK(Near(ShadowRenderer::ComputeShadow(caster, Light(above, true), glm::vec3(0.0f), false).length, 3800.0f));
-    CHECK(Near(ShadowRenderer::ComputeShadow(caster, Light(above, true), glm::vec3(0.0f), true).length, 118.7518f));
+    CHECK(Near(ShadowRenderer::ComputeShadow(caster, Light(above, true), glm::vec3(0.0f), true).length, 146.3868f));
     caster.shadowLengthScale = 1.0f;
     // Right at the range's edge the alpha is under 8 and nothing is drawn:
     // (1 - 10100/10201) x 255 = 2.5.
@@ -290,13 +299,22 @@ void ShadowLengths() {
     caster.applyLight = true;
 
     // Light above the caster's top (50 < 60): the ground-plane projection,
-    // 100/10 x 60 - 100 = 500, clamped to 2.2 x 50 = 110. The same baked or live.
+    // 100/10 x 60 - 100 = 500, clamped to 2.2 x 50 = 110. The same baked or
+    // live in 0.7.12: only the other branch asks drawToTarget
+    // (E:ETHRenderEntity.cpp:884-897) ...
     const Render::ShadowGeometry stretched =
         ShadowRenderer::ComputeShadow(caster, Light({100.0f, 0.0f, 60.0f}, false), glm::vec3(0.0f));
     CHECK(stretched.visible);
     CHECK_MSG(Near(stretched.length, 110.0f), std::to_string(stretched.length));
-    CHECK(Near(ShadowRenderer::ComputeShadow(caster, Light({100.0f, 0.0f, 60.0f}, true), glm::vec3(0.0f)).length,
-               110.0f));
+    const Render::ShadowGeometry stretchedBaked =
+        ShadowRenderer::ComputeShadow(caster, Light({100.0f, 0.0f, 60.0f}, true), glm::vec3(0.0f), false);
+    CHECK(stretchedBaked.baked);
+    CHECK_MSG(Near(stretchedBaked.length, 110.0f), std::to_string(stretchedBaked.length));
+    // ... and the enhanced cap leaves it: the light reaches sqrt(200^2 - 60^2)
+    // = 190.79 at this height, (190.79 - 100.79 + 5/32) x 96/65 = 133.15.
+    const Render::ShadowGeometry stretchedCapped =
+        ShadowRenderer::ComputeShadow(caster, Light({100.0f, 0.0f, 60.0f}, true), glm::vec3(0.0f), true);
+    CHECK_MSG(Near(stretchedCapped.length, 110.0f), std::to_string(stretchedCapped.length));
     // Projection shorter than the caster: at least h.
     const Render::ShadowGeometry minimum =
         ShadowRenderer::ComputeShadow(caster, Light({100.0f, 90.0f, 150.0f}, false), glm::vec3(0.0f));
@@ -312,6 +330,51 @@ void ShadowLengths() {
     CHECK(Near(scaled.length, 150.0f));
     caster.shadowScale = 1.5f;
     CHECK(Near(ShadowRenderer::ComputeShadow(caster, Light(above, false), glm::vec3(0.0f)).width, 48.0f));
+}
+
+void MenuBarrelShadow() {
+    // menu.esc's barrel 117 (barrel.ent: vertical, static, 48x58, shadowScale
+    // 0) by ground_fire 107's torch: owner (110, 326, 0) + (0, 0, 16), static,
+    // castShadows, range 256, colour (1, 0.5, 0.3); ambient (0.2, 0, 0.2).
+    // The torch is under the barrel's top (16 < 58), so 0.7.12 baked it x8.
+    Eth::SpriteDraw barrel;
+    barrel.entityId = 117;
+    barrel.sprite = "barril.png";
+    barrel.type = Eth::ET_VERTICAL;
+    barrel.isStatic = true;
+    barrel.applyLight = true;
+    barrel.castShadow = true;
+    barrel.shadowScale = 0.0f;
+    barrel.shadowLengthScale = 1.0f;
+    barrel.shadowOpacity = 1.0f;
+    barrel.position = glm::vec3(69.0f, 404.0f, 0.0f);
+    barrel.size = glm::vec2(48.0f, 58.0f);
+    Eth::LightDraw torch;
+    torch.ownerId = 107;
+    torch.position = glm::vec3(110.0f, 326.0f, 16.0f);
+    torch.color = glm::vec3(1.0f, 0.5f, 0.3f);
+    torch.range = 256.0f;
+    torch.isStatic = true;
+    torch.castShadows = true;
+    const glm::vec3 ambient(0.2f, 0.0f, 0.2f);
+
+    const Render::ShadowGeometry original = ShadowRenderer::ComputeShadow(barrel, torch, ambient, false);
+    CHECK(original.visible);
+    CHECK(original.baked);
+    CHECK(Near(original.width, 38.4f));
+    CHECK_MSG(Near(original.length, 464.0f), std::to_string(original.length));
+    // (1 - 8021/65536) x 1 x (1 - 0.4/3) x 255 = 193.95.
+    CHECK_EQ(original.alpha8, 193);
+    // Cut to the torch's reach, sqrt(256^2 - 16^2) = 255.50, 88.12 away:
+    // (255.50 - 88.12 - 0.79 + 5/32) x 96/65 = 246.27 - not the 200 of a
+    // strip cut at its apex, nor the live 116.
+    const Render::ShadowGeometry live = ShadowRenderer::ComputeShadow(barrel, torch, ambient, true);
+    CHECK_MSG(Near(live.length, 246.2718f, 1e-2f), std::to_string(live.length));
+    CHECK_EQ(live.alpha8, 193);
+    const glm::vec2 base = 0.5f * (live.vertices[1] + live.vertices[3]);
+    const glm::vec2 visibleEnd = live.vertices[2] + ShadowRenderer::kFadedV * (base - live.vertices[2]);
+    CHECK_MSG(Near(glm::length(visibleEnd - glm::vec2(110.0f, 326.0f)), std::sqrt(256.0f * 256.0f - 256.0f), 1e-2f),
+              Str(visibleEnd));
 }
 
 void ShadowEarlyOutsAndAlpha() {
@@ -576,6 +639,10 @@ void ShadowPool(Render::TextureCache& textures) {
     Render::View view;
 
     Eth::RenderSnapshot snapshot;
+    // A room with something left to darken: the snapshot's default ambient is
+    // (1, 1, 1), under which 0.7.12's alpha, x (1 - mean ambient), is 0 and
+    // no shadow - and so no slot - is made at all.
+    snapshot.ambient = glm::vec3(0.2f, 0.1f, 0.2f);   // level1's
     snapshot.sprites = {Caster(), Tile(0.0f)};
     snapshot.lights = {Light({100.0f, 0.0f, 10.0f}, true), Light({180.0f, 60.0f, 10.0f}, false)};
     snapshot.lights[1].ownerId = 8;
@@ -583,10 +650,14 @@ void ShadowPool(Render::TextureCache& textures) {
     order.spriteRank = {1, 2};
     order.shadowRankBase = {0, 1};
 
+    // Both pairs are drawn: 158 and 169 of 255.
+    CHECK(ShadowRenderer::ComputeShadow(snapshot.sprites[0], snapshot.lights[0], snapshot.ambient).visible);
+    CHECK(ShadowRenderer::ComputeShadow(snapshot.sprites[0], snapshot.lights[1], snapshot.ambient).visible);
+
     const bool textureReadable = !textures.Key("data/shadow.dds", Render::TextureVariant::Plain).empty();
     renderer.Draw(registry, snapshot, view, order);
     // The caster with both lights; the tile casts none.
-    CHECK_EQ(renderer.SlotCount(), textureReadable ? std::size_t{2} : std::size_t{0});
+    CHECK_EQ(renderer.SlotCount(), (textureReadable ? std::size_t{2} : std::size_t{0}));
     CHECK_EQ(renderer.ShownCount(), std::size_t{0});
     const std::size_t entities = registry.storage<entt::entity>().free_list();
     renderer.Draw(registry, snapshot, view, order);
@@ -599,7 +670,7 @@ void ShadowPool(Render::TextureCache& textures) {
     order.shadowRankBase.push_back(2);
     renderer.Draw(registry, snapshot, view, order);
     renderer.Draw(registry, snapshot, view, order);
-    CHECK_EQ(renderer.SlotCount(), textureReadable ? std::size_t{4} : std::size_t{0});
+    CHECK_EQ(renderer.SlotCount(), (textureReadable ? std::size_t{4} : std::size_t{0}));
 
     renderer.Detach(registry);
     CHECK_EQ(registry.storage<entt::entity>().free_list(), std::size_t{0});
@@ -620,6 +691,7 @@ int main() {
     ShadowStripMatchesTheShader();
     ShadowTurnsWithTheLight();
     ShadowLengths();
+    MenuBarrelShadow();
     ShadowEarlyOutsAndAlpha();
     LightMapping();
     HaloMapping();
