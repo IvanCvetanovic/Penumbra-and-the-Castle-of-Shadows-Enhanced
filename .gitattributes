@@ -1,0 +1,25 @@
+# Batch files MUST be CRLF or cmd.exe mis-parses them (a LF .bat makes `@echo off`
+# fail and comment lines execute as commands). Everything we write stays LF.
+*.bat   text eol=crlf
+*.cmd   text eol=crlf
+
+*.cpp   text eol=lf
+*.hpp   text eol=lf
+*.h     text eol=lf
+*.txt   text eol=lf
+*.cmake text eol=lf
+*.json  text eol=lf
+*.py    text eol=lf
+*.md    text eol=lf
+*.glsl  text eol=lf
+*.vert  text eol=lf
+*.frag  text eol=lf
+
+.gitignore     text eol=lf
+.gitattributes text eol=lf
+.gitmodules    text eol=lf
+
+# The original game under extracted/ was committed with text=auto, so its
+# scripts and scenes are LF in the repository and CRLF in a Windows checkout.
+# The port's readers accept both; they are Latin-1, not UTF-8.
+*       text=auto

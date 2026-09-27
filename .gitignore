@@ -1,0 +1,24 @@
+# The CMake build tree (tools\build.bat configures build/ at the root).
+build/
+
+# Decoding reference, kept on this machine only: the Ethanon 0.7.12 source the
+# original shipped on (SourceForge SVN tag v0-7-12), GS2D r485 as a stand-in
+# for the closed GameSpaceLib, disassembly listings and the analysis scripts
+# docs/spec cites. Read-only; it has its own upstream and is not ours to host.
+reference/
+
+# Captures, scratch renders and anything else generated at run time.
+out/
+
+# Saves the game writes while it is developed from this tree (the port's own
+# saves go to the user's directory; this catches a run pointed here).
+saves/
+
+# Editor and OS droppings.
+.vs/
+.vscode/
+*.user
+imgui.ini
+Thumbs.db
+__pycache__/
+*.py[cod]

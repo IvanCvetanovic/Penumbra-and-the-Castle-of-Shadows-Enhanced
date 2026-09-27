@@ -1,0 +1,13 @@
+// Every header of the Eth layer on its own, so a header that does not stand
+// alone fails here rather than in whichever file happened to include it first.
+#include "eth/Audio.hpp"
+#include "eth/Defs.hpp"
+#include "eth/Entity.hpp"
+#include "eth/Eth.hpp"
+#include "eth/EthTypes.hpp"
+#include "eth/Input.hpp"
+#include "eth/Machine.hpp"
+#include "eth/Particles.hpp"
+#include "eth/Random.hpp"
+#include "eth/Scene.hpp"
+#include "eth/Snapshot.hpp"
