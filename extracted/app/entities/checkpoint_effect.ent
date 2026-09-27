@@ -1,0 +1,32 @@
+<?xml version="1.0" ?>
+<Ethanon>
+    <Entity type="0" static="0" collidable="0" startFrame="0" applyLight="0" castShadow="0" blendMode="0" layerDepth="0" soundVolume="0.5" shadowScale="0" shadowLengthScale="1" shadowOpacity="1" specularPower="50" specularBrightness="1">
+        <EmissiveColor r="0" g="0" b="0" a="0" />
+        <SpriteCut x="1" y="1" />
+        <PivotAdjust x="0" y="0" />
+        <Particles>
+            <ParticleSystem particles="5" allAtOnce="0" alphaMode="0" repeat="1" animationMode="1" boundingSphere="512" lifeTime="1050" randomLifeTime="550" angleDir="0" randAngle="0" size="345" randomizeSize="0" growth="-6" minSize="2" maxSize="1000" angleStart="0" randAngleStart="0">
+                <SoundEffect>checkpoint.mp3</SoundEffect>
+                <Bitmap>particle_harder.png</Bitmap>
+                <Gravity x="0" y="0" />
+                <Direction x="0" y="0" />
+                <RandomizeDir x="0" y="0" />
+                <SpriteCut x="1" y="1" />
+                <StartPoint x="0" y="0" z="0" />
+                <RandStartPoint x="0" y="0" />
+                <Color0 r="0" g="0" b="0" a="0" />
+                <Color1 r="0" g="0" b="0" a="1" />
+                <Luminance r="0" g="0" b="0" />
+            </ParticleSystem>
+        </Particles>
+        <Light active="0" static="0" castShadows="1" range="256" haloBrightness="1" haloSize="64">
+            <Position x="0" y="0" z="0" />
+            <Color r="1" g="1" b="1" />
+        </Light>
+        <Collision>
+            <Position x="0" y="0" z="0" />
+            <Size x="0" y="0" z="0" />
+        </Collision>
+        <CustomData />
+    </Entity>
+</Ethanon>

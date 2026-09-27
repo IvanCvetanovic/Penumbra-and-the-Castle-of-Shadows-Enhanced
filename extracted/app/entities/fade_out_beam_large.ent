@@ -1,0 +1,32 @@
+<?xml version="1.0" ?>
+<Ethanon>
+    <Entity type="0" static="0" collidable="0" startFrame="0" applyLight="0" castShadow="0" blendMode="0" layerDepth="0" soundVolume="1" shadowScale="0" shadowLengthScale="1" shadowOpacity="1" specularPower="50" specularBrightness="1">
+        <EmissiveColor r="0" g="0" b="0" a="0" />
+        <SpriteCut x="1" y="1" />
+        <PivotAdjust x="0" y="0" />
+        <Particles>
+            <ParticleSystem particles="45" allAtOnce="0" alphaMode="0" repeat="1" animationMode="1" boundingSphere="921.6" lifeTime="1750" randomLifeTime="1300" angleDir="0" randAngle="0" size="68.4" randomizeSize="0" growth="-0.9" minSize="0" maxSize="1800" angleStart="0" randAngleStart="0">
+                <SoundEffect>creature_dying.mp3</SoundEffect>
+                <Bitmap>particle_harder.png</Bitmap>
+                <Gravity x="0" y="0" />
+                <Direction x="0" y="-0.72" />
+                <RandomizeDir x="1.08" y="2.34" />
+                <SpriteCut x="1" y="1" />
+                <StartPoint x="0" y="0" z="0" />
+                <RandStartPoint x="0" y="46.8" />
+                <Color0 r="0" g="0" b="0" a="1" />
+                <Color1 r="0" g="0" b="0" a="1" />
+                <Luminance r="1" g="1" b="1" />
+            </ParticleSystem>
+        </Particles>
+        <Light active="0" static="0" castShadows="1" range="256" haloBrightness="1" haloSize="64">
+            <Position x="0" y="0" z="0" />
+            <Color r="1" g="1" b="1" />
+        </Light>
+        <Collision>
+            <Position x="0" y="0" z="0" />
+            <Size x="0" y="0" z="0" />
+        </Collision>
+        <CustomData />
+    </Entity>
+</Ethanon>

@@ -1,0 +1,38 @@
+<?xml version="1.0" ?>
+<Ethanon>
+    <Entity type="0" static="0" collidable="1" startFrame="0" applyLight="0" castShadow="0" blendMode="0" layerDepth="0" soundVolume="1" shadowScale="0" shadowLengthScale="1" shadowOpacity="1" specularPower="50" specularBrightness="1">
+        <EmissiveColor r="0" g="0" b="0" a="0" />
+        <SpriteCut x="1" y="1" />
+        <PivotAdjust x="0" y="0" />
+        <Particles>
+            <ParticleSystem particles="23" allAtOnce="0" alphaMode="1" repeat="7" animationMode="1" boundingSphere="137.626" lifeTime="250" randomLifeTime="150" angleDir="0" randAngle="20" size="43.008" randomizeSize="0" growth="-3.2256" minSize="4.3008" maxSize="2150.4" angleStart="0" randAngleStart="360">
+                <Bitmap>explosion.JPG</Bitmap>
+                <Gravity x="0" y="0" />
+                <Direction x="0" y="0" />
+                <RandomizeDir x="1.72032" y="1.72032" />
+                <SpriteCut x="1" y="1" />
+                <StartPoint x="0" y="0" z="0" />
+                <RandStartPoint x="6.4512" y="0" />
+                <Color0 r="0.4" g="0.6" b="1" a="1" />
+                <Color1 r="0" g="0.2" b="1" a="1" />
+                <Luminance r="1" g="1" b="1" />
+            </ParticleSystem>
+        </Particles>
+        <Light active="1" static="0" castShadows="0" range="125.5" haloBrightness="1" haloSize="108">
+            <Position x="0" y="0" z="16" />
+            <Color r="0.7" g="0.7" b="1" />
+            <HaloBitmap>halo1.bmp</HaloBitmap>
+        </Light>
+        <Collision>
+            <Position x="0" y="0" z="0" />
+            <Size x="28" y="28" z="5" />
+        </Collision>
+        <CustomData>
+            <Variable>
+                <Type>uint</Type>
+                <Name>dontCollide</Name>
+                <Value>0</Value>
+            </Variable>
+        </CustomData>
+    </Entity>
+</Ethanon>

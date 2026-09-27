@@ -1,0 +1,15 @@
+<?xml version="1.0" ?>
+<Ethanon>
+    <ParticleSystem particles="13" allAtOnce="1" alphaMode="1" repeat="1" boundingSphere="700" lifeTime="1150" randomLifeTime="1000" angleDir="0" randAngle="3.1" size="18" randomizeSize="0" growth="-0.35" minSize="1" maxSize="1000" angleStart="0" randAngleStart="360">
+        <SoundEffect>explosion.ogg</SoundEffect>
+        <Bitmap>explosion.JPG</Bitmap>
+        <Gravity x="0" y="0" />
+        <Direction x="0" y="0" />
+        <RandomizeDir x="20" y="20" />
+        <StartPoint x="0" y="0" z="0" />
+        <RandStartPoint x="0" y="0" />
+        <Color0 r="1" g="1" b="1" a="1" />
+        <Color1 r="1" g="1" b="1" a="1" />
+        <Luminance r="1" g="1" b="1" />
+    </ParticleSystem>
+</Ethanon>

@@ -1,0 +1,19 @@
+<?xml version="1.0" ?>
+<Ethanon>
+    <Entity type="0" static="1" collidable="0" startFrame="0" applyLight="0" castShadow="0" blendMode="2" layerDepth="0" soundVolume="1" shadowScale="0" shadowLengthScale="1" shadowOpacity="1" specularPower="50" specularBrightness="1">
+        <EmissiveColor r="1" g="1" b="1" a="0" />
+        <SpriteCut x="1" y="1" />
+        <PivotAdjust x="0" y="-16" />
+        <Particles />
+        <Light active="1" static="1" castShadows="1" range="454" haloBrightness="0" haloSize="146">
+            <Position x="2" y="10" z="0" />
+            <Color r="0.3" g="1" b="0.7" />
+            <HaloBitmap>halo1.bmp</HaloBitmap>
+        </Light>
+        <Collision>
+            <Position x="0" y="0" z="0" />
+            <Size x="0" y="0" z="0" />
+        </Collision>
+        <CustomData />
+    </Entity>
+</Ethanon>

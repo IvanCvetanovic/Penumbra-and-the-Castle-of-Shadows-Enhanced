@@ -1,0 +1,33 @@
+<?xml version="1.0" ?>
+<Ethanon>
+    <Entity type="2" static="0" collidable="1" startFrame="4" applyLight="1" castShadow="1" blendMode="2" layerDepth="0" soundVolume="1" shadowScale="0.8" shadowLengthScale="1" shadowOpacity="1" specularPower="50" specularBrightness="1">
+        <EmissiveColor r="0" g="0" b="0" a="0" />
+        <SpriteCut x="4" y="4" />
+        <PivotAdjust x="0" y="-10" />
+        <Sprite>king.png</Sprite>
+        <Normal>king_nm.png</Normal>
+        <Particles>
+            <ParticleSystem particles="19" allAtOnce="0" alphaMode="1" repeat="0" animationMode="1" boundingSphere="102.24" lifeTime="1250" randomLifeTime="850" angleDir="0" randAngle="3.9" size="27.36" randomizeSize="0" growth="-0.36" minSize="0" maxSize="720" angleStart="0" randAngleStart="246">
+                <Bitmap>explosion.JPG</Bitmap>
+                <Gravity x="0" y="0" />
+                <Direction x="0" y="-0.288" />
+                <RandomizeDir x="0.432" y="0.936" />
+                <SpriteCut x="1" y="1" />
+                <StartPoint x="0" y="-18" z="0" />
+                <RandStartPoint x="0" y="18.72" />
+                <Color0 r="1" g="1" b="1" a="1" />
+                <Color1 r="1" g="1" b="1" a="1" />
+                <Luminance r="1" g="1" b="1" />
+            </ParticleSystem>
+        </Particles>
+        <Light active="1" static="0" castShadows="0" range="122.5" haloBrightness="1" haloSize="64">
+            <Position x="0" y="2" z="8" />
+            <Color r="1" g="0.4" b="0.2" />
+        </Light>
+        <Collision>
+            <Position x="0" y="0" z="0" />
+            <Size x="23" y="48" z="20" />
+        </Collision>
+        <CustomData />
+    </Entity>
+</Ethanon>

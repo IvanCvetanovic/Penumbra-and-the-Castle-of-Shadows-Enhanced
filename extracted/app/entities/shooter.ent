@@ -1,0 +1,42 @@
+<?xml version="1.0" ?>
+<Ethanon>
+    <Entity type="0" static="1" collidable="0" startFrame="0" applyLight="0" castShadow="0" blendMode="0" layerDepth="0" soundVolume="1" shadowScale="0" shadowLengthScale="1" shadowOpacity="1" specularPower="50" specularBrightness="1">
+        <EmissiveColor r="0" g="0" b="0" a="0" />
+        <SpriteCut x="1" y="1" />
+        <PivotAdjust x="0" y="0" />
+        <Particles>
+            <ParticleSystem particles="14" allAtOnce="0" alphaMode="1" repeat="0" animationMode="1" boundingSphere="158" lifeTime="1200" randomLifeTime="1000" angleDir="0.7" randAngle="2.4" size="4" randomizeSize="0" growth="3.1" minSize="0" maxSize="62" angleStart="0" randAngleStart="360">
+                <Bitmap>explosion.JPG</Bitmap>
+                <Gravity x="0" y="0" />
+                <Direction x="0" y="0" />
+                <RandomizeDir x="0.8" y="0" />
+                <SpriteCut x="1" y="1" />
+                <StartPoint x="0" y="0" z="-6" />
+                <RandStartPoint x="63" y="0" />
+                <Color0 r="1" g="1" b="1" a="1" />
+                <Color1 r="0" g="0" b="0" a="1" />
+                <Luminance r="0" g="0" b="0" />
+            </ParticleSystem>
+        </Particles>
+        <Light active="1" static="1" castShadows="0" range="125.5" haloBrightness="1" haloSize="64">
+            <Position x="0" y="0" z="8" />
+            <Color r="1" g="0.5" b="0.3" />
+        </Light>
+        <Collision>
+            <Position x="0" y="0" z="0" />
+            <Size x="0" y="0" z="0" />
+        </Collision>
+        <CustomData>
+            <Variable>
+                <Type>uint</Type>
+                <Name>coolDown</Name>
+                <Value>2500</Value>
+            </Variable>
+            <Variable>
+                <Type>float</Type>
+                <Name>force</Name>
+                <Value>400</Value>
+            </Variable>
+        </CustomData>
+    </Entity>
+</Ethanon>

@@ -1,0 +1,19 @@
+<?xml version="1.0" ?>
+<Ethanon>
+    <Entity type="0" static="0" collidable="1" startFrame="0" applyLight="0" castShadow="0" blendMode="0" layerDepth="0" soundVolume="1" shadowScale="0" shadowLengthScale="1" shadowOpacity="1" specularPower="50" specularBrightness="1">
+        <EmissiveColor r="1" g="1" b="1" a="0" />
+        <SpriteCut x="1" y="1" />
+        <PivotAdjust x="0" y="0" />
+        <Sprite>cone.png</Sprite>
+        <Particles />
+        <Light active="1" static="0" castShadows="0" range="353.5" haloBrightness="1" haloSize="64">
+            <Position x="0" y="0" z="56" />
+            <Color r="1" g="1" b="1" />
+        </Light>
+        <Collision>
+            <Position x="21" y="21" z="21" />
+            <Size x="0" y="0" z="0" />
+        </Collision>
+        <CustomData />
+    </Entity>
+</Ethanon>

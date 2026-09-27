@@ -1,0 +1,15 @@
+<?xml version="1.0" ?>
+<Ethanon>
+    <ParticleSystem particles="9" allAtOnce="1" alphaMode="1" repeat="1" animationMode="1" boundingSphere="512" lifeTime="950" randomLifeTime="550" angleDir="0" randAngle="0" size="10" randomizeSize="4" growth="-0.2" minSize="0" maxSize="1000" angleStart="0" randAngleStart="0">
+        <Bitmap>explosion.JPG</Bitmap>
+        <Gravity x="0" y="0.11" />
+        <Direction x="0" y="-2.8" />
+        <RandomizeDir x="1" y="1" />
+        <SpriteCut x="1" y="1" />
+        <StartPoint x="0" y="0" z="0" />
+        <RandStartPoint x="9" y="0" />
+        <Color0 r="1" g="1" b="1" a="1" />
+        <Color1 r="1" g="1" b="1" a="1" />
+        <Luminance r="0" g="0" b="0" />
+    </ParticleSystem>
+</Ethanon>

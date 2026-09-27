@@ -1,0 +1,15 @@
+<?xml version="1.0" ?>
+<Ethanon>
+    <ParticleSystem particles="17" allAtOnce="0" alphaMode="1" repeat="0" animationMode="1" boundingSphere="512" lifeTime="750" randomLifeTime="500" angleDir="0" randAngle="11.7" size="53" randomizeSize="0" growth="-1.3" minSize="0" maxSize="1000" angleStart="0" randAngleStart="254">
+        <Bitmap>flash.bmp</Bitmap>
+        <Gravity x="0" y="0" />
+        <Direction x="0" y="0" />
+        <RandomizeDir x="2.3" y="2.3" />
+        <SpriteCut x="1" y="1" />
+        <StartPoint x="0" y="0" z="0" />
+        <RandStartPoint x="0" y="0" />
+        <Color0 r="1" g="0.2" b="0.2" a="1" />
+        <Color1 r="0" g="0" b="0" a="0" />
+        <Luminance r="0" g="0" b="0" />
+    </ParticleSystem>
+</Ethanon>

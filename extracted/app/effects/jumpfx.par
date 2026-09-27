@@ -1,0 +1,15 @@
+<?xml version="1.0" ?>
+<Ethanon>
+    <ParticleSystem particles="9" allAtOnce="1" alphaMode="0" repeat="1" animationMode="1" boundingSphere="512" lifeTime="200" randomLifeTime="100" angleDir="7.4" randAngle="8.1" size="18" randomizeSize="0" growth="1" minSize="0" maxSize="1000" angleStart="0" randAngleStart="360">
+        <Bitmap>fog.dds</Bitmap>
+        <Gravity x="0" y="0" />
+        <Direction x="0" y="-0.4" />
+        <RandomizeDir x="4.1" y="0.9" />
+        <SpriteCut x="1" y="1" />
+        <StartPoint x="0" y="0" z="0" />
+        <RandStartPoint x="0" y="7" />
+        <Color0 r="1" g="1" b="1" a="0.18" />
+        <Color1 r="1" g="1" b="1" a="0" />
+        <Luminance r="1" g="1" b="1" />
+    </ParticleSystem>
+</Ethanon>

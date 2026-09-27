@@ -1,0 +1,16 @@
+<?xml version="1.0" ?>
+<Ethanon>
+    <ParticleSystem particles="16" allAtOnce="0" alphaMode="1" repeat="1" animationMode="1" boundingSphere="409.6" lifeTime="150" randomLifeTime="0" angleDir="0" randAngle="0" size="66.4" randomizeSize="0" growth="1.2" minSize="0" maxSize="800" angleStart="0" randAngleStart="0">
+        <SoundEffect>sword01.mp3</SoundEffect>
+        <Bitmap>sword.png</Bitmap>
+        <Gravity x="-3.04" y="0" />
+        <Direction x="12.56" y="-2.16" />
+        <RandomizeDir x="3.92" y="0.4" />
+        <SpriteCut x="1" y="1" />
+        <StartPoint x="-13" y="0" z="0" />
+        <RandStartPoint x="0" y="0" />
+        <Color0 r="1" g="0.5" b="0.5" a="1" />
+        <Color1 r="1" g="0" b="1" a="1" />
+        <Luminance r="1" g="1" b="1" />
+    </ParticleSystem>
+</Ethanon>

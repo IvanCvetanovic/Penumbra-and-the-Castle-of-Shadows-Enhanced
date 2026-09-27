@@ -1,0 +1,593 @@
+<?xml version="1.0" ?>
+<Ethanon>
+    <SceneProperties lightIntensity="2">
+        <Ambient r="0.3" g="0" b="0.3" />
+        <ZAxisDirection x="0" y="0" />
+    </SceneProperties>
+    <EntitiesInScene>
+        <Entity id="6" spriteFrame="0">
+            <EntityName>floor03.ent</EntityName>
+            <Color r="1" g="1" b="1" a="1" />
+            <Position x="640" y="640" z="0" angle="0" />
+            <Entity type="0" static="1" collidable="1" startFrame="0" applyLight="1" castShadow="0" blendMode="2" layerDepth="0" soundVolume="1" shadowScale="0" shadowLengthScale="1" shadowOpacity="1" specularPower="50" specularBrightness="1">
+                <EmissiveColor r="0" g="0" b="0" a="0" />
+                <SpriteCut x="1" y="1" />
+                <PivotAdjust x="0" y="0" />
+                <Sprite>floor03.png</Sprite>
+                <Normal>floor03_nm.png</Normal>
+                <Particles />
+                <Light active="0" static="1" castShadows="1" range="256" haloBrightness="1" haloSize="64">
+                    <Position x="0" y="0" z="0" />
+                    <Color r="1" g="1" b="1" />
+                </Light>
+                <Collision>
+                    <Position x="0" y="0" z="0" />
+                    <Size x="256" y="256" z="43" />
+                </Collision>
+                <CustomData />
+            </Entity>
+        </Entity>
+        <Entity id="7" spriteFrame="0">
+            <EntityName>floor03.ent</EntityName>
+            <Color r="1" g="1" b="1" a="1" />
+            <Position x="896" y="640" z="0" angle="0" />
+            <Entity type="0" static="1" collidable="1" startFrame="0" applyLight="1" castShadow="0" blendMode="2" layerDepth="0" soundVolume="1" shadowScale="0" shadowLengthScale="1" shadowOpacity="1" specularPower="50" specularBrightness="1">
+                <EmissiveColor r="0" g="0" b="0" a="0" />
+                <SpriteCut x="1" y="1" />
+                <PivotAdjust x="0" y="0" />
+                <Sprite>floor03.png</Sprite>
+                <Normal>floor03_nm.png</Normal>
+                <Particles />
+                <Light active="0" static="1" castShadows="1" range="256" haloBrightness="1" haloSize="64">
+                    <Position x="0" y="0" z="0" />
+                    <Color r="1" g="1" b="1" />
+                </Light>
+                <Collision>
+                    <Position x="0" y="0" z="0" />
+                    <Size x="256" y="256" z="43" />
+                </Collision>
+                <CustomData />
+            </Entity>
+        </Entity>
+        <Entity id="32" spriteFrame="0">
+            <EntityName>arch01.ent</EntityName>
+            <Color r="1" g="1" b="1" a="1" />
+            <Position x="640" y="384" z="-84" angle="0" />
+            <Entity type="0" static="1" collidable="0" startFrame="0" applyLight="1" castShadow="0" blendMode="2" layerDepth="0" soundVolume="1" shadowScale="0" shadowLengthScale="1" shadowOpacity="1" specularPower="50" specularBrightness="1">
+                <EmissiveColor r="0" g="0" b="0" a="0" />
+                <SpriteCut x="1" y="1" />
+                <PivotAdjust x="0" y="0" />
+                <Sprite>arch.png</Sprite>
+                <Normal>arch_nm.png</Normal>
+                <Particles />
+                <Light active="0" static="1" castShadows="1" range="256" haloBrightness="1" haloSize="64">
+                    <Position x="0" y="0" z="0" />
+                    <Color r="1" g="1" b="1" />
+                </Light>
+                <Collision>
+                    <Position x="0" y="0" z="0" />
+                    <Size x="0" y="0" z="0" />
+                </Collision>
+                <CustomData />
+            </Entity>
+        </Entity>
+        <Entity id="22" spriteFrame="0">
+            <EntityName>crystal_high_range.ent</EntityName>
+            <Color r="1" g="1" b="1" a="1" />
+            <Position x="772" y="256" z="-58" angle="0" />
+            <Entity type="0" static="1" collidable="0" startFrame="0" applyLight="0" castShadow="0" blendMode="2" layerDepth="0" soundVolume="1" shadowScale="0" shadowLengthScale="1" shadowOpacity="1" specularPower="50" specularBrightness="1">
+                <EmissiveColor r="1" g="1" b="1" a="0" />
+                <SpriteCut x="1" y="1" />
+                <PivotAdjust x="0" y="-16" />
+                <Sprite>sprite.png</Sprite>
+                <Particles />
+                <Light active="1" static="1" castShadows="1" range="382" haloBrightness="0.6" haloSize="146">
+                    <Position x="2" y="10" z="0" />
+                    <Color r="0.3" g="0.7" b="1" />
+                    <HaloBitmap>halo.bmp</HaloBitmap>
+                </Light>
+                <Collision>
+                    <Position x="0" y="0" z="0" />
+                    <Size x="0" y="0" z="0" />
+                </Collision>
+                <CustomData />
+            </Entity>
+        </Entity>
+        <Entity id="3" spriteFrame="0">
+            <EntityName>arch01.ent</EntityName>
+            <Color r="1" g="1" b="1" a="1" />
+            <Position x="896" y="384" z="-84" angle="0" />
+            <Entity type="0" static="1" collidable="0" startFrame="0" applyLight="1" castShadow="0" blendMode="2" layerDepth="0" soundVolume="1" shadowScale="0" shadowLengthScale="1" shadowOpacity="1" specularPower="50" specularBrightness="1">
+                <EmissiveColor r="0" g="0" b="0" a="0" />
+                <SpriteCut x="1" y="1" />
+                <PivotAdjust x="0" y="0" />
+                <Sprite>arch.png</Sprite>
+                <Normal>arch_nm.png</Normal>
+                <Particles />
+                <Light active="0" static="1" castShadows="1" range="256" haloBrightness="1" haloSize="64">
+                    <Position x="0" y="0" z="0" />
+                    <Color r="1" g="1" b="1" />
+                </Light>
+                <Collision>
+                    <Position x="0" y="0" z="0" />
+                    <Size x="0" y="0" z="0" />
+                </Collision>
+                <CustomData />
+            </Entity>
+        </Entity>
+        <Entity id="10" spriteFrame="1">
+            <EntityName>wall10.ent</EntityName>
+            <Color r="1" g="1" b="1" a="1" />
+            <Position x="640" y="192" z="0" angle="0" />
+            <Entity type="0" static="1" collidable="1" startFrame="1" applyLight="1" castShadow="0" blendMode="2" layerDepth="0" soundVolume="1" shadowScale="0" shadowLengthScale="1" shadowOpacity="1" specularPower="50" specularBrightness="1">
+                <EmissiveColor r="0" g="0" b="0" a="0" />
+                <SpriteCut x="1" y="2" />
+                <PivotAdjust x="0" y="0" />
+                <Sprite>STONE03A4x7.JPG</Sprite>
+                <Normal>wall__height4x_nm.png</Normal>
+                <Particles />
+                <Light active="0" static="1" castShadows="1" range="256" haloBrightness="1" haloSize="64">
+                    <Position x="0" y="0" z="0" />
+                    <Color r="1" g="1" b="1" />
+                </Light>
+                <Collision>
+                    <Position x="0" y="0" z="0" />
+                    <Size x="256" y="128" z="32" />
+                </Collision>
+                <CustomData />
+            </Entity>
+        </Entity>
+        <Entity id="11" spriteFrame="1">
+            <EntityName>wall10.ent</EntityName>
+            <Color r="1" g="1" b="1" a="1" />
+            <Position x="896" y="192" z="0" angle="0" />
+            <Entity type="0" static="1" collidable="1" startFrame="1" applyLight="1" castShadow="0" blendMode="2" layerDepth="0" soundVolume="1" shadowScale="0" shadowLengthScale="1" shadowOpacity="1" specularPower="50" specularBrightness="1">
+                <EmissiveColor r="0" g="0" b="0" a="0" />
+                <SpriteCut x="1" y="2" />
+                <PivotAdjust x="0" y="0" />
+                <Sprite>STONE03A4x7.JPG</Sprite>
+                <Normal>wall__height4x_nm.png</Normal>
+                <Particles />
+                <Light active="0" static="1" castShadows="1" range="256" haloBrightness="1" haloSize="64">
+                    <Position x="0" y="0" z="0" />
+                    <Color r="1" g="1" b="1" />
+                </Light>
+                <Collision>
+                    <Position x="0" y="0" z="0" />
+                    <Size x="256" y="128" z="32" />
+                </Collision>
+                <CustomData />
+            </Entity>
+        </Entity>
+        <Entity id="12" spriteFrame="0">
+            <EntityName>wall11.ent</EntityName>
+            <Color r="1" g="1" b="1" a="1" />
+            <Position x="640" y="64" z="0" angle="0" />
+            <Entity type="0" static="1" collidable="1" startFrame="0" applyLight="1" castShadow="0" blendMode="2" layerDepth="0" soundVolume="1" shadowScale="0" shadowLengthScale="1" shadowOpacity="1" specularPower="50" specularBrightness="1">
+                <EmissiveColor r="0" g="0" b="0" a="0" />
+                <SpriteCut x="1" y="2" />
+                <PivotAdjust x="0" y="0" />
+                <Sprite>STONE03A4x7.JPG</Sprite>
+                <Normal>wall__height4x_nm.png</Normal>
+                <Particles />
+                <Light active="0" static="1" castShadows="1" range="256" haloBrightness="1" haloSize="64">
+                    <Position x="0" y="0" z="0" />
+                    <Color r="1" g="1" b="1" />
+                </Light>
+                <Collision>
+                    <Position x="0" y="0" z="0" />
+                    <Size x="256" y="128" z="32" />
+                </Collision>
+                <CustomData />
+            </Entity>
+        </Entity>
+        <Entity id="13" spriteFrame="0">
+            <EntityName>wall11.ent</EntityName>
+            <Color r="1" g="1" b="1" a="1" />
+            <Position x="896" y="64" z="0" angle="0" />
+            <Entity type="0" static="1" collidable="1" startFrame="0" applyLight="1" castShadow="0" blendMode="2" layerDepth="0" soundVolume="1" shadowScale="0" shadowLengthScale="1" shadowOpacity="1" specularPower="50" specularBrightness="1">
+                <EmissiveColor r="0" g="0" b="0" a="0" />
+                <SpriteCut x="1" y="2" />
+                <PivotAdjust x="0" y="0" />
+                <Sprite>STONE03A4x7.JPG</Sprite>
+                <Normal>wall__height4x_nm.png</Normal>
+                <Particles />
+                <Light active="0" static="1" castShadows="1" range="256" haloBrightness="1" haloSize="64">
+                    <Position x="0" y="0" z="0" />
+                    <Color r="1" g="1" b="1" />
+                </Light>
+                <Collision>
+                    <Position x="0" y="0" z="0" />
+                    <Size x="256" y="128" z="32" />
+                </Collision>
+                <CustomData />
+            </Entity>
+        </Entity>
+        <Entity id="19" spriteFrame="0">
+            <EntityName>half_wall02.ent</EntityName>
+            <Color r="1" g="1" b="1" a="1" />
+            <Position x="960" y="64" z="4" angle="0" />
+            <Entity type="0" static="1" collidable="0" startFrame="0" applyLight="1" castShadow="0" blendMode="2" layerDepth="0" soundVolume="1" shadowScale="0" shadowLengthScale="1" shadowOpacity="1" specularPower="50" specularBrightness="1">
+                <EmissiveColor r="0" g="0" b="0" a="0" />
+                <SpriteCut x="1" y="1" />
+                <PivotAdjust x="0" y="0" />
+                <Sprite>half_wall01.png</Sprite>
+                <Normal>wall__height_nm.png</Normal>
+                <Particles />
+                <Light active="0" static="1" castShadows="1" range="256" haloBrightness="1" haloSize="64">
+                    <Position x="-17" y="-27" z="22" />
+                    <Color r="1" g="0.4" b="1" />
+                </Light>
+                <Collision>
+                    <Position x="0" y="0" z="0" />
+                    <Size x="0" y="0" z="0" />
+                </Collision>
+                <CustomData />
+            </Entity>
+        </Entity>
+        <Entity id="20" spriteFrame="0">
+            <EntityName>half_wall02.ent</EntityName>
+            <Color r="1" g="1" b="1" a="1" />
+            <Position x="960" y="192" z="4" angle="0" />
+            <Entity type="0" static="1" collidable="0" startFrame="0" applyLight="1" castShadow="0" blendMode="2" layerDepth="0" soundVolume="1" shadowScale="0" shadowLengthScale="1" shadowOpacity="1" specularPower="50" specularBrightness="1">
+                <EmissiveColor r="0" g="0" b="0" a="0" />
+                <SpriteCut x="1" y="1" />
+                <PivotAdjust x="0" y="0" />
+                <Sprite>half_wall01.png</Sprite>
+                <Normal>wall__height_nm.png</Normal>
+                <Particles />
+                <Light active="0" static="1" castShadows="1" range="256" haloBrightness="1" haloSize="64">
+                    <Position x="-17" y="-27" z="22" />
+                    <Color r="1" g="0.4" b="1" />
+                </Light>
+                <Collision>
+                    <Position x="0" y="0" z="0" />
+                    <Size x="0" y="0" z="0" />
+                </Collision>
+                <CustomData />
+            </Entity>
+        </Entity>
+        <Entity id="29" spriteFrame="0">
+            <EntityName>face_no_light.ent</EntityName>
+            <Color r="1" g="1" b="1" a="1" />
+            <Position x="640" y="384" z="-90" angle="0" />
+            <Entity type="0" static="1" collidable="0" startFrame="0" applyLight="1" castShadow="0" blendMode="2" layerDepth="0" soundVolume="1" shadowScale="0" shadowLengthScale="1" shadowOpacity="1" specularPower="50" specularBrightness="1">
+                <EmissiveColor r="0" g="0" b="0" a="0" />
+                <SpriteCut x="1" y="1" />
+                <PivotAdjust x="0" y="0" />
+                <Sprite>face.jpg</Sprite>
+                <Normal>face_norm.jpg</Normal>
+                <Particles />
+                <Light active="0" static="1" castShadows="1" range="256" haloBrightness="1" haloSize="64">
+                    <Position x="0" y="0" z="0" />
+                    <Color r="1" g="1" b="1" />
+                </Light>
+                <Collision>
+                    <Position x="0" y="0" z="0" />
+                    <Size x="0" y="0" z="0" />
+                </Collision>
+                <CustomData />
+            </Entity>
+        </Entity>
+        <Entity id="30" spriteFrame="0">
+            <EntityName>face_no_light.ent</EntityName>
+            <Color r="1" g="1" b="1" a="1" />
+            <Position x="896" y="384" z="-90" angle="0" />
+            <Entity type="0" static="1" collidable="0" startFrame="0" applyLight="1" castShadow="0" blendMode="2" layerDepth="0" soundVolume="1" shadowScale="0" shadowLengthScale="1" shadowOpacity="1" specularPower="50" specularBrightness="1">
+                <EmissiveColor r="0" g="0" b="0" a="0" />
+                <SpriteCut x="1" y="1" />
+                <PivotAdjust x="0" y="0" />
+                <Sprite>face.jpg</Sprite>
+                <Normal>face_norm.jpg</Normal>
+                <Particles />
+                <Light active="0" static="1" castShadows="1" range="256" haloBrightness="1" haloSize="64">
+                    <Position x="0" y="0" z="0" />
+                    <Color r="1" g="1" b="1" />
+                </Light>
+                <Collision>
+                    <Position x="0" y="0" z="0" />
+                    <Size x="0" y="0" z="0" />
+                </Collision>
+                <CustomData />
+            </Entity>
+        </Entity>
+        <Entity id="33" spriteFrame="0">
+            <EntityName>face_no_light.ent</EntityName>
+            <Color r="1" g="1" b="1" a="1" />
+            <Position x="384" y="384" z="-90" angle="0" />
+            <Entity type="0" static="1" collidable="0" startFrame="0" applyLight="1" castShadow="0" blendMode="2" layerDepth="0" soundVolume="1" shadowScale="0" shadowLengthScale="1" shadowOpacity="1" specularPower="50" specularBrightness="1">
+                <EmissiveColor r="0" g="0" b="0" a="0" />
+                <SpriteCut x="1" y="1" />
+                <PivotAdjust x="0" y="0" />
+                <Sprite>face.jpg</Sprite>
+                <Normal>face_norm.jpg</Normal>
+                <Particles />
+                <Light active="0" static="1" castShadows="1" range="256" haloBrightness="1" haloSize="64">
+                    <Position x="0" y="0" z="0" />
+                    <Color r="1" g="1" b="1" />
+                </Light>
+                <Collision>
+                    <Position x="0" y="0" z="0" />
+                    <Size x="0" y="0" z="0" />
+                </Collision>
+                <CustomData />
+            </Entity>
+        </Entity>
+        <Entity id="31" spriteFrame="0">
+            <EntityName>arch01.ent</EntityName>
+            <Color r="1" g="1" b="1" a="1" />
+            <Position x="384" y="384" z="-84" angle="0" />
+            <Entity type="0" static="1" collidable="0" startFrame="0" applyLight="1" castShadow="0" blendMode="2" layerDepth="0" soundVolume="1" shadowScale="0" shadowLengthScale="1" shadowOpacity="1" specularPower="50" specularBrightness="1">
+                <EmissiveColor r="0" g="0" b="0" a="0" />
+                <SpriteCut x="1" y="1" />
+                <PivotAdjust x="0" y="0" />
+                <Sprite>arch.png</Sprite>
+                <Normal>arch_nm.png</Normal>
+                <Particles />
+                <Light active="0" static="1" castShadows="1" range="256" haloBrightness="1" haloSize="64">
+                    <Position x="0" y="0" z="0" />
+                    <Color r="1" g="1" b="1" />
+                </Light>
+                <Collision>
+                    <Position x="0" y="0" z="0" />
+                    <Size x="0" y="0" z="0" />
+                </Collision>
+                <CustomData />
+            </Entity>
+        </Entity>
+        <Entity id="0" spriteFrame="0">
+            <EntityName>arch01.ent</EntityName>
+            <Color r="1" g="1" b="1" a="1" />
+            <Position x="128" y="384" z="-84" angle="0" />
+            <Entity type="0" static="1" collidable="0" startFrame="0" applyLight="1" castShadow="0" blendMode="2" layerDepth="0" soundVolume="1" shadowScale="0" shadowLengthScale="1" shadowOpacity="1" specularPower="50" specularBrightness="1">
+                <EmissiveColor r="0" g="0" b="0" a="0" />
+                <SpriteCut x="1" y="1" />
+                <PivotAdjust x="0" y="0" />
+                <Sprite>arch.png</Sprite>
+                <Normal>arch_nm.png</Normal>
+                <Particles />
+                <Light active="0" static="1" castShadows="1" range="256" haloBrightness="1" haloSize="64">
+                    <Position x="0" y="0" z="0" />
+                    <Color r="1" g="1" b="1" />
+                </Light>
+                <Collision>
+                    <Position x="0" y="0" z="0" />
+                    <Size x="0" y="0" z="0" />
+                </Collision>
+                <CustomData />
+            </Entity>
+        </Entity>
+        <Entity id="8" spriteFrame="1">
+            <EntityName>wall10.ent</EntityName>
+            <Color r="1" g="1" b="1" a="1" />
+            <Position x="128" y="192" z="0" angle="0" />
+            <Entity type="0" static="1" collidable="1" startFrame="1" applyLight="1" castShadow="0" blendMode="2" layerDepth="0" soundVolume="1" shadowScale="0" shadowLengthScale="1" shadowOpacity="1" specularPower="50" specularBrightness="1">
+                <EmissiveColor r="0" g="0" b="0" a="0" />
+                <SpriteCut x="1" y="2" />
+                <PivotAdjust x="0" y="0" />
+                <Sprite>STONE03A4x7.JPG</Sprite>
+                <Normal>wall__height4x_nm.png</Normal>
+                <Particles />
+                <Light active="0" static="1" castShadows="1" range="256" haloBrightness="1" haloSize="64">
+                    <Position x="0" y="0" z="0" />
+                    <Color r="1" g="1" b="1" />
+                </Light>
+                <Collision>
+                    <Position x="0" y="0" z="0" />
+                    <Size x="256" y="128" z="32" />
+                </Collision>
+                <CustomData />
+            </Entity>
+        </Entity>
+        <Entity id="9" spriteFrame="1">
+            <EntityName>wall10.ent</EntityName>
+            <Color r="1" g="1" b="1" a="1" />
+            <Position x="384" y="192" z="0" angle="0" />
+            <Entity type="0" static="1" collidable="1" startFrame="1" applyLight="1" castShadow="0" blendMode="2" layerDepth="0" soundVolume="1" shadowScale="0" shadowLengthScale="1" shadowOpacity="1" specularPower="50" specularBrightness="1">
+                <EmissiveColor r="0" g="0" b="0" a="0" />
+                <SpriteCut x="1" y="2" />
+                <PivotAdjust x="0" y="0" />
+                <Sprite>STONE03A4x7.JPG</Sprite>
+                <Normal>wall__height4x_nm.png</Normal>
+                <Particles />
+                <Light active="0" static="1" castShadows="1" range="256" haloBrightness="1" haloSize="64">
+                    <Position x="0" y="0" z="0" />
+                    <Color r="1" g="1" b="1" />
+                </Light>
+                <Collision>
+                    <Position x="0" y="0" z="0" />
+                    <Size x="256" y="128" z="32" />
+                </Collision>
+                <CustomData />
+            </Entity>
+        </Entity>
+        <Entity id="14" spriteFrame="0">
+            <EntityName>wall11.ent</EntityName>
+            <Color r="1" g="1" b="1" a="1" />
+            <Position x="384" y="64" z="0" angle="0" />
+            <Entity type="0" static="1" collidable="1" startFrame="0" applyLight="1" castShadow="0" blendMode="2" layerDepth="0" soundVolume="1" shadowScale="0" shadowLengthScale="1" shadowOpacity="1" specularPower="50" specularBrightness="1">
+                <EmissiveColor r="0" g="0" b="0" a="0" />
+                <SpriteCut x="1" y="2" />
+                <PivotAdjust x="0" y="0" />
+                <Sprite>STONE03A4x7.JPG</Sprite>
+                <Normal>wall__height4x_nm.png</Normal>
+                <Particles />
+                <Light active="0" static="1" castShadows="1" range="256" haloBrightness="1" haloSize="64">
+                    <Position x="0" y="0" z="0" />
+                    <Color r="1" g="1" b="1" />
+                </Light>
+                <Collision>
+                    <Position x="0" y="0" z="0" />
+                    <Size x="256" y="128" z="32" />
+                </Collision>
+                <CustomData />
+            </Entity>
+        </Entity>
+        <Entity id="15" spriteFrame="0">
+            <EntityName>wall11.ent</EntityName>
+            <Color r="1" g="1" b="1" a="1" />
+            <Position x="128" y="64" z="0" angle="0" />
+            <Entity type="0" static="1" collidable="1" startFrame="0" applyLight="1" castShadow="0" blendMode="2" layerDepth="0" soundVolume="1" shadowScale="0" shadowLengthScale="1" shadowOpacity="1" specularPower="50" specularBrightness="1">
+                <EmissiveColor r="0" g="0" b="0" a="0" />
+                <SpriteCut x="1" y="2" />
+                <PivotAdjust x="0" y="0" />
+                <Sprite>STONE03A4x7.JPG</Sprite>
+                <Normal>wall__height4x_nm.png</Normal>
+                <Particles />
+                <Light active="0" static="1" castShadows="1" range="256" haloBrightness="1" haloSize="64">
+                    <Position x="0" y="0" z="0" />
+                    <Color r="1" g="1" b="1" />
+                </Light>
+                <Collision>
+                    <Position x="0" y="0" z="0" />
+                    <Size x="256" y="128" z="32" />
+                </Collision>
+                <CustomData />
+            </Entity>
+        </Entity>
+        <Entity id="17" spriteFrame="0">
+            <EntityName>half_wall01.ent</EntityName>
+            <Color r="1" g="1" b="1" a="1" />
+            <Position x="64" y="64" z="4" angle="0" />
+            <Entity type="0" static="1" collidable="0" startFrame="0" applyLight="1" castShadow="0" blendMode="2" layerDepth="0" soundVolume="1" shadowScale="0" shadowLengthScale="1" shadowOpacity="1" specularPower="50" specularBrightness="1">
+                <EmissiveColor r="0" g="0" b="0" a="0" />
+                <SpriteCut x="1" y="1" />
+                <PivotAdjust x="0" y="0" />
+                <Sprite>half_wall02.png</Sprite>
+                <Normal>wall__height_nm.png</Normal>
+                <Particles />
+                <Light active="0" static="1" castShadows="1" range="256" haloBrightness="1" haloSize="64">
+                    <Position x="-17" y="-27" z="22" />
+                    <Color r="1" g="0.4" b="1" />
+                </Light>
+                <Collision>
+                    <Position x="0" y="0" z="0" />
+                    <Size x="0" y="0" z="0" />
+                </Collision>
+                <CustomData />
+            </Entity>
+        </Entity>
+        <Entity id="18" spriteFrame="0">
+            <EntityName>half_wall01.ent</EntityName>
+            <Color r="1" g="1" b="1" a="1" />
+            <Position x="64" y="192" z="4" angle="0" />
+            <Entity type="0" static="1" collidable="0" startFrame="0" applyLight="1" castShadow="0" blendMode="2" layerDepth="0" soundVolume="1" shadowScale="0" shadowLengthScale="1" shadowOpacity="1" specularPower="50" specularBrightness="1">
+                <EmissiveColor r="0" g="0" b="0" a="0" />
+                <SpriteCut x="1" y="1" />
+                <PivotAdjust x="0" y="0" />
+                <Sprite>half_wall02.png</Sprite>
+                <Normal>wall__height_nm.png</Normal>
+                <Particles />
+                <Light active="0" static="1" castShadows="1" range="256" haloBrightness="1" haloSize="64">
+                    <Position x="-17" y="-27" z="22" />
+                    <Color r="1" g="0.4" b="1" />
+                </Light>
+                <Collision>
+                    <Position x="0" y="0" z="0" />
+                    <Size x="0" y="0" z="0" />
+                </Collision>
+                <CustomData />
+            </Entity>
+        </Entity>
+        <Entity id="27" spriteFrame="0">
+            <EntityName>face_no_light.ent</EntityName>
+            <Color r="1" g="1" b="1" a="1" />
+            <Position x="128" y="384" z="-90" angle="0" />
+            <Entity type="0" static="1" collidable="0" startFrame="0" applyLight="1" castShadow="0" blendMode="2" layerDepth="0" soundVolume="1" shadowScale="0" shadowLengthScale="1" shadowOpacity="1" specularPower="50" specularBrightness="1">
+                <EmissiveColor r="0" g="0" b="0" a="0" />
+                <SpriteCut x="1" y="1" />
+                <PivotAdjust x="0" y="0" />
+                <Sprite>face.jpg</Sprite>
+                <Normal>face_norm.jpg</Normal>
+                <Particles />
+                <Light active="0" static="1" castShadows="1" range="256" haloBrightness="1" haloSize="64">
+                    <Position x="0" y="0" z="0" />
+                    <Color r="1" g="1" b="1" />
+                </Light>
+                <Collision>
+                    <Position x="0" y="0" z="0" />
+                    <Size x="0" y="0" z="0" />
+                </Collision>
+                <CustomData />
+            </Entity>
+        </Entity>
+        <Entity id="21" spriteFrame="0">
+            <EntityName>picker</EntityName>
+            <Color r="1" g="1" b="1" a="1" />
+            <Position x="213" y="165" z="10" angle="0" />
+            <Entity type="2" static="0" collidable="1" startFrame="0" applyLight="1" castShadow="0" blendMode="0" layerDepth="0" soundVolume="1" shadowScale="0" shadowLengthScale="1" shadowOpacity="1" specularPower="50" specularBrightness="1">
+                <EmissiveColor r="0" g="0" b="0" a="0" />
+                <SpriteCut x="1" y="1" />
+                <PivotAdjust x="0" y="0" />
+                <Particles>
+                    <ParticleSystem particles="15" allAtOnce="0" alphaMode="1" repeat="0" animationMode="1" boundingSphere="307.2" lifeTime="600" randomLifeTime="500" angleDir="0" randAngle="0" size="26.4" randomizeSize="0" growth="-0.72" minSize="0" maxSize="600" angleStart="0" randAngleStart="235">
+                        <Bitmap>flash.bmp</Bitmap>
+                        <Gravity x="0" y="0" />
+                        <Direction x="0" y="0" />
+                        <RandomizeDir x="1.2" y="1.2" />
+                        <SpriteCut x="1" y="1" />
+                        <StartPoint x="0" y="0" z="0" />
+                        <RandStartPoint x="0" y="0" />
+                        <Color0 r="0.6" g="0.7" b="1" a="1" />
+                        <Color1 r="0.6" g="0.7" b="1" a="0" />
+                        <Luminance r="1" g="1" b="1" />
+                    </ParticleSystem>
+                </Particles>
+                <Light active="1" static="0" castShadows="1" range="181" haloBrightness="0.55" haloSize="102">
+                    <Position x="0" y="0" z="0" />
+                    <Color r="1" g="0.7" b="1" />
+                    <HaloBitmap>halo.bmp</HaloBitmap>
+                </Light>
+                <Collision>
+                    <Position x="0" y="0" z="-64" />
+                    <Size x="31" y="31" z="148" />
+                </Collision>
+                <CustomData />
+            </Entity>
+        </Entity>
+        <Entity id="4" spriteFrame="0">
+            <EntityName>floor03.ent</EntityName>
+            <Color r="1" g="1" b="1" a="1" />
+            <Position x="128" y="640" z="0" angle="0" />
+            <Entity type="0" static="1" collidable="1" startFrame="0" applyLight="1" castShadow="0" blendMode="2" layerDepth="0" soundVolume="1" shadowScale="0" shadowLengthScale="1" shadowOpacity="1" specularPower="50" specularBrightness="1">
+                <EmissiveColor r="0" g="0" b="0" a="0" />
+                <SpriteCut x="1" y="1" />
+                <PivotAdjust x="0" y="0" />
+                <Sprite>floor03.png</Sprite>
+                <Normal>floor03_nm.png</Normal>
+                <Particles />
+                <Light active="0" static="1" castShadows="1" range="256" haloBrightness="1" haloSize="64">
+                    <Position x="0" y="0" z="0" />
+                    <Color r="1" g="1" b="1" />
+                </Light>
+                <Collision>
+                    <Position x="0" y="0" z="0" />
+                    <Size x="256" y="256" z="43" />
+                </Collision>
+                <CustomData />
+            </Entity>
+        </Entity>
+        <Entity id="5" spriteFrame="0">
+            <EntityName>floor03.ent</EntityName>
+            <Color r="1" g="1" b="1" a="1" />
+            <Position x="384" y="640" z="0" angle="0" />
+            <Entity type="0" static="1" collidable="1" startFrame="0" applyLight="1" castShadow="0" blendMode="2" layerDepth="0" soundVolume="1" shadowScale="0" shadowLengthScale="1" shadowOpacity="1" specularPower="50" specularBrightness="1">
+                <EmissiveColor r="0" g="0" b="0" a="0" />
+                <SpriteCut x="1" y="1" />
+                <PivotAdjust x="0" y="0" />
+                <Sprite>floor03.png</Sprite>
+                <Normal>floor03_nm.png</Normal>
+                <Particles />
+                <Light active="0" static="1" castShadows="1" range="256" haloBrightness="1" haloSize="64">
+                    <Position x="0" y="0" z="0" />
+                    <Color r="1" g="1" b="1" />
+                </Light>
+                <Collision>
+                    <Position x="0" y="0" z="0" />
+                    <Size x="256" y="256" z="43" />
+                </Collision>
+                <CustomData />
+            </Entity>
+        </Entity>
+    </EntitiesInScene>
+</Ethanon>

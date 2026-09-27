@@ -1,0 +1,24 @@
+<?xml version="1.0" ?>
+<Ethanon>
+    <Entity type="0" static="0" collidable="0" startFrame="0" applyLight="0" castShadow="0" blendMode="0" layerDepth="0" soundVolume="1" shadowScale="0" shadowLengthScale="1" shadowOpacity="1" specularPower="50" specularBrightness="1">
+        <EmissiveColor r="0" g="0" b="0" a="0" />
+        <SpriteCut x="1" y="1" />
+        <PivotAdjust x="0" y="0" />
+        <Particles />
+        <Light active="0" static="0" castShadows="1" range="256" haloBrightness="1" haloSize="64">
+            <Position x="0" y="0" z="0" />
+            <Color r="1" g="1" b="1" />
+        </Light>
+        <Collision>
+            <Position x="0" y="0" z="0" />
+            <Size x="0" y="0" z="0" />
+        </Collision>
+        <CustomData>
+            <Variable>
+                <Type>string</Type>
+                <Name>name</Name>
+                <Value>horror.mp3</Value>
+            </Variable>
+        </CustomData>
+    </Entity>
+</Ethanon>

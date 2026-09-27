@@ -1,0 +1,20 @@
+<?xml version="1.0" ?>
+<Ethanon>
+    <Entity type="0" static="1" collidable="1" startFrame="0" applyLight="1" castShadow="0" blendMode="2" layerDepth="0" soundVolume="1" shadowScale="1.4" shadowLengthScale="1" shadowOpacity="1" specularPower="50" specularBrightness="1">
+        <EmissiveColor r="0" g="0" b="0" a="0" />
+        <SpriteCut x="1" y="1" />
+        <PivotAdjust x="0" y="0" />
+        <Sprite>bar3.png</Sprite>
+        <Normal>bar3_nm.png</Normal>
+        <Particles />
+        <Light active="0" static="1" castShadows="1" range="256" haloBrightness="1" haloSize="64">
+            <Position x="0" y="0" z="0" />
+            <Color r="1" g="1" b="1" />
+        </Light>
+        <Collision>
+            <Position x="0" y="0" z="0" />
+            <Size x="64" y="64" z="21" />
+        </Collision>
+        <CustomData />
+    </Entity>
+</Ethanon>

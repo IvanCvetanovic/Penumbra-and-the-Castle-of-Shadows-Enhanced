@@ -1,0 +1,20 @@
+<?xml version="1.0" ?>
+<Ethanon>
+    <Entity type="0" static="1" collidable="1" startFrame="1" applyLight="1" castShadow="0" blendMode="2" layerDepth="0" soundVolume="1" shadowScale="0" shadowLengthScale="1" shadowOpacity="1" specularPower="50" specularBrightness="1">
+        <EmissiveColor r="0" g="0" b="0" a="0" />
+        <SpriteCut x="2" y="2" />
+        <PivotAdjust x="0" y="0" />
+        <Sprite>STONE03A4x3.JPG</Sprite>
+        <Normal>wall__height4x_nm.png</Normal>
+        <Particles />
+        <Light active="0" static="1" castShadows="1" range="256" haloBrightness="1" haloSize="64">
+            <Position x="0" y="0" z="0" />
+            <Color r="1" g="1" b="1" />
+        </Light>
+        <Collision>
+            <Position x="0" y="0" z="21" />
+            <Size x="128" y="128" z="1" />
+        </Collision>
+        <CustomData />
+    </Entity>
+</Ethanon>
