@@ -39,6 +39,7 @@ in this repository, with the engine improved where the game needs it.
 | E5 | English text alongside Portuguese, switchable | Portuguese only |
 | E6 | Settings persisted (language, window, volumes, controls) | options reset every launch |
 | E7 | Original bugs fixed where they are plainly bugs (listed per step) | — |
+| E12 | One gamepad plays the wizard and drives the menu; a second plays the princess (firstPadIsPlayer1) | the first pad was player 2's |
 | E11 | Standing on two floor tiles at once counts as standing (kFloorSeamFix) | the last tile decided; one airborne frame at each seam |
 | E8 | Smooth motion: the world (sprites, lights and halos, shadows, particles, camera) drawn between the last two ticks by SimulationClock::alpha, one tick behind; whole-pixel ends stay on whole pixels; never across a scene load, a frame gap or a jump over 64 px; settings.smoothMotion (on) and --smooth on\|off, off under --fixed-step | one tick per 60 Hz vsync |
 | E9 | Shadows drawn live, their visible end at the light's reach | static shadows baked into lightmaps at 8x the caster's height |
@@ -183,6 +184,22 @@ test_pn_formats were refused by Smart App Control on both launches of this build
   it again; g_lives also counts Versus deaths (resetData restores them; Versus shows points).
 - Performance on this laptop (Radeon 780M, 1920x1080, level 3): 60 fps at vsync (FIFO), 2.7 ms of
   CPU per frame at the median; loading a level costs one 0.7 s frame (the original: ~14 s).
+
+### Step 8 — played live, and a lone gamepad (done 2026-09-27)
+- **Live input.** Penumbra.exe driven in real time with real mouse and keyboard events (a rig like
+  reference/analysis/orig_rig.ps1, no --fixed-step, no --hold): the mouse hovers New Game (the story
+  panel opens) and clicks it, level 1 loads, the wizard walks right about 225 px in 1.5 s and left,
+  jumps, swings, casts the fireball and the light spell, and Esc returns to the menu. (Injected arrow
+  keys must carry KEYEVENTF_EXTENDEDKEY: without it their scan code is the numpad's, which GLFW
+  reports as KP_6 - a rig detail; a physical keyboard sends the extended code.)
+- **E8 against the camera** is pinned by test_pn_render_interp's real-game section: a walking
+  wizard's drawn screen x never leaves the span between his two tick positions.
+- **E12:** with the shipped defaults a lone gamepad went to joystick 0 - player 2's - so a solo player
+  with a pad drove the princess (who must be summoned) and the menu ignored it. The first real pad now
+  goes to player 1's index and the second to player 2's (settings.controls.firstPadIsPlayer1, default
+  true; false is the original). test_pn_render_input 172 checks, 0 failures.
+- LICENSE.md now states only what Ivan said (the permission is his to describe; his own code has no
+  licence chosen yet).
 
 ### Open
 - **Engine push**: b999491 is only in this checkout. Build and run the touched engine suites

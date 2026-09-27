@@ -34,9 +34,12 @@ namespace fs = std::filesystem;
 
 ControlSettings Defaults() { return Settings::Defaults(false).controls; }
 
+// The original's controls: no keyboard player 2, and pads in winmm's order
+// (the first is joystick 0, player 2's under the default g_controls).
 ControlSettings WithoutKeyboardPlayer2() {
     ControlSettings controls = Defaults();
     controls.keyboardPlayer2 = false;
+    controls.firstPadIsPlayer1 = false;
     return controls;
 }
 
@@ -179,6 +182,28 @@ void testGamepads() {
     CHECK(Map(unmapped, rawToo).pads[0].buttons[JK_03]);
 }
 
+// E12: under the shipped defaults (keyboard player 2 on, the first pad for
+// player 1) one pad plays the wizard and drives the menu, and a second pad
+// joins the keyboard's player 2.
+void testLonePadIsPlayer1() {
+    const ControlSettings controls = Defaults();
+    RawDevices one;
+    one.pads.push_back(Gamepad());
+    one.pads[0].buttons[Pad::A] = true;
+    // g_controls 0: player 1 reads joystick 1, player 2 joystick 0.
+    InputFrame frame = Map(one, controls, 0);
+    CHECK(frame.pads[1].connected);
+    CHECK(frame.pads[1].buttons[JK_03]);            // the wizard's jump
+    CHECK(frame.pads[0].connected);                 // the keyboard's player 2, idle
+    CHECK(!frame.pads[0].buttons[JK_03]);
+    RawDevices two = one;
+    two.pads.push_back(Gamepad());
+    two.pads[1].buttons[Pad::X] = true;
+    frame = Map(two, controls, 0);
+    CHECK(frame.pads[1].buttons[JK_03] && !frame.pads[1].buttons[JK_04]);
+    CHECK(frame.pads[0].buttons[JK_04]);            // the second pad is the princess's
+}
+
 void testSticks() {
     const ControlSettings controls = WithoutKeyboardPlayer2();
     const auto stick = [&controls](float x, float y) {
@@ -261,11 +286,14 @@ void testKeyboardPlayer2() {
     CHECK(frame.keys[K_J]);
 
     // A real pad on player 2's index is merged with the keys, never displaced
-    // onto player 1's index.
+    // onto player 1's index. (In the original pad order a lone pad lands there;
+    // under E12 it is the second pad that does - testLonePadIsPlayer1.)
+    ControlSettings originalOrder = controls;
+    originalOrder.firstPadIsPlayer1 = false;
     RawDevices merged = With({GLFW_KEY_L});
     merged.pads.push_back(Gamepad());
     merged.pads[0].buttons[Pad::X] = true;
-    frame = Map(merged, controls, 0);
+    frame = Map(merged, originalOrder, 0);
     CHECK(frame.pads[0].connected);
     CHECK(frame.pads[0].buttons[JK_04]);
     CHECK_NEAR(frame.pads[0].xy.x, 1.0f);
@@ -408,7 +436,7 @@ void testSettings() {
     CHECK(pt.language == "pt");
     CHECK(en.language == "en");
     CHECK(en.controls.keyboardPlayer2);
-    CHECK(!en.controls.firstPadIsPlayer1);
+    CHECK(en.controls.firstPadIsPlayer1);    // E12
     CHECK_EQ(en.controls.joystickLayout, 0);
     CHECK_EQ(en.controls.Player2Pad(), 0);   // g_controls 0: player 2 reads joystick 0
     CHECK(en.pixelShaders);
@@ -516,6 +544,7 @@ void testAudioWithoutEngine() {
 void runTests() {
     testKeyboardPlayer1();
     testGamepads();
+    testLonePadIsPlayer1();
     testSticks();
     testKeyboardPlayer2();
     testCursorAndText();

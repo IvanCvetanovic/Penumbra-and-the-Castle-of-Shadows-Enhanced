@@ -145,9 +145,10 @@ button means onto the button numbers the original read:
 | Back | Back | 9 |
 
 - Pads are read every frame. The original's "hold J to detect joysticks" is no longer needed.
-- By default the first pad is player 2's, as in 2010: the keyboard is player 1.
-- The options screen's input switch (the original's) changes that, and so does
-  `firstPadIsPlayer1` in `settings.json`.
+- By default the first pad plays the wizard (player 1) and drives the menu, and a second pad plays
+  the princess (E12). In 2010 the first pad was player 2's; `firstPadIsPlayer1: false` in
+  `settings.json` restores that, and the options screen's input switch (the original's) still swaps
+  which joystick each player reads.
 
 The keyboard bindings of both players are in `settings.json` and can be changed there.
 

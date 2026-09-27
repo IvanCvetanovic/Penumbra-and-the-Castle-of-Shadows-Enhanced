@@ -67,11 +67,13 @@ struct ControlSettings {
     // modern stick rests a few percent off centre, and getInputDirection walks
     // on ANY nonzero x (playerInput.as:166-174).
     float stickDeadzone = 0.25f;
-    // Where real pads go. false (the original): the first pad is joystick 0,
-    // which player 2 reads under the default g_controls, so a lone pad plays
-    // the princess and cannot drive the menu (the menu reads player 0). true:
-    // the first pad goes to the index player 1 reads, the second to player 2's.
-    bool firstPadIsPlayer1 = false;
+    // Where real pads go. true (E12, the default): the first pad goes to the
+    // index player 1 reads - so one player with one pad plays the wizard and
+    // drives the menu - and the second to player 2's. false (the original):
+    // the first pad is joystick 0, which player 2 reads under the default
+    // g_controls, so a lone pad played the princess (who must be summoned) and
+    // could not drive the menu (it reads player 0).
+    bool firstPadIsPlayer1 = true;
     // Joysticks GLFW has no gamepad mapping for, read by their own button
     // numbers (what winmm reported). Off by default: an unmapped HID device at
     // index 0 would otherwise shift every pad and make hasASecondController()
