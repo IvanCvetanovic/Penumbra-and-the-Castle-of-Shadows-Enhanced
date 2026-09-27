@@ -9,10 +9,12 @@
 #include <utility>
 
 #include "core/Application.hpp"
+#include "core/Light2D.hpp"
 #include "core/Log.hpp"
 #include "core/SimulationClock.hpp"
 #include "core/WindowControl.hpp"
 #include "eth/Machine.hpp"
+#include "eth/Paths.hpp"
 #include "render/DrawOrder.hpp"
 
 namespace Penumbra {
@@ -29,10 +31,15 @@ bool IsFixedLayoutScene(const std::string& sceneFile) {
     return false;
 }
 
+// ETHShaderManager's m_fakeEyeHeight (ETHShaderManager.cpp:55).
+constexpr float kFakeEyeHeight = 768.0f;
+
 } // namespace
 
 PenumbraLayer::PenumbraLayer(Options options)
-    : m_options(std::move(options)), m_settings(m_options.settings), m_textures(PENUMBRA_ORIGINAL_DIR) {}
+    : m_options(std::move(options)),
+      m_settings(m_options.settings),
+      m_textures(m_options.originalDir.generic_string()) {}
 
 PenumbraLayer::~PenumbraLayer() = default;
 
@@ -52,7 +59,7 @@ void PenumbraLayer::OnAttach(entt::registry& registry) {
     // The original's frame ran once per 60 Hz vsync; its scripts count on it.
     if (auto* clock = registry.ctx().find<Supersonic::SimulationClock>()) clock->fixedDelta = kTick;
 
-    m_localization.Load();
+    m_localization.Load((m_options.dataDir / Eth::kDataMarker).generic_string());
     ApplyLanguage();
 
     // Fullscreen from the first frame is the monitor's size, not the one main()
@@ -63,6 +70,7 @@ void PenumbraLayer::OnAttach(entt::registry& registry) {
     }
 
     Eth::MachineConfig config;
+    config.gameRoot = m_options.originalDir.generic_string();
     config.userRoot = m_options.userDir.string();
     config.screenSize = LogicalScreenFor("scenes/menu.esc");
     config.screenSizeForScene = [this](const std::string& scene) { return LogicalScreenFor(scene); };
@@ -82,7 +90,16 @@ void PenumbraLayer::OnAttach(entt::registry& registry) {
     // --windowed or --fullscreen run would otherwise be switched back by the
     // menu's first frame (menu.as:103-106).
     Script::g_windowed.setCurrent(m_options.startFullscreen ? 1u : 0u);
+    // E10: the enhanced settings' own rows on the options screen. Language and
+    // view from what this run shows (a --lang or --widescreen flag included),
+    // as g_windowed is, so the screen's first frame changes nothing.
+    Script::g_language.setCurrent(Portuguese() ? 0u : 1u);
+    Script::g_widescreen.setCurrent(Widescreen() ? 0u : 1u);
+    Script::g_keyboardP2.setCurrent(m_settings.controls.keyboardPlayer2 ? 0u : 1u);
+    Script::g_musicVolume.setCurrent(Script::g_musicVolume.stepFor(m_settings.musicVolume));
+    Script::g_effectsVolume.setCurrent(Script::g_effectsVolume.stepFor(m_settings.effectsVolume));
     m_input.SetControls(m_settings.controls);
+    m_interp.SetEnabled(SmoothMotion());
 
     // Textures first: a key handed out before the registry is attached is
     // never uploaded, and the pools keep the first key they are given.
@@ -149,8 +166,13 @@ void PenumbraLayer::ApplyLanguage() {
     m_localization.SetLanguage(Portuguese() ? Render::Language::Portuguese : Render::Language::English);
 }
 
+bool PenumbraLayer::SmoothMotion() const {
+    return m_options.smoothMotionOverride.value_or(m_settings.smoothMotion);
+}
+
 void PenumbraLayer::SaveSettings() {
     ApplyLanguage();
+    m_interp.SetEnabled(SmoothMotion());
     std::string error;
     if (!m_options.userDir.empty() && !m_settings.Save(m_options.userDir, &error)) {
         SUPERSONIC_LOG_WARN("Penumbra") << "settings not saved: " << error << std::endl;
@@ -235,6 +257,9 @@ void PenumbraLayer::OnFixedUpdate(entt::registry& registry, float fixedDelta) {
     Eth::InputFrame frame = m_input.BuildTick(m_view);
     ApplyDevHolds(frame);
     if (m_options.devCursor) frame.cursor = frame.cursorAbsolute = *m_options.devCursor;
+    // E8: where the outgoing tick drew everything, before Frame rebuilds the
+    // snapshot in place - the pose the frames until the next tick blend from.
+    m_interp.BeginTick(m_machine->Snapshot());
     m_machine->Frame(frame);   // steps the key and button state machines itself
     ++m_ticks;
 
@@ -259,11 +284,39 @@ void PenumbraLayer::OnFixedUpdate(entt::registry& registry, float fixedDelta) {
     // settings file in step with them.
     const int layout = static_cast<int>(Script::g_controls.getCurrent());
     const bool pixelShaders = Script::g_enablePS.getCurrent() == 0;
-    if (layout != m_settings.controls.joystickLayout || pixelShaders != m_settings.pixelShaders) {
+    const bool keyboardPlayer2 = Script::g_keyboardP2.getCurrent() == 0;   // E10
+    if (layout != m_settings.controls.joystickLayout || pixelShaders != m_settings.pixelShaders ||
+        keyboardPlayer2 != m_settings.controls.keyboardPlayer2) {
         m_settings.controls.joystickLayout = layout;
         m_settings.pixelShaders = pixelShaders;
+        m_settings.controls.keyboardPlayer2 = keyboardPlayer2;   // E10
         m_input.SetControls(m_settings.controls);
         SaveSettings();
+    }
+
+    // E10: the enhanced rows. A pick on the screen replaces this run's --lang
+    // or --widescreen flag, which would otherwise go on overriding it. Volumes
+    // are compared as steps, so a hand-edited 0.75 is left as it is until the
+    // player moves it. The language and the volumes apply at once; the view at
+    // the next scene load (LogicalScreenFor).
+    const bool portuguese = Script::g_language.getCurrent() == 0;
+    const bool widescreen = Script::g_widescreen.getCurrent() == 0;
+    const bool musicMoved = Script::g_musicVolume.getCurrent() != Script::g_musicVolume.stepFor(m_settings.musicVolume);
+    const bool effectsMoved =
+        Script::g_effectsVolume.getCurrent() != Script::g_effectsVolume.stepFor(m_settings.effectsVolume);
+    if (portuguese != Portuguese() || widescreen != Widescreen() || musicMoved || effectsMoved) {
+        if (portuguese != Portuguese()) {
+            m_options.languageOverride.reset();
+            m_settings.language = portuguese ? "pt" : "en";
+        }
+        if (widescreen != Widescreen()) {
+            m_options.widescreenOverride.reset();
+            m_settings.widescreen = widescreen;
+        }
+        if (musicMoved) m_settings.musicVolume = Script::g_musicVolume.getFraction();
+        if (effectsMoved) m_settings.effectsVolume = Script::g_effectsVolume.getFraction();
+        m_machine->Samples().SetMasterVolumes(m_settings.musicVolume, m_settings.effectsVolume);
+        SaveSettings();   // ApplyLanguage() first
     }
 
     if (m_machine->QuitRequested()) Supersonic::Application::RequestQuit();
@@ -285,12 +338,27 @@ void PenumbraLayer::OnUpdate(entt::registry& registry, float deltaTime) {
         if (size.x > 0 && size.y > 0) m_options.windowPixels = size;
     }
 
-    m_view = m_rig.Update(registry, snapshot, m_pillarbox);
+    // E8: the world between the last two ticks, alpha of the way (one tick
+    // behind, render/Interpolation.hpp); the snapshot itself when smoothing
+    // is off or the two ticks may not be blended. The order is the tick's
+    // (the blend is index for index the same lists), the strips' shapes are
+    // the tick's (a mesh rebuild waits on the GPU: once a tick, not a frame),
+    // and the HUD and the pointer are the tick's own.
+    const auto* clock = registry.ctx().find<Supersonic::SimulationClock>();
+    const Eth::RenderSnapshot& world = m_interp.Frame(snapshot, clock != nullptr ? clock->alpha : 1.0f);
+    m_view = m_rig.Update(registry, world, m_pillarbox);
+    // Where the gloss maps' highlights are seen from: 0.7.12's fake eye
+    // (ETHShaderManager::SetFakeEyePosition), each light mirrored across the
+    // line 3/4 of the way down the screen, at height 768 (m_fakeEyeHeight's
+    // default; the scripts never change it). It moves with the camera the
+    // frame is drawn with - the blend's, under E8.
+    registry.ctx().insert_or_assign(
+        Supersonic::Light2DEye{-(m_view.camera.y + 0.75f * m_view.logicalScreen.y), kFakeEyeHeight});
     const Render::DrawOrder order = Render::ComputeDrawOrder(snapshot);
-    m_sprites.Draw(registry, snapshot, m_view, order);
-    m_shadows.Draw(registry, snapshot, m_view, order);
-    m_lights.Draw(registry, snapshot, m_view, order);
-    m_particles.Draw(registry, snapshot, m_view, order);
+    m_sprites.Draw(registry, world, m_view, order);
+    m_shadows.Draw(registry, world, m_view, order, &snapshot);
+    m_lights.Draw(registry, world, m_view, order);
+    m_particles.Draw(registry, world, m_view, order);
     m_hud.Draw(registry, snapshot, m_view);   // once a frame: it begins the font atlas's frame
     m_input.EndFrame();                       // once a frame, tick or not
 }

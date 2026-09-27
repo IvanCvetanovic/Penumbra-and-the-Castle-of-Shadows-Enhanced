@@ -306,7 +306,15 @@ void SpriteRenderer::drawSprite(entt::registry& registry, const Eth::RenderSnaps
     record.height = lighting.height;
     record.lightMask = lighting.lit ? lighting.lightMask : std::uint8_t{0};
     record.normalYDown = lighting.normalYDown;
+    // Standing up (ET_VERTICAL) and the gloss highlight: both off unless
+    // ComputeSpriteLighting set them, which it does only for a lit sprite, so
+    // every other sprite writes the record it always wrote.
+    record.vertical = lighting.vertical;
+    record.verticalBaseY = lighting.verticalBaseY;
+    record.specularStrength = lighting.specularStrength;
+    record.specularPower = lighting.specularPower;
     const std::string& normal = lighting.lit ? lighting.normalKey : std::string();
+    const std::string& gloss = lighting.specularStrength > 0.0f ? lighting.glossKey : std::string();
 
     glm::vec2 bitmap = sprite.bitmapSize;
     if (!(bitmap.x > 0.0f && bitmap.y > 0.0f)) bitmap = glm::vec2(m_textures->Size(slot.albedoPath));
@@ -322,6 +330,7 @@ void SpriteRenderer::drawSprite(entt::registry& registry, const Eth::RenderSnaps
     Assign(material.albedoColor, look.colour);
     Assign(material.albedoTexturePath, albedoKey);
     Assign(material.normalTexturePath, normal);
+    Assign(material.glossTexturePath, gloss);
     Assign(material.sprite2D, record);
     Assign(material.uvScale, uvScale);
     Assign(material.uvOffset, uvOffset);

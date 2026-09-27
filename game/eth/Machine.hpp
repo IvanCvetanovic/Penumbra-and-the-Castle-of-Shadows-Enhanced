@@ -256,6 +256,7 @@ private:
     std::optional<PendingLoad> m_pendingLoad;
 
     uint m_frameIndex = 0;
+    uint m_sceneSerial = 0;     // LoadScene requests served (RenderSnapshot::sceneSerial)
     uint m_timeMs = 0;
     float m_frameSeconds = 0.0f;
     bool m_justLoaded = false;

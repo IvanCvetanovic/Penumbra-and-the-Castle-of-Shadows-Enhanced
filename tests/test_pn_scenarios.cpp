@@ -4,7 +4,8 @@
 // out into the game-over screen, the king and the end screen with its high
 // score, a Versus match to three points; then the wizard's other moves (double
 // jump, light, both combos) against a knight, the co-op creature summoned by a
-// second controller, and the menu's Quit.
+// second controller, the options screen's enhanced rows (E10), and the menu's
+// Quit.
 //
 // The harness is test_pn_boot's: one Machine (the script module's globals live
 // for the whole program, as they lived for the whole of machine.exe),
@@ -1925,6 +1926,135 @@ void ScenarioCoop(Game& g) {
     g.Steps(5);
 }
 
+// === 14. The options screen's enhanced rows (E10) ===========================================
+//
+// ENHANCEMENT E10 (game/script/videoModes.cpp): keyboard player 2, the view,
+// the language and the two volumes, below the original's g_controls. No layer
+// here, so each starts at its constructed value: row 0 of each switch, 100%
+// on both steppers. Run just before the Quit rather than in scenario 10: it
+// adds some 300 frames, and the runtime reseeds rand() from the clock after
+// every frame with particles in view (Machine.cpp, ETHScene.cpp:1129-1130), so
+// frames added early in the chain would reshuffle every random roll after them.
+void ScenarioOptionsE10(Game& g) {
+    CHECK(EnsureMenu(g));
+    g.base.cursor = kOptionsButton;
+    g.Steps(3);
+    std::printf("  cursor over '%s'\n", LastButton().c_str());
+    CHECK(LastButton() == "opcoes_de_video");
+    g.Step(g.With({K_RETURN}));
+    const int optionsAfter = WaitFor(g, 3, [] { return GetSceneFileName() == "scenes/videoModes.esc"; });
+    std::printf("  videoModes.esc loaded %d frames after the press\n", optionsAfter);
+    CHECK(optionsAfter >= 0);
+    g.Steps(3);
+
+    // Each option is a click, as in scenario 10: the cursor over it, then a
+    // fresh Enter.
+    const auto click = [&g](const vector2& at) {
+        g.base.cursor = at;
+        g.Steps(2);
+        g.Step(g.With({K_RETURN}));
+        g.Steps(2);
+    };
+
+    CHECK(WaitForHud(g, "[\x95] Teclado para o jogador 2", 3));
+    CHECK(HudHas(g.m, "[ ] Jogador 2 s\xF3 no joystick"));
+    CHECK(HudHas(g.m, "[\x95] Tela larga (widescreen)"));
+    CHECK(HudHas(g.m, "[ ] Tela 4:3 (original)"));
+    CHECK(HudHas(g.m, "Vale a partir da pr\xF3xima fase"));
+    CHECK(HudHas(g.m, "[\x95] Portugu\xEAs"));
+    CHECK(HudHas(g.m, "[ ] English"));
+    CHECK(HudHas(g.m, "Volume da m\xFAsica"));
+    CHECK(HudHas(g.m, "Volume dos efeitos"));
+    CHECK(HudHas(g.m, "[<]"));
+    CHECK(HudHas(g.m, "[>]"));
+    CHECK(HudHas(g.m, "100%"));
+    // The original's rows are still drawn where they were.
+    CHECK(HudHas(g.m, "[\x95] Ativa pixel shaders"));
+    CHECK(HudHas(g.m, "[\x95] Janela"));
+
+    // Three switches, each two 25 px rows 256 wide from x 255: a click on the
+    // second row selects it, one on the first selects it back.
+    struct E10Switch {
+        Script::Switch* widget;
+        float y;
+        const char* row0;
+        const char* row1;
+    };
+    const E10Switch e10Switches[] = {
+        {&Script::g_keyboardP2, 424.0f, "Teclado para o jogador 2", "Jogador 2 s\xF3 no joystick"},
+        {&Script::g_widescreen, 494.0f, "Tela larga (widescreen)", "Tela 4:3 (original)"},
+        {&Script::g_language, 564.0f, "Portugu\xEAs", "English"},
+    };
+    for (const E10Switch& row : e10Switches) {
+        CHECK_EQ(row.widget->getCurrent(), 0u);
+        click(vector2(300.0f, row.y + 37.0f));
+        std::printf("  '%s': switch %u\n", Utf8(row.row1).c_str(), row.widget->getCurrent());
+        CHECK_EQ(row.widget->getCurrent(), 1u);
+        CHECK(WaitForHud(g, string("[\x95] ") + row.row1, 3));
+        CHECK(HudHas(g.m, string("[ ] ") + row.row0));
+        click(vector2(300.0f, row.y + 12.0f));
+        CHECK_EQ(row.widget->getCurrent(), 0u);
+        CHECK(WaitForHud(g, string("[\x95] ") + row.row0, 3));
+    }
+    // None of them moved the original's switches.
+    CHECK_EQ(Script::g_enablePS.getCurrent(), 0u);
+    CHECK_EQ(Script::g_windowed.getCurrent(), 0u);
+    CHECK_EQ(Script::g_controls.getCurrent(), 0u);
+
+    // Two steppers, one 25 px row each from x 255: the label column is 180 px,
+    // then "[<]" in x 435-475, the value, "[>]" in x 535-575. They stop at 0
+    // and at 100% rather than wrapping.
+    const auto stepper = [&](Script::Stepper& widget, const float y, const char* name) {
+        const vector2 less(455.0f, y + 12.0f);
+        const vector2 more(555.0f, y + 12.0f);
+        CHECK_EQ(widget.getSteps(), 10u);
+        CHECK_EQ(widget.getCurrent(), 10u);
+        click(less);
+        CHECK_EQ(widget.getCurrent(), 9u);
+        CHECK(WaitForHud(g, "90%", 3));
+        click(less);
+        CHECK_EQ(widget.getCurrent(), 8u);
+        click(more);
+        click(more);
+        CHECK_EQ(widget.getCurrent(), 10u);
+        click(more);
+        std::printf("  %s: [>] at 100%% leaves %u\n", name, widget.getCurrent());
+        CHECK_EQ(widget.getCurrent(), 10u);
+        for (int i = 0; i < 10; ++i) click(less);
+        CHECK_EQ(widget.getCurrent(), 0u);
+        CHECK(widget.getFraction() == 0.0f);
+        click(less);
+        std::printf("  %s: [<] at 0%% leaves %u\n", name, widget.getCurrent());
+        CHECK_EQ(widget.getCurrent(), 0u);
+        for (int i = 0; i < 10; ++i) click(more);
+        CHECK_EQ(widget.getCurrent(), 10u);
+        CHECK(widget.getFraction() == 1.0f);
+    };
+    stepper(Script::g_musicVolume, 634.0f, "music");
+    CHECK_EQ(Script::g_effectsVolume.getCurrent(), 10u);   // the music's clicks left it alone
+    stepper(Script::g_effectsVolume, 659.0f, "effects");
+    CHECK_EQ(Script::g_musicVolume.getCurrent(), 10u);
+
+    // What the layer seeds and compares with (the settings hold 0..1 floats):
+    // the nearest step, so a hand-edited 0.75 reads as 8 and is not rewritten.
+    CHECK_EQ(Script::g_musicVolume.stepFor(0.75f), 8u);
+    CHECK_EQ(Script::g_musicVolume.stepFor(0.7f), 7u);
+    CHECK_EQ(Script::g_musicVolume.stepFor(1.0f), 10u);
+    CHECK_EQ(Script::g_musicVolume.stepFor(0.0f), 0u);
+    CHECK_EQ(Script::g_musicVolume.stepFor(-1.0f), 0u);
+    CHECK_EQ(Script::g_musicVolume.stepFor(2.0f), 10u);
+    CHECK_EQ(Script::g_musicVolume.stepFor(std::nanf("")), 0u);
+    Script::g_musicVolume.setCurrent(42u);
+    CHECK_EQ(Script::g_musicVolume.getCurrent(), 10u);
+
+    g.Steps(10);
+    g.Step(g.With({K_ESC}));
+    const int backAfter = WaitFor(g, 3, [] { return GetSceneFileName() == "scenes/menu.esc"; });
+    std::printf("  ESC: menu.esc loaded %d frames later\n", backAfter);
+    CHECK(backAfter >= 0);
+    g.Steps(10);
+}
+
 } // namespace
 
 int main() {
@@ -1970,6 +2100,7 @@ int main() {
         RunScenario(g, "9. versus", ScenarioPvp);
         RunScenario(g, "11. double jump, light, combos, a knight", ScenarioMoves);
         RunScenario(g, "12. co-op: the summoned princess", ScenarioCoop);
+        RunScenario(g, "14. the options screen's enhanced rows (E10)", ScenarioOptionsE10);   // before the Quit
         RunScenario(g, "13. the menu's Quit", [](Game& game) {
             CHECK(EnsureMenu(game));
             game.base.cursor = kQuitButton;

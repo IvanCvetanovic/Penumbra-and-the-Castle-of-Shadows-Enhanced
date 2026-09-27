@@ -37,3 +37,21 @@ moment, not the lighting: a pixel-aligned 1024x768 capture matched. A menu captu
 live mouse (cursor.ent follows it) - hence --cursor.
 
 **Decisions.** E7 (lv20 / lv31+), E9 (shadow length), R4 exception for generated English art.
+
+---
+
+## 2026-09-27 — session 1 (night): standing statues, highlights, options, a package
+
+**Built.** Engine f30df7c + b999491 (vertical 2D sprites, gloss highlights; opt-in, bit-identical
+for everything else; announced and green-lit by the Magic Portals session before the push). The
+original's Settings screen gained the enhanced rows (E10). Interpolation between ticks (E8). A
+runtime path resolver and tools/package.bat; README.md; LICENSE.md + the LGPL/GPL texts;
+Penumbra.exe without a console, logging to %APPDATA%\Penumbra\penumbra.log.
+
+**Numbers.** Menu against the original, per-region mean error: left pedestal 24.4 -> 12.9, lower-left
+barrel 27.9 -> 3.9. Level 1 at 1024x768 byte-identical through the round. 13 of 15 suites run,
+2345 checks, 0 failures.
+
+**Broke.** Smart App Control keeps refusing test_pn_boot and test_pn_formats specifically (three
+links each), and test_materials in the engine's own build - whatever it keys on, relinking does not
+move them. Recorded as not run; their ground is covered by test_pn_scenarios.

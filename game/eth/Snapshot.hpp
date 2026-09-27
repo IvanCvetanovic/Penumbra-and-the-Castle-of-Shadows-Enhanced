@@ -79,6 +79,15 @@ struct ParticleDraw {
     int spriteCutY = 1;
     uint frame = 0;
     float depth = 0.0f;         // 0.7.12 depth of this particle (owner depth + shift)
+    // Who this particle is from one frame to the next, for the enhanced
+    // interpolation between ticks (E8, render/Interpolation.hpp); 0.7.12 had
+    // no use for it. (ownerId, system, particleId) names a particle slot, and
+    // lifeStartMs - the particle clock when its current life began - tells one
+    // life of the slot from the next, since a spent particle is respawned at
+    // its emitter under the same index.
+    int system = 0;             // the owner's particle system slot, 0 or 1
+    int particleId = -1;        // the particle's index in its system
+    float lifeStartMs = 0.0f;
 };
 
 // A top-layer primitive (DrawText / DrawSprite / DrawShapedSprite /
@@ -121,6 +130,11 @@ struct RenderSnapshot {
     std::vector<ParticleDraw> particles;
     std::vector<HudCmd> hud;
     bool cursorHidden = true;
+    // How many LoadScene requests have been served. A change means every
+    // entity id and position before it belonged to another scene - even when
+    // the file is the same one, as a death reloading the level is - so the
+    // enhanced interpolation (E8) never blends across it.
+    uint sceneSerial = 0;
 };
 
 } // namespace Penumbra::Eth

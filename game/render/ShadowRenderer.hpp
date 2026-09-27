@@ -75,6 +75,7 @@
 // How the layer calls it:
 //   Attach(registry, textures)                   once, after TextureCache::Attach
 //   Draw(registry, snapshot, view, order)        every frame, after ComputeDrawOrder
+//                                                (E8: the blend, with &tick as `shapes`)
 //   Detach(registry)                             on shutdown / before the registry goes
 
 #include <array>
@@ -146,8 +147,15 @@ public:
 
     void Attach(entt::registry& registry, TextureCache& textures);
     void Detach(entt::registry& registry);
+    // `shapes` (optional): the snapshot the strips' SHAPE is computed from,
+    // index for index the same sprites and lights as `snapshot`, which then
+    // only places each strip at its caster. For the enhanced interpolation
+    // between ticks (E8, render/Interpolation.hpp): `snapshot` is the blend
+    // and `shapes` the current tick, so a caster moving past a light moves its
+    // shadow every frame but rebuilds its mesh - a GPU wait - once a tick, as
+    // it did before. Ignored when its lists do not line up with `snapshot`'s.
     void Draw(entt::registry& registry, const Eth::RenderSnapshot& snapshot, const View& view,
-              const DrawOrder& order);
+              const DrawOrder& order, const Eth::RenderSnapshot* shapes = nullptr);
 
     // ENHANCEMENT switch (see LENGTH above). On by default.
     void SetCapBakedLength(bool cap) { m_capBakedLength = cap; }

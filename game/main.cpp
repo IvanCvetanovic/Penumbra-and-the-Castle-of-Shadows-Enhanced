@@ -6,9 +6,15 @@
 //                          KEY is a K_ name without the prefix: RIGHT, UP, S, D, SPACE, CTRL...
 //   --lang pt|en           this run's language, over the settings
 //   --widescreen on|off    this run's view, over the settings
+//   --smooth on|off        this run's motion between ticks (E8), over the settings;
+//                          off under --fixed-step unless given as on
 //   --cursor <x>,<y>       pin the scripts' cursor at a logical-screen point (menu captures)
+//   --original <dir>       the original game's files (the folder holding data.enml)
+//   --data <dir>           the port's own data (the folder holding strings.json)
 // --lang and --widescreen are never saved; --window implies a windowed run
-// unless --fullscreen is given too.
+// unless --fullscreen is given too. Without --original/--data, a packaged
+// game's original/ and data/ beside the executable win over the build's paths
+// (eth/Paths.hpp).
 //
 // Engine flags that matter here: --window WxH (the windowed size, over the
 // settings), --fullscreen / --windowed (this run only, over the settings; never
@@ -25,6 +31,7 @@
 #include <vector>
 
 #include "PenumbraLayer.hpp"
+#include "eth/Paths.hpp"
 
 #include "core/GameRuntime.hpp"
 #include "core/LaunchOptions.hpp"
@@ -34,6 +41,17 @@
 #include "renderer/VulkanContext.hpp"
 
 namespace {
+
+constexpr const char* kGameUsage =
+    "Usage: Penumbra [options]\n"
+    "  --start <scene>        skip the menu and start scenes/<scene>.esc (level1..level3, pvp_lv1..pvp_lv6)\n"
+    "  --lang pt|en           this run's language (not saved)\n"
+    "  --widescreen on|off    this run's view (not saved)\n"
+    "  --smooth on|off        this run's motion between ticks (not saved; off under --fixed-step)\n"
+    "  --original <dir>       the original game's files: the folder holding data.enml\n"
+    "  --data <dir>           the port's data: the folder holding strings.json\n"
+    "  --hold <KEY>@<a>-<b>   hold a key from tick a to tick b (RIGHT, UP, CTRL, S, D, SPACE, ENTER...)\n"
+    "  --cursor <x>,<y>       pin the menu cursor at a point of the 1024x768 screen\n";
 
 // The Ethanon key names --hold accepts.
 const std::map<std::string, Penumbra::Eth::KEY>& KeyNames() {
@@ -68,12 +86,43 @@ bool ParseHold(const std::string& text, Penumbra::PenumbraLayer::DevHold& hold) 
     return hold.to >= hold.from;
 }
 
+// Logs where a root was found, or says on stderr why it was not. False when
+// it was not.
+bool ReportRoot(const char* what, const char* flag, const char* folder, const char* marker,
+                const Penumbra::Eth::FoundRoot& root) {
+    // The Eth layer opens files by narrow (code page) strings, as the original
+    // did. A folder the code page cannot spell would come back as another
+    // name, or '?', and every file under it would quietly fail to open.
+    if (root.found && std::filesystem::path(root.path.string()) != root.path) {
+        std::cerr << "[Penumbra] the " << what << " folder's name has characters this system's code page"
+                  << " cannot spell; move it to a plain path or name one with " << flag << " <dir>." << std::endl;
+        return false;
+    }
+    if (root.found) {
+        SUPERSONIC_LOG_INFO("Penumbra") << what << ": " << root.path.string() << " ("
+                                        << Penumbra::Eth::DescribeRootSource(root.source) << ")";
+        return true;
+    }
+    if (root.source == Penumbra::Eth::RootSource::Flag) {
+        std::cerr << "[Penumbra] " << flag << " " << root.path.string() << ": there is no " << marker << " there"
+                  << std::endl;
+    } else {
+        std::cerr << "[Penumbra] " << what << " not found: no " << marker << " in " << folder
+                  << "/ beside the executable, nor at " << root.path.string() << ". Name its folder with " << flag
+                  << " <dir>." << std::endl;
+    }
+    return false;
+}
+
 } // namespace
 
 int main(int argc, char** argv) {
     Penumbra::PenumbraLayer::Options layerOptions;
     std::string languageOverride;
     std::string widescreenOverride;
+    std::string smoothOverride;
+    std::filesystem::path originalFlag;
+    std::filesystem::path dataFlag;
     std::vector<char*> engineArgs{argv[0]};
     for (int i = 1; i < argc; ++i) {
         const std::string arg = argv[i];
@@ -93,6 +142,8 @@ int main(int argc, char** argv) {
             languageOverride = argv[++i];
         } else if (arg == "--widescreen" && hasValue) {
             widescreenOverride = argv[++i];
+        } else if (arg == "--smooth" && hasValue) {
+            smoothOverride = argv[++i];
         } else if (arg == "--cursor" && hasValue) {
             const std::string value = argv[++i];
             const std::size_t comma = value.find(',');
@@ -103,6 +154,10 @@ int main(int argc, char** argv) {
                 std::cerr << "[Penumbra] --cursor wants x,y in the logical screen, got " << value << std::endl;
                 return EXIT_FAILURE;
             }
+        } else if (arg == "--original" && hasValue) {
+            originalFlag = argv[++i];
+        } else if (arg == "--data" && hasValue) {
+            dataFlag = argv[++i];
         } else {
             engineArgs.push_back(argv[i]);
         }
@@ -113,6 +168,43 @@ int main(int argc, char** argv) {
         options = Supersonic::LaunchOptions::Parse(static_cast<int>(engineArgs.size()), engineArgs.data());
     } catch (const std::exception& e) {
         std::cerr << "[Penumbra] " << e.what() << std::endl;
+        return EXIT_FAILURE;
+    }
+    // Parse carries its failures rather than throwing them. Ignored, a typo
+    // started the game anyway and dropped every flag after it.
+    if (options.helpRequested) {
+        std::cout << kGameUsage << "\nEngine options:\n" << Supersonic::LaunchOptions::Usage();
+        return EXIT_SUCCESS;
+    }
+    if (!options.ok) {
+        std::cerr << "[Penumbra] " << options.error << "\n\n" << kGameUsage << std::endl;
+        return EXIT_FAILURE;
+    }
+
+    // WHERE THE GAME'S FILES ARE, before SupersonicApp moves the working
+    // directory (a relative --original is the player's, from where they
+    // launched). The original is required; without the port's data the game
+    // still runs, in Portuguese with the original's images.
+    try {
+        const std::filesystem::path exeDir = Supersonic::ExecutableDirectory();
+        const Penumbra::Eth::FoundRoot original =
+            Penumbra::Eth::FindOriginalRoot(originalFlag, exeDir, PENUMBRA_ORIGINAL_DIR);
+        if (!ReportRoot("original game", "--original", Penumbra::Eth::kPackagedOriginalFolder,
+                        Penumbra::Eth::kOriginalMarker, original)) {
+            return EXIT_FAILURE;
+        }
+        const Penumbra::Eth::FoundRoot data = Penumbra::Eth::FindDataRoot(dataFlag, exeDir, PENUMBRA_DATA_DIR);
+        layerOptions.originalDir = original.path;
+        if (ReportRoot("port data", "--data", Penumbra::Eth::kPackagedDataFolder, Penumbra::Eth::kDataMarker, data)) {
+            layerOptions.dataDir = data.path;
+        } else {
+            if (data.source == Penumbra::Eth::RootSource::Flag) return EXIT_FAILURE;
+            std::cerr << "[Penumbra] continuing without it: no English, the original's images only." << std::endl;
+        }
+    } catch (const std::exception& e) {
+        // path::string() throws on some names the code page cannot spell,
+        // where others come back altered (ReportRoot).
+        std::cerr << "[Penumbra] cannot use the game's folders: " << e.what() << std::endl;
         return EXIT_FAILURE;
     }
 
@@ -127,6 +219,13 @@ int main(int argc, char** argv) {
     layerOptions.userDir = Supersonic::UserDataDirectory(manifest.title);
     if (layerOptions.userDir.empty()) {
         std::cerr << "[Penumbra] no writable user directory; settings and scores will not be kept.\n";
+    } else {
+        // Penumbra.exe has no console (a game started from Explorer should not
+        // open one), so the log also goes to a file a player can send along.
+        // Overwritten each run: the last run is the one worth reading.
+        std::error_code ignored;
+        std::filesystem::create_directories(layerOptions.userDir, ignored);
+        Supersonic::Log::SetFileSink((layerOptions.userDir / "penumbra.log").string());
     }
 
     std::string warning;
@@ -138,6 +237,15 @@ int main(int argc, char** argv) {
     if (languageOverride == "pt" || languageOverride == "en") layerOptions.languageOverride = languageOverride;
     if (widescreenOverride == "on") layerOptions.widescreenOverride = true;
     if (widescreenOverride == "off") layerOptions.widescreenOverride = false;
+    // E8 blends by SimulationClock::alpha, which --fixed-step at the tick pins
+    // at 0: every frame would draw the tick before, and every capture would
+    // be one tick late. So a fixed-step run draws the ticks themselves, as
+    // every capture so far was taken, unless --smooth on asks for the blend
+    // (a capture of E8 itself: --fixed-step 0.0083333 --smooth on
+    // --screenshot-every 1, about half a tick a frame).
+    if (options.fixedDelta > 0.0f) layerOptions.smoothMotionOverride = false;
+    if (smoothOverride == "on") layerOptions.smoothMotionOverride = true;
+    if (smoothOverride == "off") layerOptions.smoothMotionOverride = false;
     layerOptions.settings = settings;
 
     // --window names a window: without --fullscreen it is a windowed run

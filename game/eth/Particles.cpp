@@ -431,6 +431,11 @@ void ParticleManager::CollectDraws(const int ownerId, const vector3& ambient, co
 
         draw.size = particle.size;
         draw.angle = particle.angle;
+        // Identity for E8 (Snapshot.hpp). lastTime is written only when a life
+        // begins - ResetParticle and the release - so it is constant for one
+        // life and differs for the next.
+        draw.particleId = particle.id;
+        draw.lifeStartMs = particle.lastTime;
         out.push_back(draw);
     }
 }

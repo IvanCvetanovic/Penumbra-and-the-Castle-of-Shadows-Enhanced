@@ -96,6 +96,10 @@ struct Settings {
     float musicVolume = 1.0f;           // master volumes, 0..1, on top of the scripts' own
     float effectsVolume = 1.0f;
     bool pixelShaders = true;           // g_enablePS: 0 ("Ativa pixel shaders") is the default
+    // E8: the world drawn between ticks on displays faster than 60 Hz
+    // (render/Interpolation.hpp). Off: every frame shows the last tick, as
+    // 0.7.12 showed one tick per 60 Hz vsync.
+    bool smoothMotion = true;
     ControlSettings controls;
 
     bool operator==(const Settings& other) const = default;

@@ -3,6 +3,7 @@
 // extracted/app/videoModes.as, part of Penumbra (Andre Santee, 2010), free
 // software under the GNU Lesser General Public License, version 3 or (at your
 // option) any later version.
+// Enhancement E10 adds the enhanced settings' rows; each of its lines is marked.   // E10
 
 #include "script/Script.hpp"
 
@@ -14,6 +15,17 @@ namespace Penumbra::Script {
 Switch g_enablePS("Ativa pixel shaders", "Desativa pixel shaders");   // videoModes.as:43
 Switch g_windowed("Janela", "Tela-cheia");                            // videoModes.as:44
 Switch g_controls("2\xBA joystick para jogador 2", "interface/input_options1.png", "1\xBA joystick para jogador 1", "interface/input_options2.png");   // videoModes.as:45
+
+// ENHANCEMENT E10 (Script.hpp): the enhanced settings' rows, labelled in the   // E10
+// script's Portuguese like the rows above (strings.json has their English).    // E10
+// Row 0 of each Switch is the settings' default; the layer seeds all five.     // E10
+// The languages are named in their own tongue in both, so a player who cannot  // E10
+// read the current one still finds theirs.                                     // E10
+Switch g_keyboardP2("Teclado para o jogador 2", "Jogador 2 s\xF3 no joystick");   // E10
+Switch g_widescreen("Tela larga (widescreen)", "Tela 4:3 (original)");         // E10
+Switch g_language("Portugu\xEAs", "English");                                  // E10
+Stepper g_musicVolume("Volume da m\xFAsica", 10, 10);                           // E10: 100%, the settings' default
+Stepper g_effectsVolume("Volume dos efeitos", 10, 10);                          // E10
 
 // videoModes.as:47
 string videoModeToString(const videoMode& vm)
@@ -111,6 +123,18 @@ void screenModesLoop()
 
     g_windowed.put(vector2(255, origin.y+70), "Arial Narrow", fontSize, 256);
     g_controls.put(vector2(255, origin.y+160), "Arial Narrow", fontSize, 256);
+
+    // ENHANCEMENT E10: the enhanced settings, in the same column below          // E10
+    // g_controls, whose two 72 px images end at y 404: switches 20 px apart as  // E10
+    // g_enablePS and g_windowed are, then the steppers, one 25 px row each.     // E10
+    // Below 689 only the Alt+Enter line (y 753); x 520 on is free at these y.   // E10
+    g_keyboardP2.put(vector2(255, origin.y+324), "Arial Narrow", fontSize, 256);   // E10: y 424-474
+    g_widescreen.put(vector2(255, origin.y+394), "Arial Narrow", fontSize, 256);   // E10: y 494-544
+    // The menus stay 4:3 (pillarboxed), so the view shows only in a level.     // E10
+    shadowText(vector2(520, origin.y+411), "Vale a partir da pr\xF3xima fase", "Arial Narrow", 15.0f, 150, 203,203,228);   // E10
+    g_language.put(vector2(255, origin.y+464), "Arial Narrow", fontSize, 256);     // E10: y 564-614
+    g_musicVolume.put(vector2(255, origin.y+534), "Arial Narrow", fontSize, 180);  // E10: y 634-659
+    g_effectsVolume.put(vector2(255, origin.y+559), "Arial Narrow", fontSize, 180);   // E10: y 659-684
 
     showToggleFullscreenMessage();                                    // videoModes.as:131
     waitForInputToMenu();

@@ -341,6 +341,31 @@ private:
     array<string> m_image;                            // empty for a text-only switch
 };
 
+// ENHANCEMENT E10 (not in the original): a value in `steps` equal steps from 0     // E10
+// to 100%, on the options screen below the Switches and in their font, colour     // E10
+// and alphas: "label  [<] 70% [>]". Hovering an arrow and confirming moves it     // E10
+// one step, and it stops at either end rather than wrapping: a volume that        // E10
+// wrapped from 100% to 0% on one click too many would be a trap. Constructor      // E10
+// and methods defined in switch.cpp.                                              // E10
+class Stepper {                                       // E10
+public:                                               // E10
+    Stepper(const string& label, uint steps, uint current);   // E10: steps at least 1, current clamped
+    // The label at `pos`, the arrows and the value from pos.x+labelWidth.       // E10
+    void put(const vector2& pos, const string& font, float size, float labelWidth);   // E10
+    uint getCurrent() const;                          // E10: 0..steps
+    void setCurrent(uint newCurrent);                 // E10: clamped to steps
+    uint getSteps() const;                            // E10
+    // For the layer's 0..1 settings (volumes): the value as a fraction, and    // E10
+    // the nearest step to a fraction (0 below 0 and for NaN, steps above 1).    // E10
+    float getFraction() const;                        // E10
+    uint stepFor(float fraction) const;               // E10
+
+private:                                              // E10
+    string m_label;                                   // E10
+    uint m_steps = 10;                                // E10
+    uint m_current = 10;                              // E10
+};                                                    // E10
+
 // === scores.as (defined in scores.cpp) ===========================================
 
 inline constexpr uint MAX_SCORES = 5;                 // scores.as:43
@@ -395,6 +420,15 @@ void gameOverLoop();                                  // gameover.as:62
 extern Switch g_enablePS;                             // videoModes.as:43
 extern Switch g_windowed;                             // videoModes.as:44
 extern Switch g_controls;                             // videoModes.as:45
+
+// ENHANCEMENT E10 (not in the original): the enhanced settings' rows on the     // E10
+// same screen. The scripts never read them: PenumbraLayer seeds them from the   // E10
+// settings when it attaches and, every tick, saves and applies what changed.    // E10
+extern Switch g_keyboardP2;                           // E10: 0 = keyboard player 2 on (E4), 1 = off
+extern Switch g_widescreen;                           // E10: 0 = widescreen levels (E1), 1 = 4:3
+extern Switch g_language;                             // E10: 0 = Portuguese, 1 = English (E5)
+extern Stepper g_musicVolume;                         // E10: tenths of the music's master volume
+extern Stepper g_effectsVolume;                       // E10: tenths of the effects' master volume
 
 string videoModeToString(const videoMode& vm);        // videoModes.as:47
 void screenModesPreLoop();                            // videoModes.as:52

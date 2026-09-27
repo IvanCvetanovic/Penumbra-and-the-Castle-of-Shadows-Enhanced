@@ -35,6 +35,9 @@ game/
   main.cpp
 tests/               test_pn_*.cpp suites (supersonic_add_test)
 tools/build.bat      configure + build with MSVC (Build Tools 18) and the Vulkan SDK's glslc
+tools/check.bat      lock-free compile check of single files (parallel agents)
+tools/package.bat    a playable folder in out/package/Penumbra (never committed)
+tools/art/           make_english_art.py: the English image variants in game/data/images/en
 docs/spec/           what the original is and does (read-only knowledge base, cited)
 docs/planning/       the port's step record
 DEVLOG.md            append-only session log
@@ -57,9 +60,10 @@ reference/           gitignored: Ethanon 0.7.12 source (eth-0.7.12), GS2D r485, 
    Co-Authored-By, no session lines, no mention of AI) — here and in the engine. Never force-push,
    rewrite history, or `reset --hard` / `checkout --` over uncommitted work. Commit title
    `Penumbra: <what changed>`; body says what was wrong before and what was measured.
-4. **Paths are absolute.** A game built on the engine changes its working directory to the engine
-   checkout at startup (`AnchorAssetRoot`), so the game's data roots are baked absolute paths
-   (CMake cache variables → compile definitions) and every `--screenshot` path must be absolute.
+4. **Paths are absolute.** A game built on the engine changes its working directory at startup
+   (`AnchorAssetRoot`), so every `--screenshot` path must be absolute. The original and game/data are
+   found at run time (game/eth/Paths.hpp): `--original`/`--data`, then `original/` and `data/` beside
+   the exe (a package, tools/package.bat), then the baked PENUMBRA_ORIGINAL_DIR / PENUMBRA_DATA_DIR.
 5. **Smart App Control is enforcing on this laptop.** A freshly linked exe is sometimes refused
    ("An Application Control policy has blocked this file", exit 126, ctest "Not Run") and EVERY
    refusal pops a notification for Ivan. Launch each suite/exe at most once per build; never loop
@@ -88,7 +92,7 @@ reference/           gitignored: Ethanon 0.7.12 source (eth-0.7.12), GS2D r485, 
 ```bash
 cmd //c "tools\build.bat --target Penumbra"
 build/game/Penumbra.exe                                   # the menu
-build/game/Penumbra.exe --scene level1 --window 1280x720 --fixed-step --frames 300 \
+build/game/Penumbra.exe --start level1 --window 1280x720 --fixed-step --frames 300 \
     --screenshot "$PWD/out/shots/level1.png"             # a headless capture (absolute path!)
 build/tests/test_pn_<suite>.exe                           # one suite, once
 ```

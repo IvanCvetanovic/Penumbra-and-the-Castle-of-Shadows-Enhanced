@@ -39,7 +39,9 @@ in this repository, with the engine improved where the game needs it.
 | E5 | English text alongside Portuguese, switchable | Portuguese only |
 | E6 | Settings persisted (language, window, volumes, controls) | options reset every launch |
 | E7 | Original bugs fixed where they are plainly bugs (listed per step) | — |
-| E8 | Smoother presentation: interpolation between ticks at high refresh rates | vsync 60 Hz |
+| E8 | Smooth motion: the world (sprites, lights and halos, shadows, particles, camera) drawn between the last two ticks by SimulationClock::alpha, one tick behind; whole-pixel ends stay on whole pixels; never across a scene load, a frame gap or a jump over 64 px; settings.smoothMotion (on) and --smooth on\|off, off under --fixed-step | one tick per 60 Hz vsync |
+| E9 | Shadows drawn live, their visible end at the light's reach | static shadows baked into lightmaps at 8x the caster's height |
+| E10 | Enhanced settings on the original's options screen (videoModes.as): keyboard player 2, widescreen/4:3 levels, Português/English at once, music and effects volume in 10% steps (a new Stepper widget beside Switch), saved to settings.json | the screen offered only the video-mode list, pixel shaders, window/fullscreen and the joystick layout, all forgotten at exit |
 
 ## Steps
 
@@ -119,12 +121,63 @@ Gates: 13 suites, 2593 checks, 0 failures (test_pn_render_lights 145, test_pn_re
 test_pn_scenarios 458); menu in English and Portuguese, level 1, fullscreen 1920x1200 and both
 Alt+Enter directions captured, all exit 0 with validation active.
 
+### Step 6 — standing sprites, highlights, smooth motion, the options screen, a package (done 2026-09-27)
+- **Vertical sprites and gloss highlights (engine b999491: f30df7c + b999491, pushed after the Magic
+  Portals session's go-ahead; at b999491 test_light2d 151, test_resourcesync 37, test_audio 90 pass,
+  test_materials refused by Smart App Control).**
+  Sprite2DLight::vertical/verticalBaseY stands a 2D sprite up in the light - the flat frame turned a
+  quarter turn about x through the base line, which through the port's y flip is exactly
+  verticalSprite_ppl's P and vPixelLight's swizzled normal; specularStrength/specularPower plus
+  MaterialComponent::glossTexturePath (a fifth material binding, white when unnamed) add
+  mainSpecular's Blinn highlight per light before the clamp, seen from a per-light eye
+  (Light2DEye). Both opt-in; AllPasses and every non-opted sprite are bit-identical (engine suites,
+  run in the engine agent's clone at f30df7c: test_light2d 151, test_materials 371,
+  test_resourcesync 37, and four more, 0 failures; not rerun at b999491, nor in this build).
+  Wiring: render/Lighting stands every lit ET_VERTICAL sprite on verticalBaseY = -position.y at
+  height z + ZAxisDirection.y * z (replacing the middle-row height); a lit <Gloss> sprite with pixel
+  shaders on gets the map (entities/ + file name, Plain, language-swapped like the normal map) and
+  strength specularBrightness / lightIntensity (0.7.12's highlight left lightIntensity out; the
+  engine's light colour includes it); PenumbraLayer publishes Light2DEye each frame
+  (mirrorY = -(camera.y + 0.75 * 768), height 768: ETHShaderManager::SetFakeEyePosition).
+  Menu (1366x768, cursor parked) against reference/captures/00_menu.png, mean |ref - port| per
+  region before -> after: left pedestal 24.4 -> 12.9, right pedestal 18.1 -> 11.1, left torso
+  10.2 -> 5.8, right torso 10.5 -> 9.0, lower-left barrel 27.9 -> 3.9 (its lid no longer lit by
+  lights behind it). Every pixel that changed lies on a lit vertical or glossy sprite; the button
+  labels only brightened (1199-1718 pixels each, up to 137 levels), and the menu's 38 glossy floor
+  tiles (white_ground.ent) show a streak of glints below each light, toward the viewer. Level 1
+  has no vertical entity and its only gloss (potions) is off screen at the start: the 1024x768
+  capture is byte-identical to the one before.
+- **E8 smooth motion** (render/Interpolation, ShadowRenderer's `shapes`, snapshot identity:
+  ParticleDraw system/particleId/lifeStartMs, RenderSnapshot::sceneSerial). Gate: with the engine
+  at b999491, E8 (off under --fixed-step), E10 and the path resolver in, level 1's fixed-step
+  capture is byte-identical to the previous build's.
+- **E10 options screen** (a Stepper widget beside Switch, five new globals seeded, read back, saved
+  and applied by PenumbraLayer; a pick on the screen replaces that run's --lang/--widescreen).
+- **Packaging.** game/eth/Paths resolves the original and the data at run time (flag > beside the
+  exe > the build's path); tools/package.bat assembles out/package/Penumbra (exe, engine SPIR-V,
+  game/data, the original's data minus exe/dll/as/cg, app-local CRT); README.md. The package
+  launched from %TEMP% finds both roots beside itself and draws the menu. main.cpp now exits 1 on
+  an unparseable flag and prints the game's and the engine's options for --help.
+Gates: build zero warnings; 15 suites, 13 run, 2345 checks, 0 failures (test_pn_paths 71,
+test_pn_render_interp 189, test_pn_render_lights 171, test_pn_render_english 124,
+test_pn_render_hud 274, test_pn_scenarios 532 with scenario 14 (E10) passing). test_pn_boot and
+test_pn_formats were refused by Smart App Control on both launches of this build (not run).
+- **No console, a log file, the licences.** Penumbra.exe is a Windows-subsystem program (a game
+  started from Explorer opens no console); the log is mirrored to %APPDATA%\Penumbra\penumbra.log;
+  headless runs still receive stdout/stderr through the shell's redirection (the level 1 capture is
+  byte-identical). LICENSE.md says what is under which terms - game/script and the Ethanon-derived
+  parts of game/eth are LGPL-3.0-or-later as works derived from the original's LGPL scripts and
+  engine - and licenses/ holds the LGPL-3.0 and GPL-3.0 texts, which the package carries.
+  test_pn_boot and test_pn_formats were refused again after a relink (third time); not run on this
+  build - test_pn_scenarios (532 checks) covers boot's ground, and no parser changed.
+
 ### Open
-- **Vertical sprites** (ET_VERTICAL: the menu's devil statues and barrels, pillars, the vert_* bosses)
-  are lit at one height; the original lit them up their height with a swizzled normal (vPixelLight.cg),
-  which leaves the menu's statues dark where the original shows them bronze. Needs an additive
-  vertical mode in the engine's 2D light (shader.frag + committed SPIR-V).
-- **Specular** from <Gloss> maps (253 definitions) is not drawn.
-- **Options screen** for the enhanced settings (language, widescreen, keyboard player 2, volumes) -
-  the original's videoModes screen has room for more Switch rows.
-- **E8** interpolation between ticks on high-refresh displays.
+- **Engine push**: b999491 is only in this checkout. Build and run the touched engine suites
+  (test_light2d, test_materials, test_resourcesync) at b999491, `git -C engine pull --rebase`, tell
+  magic-portals-remake-93, push, then commit the pin separately.
+- **test_pn_boot and test_pn_formats** were not run on this build (Smart App Control).
+- **Not modelled in the light**: the light pass's alpha test (a texel at alpha <= 1/255 took no
+  light, highlight included); the highlights 0.7.12 baked into static sprites' lightmaps with the
+  first frame's eye (every light is live here, E9, so they follow the camera); per-pixel depth of
+  vertical sprites, which leaned back in the z-buffer in 0.7.12 (docs/spec/21).
+- **smoothMotion** has no row on the options screen yet (room at x 255, y 694-740).

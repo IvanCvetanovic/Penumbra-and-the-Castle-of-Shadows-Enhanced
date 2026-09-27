@@ -59,6 +59,17 @@
         "2º joystick para jogador 2": "2nd joystick for player 2",
         "1º joystick para jogador 1": "1st joystick for player 1",
 
+        "_videoModes.cpp ENHANCEMENT E10: the enhanced settings' rows on the options screen (not in the original; the Portuguese is the port's own, Switch rows 256 px wide at Arial Narrow 25, stepper labels in a 180 px column). The two languages are named in their own tongue in both, so a player who cannot read the current one still finds theirs.": "",
+        "Teclado para o jogador 2": "Keyboard for player 2",
+        "Jogador 2 só no joystick": "Player 2 on a joystick only",
+        "Tela larga (widescreen)": "Widescreen",
+        "Tela 4:3 (original)": "4:3 (original)",
+        "Vale a partir da próxima fase": "Takes effect from the next level",
+        "Português": "Português",
+        "English": "English",
+        "Volume da música": "Music volume",
+        "Volume dos efeitos": "Effects volume",
+
         "_messages: controlCharacters.as, playerInput.as, main.as (MessageManager, Arial 30)": "",
         "A criatura invocada não pode sair do campo de visão da tela": "The summoned creature cannot leave the screen",
         "É necessário de 50 mana para invocar a criatura": "You need 50 mana to summon the creature",
@@ -202,7 +213,7 @@
         },
         "entities/menu_buttons_gloss.png": {
             "en": "images/en/entities/menu_buttons_gloss.png",
-            "_note": "buttons.ent's <Gloss>: the English label mask. The port draws no specular, so nothing reads it yet; made so a gloss pass would not show Portuguese"
+            "_note": "buttons.ent's <Gloss>: the English label mask, so the highlight (render/Lighting resolves it) does not show the Portuguese letters"
         },
         "entities/gamelogo.png": {
             "en": "images/en/entities/gamelogo.png",

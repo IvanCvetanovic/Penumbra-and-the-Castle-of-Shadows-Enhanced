@@ -8,6 +8,7 @@
 #include "eth/Input.hpp"
 #include "eth/Machine.hpp"
 #include "eth/Particles.hpp"
+#include "eth/Paths.hpp"
 #include "eth/Random.hpp"
 #include "eth/Scene.hpp"
 #include "eth/Snapshot.hpp"

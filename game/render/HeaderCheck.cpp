@@ -7,6 +7,7 @@
 #include "render/FontAtlas.hpp"
 #include "render/HudRenderer.hpp"
 #include "render/InputMapper.hpp"
+#include "render/Interpolation.hpp"
 #include "render/LightRenderer.hpp"
 #include "render/Lighting.hpp"
 #include "render/Localization.hpp"

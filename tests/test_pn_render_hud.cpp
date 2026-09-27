@@ -162,6 +162,20 @@ const Literal kLiterals[] = {
     {"constants.as", "Penumbra e o Castelo das Sombras - Ethanon Engine"},
 };
 
+// ENHANCEMENT E10: the options screen's own rows (game/script/videoModes.cpp),
+// in the port's Portuguese, so not in any .as file and not in kLiterals.
+const char* const kE10Labels[] = {
+    "Teclado para o jogador 2",
+    "Jogador 2 s\xF3 no joystick",
+    "Tela larga (widescreen)",
+    "Tela 4:3 (original)",
+    "Vale a partir da pr\xF3xima fase",
+    "Portugu\xEAs",
+    "English",
+    "Volume da m\xFAsica",
+    "Volume dos efeitos",
+};
+
 void TestLocalization() {
     Render::Localization loc;
     CHECK(loc.Load());
@@ -178,6 +192,16 @@ void TestLocalization() {
         const std::string text = Unescape(literal.source);
         CheckTranslated(loc, text, literal.file);
     }
+    // E10: every label of the enhanced settings' rows has English, and the
+    // switch rows and the stepper's pieces come out as drawn.
+    for (const char* label : kE10Labels) CheckTranslated(loc, label, "videoModes.cpp (E10)");
+    CHECK(loc.Translate("[\x95] Tela larga (widescreen)") == "[\x95] Widescreen");
+    CHECK(loc.Translate("[ ] Jogador 2 s\xF3 no joystick") == "[ ] Player 2 on a joystick only");
+    CHECK(loc.Translate("[ ] Portugu\xEAs") == "[ ] Portugu\xEAs");   // each language named in its own
+    CHECK(loc.Translate("[\x95] English") == "[\x95] English");
+    CHECK(loc.Translate("Volume da m\xFAsica") == "Music volume");
+    CHECK(loc.HasTranslation("[<]"));
+    CHECK(loc.HasTranslation("70%"));
     CHECK(loc.Translate("Carregando...\n") == "Loading...\n");   // the trailing break kept
     CHECK(loc.Translate("Configura\xE7\xF5"
                         "es") == "Settings");

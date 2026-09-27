@@ -266,8 +266,13 @@ void ShadowRenderer::Hide(entt::registry& registry, const Slot& slot) {
 }
 
 void ShadowRenderer::Draw(entt::registry& registry, const Eth::RenderSnapshot& snapshot, const View& /*view*/,
-                          const DrawOrder& order) {
+                          const DrawOrder& order, const Eth::RenderSnapshot* shapes) {
     using namespace Supersonic;
+    // The shape's source: `snapshot` itself unless an aligned `shapes` is given.
+    const Eth::RenderSnapshot& shape = (shapes != nullptr && shapes->sprites.size() == snapshot.sprites.size() &&
+                                        shapes->lights.size() == snapshot.lights.size())
+                                           ? *shapes
+                                           : snapshot;
     ++m_draws;
     m_shown = 0;
     m_rebuilds = 0;
@@ -298,8 +303,11 @@ void ShadowRenderer::Draw(entt::registry& registry, const Eth::RenderSnapshot& s
     }
 
     for (std::size_t i = 0; i < snapshot.sprites.size(); ++i) {
-        const Eth::SpriteDraw& caster = snapshot.sprites[i];
+        const Eth::SpriteDraw& caster = shape.sprites[i];
         if (!caster.castShadow) continue;
+        // Where the strips stand: this caster in `snapshot`. The same point as
+        // the shape's anchor when `shapes` is not given.
+        const glm::vec2 placedAt(snapshot.sprites[i].position.x, snapshot.sprites[i].position.y);
 
         float z = 0.0f;
         if (i < order.shadowRankBase.size()) {
@@ -316,8 +324,8 @@ void ShadowRenderer::Draw(entt::registry& registry, const Eth::RenderSnapshot& s
             continue;
         }
 
-        for (const Eth::LightDraw& light : snapshot.lights) {
-            const ShadowGeometry g = ComputeShadow(caster, light, snapshot.ambient, m_capBakedLength);
+        for (const Eth::LightDraw& light : shape.lights) {
+            const ShadowGeometry g = ComputeShadow(caster, light, shape.ambient, m_capBakedLength);
             if (!g.visible) continue;
 
             const int occurrence = m_seen[{caster.entityId, light.ownerId}]++;
@@ -349,7 +357,7 @@ void ShadowRenderer::Draw(entt::registry& registry, const Eth::RenderSnapshot& s
             if (changed) Upload(registry, slot, local);
 
             auto& transform = registry.get<TransformComponent>(slot.entity);
-            transform.position = ToWorld(g.anchor, z);
+            transform.position = ToWorld(placedAt, z);
             auto& material = registry.get<MaterialComponent>(slot.entity);
             if (material.albedoTexturePath != m_shadowKey) material.albedoTexturePath = m_shadowKey;
             const glm::vec4 color(0.0f, 0.0f, 0.0f, g.alpha);

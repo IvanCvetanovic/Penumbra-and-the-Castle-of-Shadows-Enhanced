@@ -17,6 +17,7 @@
 #include "render/FontAtlas.hpp"
 #include "render/HudRenderer.hpp"
 #include "render/InputMapper.hpp"
+#include "render/Interpolation.hpp"
 #include "render/LightRenderer.hpp"
 #include "render/Localization.hpp"
 #include "render/ParticleRenderer.hpp"
@@ -70,6 +71,11 @@ public:
     };
 
     struct Options {
+        // The original's files and the port's own data (strings.json,
+        // images/en), as main.cpp found them (eth/Paths.hpp): beside the
+        // executable in a packaged game, else where the build points.
+        std::filesystem::path originalDir = PENUMBRA_ORIGINAL_DIR;
+        std::filesystem::path dataDir = PENUMBRA_DATA_DIR;
         std::filesystem::path userDir;      // where saves and settings go; empty = none
         std::string startScene;             // "" = the menu, as the original boots
         glm::uvec2 windowPixels{1366, 768}; // what the window opens at; then kept current (for the logical width)
@@ -80,6 +86,9 @@ public:
         // shown and never reach settings.json, which keeps what the player chose.
         std::optional<std::string> languageOverride;
         std::optional<bool> widescreenOverride;
+        // E8 for this run (--smooth on|off; off under --fixed-step unless
+        // --smooth on): never saved, like the two above.
+        std::optional<bool> smoothMotionOverride;
         // --cursor x,y: the scripts' cursor pinned at a logical-screen point,
         // for headless captures of the mouse-driven menu (the live OS pointer
         // otherwise decides which panel a capture shows).
@@ -114,6 +123,7 @@ private:
     // What this run shows: the settings unless a flag overrides them.
     bool Widescreen() const;
     bool Portuguese() const;
+    bool SmoothMotion() const;
     // Writes m_settings to the user directory and re-applies what it drives.
     void SaveSettings();
 
@@ -130,6 +140,8 @@ private:
     Render::LightRenderer m_lights;
     Render::ParticleRenderer m_particles;
     Render::HudRenderer m_hud;
+    // E8: the world drawn between the last two ticks (render/Interpolation.hpp).
+    Render::SnapshotInterpolator m_interp;
     std::unique_ptr<Eth::Machine> m_machine;
     Render::View m_view;
     bool m_pillarbox = true;

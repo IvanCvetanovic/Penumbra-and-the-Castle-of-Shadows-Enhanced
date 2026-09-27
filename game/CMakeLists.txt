@@ -33,6 +33,14 @@ add_executable(Penumbra main.cpp)
 # The icon (the original's, read in place), version information and the
 # manifest (per-monitor DPI aware); the top-level CMakeLists.txt says why.
 penumbra_windows_resources(Penumbra "Penumbra and the Castle of Shadows - Enhanced")
+# A game, not a console tool: no console window when a player starts it. main()
+# stays the entry point; the log goes to the user directory (main.cpp), and a
+# shell that redirects stdout/stderr still receives them, as the headless
+# captures do.
+if (MSVC)
+    set_target_properties(Penumbra PROPERTIES WIN32_EXECUTABLE ON)
+    target_link_options(Penumbra PRIVATE /ENTRY:mainCRTStartup)
+endif()
 target_link_libraries(Penumbra PRIVATE PenumbraGame)
 
 foreach(target PenumbraGame Penumbra)

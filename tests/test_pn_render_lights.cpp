@@ -5,8 +5,11 @@
 //     sprite (E:ETHRenderEntity.cpp:687-691): an applyLight=0 sprite is drawn
 //     at the ambient, not at full white - the easy mistake, since "unlit"
 //     reads like "not darkened".
-//   - The vertical sprites' single lighting height (the middle row), with and
-//     without the menus' ZAxisDirection.
+//   - The vertical sprites standing up (engine f30df7c): base line at the
+//     entity's own y, base height z + ZAxisDirection.y * z, with and without
+//     the menus' ZAxisDirection - the easy mistake is to stand it on the row
+//     it is drawn from. And the gloss highlight's key and strength
+//     (brightness / lightIntensity), off wherever 0.7.12 drew none.
 //   - ComputeShadow against numbers worked out independently from
 //     dynaShadowVS.cg's own operations (GetAngle, RotateZ uploaded row-major,
 //     extrude, push back): a straight-down case, and a diagonal one that only
@@ -129,9 +132,11 @@ void NormalMapComesFromEntitiesNormalmaps(Render::TextureCache& textures) {
     CHECK(lighting.normalKey == textures.Key("entities/normalmaps/barril_nm.bmp", Render::TextureVariant::Normal));
 }
 
-void VerticalSpritesAreLitAtTheirMiddleRow(Render::TextureCache& textures) {
+void VerticalSpritesStandOnTheirBaseLine(Render::TextureCache& textures) {
     // barrel.ent: 48x58, origin at the centre-bottom plus pivot (0,-14), so the
-    // entity's point is 44 px below the image top.
+    // entity's point is 44 px below the image top. 0.7.12 lit its rows at
+    // (x, y, z + (S.y - drawn y)); the engine stands the quad up on the line
+    // y = verticalBaseY with the base line's texels at `height`.
     Eth::RenderSnapshot level;
     Eth::SpriteDraw barrel;
     barrel.type = Eth::ET_VERTICAL;
@@ -140,23 +145,112 @@ void VerticalSpritesAreLitAtTheirMiddleRow(Render::TextureCache& textures) {
     barrel.size = glm::vec2(48.0f, 58.0f);
     barrel.position = glm::vec3(100.0f, 400.0f, 0.0f);
     barrel.origin = glm::vec2(76.0f, 400.0f - 44.0f);
-    // Rows from z + 44 (top) to z - 14 (bottom): the middle is z + 15.
-    CHECK_MSG(Near(Render::ComputeSpriteLighting(barrel, level, textures).height, 15.0f),
-              std::to_string(Render::ComputeSpriteLighting(barrel, level, textures).height));
+    Render::SpriteLighting a = Render::ComputeSpriteLighting(barrel, level, textures);
+    CHECK(a.vertical);
+    CHECK_MSG(Near(a.verticalBaseY, -400.0f), std::to_string(a.verticalBaseY));   // ToWorld's y
+    CHECK_MSG(Near(a.height, 0.0f), std::to_string(a.height));                    // drawn from its own y
+    // The top row, drawn at engine y -356, is lit at height 0 + (-356 + 400) =
+    // 44, and the bottom row at -14: 0.7.12's z + oy - v h.
+    CHECK(Near(a.height + ((-barrel.origin.y) - a.verticalBaseY), 44.0f));
+    CHECK(Near(a.height + ((-(barrel.origin.y + barrel.size.y)) - a.verticalBaseY), -14.0f));
+    barrel.position.z = 10.0f;
+    CHECK(Near(Render::ComputeSpriteLighting(barrel, level, textures).height, 10.0f));
 
-    // The menus draw it z pixels higher (ZAxisDirection (0,-1)): same rows,
-    // z + 15 again.
+    // The menus draw it z pixels higher (ZAxisDirection (0,-1)), and 0.7.12
+    // still lit it at its own y: the drawn anchor row, z higher on screen, is
+    // at height z, so the base line (its own y) is at 0 whatever z is.
     Eth::RenderSnapshot menu;
     menu.zAxisDirection = glm::vec2(0.0f, -1.0f);
-    barrel.position.z = 10.0f;
     barrel.origin = glm::vec2(76.0f, (400.0f - 10.0f) - 44.0f);
-    CHECK_MSG(Near(Render::ComputeSpriteLighting(barrel, menu, textures).height, 25.0f),
-              std::to_string(Render::ComputeSpriteLighting(barrel, menu, textures).height));
+    a = Render::ComputeSpriteLighting(barrel, menu, textures);
+    CHECK(a.vertical);
+    CHECK(Near(a.verticalBaseY, -400.0f));
+    CHECK_MSG(Near(a.height, 0.0f), std::to_string(a.height));
+    CHECK(Near(a.height + (-(400.0f - 10.0f) - a.verticalBaseY), 10.0f));   // the anchor row: z
 
-    // Anything else is lit at its z, where the drawing is.
+    // No light reaches it: nothing to stand up.
+    barrel.applyLight = false;
+    CHECK(!Render::ComputeSpriteLighting(barrel, menu, textures).vertical);
+
+    // Anything else lies flat, lit at its z, where the drawing is.
     Eth::SpriteDraw layer = Tile(-12.0f);
     layer.type = Eth::ET_LAYERABLE;
-    CHECK(Near(Render::ComputeSpriteLighting(layer, menu, textures).height, -12.0f));
+    const Render::SpriteLighting flat = Render::ComputeSpriteLighting(layer, menu, textures);
+    CHECK(Near(flat.height, -12.0f));
+    CHECK(!flat.vertical);
+    CHECK(Near(flat.verticalBaseY, 0.0f));
+}
+
+void GlossMapsGiveAHighlight(Render::TextureCache& textures) {
+    // cano.ent: <Gloss>white.bmp</Gloss>, specularPower 60, brightness 1, lit.
+    Eth::RenderSnapshot snapshot;   // pixel shaders on, lightIntensity 2 (the default)
+    Eth::SpriteDraw pipe = Tile(0.0f);
+    pipe.gloss = "white.bmp";
+    pipe.specularPower = 60.0f;
+    pipe.specularBrightness = 1.0f;
+
+    // None of it without the original's file, as 0.7.12 drew no highlight
+    // for a gloss map that would not load.
+    Render::SpriteLighting a = Render::ComputeSpriteLighting(pipe, snapshot, textures);
+    if (!HaveOriginal()) {
+        CHECK(a.glossKey.empty());
+        CHECK(Near(a.specularStrength, 0.0f));
+        std::printf("  (gloss checks skipped: the original is not at %s)\n", PENUMBRA_ORIGINAL_DIR);
+        return;
+    }
+    const std::string key = textures.Key("entities/white.bmp", Render::TextureVariant::Plain);
+    CHECK(!key.empty());
+    CHECK_MSG(a.glossKey == key, a.glossKey);
+    // The engine's light colour is colour x lightIntensity; 0.7.12's highlight
+    // took the colour alone.
+    CHECK_MSG(Near(a.specularStrength, 0.5f), std::to_string(a.specularStrength));
+    CHECK(Near(a.specularPower, 60.0f));
+    snapshot.lightIntensity = 4.0f;
+    pipe.specularBrightness = 2.0f;
+    CHECK(Near(Render::ComputeSpriteLighting(pipe, snapshot, textures).specularStrength, 0.5f));
+    snapshot.lightIntensity = 2.0f;
+    pipe.specularBrightness = 1.0f;
+
+    // Looked up by file name in entities\, as Scene.cpp loads it.
+    pipe.gloss = "some\\folder/white.bmp";
+    CHECK(Render::ComputeSpriteLighting(pipe, snapshot, textures).glossKey == key);
+    pipe.gloss = "white.bmp";
+
+    // Off: pixel shaders off (the per-vertex fallback had none), no light
+    // reaching it, no gloss, a file that does not read, no brightness, and a
+    // scene without light intensity (its lights add nothing to divide).
+    const auto off = [&](const Eth::SpriteDraw& sprite, const Eth::RenderSnapshot& shot) {
+        const Render::SpriteLighting l = Render::ComputeSpriteLighting(sprite, shot, textures);
+        return Near(l.specularStrength, 0.0f) && l.glossKey.empty();
+    };
+    Eth::RenderSnapshot noShaders = snapshot;
+    noShaders.pixelShaders = false;
+    CHECK(off(pipe, noShaders));
+    Eth::SpriteDraw unlit = pipe;
+    unlit.applyLight = false;
+    CHECK(off(unlit, snapshot));
+    Eth::SpriteDraw plain = pipe;
+    plain.gloss.clear();
+    CHECK(off(plain, snapshot));
+    Eth::SpriteDraw missing = pipe;
+    missing.gloss = "no_such_gloss.bmp";
+    CHECK(off(missing, snapshot));
+    Eth::SpriteDraw dull = pipe;
+    dull.specularBrightness = 0.0f;
+    CHECK(off(dull, snapshot));
+    Eth::RenderSnapshot dark = snapshot;
+    dark.lightIntensity = 0.0f;
+    CHECK(off(pipe, dark));
+
+    // A standing glossy sprite (the menu's devil statues) takes both.
+    Eth::SpriteDraw devil = pipe;
+    devil.type = Eth::ET_VERTICAL;
+    devil.gloss = "white_ground.jpg";
+    devil.specularPower = 30.0f;
+    a = Render::ComputeSpriteLighting(devil, snapshot, textures);
+    CHECK(a.vertical);
+    CHECK(Near(a.specularPower, 30.0f));
+    CHECK(a.glossKey == textures.Key("entities/white_ground.jpg", Render::TextureVariant::Plain));
 }
 
 // ---- ComputeShadow ----------------------------------------------------------------
@@ -687,7 +781,8 @@ int main() {
 
     AmbientIsAmbientPlusEmissiveForEverySprite(textures);
     NormalMapComesFromEntitiesNormalmaps(textures);
-    VerticalSpritesAreLitAtTheirMiddleRow(textures);
+    VerticalSpritesStandOnTheirBaseLine(textures);
+    GlossMapsGiveAHighlight(textures);
     ShadowStripMatchesTheShader();
     ShadowTurnsWithTheLight();
     ShadowLengths();

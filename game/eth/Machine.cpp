@@ -192,6 +192,9 @@ void Machine::Frame(const InputFrame& input) {
 }
 
 void Machine::DoLoad(const PendingLoad& request) {
+    // First: even a load that fails below has replaced the scene (E8's
+    // RenderSnapshot::sceneSerial).
+    ++m_sceneSerial;
     // ETHEngine::LoadScene (ETHEngine.cpp:823-851).
     m_screenSize = m_config.screenSizeForScene ? m_config.screenSizeForScene(request.file) : m_config.screenSize;
 
@@ -274,6 +277,7 @@ void Machine::Render() {
     snap.frameIndex = m_frameIndex;
     snap.timeMs = m_timeMs;
     snap.sceneFile = m_sceneFileName;
+    snap.sceneSerial = m_sceneSerial;
     snap.camera = m_camera;
     snap.screenSize = m_screenSize;
     snap.pixelShaders = m_pixelShaders;
@@ -458,9 +462,14 @@ void Machine::Render() {
                 }
                 if (system.repeat <= 0) UpdateParticles(*entity, t);
                 if (const ParticleManager* manager = entity->ParticleSlot(t)) {
+                    const std::size_t first = snap.particles.size();
                     manager->CollectDraws(entity->GetID(), props.ambient, frameMin, frameMax, entity->GetType(),
                                           props.zAxisDirection, entity->ComputeDepth(frameMax, frameMin),
                                           snap.particles);
+                    // Which of the owner's systems drew them (E8's identity).
+                    for (std::size_t k = first; k < snap.particles.size(); ++k) {
+                        snap.particles[k].system = static_cast<int>(t);
+                    }
                 }
             }
         }

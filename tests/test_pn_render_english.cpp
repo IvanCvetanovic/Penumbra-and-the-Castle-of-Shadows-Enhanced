@@ -216,6 +216,7 @@ void TestSpriteRendererSwitch() {
 
     const std::string ptAlbedo = VirtualTextureKey("entities/menu_buttons.png", TextureVariant::Sprite);
     const std::string ptNormal = VirtualTextureKey("entities/normalmaps/menu_nm_buttons.png", TextureVariant::Normal);
+    const std::string ptGloss = VirtualTextureKey("entities/menu_buttons_gloss.png", TextureVariant::Plain);
     const std::string ptLogo = VirtualTextureKey("entities/gamelogo.png", TextureVariant::Sprite);
 
     const auto material = [&](int id) -> const Supersonic::MaterialComponent* {
@@ -233,6 +234,14 @@ void TestSpriteRendererSwitch() {
                   button->albedoTexturePath);
         CHECK_MSG(Contains(button->normalTexturePath, "images/en/entities/normalmaps/menu_nm_buttons.png"),
                   button->normalTexturePath);
+        // The gloss masks the labels too: its highlight must not show the
+        // Portuguese letters under the English ones. Brightness 1 over the
+        // scene's lightIntensity 2 (render/Lighting.cpp THE HIGHLIGHT).
+        CHECK_MSG(Contains(button->glossTexturePath, "images/en/entities/menu_buttons_gloss.png"),
+                  button->glossTexturePath);
+        CHECK_NEAR(button->sprite2D.specularStrength, 0.5f);
+        CHECK_NEAR(button->sprite2D.specularPower, 50.0f);
+        CHECK(!button->sprite2D.vertical);
         // The frame is still the seventh of eight.
         CHECK_NEAR(button->uvScale.y, 0.125f);
         CHECK_NEAR(button->uvOffset.y, 0.75f);
@@ -244,6 +253,11 @@ void TestSpriteRendererSwitch() {
     if (title != nullptr) {
         CHECK_MSG(Contains(title->albedoTexturePath, "images/en/entities/gamelogo.png") == logoWired,
                   title->albedoTexturePath);
+        // Vertical, but no light reaches it (emissive, applyLight 0): flat,
+        // no highlight - the record it always had.
+        CHECK(!title->sprite2D.vertical);
+        CHECK(title->glossTexturePath.empty());
+        CHECK_NEAR(title->sprite2D.specularStrength, 0.0f);
     }
 
     // Switched to Portuguese between two draws of the same snapshot: the
@@ -255,6 +269,7 @@ void TestSpriteRendererSwitch() {
     if (button != nullptr) {
         CHECK_MSG(button->albedoTexturePath == ptAlbedo, button->albedoTexturePath);
         CHECK_MSG(button->normalTexturePath == ptNormal, button->normalTexturePath);
+        CHECK_MSG(button->glossTexturePath == ptGloss, button->glossTexturePath);
     }
     title = material(108);
     if (title != nullptr) CHECK_MSG(title->albedoTexturePath == ptLogo, title->albedoTexturePath);
@@ -275,13 +290,16 @@ void TestSpriteRendererSwitch() {
     if (button != nullptr) {
         CHECK(button->albedoTexturePath == ptAlbedo);
         CHECK(button->normalTexturePath == ptNormal);
+        CHECK(button->glossTexturePath == ptGloss);
     }
 
-    // The lighting half alone: the normal map follows the language; a sprite
-    // whose map has no variant keeps its own.
+    // The lighting half alone: the normal and gloss maps follow the language;
+    // a sprite whose map has no variant keeps its own.
     const Eth::SpriteDraw sprite = MenuButton(1, 0);
     CHECK(Contains(ComputeSpriteLighting(sprite, snapshot, textures, &loc).normalKey, "images/en/"));
     CHECK(ComputeSpriteLighting(sprite, snapshot, textures).normalKey == ptNormal);
+    CHECK(Contains(ComputeSpriteLighting(sprite, snapshot, textures, &loc).glossKey, "images/en/"));
+    CHECK(ComputeSpriteLighting(sprite, snapshot, textures).glossKey == ptGloss);
     Eth::SpriteDraw wizard = sprite;
     wizard.sprite = "bruxo.png";
     wizard.normal = "bruxo_nm.png";
