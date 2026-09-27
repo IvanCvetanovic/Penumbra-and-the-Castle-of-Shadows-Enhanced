@@ -18,9 +18,12 @@
 // Semantics are 0.7.12's: docs/spec/30-ethanon-runtime.md §5 is the table.
 
 #include <cmath>
+#include <deque>
+#include <initializer_list>
 #include <map>
 #include <memory>
 #include <string>
+#include <type_traits>
 #include <vector>
 
 #include "eth/EthTypes.hpp"
@@ -151,7 +154,9 @@ inline uint min(uint a, uint b) { return a < b ? a : b; }
 inline uint max(uint a, uint b) { return a > b ? a : b; }
 
 // AngelScript's string + number: integers as decimal, floats with 6
-// significant digits (%g), bools as "true"/"false".
+// significant digits (%g), bools as "1"/"0" - 0.7.12's add-on wrote
+// `stream << b ? "true" : "false"`, which streams the bool itself
+// (E:addons/scriptstdstring.cpp:424-463).
 string Str(int value);
 string Str(uint value);
 string Str(float value);
@@ -163,9 +168,9 @@ string Str(const vector2& value);
 void print(const string& text);
 
 // --- ENML (enml.h, 0.7.12) -------------------------------------------------------------------
-// name { key = value; } sections. Values keep their inner CRLFs; \; and \\
-// escapes; leading whitespace skipped, trailing kept; '/' comments outside
-// values. getInt/getUint/getFloat use sscanf and LEAVE `out` UNWRITTEN when the
+// name { key = value; } sections. Files are read in text mode, so a value's
+// inner line breaks are LF; \; and \\ escapes; leading whitespace skipped,
+// trailing kept; '/' comments outside values. getInt/getUint/getFloat use sscanf and LEAVE `out` UNWRITTEN when the
 // key is missing (data.enml has no global.lv20 and addToExp depends on it).
 class enmlEntity {
 public:
@@ -180,8 +185,11 @@ private:
 
 class enmlFile {
 public:
-    uint parseString(const string& text);          // returns the number of entities read
+    // 0 on success, else the 1-based line of the error (E:enml.h:461-584).
+    uint parseString(const string& text);
     bool parseFromFile(const string& absolutePath);
+    // Empties the file (E:enml.h:380-383).
+    void clear() { m_entities.clear(); m_order.clear(); }
     bool exists(const string& entity) const;
     string get(const string& entity, const string& attribute) const;   // "" when missing
     bool getInt(const string& entity, const string& attribute, int& out) const;
@@ -195,6 +203,39 @@ public:
 private:
     std::map<string, enmlEntity> m_entities;
     std::vector<string> m_order;
+};
+
+// --- array<T> (the AngelScript add-on): `int[] g_exp(2, 0)` is
+// `array<int> g_exp(2, 0)`. Indexing is bounds-checked and aborts the running
+// function like AngelScript's; length()/resize()/insertLast() as registered.
+template <typename T>
+class array {
+public:
+    array() = default;
+    explicit array(uint count) : m_items(count) {}
+    array(uint count, const T& value) : m_items(count, value) {}
+    // `const float[] peaks = { ... }` (environment.as:46).
+    array(std::initializer_list<T> items) : m_items(items) {}
+    T& operator[](uint i) {
+        if (i >= m_items.size()) throw ScriptException("array index out of bounds");
+        return m_items[i];
+    }
+    const T& operator[](uint i) const {
+        if (i >= m_items.size()) throw ScriptException("array index out of bounds");
+        return m_items[i];
+    }
+    uint length() const { return static_cast<uint>(m_items.size()); }
+    void resize(uint count) { m_items.resize(count); }
+    void insertLast(const T& value) { m_items.push_back(value); }
+    void removeLast() { if (!m_items.empty()) m_items.pop_back(); }
+    auto begin() { return m_items.begin(); }
+    auto end() { return m_items.end(); }
+    auto begin() const { return m_items.begin(); }
+    auto end() const { return m_items.end(); }
+private:
+    // std::vector<bool> hands out proxies, which cannot bind to T& above;
+    // std::deque<bool> is not specialised (`bool[] g_castingLight`, main.as:58).
+    std::conditional_t<std::is_same_v<T, bool>, std::deque<bool>, std::vector<T>> m_items;
 };
 
 // --- dictionary (the AngelScript add-on), as the scripts use it: a map from a

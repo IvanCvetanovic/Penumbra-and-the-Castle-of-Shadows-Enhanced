@@ -9,7 +9,8 @@
 // ETHScene.cpp) over TinyXML with TIXML_ENCODING_LEGACY: bytes pass through as
 // cp1252, &apos; &amp; &lt; &gt; &quot; are decoded, CRLF and LF both accepted.
 // A missing element or attribute keeps the default written here, which is the
-// 0.7.12 constructor's default.
+// 0.7.12 Reset() value (E:ETHEntityFile.cpp:699-747, ETHParticleManager.cpp:105-126,
+// ETHCommon.h:91-92) - so a bare EntityDef{} is what the reader starts from.
 
 #include <map>
 #include <memory>
@@ -42,7 +43,7 @@ struct ParticleSystemDef {
     string bitmap;              // <Bitmap>, a file in particles/
     string soundEffect;         // <SoundEffect>, a file in soundfx/ ("" = none)
     bool allAtOnce = false;
-    float boundingSphere = 0.0f;
+    float boundingSphere = 512.0f;
     ALPHA_MODE alphaMode = AM_PIXEL;
     int nParticles = 0;         // particles="..."
     vector2 gravity{0.0f};
@@ -58,14 +59,14 @@ struct ParticleSystemDef {
     float randomizeLifeTime = 0.0f;   // randLifeTime / randomLifeTime
     float angleDir = 0.0f;
     float randAngle = 0.0f;
-    float size = 0.0f;
+    float size = 1.0f;
     float randomizeSize = 0.0f;
     float growth = 0.0f;
     float minSize = 0.0f;
-    float maxSize = 0.0f;
+    float maxSize = 99999.0f;
     int repeat = 0;             // 0 = endless
     int animationMode = 1;      // 1 PLAY_ANIMATION, 2 PICK_RANDOM_FRAME
-    vector3 luminance{1.0f};
+    vector3 luminance{0.0f};
     float angleStart = 0.0f;
     float randAngleStart = 0.0f;
 
@@ -76,8 +77,8 @@ struct ParticleSystemDef {
 // <Light>: ETH_LIGHT.
 struct LightDef {
     bool active = false;
-    bool isStatic = true;
-    bool castShadows = false;
+    bool isStatic = false;
+    bool castShadows = true;
     float range = 256.0f;
     float haloBrightness = 1.0f;
     float haloSize = 64.0f;
@@ -95,12 +96,12 @@ struct EntityDef {
     bool isStatic = false;
     bool collidable = false;
     uint startFrame = 0;
-    bool applyLight = false;
+    bool applyLight = true;
     bool castShadow = false;
     ALPHA_MODE blendMode = AM_PIXEL;
     float layerDepth = 0.0f;
     float soundVolume = 1.0f;
-    float shadowScale = 1.0f;
+    float shadowScale = 0.0f;
     float shadowLengthScale = 1.0f;
     float shadowOpacity = 1.0f;
     float specularPower = 50.0f;
@@ -121,7 +122,7 @@ struct EntityDef {
 
 // One <Entity id=... spriteFrame=...> in <EntitiesInScene>.
 struct ScenePlacement {
-    int id = -1;
+    int id = 0;
     uint spriteFrame = 0;
     string entityName;          // <EntityName>: a .ent file name or a bare label ("spawn", "help"...)
     glm::vec4 color{1.0f};      // <Color> (always 1,1,1,1 in the shipped scenes)
@@ -132,7 +133,7 @@ struct ScenePlacement {
 
 struct SceneProperties {
     float lightIntensity = 2.0f;
-    vector3 ambient{1.0f};
+    vector3 ambient{0.3f};
     vector2 zAxisDirection{0.0f, -1.0f};   // 0.7.12 default; levels say (0,0)
 };
 

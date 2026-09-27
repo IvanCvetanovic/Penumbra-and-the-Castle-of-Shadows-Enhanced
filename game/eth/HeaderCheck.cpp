@@ -11,3 +11,5 @@
 #include "eth/Random.hpp"
 #include "eth/Scene.hpp"
 #include "eth/Snapshot.hpp"
+#include "eth/ImageInfo.hpp"
+#include "eth/Text.hpp"

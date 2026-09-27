@@ -25,6 +25,7 @@
 namespace Penumbra::Eth {
 
 class Scene;
+class SampleBank;
 
 class Entity {
 public:
@@ -101,8 +102,10 @@ public:
 
     bool HasParticleSystem() const;
     bool HasParticleSystem(uint n) const;
-    // Kill stops new particles; those in flight finish. Mirror negates the start
-    // point, direction and randomisation on X (and gravity when asked).
+    // Kill stops the RE-release of particles whose life ended; those in flight
+    // finish, and unreleased particles of the first wave still release
+    // (ETHParticleManager.cpp:676-689). Mirror negates the start point,
+    // direction and randomisation on X (and gravity when asked).
     void KillParticleSystem(uint n);
     bool ParticlesKilled(uint n) const;
     bool MirrorParticleSystemX(uint n, bool mirrorGravity);
@@ -114,7 +117,8 @@ public:
     float GetLightRange() const { return m_def.light.range; }
     void SetLightColor(const vector3& color) { m_def.light.color = color; }
     vector3 GetLightColor() const { return m_def.light.color; }
-    void SetEmissiveColor(const vector3& color) { m_def.emissiveColor = glm::vec4(color, m_def.emissiveColor.a); }
+    // The alpha becomes 1 (E:ETHEntity.cpp:320-323).
+    void SetEmissiveColor(const vector3& color) { m_def.emissiveColor = glm::vec4(color, 1.0f); }
     vector3 GetEmissiveColor() const { return vector3(m_def.emissiveColor); }
 
     // --- The runtime's side (Machine, Scene, snapshot); scripts never call these.
@@ -132,16 +136,54 @@ public:
     // The ORIGINAL pixel size of the sprite image (0,0 without one), set by the
     // Scene when the entity is created (it reads image headers, not pixels).
     vector2 m_bitmapSize{0.0f};
+    // Whether <HaloBitmap> could be read: GetSize() of a sprite-less light uses
+    // the halo size only then (ETHRenderEntity.cpp:1011-1022).
+    bool m_haloLoaded = false;
+
+    // 0.7.12 tested the loaded sprite POINTER in some places (GetCurrentSize,
+    // CheckTemporaryEntities, drawing) and the <Sprite> STRING in others
+    // (IsTemporary): this is the pointer.
+    bool HasSpriteImage() const {
+        return !m_def.sprite.empty() && m_bitmapSize.x > 0.0f && m_bitmapSize.y > 0.0f;
+    }
 
     // Particle systems, created from m_def.particles when the entity joins a
-    // scene. Slot n exists iff m_def.particles has an n-th system.
+    // scene. Slot n holds a manager iff the n-th system has particles > 0
+    // (LoadParticleSystem skipped empty ones, ETHRenderEntity.cpp:343-373).
     std::vector<std::unique_ptr<ParticleManager>> m_particles;
+    ParticleManager* ParticleSlot(uint n) const {
+        return n < m_particles.size() ? m_particles[n].get() : nullptr;
+    }
+    // Per slot, the Machine frame of the manager's creation or last Update,
+    // and of its last Update (0 = never). 0.7.12 gave every manager its own
+    // timer (ETHParticleManager.cpp:652-654), so frameSpeed is min(frames since
+    // then, 2) - 0 for a system created and updated in one frame (a scene
+    // load), 2 after a gap - and a second Update in one frame did nothing
+    // worth repeating, so the runtime updates a system at most once a frame.
+    std::array<uint, 2> m_particleClock{};
+    std::array<uint, 2> m_particleUpdatedAt{};
+
+    // GetMaxHeight/GetMinHeight (ETHRenderEntity.cpp:1166-1192): the z extent
+    // the scene's depth range grows by.
+    float MaxHeight() const;
+    float MinHeight() const;
+    // ComputeDepth (ETHRenderEntity.cpp:642-663).
+    float ComputeDepth(float maxHeight, float minHeight) const;
 
     // Set by Scene: which scene this entity is linked into (null once deleted
     // or when its scene is destroyed), and whether a callback is bound to it.
     Scene* m_scene = nullptr;
     bool m_hasCallback = false;
     string m_callbackName;          // the ETHCallback_<name> it binds to, if any
+
+    // ForceSFXStop on the final release (ETHRenderEntity.cpp:88-113): the last
+    // handle going stops this entity's particle samples - unless the runtime
+    // removed it as a finished temporary (StopSFXWhenDestroyed(false),
+    // ETHScene.cpp:482) or its scene was torn down by a load (which stops every
+    // sample anyway). The bank is a token the Machine renews at every load, so
+    // an entity from an earlier scene never stops a same-named later sample.
+    bool m_stopSfxWhenDestroyed = true;
+    std::weak_ptr<SampleBank> m_sfxBank;
 
     // Kill(): IsAlive false, unlinked. Only Scene calls it.
     void MarkDead() { m_alive = false; }

@@ -106,7 +106,13 @@ public:
     void Frame(const InputFrame& input);
 
     const RenderSnapshot& Snapshot() const { return m_snapshot; }
+    // Frames run so far; GetTime() is FrameIndex()*1000/60 ms, exactly.
     uint FrameIndex() const { return m_frameIndex; }
+    // How many script calls a ScriptException aborted (each one logged once
+    // per site): the suites check it, the layer may show it.
+    uint ScriptAborts() const { return m_scriptAborts; }
+    // Each distinct "<where>: <what>" that aborted, as logged (once per site).
+    const std::set<string>& AbortSites() const { return m_loggedAborts; }
 
     // --- The runtime API (the free functions in Eth.hpp forward here) ------
     uint GetTime() const { return m_timeMs; }
@@ -114,6 +120,13 @@ public:
     float UnitsPerSecond(float value) const { return value * m_frameSeconds; }
     float GetFPSRate() const { return 60.0f; }
 
+    // The three registered LoadScene forms (ETHEngine.cpp:853-883). They only
+    // record the request; Frame() serves it after the next loop. The 1-argument
+    // form clears preLoop and loop - and an empty loop name leaves the current
+    // loop running (LoadSceneScripts, ETHEngine.cpp:885-912). The 3-argument
+    // form keeps a bucket size an earlier request of the same frame gave.
+    void LoadScene(const string& file);
+    void LoadScene(const string& file, const string& onLoad, const string& onLoop);
     void LoadScene(const string& file, const string& onLoad, const string& onLoop, const vector2& bucketSize);
     bool SaveScene(const string& file);
     string GetSceneFileName() const;
@@ -171,29 +184,67 @@ public:
     SampleBank& Samples() { return m_samples; }
     Random& Rng() { return m_rng; }
 
-    // Files. GetAbsolutePath resolves under the game root; the scripts' two
-    // writes (hs.enml, scenes/checkpoint.esc) are redirected to the user root.
+    // Files. GetAbsolutePath resolves under the game root (programPath + "/" +
+    // f, ETHEngine.cpp:1616-1619); the scripts' two writes (hs.enml,
+    // scenes/checkpoint.esc) are redirected to the user root.
+    //
+    // ReadPath and WritePath take EITHER a path relative to the game root
+    // ("scenes/checkpoint.esc") OR an absolute path under the game root (what
+    // GetAbsolutePath returned, e.g. in enmlFile::writeToFile); both name the
+    // same file. ReadPath: the user root's copy if it exists, else the
+    // original's; a path outside the game root comes back unchanged.
+    // WritePath: the same relative path under the user root, with its parent
+    // directories created; "" when there is no user root or the path is not
+    // under the game root (nothing is ever written into the original).
     string GetAbsolutePath(const string& relative) const;
-    string ReadPath(const string& relative) const;    // user copy if it exists, else the original
-    string WritePath(const string& relative) const;   // under the user root ("" if none)
+    string ReadPath(const string& relative) const;
+    string WritePath(const string& relative) const;
+    // A relative path, or an absolute one under the game root: a path the two
+    // above redirect.
+    bool IsGamePath(const string& path) const;
 
     // --- For the layer ------------------------------------------------------
     bool QuitRequested() const { return m_quit; }
     WindowRequest& Window() { return m_window; }
     Scene* CurrentScene() { return m_scene.get(); }
+    const Scene* CurrentScene() const { return m_scene.get(); }
     const MachineConfig& Config() const { return m_config; }
-    // Parsed .ent definitions, cached by file name.
+    bool CursorHidden() const { return m_cursorHidden; }
+    // Parsed .ent definitions (entities/<file>), cached by file name; null when
+    // the file is missing or malformed.
     const EntityDef* EntityDefinition(const string& file);
     // The original pixel size of an image under the game root (0,0 if unreadable).
     vector2 ImageSize(const string& relativePath);
     // Invoke a named callback on an entity (Scene uses it); false if none.
     bool RunCallback(const string& name, ETHEntity entity);
 
+    // The shared sprite cache 0.7.12 keyed by BASENAME (ETHResourceManager.cpp:
+    // 63-118): LoadSprite, SetBackgroundImage and every entity's sprite, normal,
+    // gloss and halo land in it; GetSpriteSize/DrawSprite look up by basename;
+    // every LoadScene empties it. False when the image cannot be read.
+    bool AddSpriteResource(const string& relativePath);
+    // The frame length UnitsPerSecond uses: 1/60, or 0 on the frame of a load.
+    float FrameSeconds() const { return m_frameSeconds; }
+    // What an entity's final release stops its particle sounds through; renewed
+    // at every load (see Entity::m_sfxBank).
+    std::weak_ptr<SampleBank> SfxBank() const { return m_sfxBank; }
+
 private:
-    void RunGuarded(const char* where, const std::function<void()>& fn);
-    void DoPendingLoad();
+    struct PendingLoad {
+        string file, onLoad, onLoop;
+        vector2 bucketSize{256.0f};
+    };
+    struct SpriteResource {
+        string path;            // as loaded, relative to the game root
+        vector2 size{0.0f};
+    };
+
+    void RunGuarded(const string& where, const std::function<void()>& fn);
+    void DoLoad(const PendingLoad& request);
     void Render();
+    void UpdateParticles(Entity& entity, uint slot);
     void RunCallbacks();
+    const SpriteResource* FindSpriteResource(const string& path) const;
 
     MachineConfig m_config;
     std::map<string, ScriptFunction> m_functions;
@@ -201,16 +252,14 @@ private:
 
     std::unique_ptr<Scene> m_scene;
     string m_loopFunction;
-    struct PendingLoad {
-        string file, onLoad, onLoop;
-        vector2 bucketSize{256.0f};
-    };
+    string m_sceneFileName;
     std::optional<PendingLoad> m_pendingLoad;
 
     uint m_frameIndex = 0;
     uint m_timeMs = 0;
     float m_frameSeconds = 0.0f;
     bool m_justLoaded = false;
+    uint m_scriptAborts = 0;
 
     vector2 m_camera{0.0f};
     vector2 m_screenSize{1024.0f, 768.0f};
@@ -227,8 +276,7 @@ private:
     std::vector<videoMode> m_videoModes;
 
     std::vector<HudCmd> m_hudQueue;             // queued since the last render
-    std::map<string, vector2> m_loadedSprites;  // LoadSprite: basename -> size
-    std::map<string, string> m_spritePaths;     // basename -> path as loaded
+    std::map<string, SpriteResource> m_sprites; // basename -> sprite
     std::map<string, std::unique_ptr<EntityDef>> m_definitions;
     std::map<string, vector2> m_imageSizes;
 
@@ -237,6 +285,7 @@ private:
 
     InputState m_input;
     SampleBank m_samples;
+    std::shared_ptr<SampleBank> m_sfxBank;      // aliases m_samples; see SfxBank()
     Random m_rng;
     RenderSnapshot m_snapshot;
 };
