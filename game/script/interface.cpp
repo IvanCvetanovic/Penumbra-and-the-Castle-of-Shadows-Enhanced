@@ -20,14 +20,12 @@ void drawPlayerStatus(ETHEntity thisEntity)
     const vector2 frameSize = GetSpriteSize("interface/frame.png");
     const vector2 idOffset(frameSize.x*static_cast<float>(playerId), 0);
 
-    // getInt leaves nextExp at 0 when data.enml has no "lv<level>" key (lv20;
-    // what the &out temporary really copied back is still open,
-    // docs/spec/12-logic-ai-world.md:864). A 0 maxHp, maxMp or maxXp aborts at
-    // its division below (interface.as:59-61), before anything is drawn, and
-    // takes the rest of the caller's callback with it (doMpRecovery and after,
-    // controlCharacters.as:297, :340).
-    int nextExp = 0;
-    g_gameData.getInt("global", "lv" + Str(g_charLevel[playerId]), nextExp);   // interface.as:54
+    // interface.as:54 read global.lv<level> directly; data.enml has no lv20,
+    // which left nextExp 0 and aborted this callback at the division below.
+    // E7: expForLevel (Script.hpp) falls back to the last level that has one.
+    // A 0 maxHp or maxMp still aborts at its division (interface.as:59-60),
+    // as in the original, taking the rest of the caller's callback with it.
+    const int nextExp = expForLevel(g_charLevel[playerId]);
     const int maxXp = nextExp;
 
     const int hp = thisEntity->GetIntData("hp");

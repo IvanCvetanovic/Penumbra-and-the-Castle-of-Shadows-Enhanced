@@ -1,0 +1,18 @@
+// Every header of render/ on its own. TextureDecode.hpp first: it is the one
+// header that is not the first include of its own .cpp (TextureCache.cpp is).
+#include "render/TextureDecode.hpp"
+#include "render/AudioOutEngine.hpp"
+#include "render/CameraRig.hpp"
+#include "render/DrawOrder.hpp"
+#include "render/FontAtlas.hpp"
+#include "render/HudRenderer.hpp"
+#include "render/InputMapper.hpp"
+#include "render/LightRenderer.hpp"
+#include "render/Lighting.hpp"
+#include "render/Localization.hpp"
+#include "render/ParticleRenderer.hpp"
+#include "render/Settings.hpp"
+#include "render/ShadowRenderer.hpp"
+#include "render/SpriteRenderer.hpp"
+#include "render/TextureCache.hpp"
+#include "render/View.hpp"

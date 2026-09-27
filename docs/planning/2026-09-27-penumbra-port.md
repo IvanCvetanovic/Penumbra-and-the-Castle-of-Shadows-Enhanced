@@ -47,3 +47,36 @@ in this repository, with the engine improved where the game needs it.
 Engine submodule at 4bfcf67; CMake (engine subproject, game/eth, game/script, PenumbraGame, tests);
 tools/build.bat; CLAUDE.md; docs/spec (eight mapping reports + synthesis); reference/ (gitignored
 Ethanon 0.7.12 source, GS2D r485, disassembly, scripts); the Eth contract headers.
+
+### Step 1 — the Eth runtime (done 2026-09-27, 9c64f8a)
+game/eth implemented from reference/eth-0.7.12: TinyXML legacy readers/writer (all 13 scenes rewrite
+byte-exact), ENML (enml.h's missing-key rule), buckets, typed custom data, soft delete, callbacks by
+name, the 0.7.12 frame order, the HUD queue, drawHash order, ETHParticleManager, input state
+machines, the sample bank, the snapshot. Gates: test_pn_runtime 277, test_pn_formats 589,
+test_pn_particles 81 checks, 0 failures.
+
+### Step 2 — the scripts (done 2026-09-27, 9c64f8a)
+All 25 .as files ported to C++ (game/script), each adversarially reviewed against its .as: one
+discrepancy found (interface.as's float divisions must abort on 0, as AngelScript's asBC_DIVf did).
+Gate: test_pn_boot 46 checks - the real game boots headless, menu -> level1, the wizard spawns,
+walks 150 px/s, jumps 111 px for 50 ticks, his sword lives 20 ticks, 0 script aborts.
+- **E7 (first bug fix):** data.enml has no lv20, and the original read the thresholds directly, so a
+  player skipped level 20 and, past lv30, addToExp never returned. expForLevel (Script.hpp) falls back
+  to the last level that has a threshold; drawPlayerStatus uses it too.
+
+### Step 3 — drawing it (done 2026-09-27)
+game/render: TextureCache (colour keys, DDS, renormalised normal maps, additive/modulate variants),
+DrawOrder (one painter's order from 0.7.12's depths), CameraRig (ortho camera, DisplayEncoded,
+pillarbox), SpriteRenderer, Lighting + LightRenderer (every light live through Light2D, halos,
+torch flicker), ShadowRenderer (the projected strips of dynaShadowVS), ParticleRenderer, FontAtlas
+(system TrueType faces, bold, GDI cell height), HudRenderer, Localization + game/data/strings.json
+(English), InputMapper (gamepads by meaning, keyboard player 2), AudioOutEngine, Settings. Engine
+abb9e8a: Ogg Vorbis (e955663 pins it). PenumbraLayer wires them; main.cpp takes --start, --hold,
+--lang, --widescreen.
+Gates: build zero warnings; test_pn_render_textures 144, _particles 137, _hud 258, _input 166,
+test_pn_audio 177 (all 35 sounds decode), test_pn_render_lights 132 checks with 3 failures (shadow
+edge cases on a bare registry; open). First headless level1 frame compared with
+reference/captures/05_level1_after14s.png: walls, torches, crystals, HUD and English text in place.
+- **Smart App Control.** Freshly linked executables with no version resource were refused at random
+  (Penumbra.exe twice in a row, two suites). With game/windows' icon, VERSIONINFO and manifest on
+  every executable (penumbra_windows_resources), the next launches of all of them were accepted.

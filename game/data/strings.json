@@ -1,0 +1,223 @@
+{
+    "_about": "English for every player-visible Portuguese string of Penumbra e o Castelo das Sombras (2010), read by game/render/Localization. Keys are the original's text in UTF-8 (the game holds it as cp1252 bytes; the loader converts). Line breaks are kept where the original has them, and lines are kept about as long as the Portuguese, because every text is drawn at a fixed place (menu panel at x=652, 391 px wide; help messages at (10,70) in Arial 30; lore signs in Arial Narrow 16). Lookup trims the text's leading and trailing whitespace and puts it back around the English, so keys carry none. Keys starting with '_' are notes. Sources: extracted/app/*.as (DrawText, shadowText, showData, addMessage, Switch labels), data.enml (global.story01-04, soldados, fun, comboTip, bridge, annoying, flyingWall, portalToCastle, warning, nights, wisdom, arena1-6), scenes/*.esc (help signs' 'message', arena thumbnails' 'title'). Not listed: the TESTING-only debug overlays ('FPS: ', 'NPCs: ', controlCharacters.as:206, setupScene.as:329), which the shipped build never compiled.",
+
+    "strings": {
+        "_menu.as:217-339 showData titles": "",
+        "Créditos": "Credits",
+        "Melhores tempos": "Best Times",
+        "Como Jogar": "How to Play",
+        "Jogador versus Jogador": "Player versus Player",
+        "Novo jogo": "New Game",
+        "Sair do jogo": "Quit Game",
+        "Configurações": "Settings",
+
+        "_arena_select.esc thumbnails' 'title' (showData title), numbered as data.enml's arenaN": "",
+        "Obelisco": "Obelisk",
+        "Inferno": "Inferno",
+        "Cova": "The Pit",
+        "Vale": "The Vale",
+        "Templo Sagrado": "Sacred Temple",
+        "Neblina": "Mist",
+
+        "_menu.as:123 como_jogar (heredoc)": "",
+        "•Controles\n Movimento: < e >\n Pulo: ^ ou CTRL (joystick 3)\n Ataque/espada: S (joystick 4)\n Ataque/fogo: D (joystick 2)\n Acionar Luz: ESPAÇO (joystick 1)\n\n Detectar joysticks: segure J\n\n•2 jogadores:\n Se houver um joystick plugado,\n o personagem principal ganha\n a habilidade de invocar a\n criatura que pode ser controlada\n pelo 2º jogador.\n\n Para invocar a criatura basta pres-\n sionar START no 2º controle.\n\n A mágica de invocação custa 50 mana\n e uma vida, mas possibilitará que 2\n jogadores lutem lado-a-lado.\n\n Somente o jogador 1 pode pegar\n checkpoints e passar de fase.":
+            "•Controls\n Move: < and >\n Jump: ^ or CTRL (joystick 3)\n Attack/sword: S (joystick 4)\n Attack/fire: D (joystick 2)\n Cast light: SPACE (joystick 1)\n\n Detect joysticks: hold J\n\n•2 players:\n If a joystick is plugged in,\n the main character gains\n the power to summon a\n creature that can be controlled\n by the 2nd player.\n\n To summon the creature, just\n press START on the 2nd controller.\n\n The summoning spell costs 50 mana\n and one life, but it lets 2\n players fight side by side.\n\n Only player 1 can pick up\n checkpoints and finish a level.",
+
+        "_menu.as:151 config (heredoc)": "",
+        "Ajuste as opções de vídeo como\nresolução de tela e uso de shaders.\n\nConfigure também o uso do joystick\npelo segundo jogador.":
+            "Adjust video options such as\nscreen resolution and shader use.\n\nYou can also set up joystick use\nfor the second player.",
+
+        "_menu.as:159 creditos (heredoc)": "",
+        "André Santee\n -Programação\n -Scripting e mecânica do jogo\n -Efeitos especiais\n -Game design\n\nArthur Santee\n -Modelagem 3D\n -Game design\n\nGabriel Duarte\n -Trilha sonora\n  gabrielduarte.wordpress.com\n\nApproaching Thunderstorm\n -www.freesoundtrackmusic.com\n\nAgradecimentos especiais:\n-James Hastings-Trew por ter nos\n cedido algumas de suas texturas\n  planetpixelemporium.com\n-José Rodolfo Ortale\n-Rafael \"Pet\" Alencar\n-Taina Monclaire":
+            "André Santee\n -Programming\n -Scripting and game mechanics\n -Special effects\n -Game design\n\nArthur Santee\n -3D modelling\n -Game design\n\nGabriel Duarte\n -Soundtrack\n  gabrielduarte.wordpress.com\n\nApproaching Thunderstorm\n -www.freesoundtrackmusic.com\n\nSpecial thanks:\n-James Hastings-Trew for letting\n us use some of his textures\n  planetpixelemporium.com\n-José Rodolfo Ortale\n-Rafael \"Pet\" Alencar\n-Taina Monclaire",
+
+        "_menu.as:186 novo_jogo (heredoc)": "",
+        "Penumbra não é um bom lugar\npara se viver. Quando acaba a\nneblina, chega a tempestade.\n\nEras atrás, um mago muito\npoderoso tomou o controle da\nsombria terra chamada Penumbra,\nnomeando-se o rei deste mundo.\n\nPor diversos séculos, a Ordem dos\nBruxos de Penumbra têm buscado\nderrubar o tirano.\n\nApós incontáveis anos treinando\nas artes da mágica e da luta você\nfoi escolhido pela Ordem para\nir ao Castelo das Sombras\nde Penumbra e assassinar o rei,\nacabando com um reinado que dura\nanos.":
+            "Penumbra is no place to\nmake a life. When the mist\nlifts, the storm rolls in.\n\nAges ago, a mighty sorcerer\nseized control of the\ngloomy land called Penumbra,\nnaming himself king of this world.\n\nFor centuries, the Order of the\nWizards of Penumbra has sought\nto overthrow the tyrant.\n\nAfter countless years training\nin the arts of magic and combat,\nyou have been chosen by the Order\nto go to the Castle of Shadows\nof Penumbra and slay the king,\nending a reign that has lasted\nfor years.",
+
+        "_menu.as:278-283 the Versus screen without a second controller (the two paragraphs are concatenated when one joystick is present)": "",
+        "É necessário ao menos um joystick\n para jogar neste modo.": "At least one joystick is needed\n to play this mode.",
+        "Já há um joystick plugado.\nMude as opções de entrada no menu\nde configurações para poder\nutilizar o teclado e o joystick\npor 2 jogadores.":
+            "One joystick is already plugged in.\nChange the input options in the\nsettings menu so that 2 players\ncan share the keyboard and\nthe joystick.",
+
+        "_menu.as:101 showToggleFullscreenMessage": "",
+        "Pressione Alt+Enter para trocar entre fullscreen e modo janela": "Press Alt+Enter to switch between fullscreen and windowed mode",
+
+        "_util.as:459 loadingMessage": "",
+        "Carregando...": "Loading...",
+
+        "_setupScene.as:360-362 the campaign's end": "",
+        "Seu tempo total foi:": "Your total time was:",
+        "Melhores tempos:": "Best times:",
+
+        "_videoModes.as the video options screen and its Switch labels": "",
+        "Opções de vídeo": "Video Options",
+        "Ativa pixel shaders": "Enable pixel shaders",
+        "Desativa pixel shaders": "Disable pixel shaders",
+        "Janela": "Windowed",
+        "Tela-cheia": "Fullscreen",
+        "2º joystick para jogador 2": "2nd joystick for player 2",
+        "1º joystick para jogador 1": "1st joystick for player 1",
+
+        "_messages: controlCharacters.as, playerInput.as, main.as (MessageManager, Arial 30)": "",
+        "A criatura invocada não pode sair do campo de visão da tela": "The summoned creature cannot leave the screen",
+        "É necessário de 50 mana para invocar a criatura": "You need 50 mana to summon the creature",
+        "Não é possível invocar 2 criaturas ao mesmo tempo": "You cannot summon 2 creatures at once",
+        "Criatura mágica invocada": "Magical creature summoned",
+        "Impossível invocar criatura daqui": "The creature cannot be summoned from here",
+        "Checkpoint...": "Checkpoint...",
+        "É necessário ter 5 de mana para realizar este combo": "You need 5 mana to perform this combo",
+        "Esta mágica já está em execução": "This spell is already active",
+
+        "_help signs: scenes/level1.esc and level3.esc 'message' (ETHCallback_help -> addMessage)": "",
+        "Pulo duplo: para cima enquanto estiver no ar": "Double jump: press up while in the air",
+        "Evite tocar nas bolas de fogo": "Avoid touching the fireballs",
+        "Alguns inimigos são mais fortes que outros": "Some enemies are stronger than others",
+        "Utilize as setas ou as direcionais do joystick para mover-se": "Use the arrow keys or the joystick's d-pad to move",
+        "Caveiras recuperam seu HP": "Skulls restore your HP",
+        "Pressione espaço para ativar a luz": "Press space to cast the light",
+        "Golpe de espada: tecla 'S'": "Sword strike: 'S' key",
+        "Bola de fogo: tecla 'D'": "Fireball: 'D' key",
+        "Próxima fase: seta para baixo": "Next level: down arrow",
+        "Pressione a seta para cima ou CTRL para pular": "Press the up arrow or CTRL to jump",
+        "É uma boa hora para ligar a luz": "This is a good time to cast the light",
+
+        "_lore signs: data.enml global.* (ETHCallback_story, Arial Narrow 16 at alpha 100)": "",
+        "Pelos corredores subterrâneos\nde penumbra é possível chegar\nperto do Castelo das Sombras\nsem chamar muito a atenção":
+            "Through the underground halls\nof Penumbra one can get close\nto the Castle of Shadows\nwithout drawing much attention",
+        "Este portal mágico é usado para\ntransportar as tropas do rei entre\no subterrâneo e sua fortaleza":
+            "This magic portal is used to\ncarry the king's troops between\nthe underground and his fortress",
+        "Se conseguir passar pela fortaleza, o\nCastelo das Sombras estará bem próximo...":
+            "If you make it past the fortress, the\nCastle of Shadows will be very near...",
+        "Abaixo da fortaleza encontra-se o\njardim do Castelo das Sombras de Penumbra":
+            "Beneath the fortress lies the\ngarden of the Castle of Shadows of Penumbra",
+        "Se esses soldados fossem bons, não\nteriam sido mandados aqui para baixo":
+            "If these soldiers were any good, they\nwould not have been sent down here",
+        "Tentar jogar inimigos na piscina de lava\npode ficar bem divertido":
+            "Throwing enemies into the lava pool\ncan be quite fun",
+        "Experimente algumas combinações de teclas,\ncomo [frente + frente + espada] entre outras":
+            "Try out a few key combinations,\nlike [forward + forward + sword] and more",
+        "Essas pontes precisam de\numa boa reforma": "These bridges are in need\nof some serious repair",
+        "Não é chato ter que fazer o caminho\ntodo outra vez?": "Isn't it annoying to have to walk\nthe whole way again?",
+        "Como será que essas paredes flutuam?": "How do these walls float, I wonder?",
+        "Este portal deve nos levar ao\njardim do castelo...": "This portal should take us to\nthe castle garden...",
+        "Olhe muito bem por onde pisa": "Watch your step very carefully",
+        "No escuro? sim.\nSozinho? Jamais!": "In the dark? Yes.\nAlone? Never!",
+        "Poupe mana antes de entrar na sala do rei": "Save mana before entering the king's hall",
+
+        "_arena descriptions: data.enml global.arena1-6 (showData content on the arena select)": "",
+        "Este grande monumento localiza-se\nna entrada principal do Castelo\ndas Sombras.":
+            "This great monument stands\nat the main entrance of the Castle\nof Shadows.",
+        "As instalações subterrâneas de penumbra\nescondem diversas belezas sombrias.\nAs piscinas de lava são um exemplo.":
+            "The underground halls of Penumbra\nhide many a gloomy beauty.\nThe lava pools are one example.",
+        "A fortaleza do Castelo das Sombras\npossui muitas armadilhas. Olhe bem\npor onde pisa.":
+            "The fortress of the Castle of Shadows\nis riddled with traps. Watch closely\nwhere you step.",
+        "Se Penumbra fosse uma terra mais\namigável, o jardim do Castelo das\nSombras poderia ter muito verde e\nflores. Não é este o caso.":
+            "If Penumbra were a friendlier\nland, the garden of the Castle of\nShadows might be lush with green\nand flowers. That is not the case.",
+        "Pouco se sabe sobre este misterioso\nlocal. Alguns dizem que foi erguido\npara prestar um tributo aos deuses\nque habitam outros mundos.":
+            "Little is known of this mysterious\nplace. Some say it was raised\nas a tribute to the gods\nwho dwell in other worlds.",
+        "O clima em Penumbra é muito\nagradável. Quando acaba a neblina,\nvem a tempestade. Depois, anoitece.":
+            "The weather in Penumbra is most\npleasant. When the mist lifts,\nthe storm comes. Then night falls.",
+
+        "_constants.as:48 APPLICATION_TITLE (the window's title, for the layer)": "",
+        "Penumbra e o Castelo das Sombras - Ethanon Engine": "Penumbra and the Castle of Shadows - Ethanon Engine",
+        "Penumbra e o Castelo das Sombras": "Penumbra and the Castle of Shadows"
+    },
+
+    "patterns": [
+        {
+            "_note": "setupScene.as:369 shadowText(endl + endl + \"Jogador \" + winnerId + \" é o vencedor!\" + endl); the blank lines are kept by the lookup",
+            "pt": "Jogador {int} é o vencedor!",
+            "en": "Player {1} wins!"
+        },
+        {
+            "_note": "playerInput.as:393, 416, 436 (mana = 25, 50, 10)",
+            "pt": "É necessário ter {int} mana para este combo",
+            "en": "You need {1} mana for this combo"
+        },
+        {
+            "pt": "É necessário ter {int} mana para esta magia",
+            "en": "You need {1} mana for this spell"
+        },
+        {
+            "_note": "menu.as:323-324, the suffix of a locked arena's text (getTimeString of its score)",
+            "pt": "É necessário terminar o jogo\nem menos de {any} para\nliberar esta arena.",
+            "en": "You must finish the game\nin under {1} to\nunlock this arena."
+        },
+        {
+            "_note": "menu.as:209-215 versus, composed around MAX_PVP_POINTS (3)",
+            "pt": "Escolha uma arena e dispute uma\npartida contra outro jogador.\n\n-Quem derrotar o outro ganha 1 ponto\n-Vence quem fizer {int} pontos primeiro\n-A partida acaba se a diferença no\nplacar exceder {int} pontos",
+            "en": "Choose an arena and fight a\nmatch against another player.\n\n-Defeating the other scores 1 point\n-The first to score {1} points wins\n-The match ends if the gap in\nthe score exceeds {2} points"
+        },
+        {
+            "_note": "setupScene.as:362 \"Melhores tempos:\\n\" + getRecordTimeList() + \"\\n\\n\"",
+            "pt": "Melhores tempos:\n{any}",
+            "en": "Best times:\n{1}"
+        },
+        {
+            "_note": "switch.as:79-82 \"[\" + (current ? bullet : space) + \"] \" + label",
+            "pt": "[{any}] {text}",
+            "en": "[{1}] {2}"
+        },
+        {
+            "_note": "interface.as:65-73, the bars' captions: the same abbreviations in English",
+            "pt": "hp: {int}",
+            "en": "hp: {1}"
+        },
+        {
+            "pt": "mp: {int}",
+            "en": "mp: {1}"
+        },
+        {
+            "pt": "lv: {int}",
+            "en": "lv: {1}"
+        },
+        {
+            "_note": "videoModes.as:47 videoModeToString: numbers only, listed so it is not reported as untranslated",
+            "pt": "{int}x{int}x{int}",
+            "en": "{1}x{2}x{3}"
+        }
+    ],
+
+    "images": {
+        "_about": "Images with Portuguese baked into their pixels. 'en' is the English variant's path relative to this file's folder, empty until a later step generates it (same size and layout as the original, so every rectangle the scripts compute still fits); Localization::ImageVariant returns it when it exists. 'labels' is what the variant must say. entities/gameover.png already reads 'Game Over'.",
+        "entities/menu_buttons.png": {
+            "en": "",
+            "_note": "menu.esc's buttons (buttons.ent), 512x512, one label per row; its normal map entities/normalmaps/menu_nm_buttons.png and gloss map entities/menu_buttons_gloss.png carry the same letters and need matching variants",
+            "normal": "entities/normalmaps/menu_nm_buttons.png",
+            "gloss": "entities/menu_buttons_gloss.png",
+            "labels": {
+                "Novo jogo": "New Game",
+                "Créditos": "Credits",
+                "Melhores tempos": "Best Times",
+                "Sair": "Quit",
+                "Configurações": "Settings",
+                "Como jogar": "How to Play",
+                "Versus": "Versus"
+            }
+        },
+        "entities/gamelogo.png": {
+            "en": "",
+            "_note": "the title on the menu (gamelogo.ent)",
+            "labels": {
+                "Penumbra": "Penumbra",
+                "e o Castelo das Sombras": "and the Castle of Shadows"
+            }
+        },
+        "interface/arrow_button.png": {
+            "en": "",
+            "_note": "the video options screen's back button (videoModes.as:81, DrawSprite)",
+            "labels": { "Voltar": "Back" }
+        },
+        "interface/input_options1.png": {
+            "en": "",
+            "_note": "g_controls' first option: keyboard for player 1, joystick for player 2 (switch.as:98, DrawSprite)",
+            "labels": { "Jogador 1": "Player 1", "Jogador 2": "Player 2" }
+        },
+        "interface/input_options2.png": {
+            "en": "",
+            "_note": "g_controls' second option: a joystick for each player",
+            "labels": { "Jogador 1": "Player 1", "Jogador 2": "Player 2" }
+        }
+    }
+}

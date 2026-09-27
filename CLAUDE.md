@@ -64,7 +64,8 @@ reference/           gitignored: Ethanon 0.7.12 source (eth-0.7.12), GS2D r485, 
    ("An Application Control policy has blocked this file", exit 126, ctest "Not Run") and EVERY
    refusal pops a notification for Ivan. Launch each suite/exe at most once per build; never loop
    ctest or relink-and-retry; report a refused exe as "not run". `ctest --test-dir build -N` lists
-   without launching.
+   without launching. Every executable gets `penumbra_windows_resources` (icon, VERSIONINFO,
+   manifest): refusals stopped once they carried them.
 6. **Builds are serialised.** Only one agent builds at a time, in the one `build/` directory:
    `cmd //c "tools\build.bat --target <T>"` from Git Bash at the repo root. Zero warnings (/W4).
    Parallel agents write code; an integration step builds and runs.

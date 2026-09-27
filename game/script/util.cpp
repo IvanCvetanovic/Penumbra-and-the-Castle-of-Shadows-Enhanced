@@ -446,15 +446,30 @@ bool fadeOut(const uint startTime, float& bias)
 void addToExp(const uint player, const int exp)
 {
     g_exp[player] += exp;
-    int nextExp = 0;
-    g_gameData.getInt("global", "lv" + Str(g_charLevel[player]), nextExp);
+    // E7: expForLevel in place of the original's two direct lookups
+    // (util.as:409, :415), which left nextExp stale on a missing key.
+    int nextExp = expForLevel(g_charLevel[player]);
     while (g_exp[player] >= nextExp)
     {
         const int diff = g_exp[player]-nextExp;
         g_charLevel[player]++;
-        g_gameData.getInt("global", "lv" + Str(g_charLevel[player]), nextExp);
+        nextExp = expForLevel(g_charLevel[player]);
         g_exp[player] = diff;
     }
+}
+
+// E7 (Script.hpp). Searches down from the level asked for; a level at or
+// below 0, or a data.enml with no lv keys at all, needs one point, so a
+// broken file cannot turn this into a loop either.
+int expForLevel(const int level)
+{
+    for (int l = level; l >= 1; --l)
+    {
+        int value = 0;
+        if (g_gameData.getInt("global", "lv" + Str(l), value) && value > 0)
+            return value;
+    }
+    return 1;
 }
 
 // util.as:420. Clamped at 0, and at maxHp only if the entity has that key.

@@ -153,6 +153,13 @@ void drawRect(uint rectColor);                        // util.as:374
 bool fadeIn(uint startTime);                          // util.as:379
 bool fadeOut(uint startTime, float& bias);            // util.as:392 (bias is &out: unwritten when it returns true)
 void addToExp(uint player, int exp);                  // util.as:406
+// ENHANCEMENT E7 (not in the original): the experience a level needs,
+// data.enml's global.lv<level>, or - where data.enml has no such key - the
+// last level below it that has one. The original read the key directly and a
+// missing one left the value unwritten: lv20 is missing, so level 19 skipped
+// straight past 20, and past lv30 addToExp's loop never ended (docs/spec/12
+// :864, :1111). Used by addToExp and drawPlayerStatus.
+int expForLevel(int level);
 void addToHp(ETHEntity thisEntity, int value);        // util.as:420
 void addToMp(ETHEntity thisEntity, int value);        // util.as:435
 void shadowText(const vector2& pos, const string& text, const string& font, float size,

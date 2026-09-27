@@ -33,6 +33,23 @@ if (NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/engine/CMakeLists.txt")
 endif()
 add_subdirectory(engine)
 
+# Every executable carries the original's icon, version information and a
+# manifest (game/windows). Smart App Control, enforcing on the development
+# laptop, judges an unsigned executable by what it looks like until it has a
+# reputation: freshly linked suites without these were refused at random, the
+# game with them was not (docs/planning, step 3).
+function(penumbra_windows_resources target description)
+    if (NOT WIN32)
+        return()
+    endif()
+    set(PENUMBRA_ICON "${PENUMBRA_ORIGINAL_DIR}/penumbra.ico")
+    set(PENUMBRA_RC_NAME "${target}")
+    set(PENUMBRA_RC_DESCRIPTION "${description}")
+    configure_file(${PENUMBRA_REPO_DIR}/game/windows/Penumbra.rc.in ${CMAKE_CURRENT_BINARY_DIR}/${target}.rc @ONLY)
+    target_sources(${target} PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/${target}.rc ${PENUMBRA_REPO_DIR}/game/windows/Penumbra.manifest)
+endfunction()
+set(PENUMBRA_REPO_DIR ${CMAKE_CURRENT_SOURCE_DIR})
+
 add_subdirectory(game)
 
 option(PENUMBRA_BUILD_TESTS "Build the port's test_pn_* suites" ON)

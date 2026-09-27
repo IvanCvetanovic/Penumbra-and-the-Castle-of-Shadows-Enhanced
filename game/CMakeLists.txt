@@ -30,6 +30,9 @@ set(PENUMBRA_DATA_DIR "${CMAKE_CURRENT_SOURCE_DIR}/data"
 target_compile_definitions(PenumbraGame PUBLIC PENUMBRA_DATA_DIR="${PENUMBRA_DATA_DIR}")
 
 add_executable(Penumbra main.cpp)
+# The icon (the original's, read in place), version information and the
+# manifest (per-monitor DPI aware); the top-level CMakeLists.txt says why.
+penumbra_windows_resources(Penumbra "Penumbra and the Castle of Shadows - Enhanced")
 target_link_libraries(Penumbra PRIVATE PenumbraGame)
 
 foreach(target PenumbraGame Penumbra)
