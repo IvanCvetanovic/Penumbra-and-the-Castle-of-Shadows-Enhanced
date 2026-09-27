@@ -1021,6 +1021,8 @@ void ScenarioCheckpoint(Game& g) {
     std::printf("  touchingGround 0 while walking at x");
     for (const float x : seamFrames) std::printf(" %.1f", x);
     std::printf(" (floor01 176 and 177 meet at x 3328)\n");
+    // E11 (Script.hpp kFloorSeamFix): no walking frame on flat floor is airborne.
+    CHECK_MSG(!Penumbra::Script::kFloorSeamFix || seamFrames.empty(), "E11: the wizard turned airborne at a floor seam");
     CHECK(leftFrames.size() >= 3u && *leftFrames.begin() == 4u && *leftFrames.rbegin() <= 7u);
     CHECK(rightFrames.size() >= 3u && *rightFrames.begin() == 8u && *rightFrames.rbegin() <= 11u);
     CHECK_EQ(standLeft, 4u);

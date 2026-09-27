@@ -47,6 +47,8 @@ void doCharacterCollision(ETHEntity thisEntity, const bool useNpcInvisibleWalls)
 
     const int size = static_cast<int>(collidableEntities.size());   // controlCharacters.as:58
     bool thinnerBoxHit = false;
+    // E11: whether ANY box collided this frame passed the thinner-box test.
+    bool anyThinnerBoxHit = false;
     // controlCharacters.as:60: read nowhere - even the TESTING overlay's line that
     // named it (:215) is commented out inside that block's /* */.
     uint collisionCount = 0;
@@ -126,6 +128,7 @@ void doCharacterCollision(ETHEntity thisEntity, const bool useNpcInvisibleWalls)
             // controlCharacters.as:126: overwritten by every solid hit, so the
             // touchingGround test after the loop sees only the last one.
             thinnerBoxHit = checkBoxHit(thinnerBox, box);
+            anyThinnerBoxHit = anyThinnerBoxHit || thinnerBoxHit;   // E11
 
             const vector2 currentPos = thisEntity->GetPositionXY();
             uint collDir = findBoxDirection(thisBox, box);   // controlCharacters.as:129
@@ -199,7 +202,12 @@ void doCharacterCollision(ETHEntity thisEntity, const bool useNpcInvisibleWalls)
     }
     else
     {
-        if (!thinnerBoxHit)
+        // controlCharacters.as:192 tested the thinner box of the LAST box
+        // collided only, so where two floor tiles meet under the wizard the
+        // second tile's miss made him airborne for a frame and restarted his
+        // walk cycle (docs/planning, E11). kFloorSeamFix asks whether any box
+        // held him; off, it is the original's line.
+        if (!(kFloorSeamFix ? anyThinnerBoxHit : thinnerBoxHit))
         {
             thisEntity->AddUIntData("touchingGround", 0);
         }

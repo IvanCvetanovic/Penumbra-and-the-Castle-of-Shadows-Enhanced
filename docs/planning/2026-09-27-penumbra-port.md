@@ -39,6 +39,7 @@ in this repository, with the engine improved where the game needs it.
 | E5 | English text alongside Portuguese, switchable | Portuguese only |
 | E6 | Settings persisted (language, window, volumes, controls) | options reset every launch |
 | E7 | Original bugs fixed where they are plainly bugs (listed per step) | — |
+| E11 | Standing on two floor tiles at once counts as standing (kFloorSeamFix) | the last tile decided; one airborne frame at each seam |
 | E8 | Smooth motion: the world (sprites, lights and halos, shadows, particles, camera) drawn between the last two ticks by SimulationClock::alpha, one tick behind; whole-pixel ends stay on whole pixels; never across a scene load, a frame gap or a jump over 64 px; settings.smoothMotion (on) and --smooth on\|off, off under --fixed-step | one tick per 60 Hz vsync |
 | E9 | Shadows drawn live, their visible end at the light's reach | static shadows baked into lightmaps at 8x the caster's height |
 | E10 | Enhanced settings on the original's options screen (videoModes.as): keyboard player 2, widescreen/4:3 levels, Português/English at once, music and effects volume in 10% steps (a new Stepper widget beside Switch), saved to settings.json | the screen offered only the video-mode list, pixel shaders, window/fullscreen and the joystick layout, all forgotten at exit |
@@ -170,6 +171,18 @@ test_pn_formats were refused by Smart App Control on both launches of this build
   engine - and licenses/ holds the LGPL-3.0 and GPL-3.0 texts, which the package carries.
   test_pn_boot and test_pn_formats were refused again after a relink (third time); not run on this
   build - test_pn_scenarios (532 checks) covers boot's ground, and no parser changed.
+
+### Step 7 — the floor seam (done 2026-09-27)
+- **E11:** doCharacterCollision (controlCharacters.as:126, :192) kept only the LAST collided box's
+  thinner-box test, so where two floor tiles meet the wizard counted as airborne for one frame and his
+  walk cycle restarted (seen in level1 at x 3322 and 3334.5, the floor01 176/177 seam at 3328).
+  Script.hpp kFloorSeamFix counts every box collided that frame; false restores the original line.
+  test_pn_scenarios: the walk over the seam now reports no airborne frame (532 checks, 0 failures,
+  before the assertion was added); the added assertion's build was refused by Smart App Control.
+- Kept as the original (harmless): a checkpoint is part of its own save, so each respawn at it takes
+  it again; g_lives also counts Versus deaths (resetData restores them; Versus shows points).
+- Performance on this laptop (Radeon 780M, 1920x1080, level 3): 60 fps at vsync (FIFO), 2.7 ms of
+  CPU per frame at the median; loading a level costs one 0.7 s frame (the original: ~14 s).
 
 ### Open
 - **Engine push**: b999491 is only in this checkout. Build and run the touched engine suites

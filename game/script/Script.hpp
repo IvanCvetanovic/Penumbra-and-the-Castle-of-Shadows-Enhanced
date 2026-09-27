@@ -160,6 +160,12 @@ void addToExp(uint player, int exp);                  // util.as:406
 // straight past 20, and past lv30 addToExp's loop never ended (docs/spec/12
 // :864, :1111). Used by addToExp and drawPlayerStatus.
 int expForLevel(int level);
+
+// ENHANCEMENT E11 (not in the original): doCharacterCollision's "still on the
+// ground" test counts every floor box collided this frame, not only the last,
+// so the wizard no longer turns airborne for a frame at a seam between two
+// floor tiles (controlCharacters.as:126, :192). false = the original.
+inline constexpr bool kFloorSeamFix = true;
 void addToHp(ETHEntity thisEntity, int value);        // util.as:420
 void addToMp(ETHEntity thisEntity, int value);        // util.as:435
 void shadowText(const vector2& pos, const string& text, const string& font, float size,
