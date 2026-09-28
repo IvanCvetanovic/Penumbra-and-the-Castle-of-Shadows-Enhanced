@@ -267,8 +267,13 @@ Gates: build zero warnings (full build, then Penumbra alone); test_pn_all 16/16.
   game: the rig moves the window under a resting mouse on its first screenshot, and the Magic Portals
   session's game windows were opening on the same desktop, taking the focus (auto-pause) and some of the
   rig's input. Live desktop tests stopped while another session drives windows here.
-- The pause's pointer now selects a row only when it moves at least 2 logical pixels between ticks (a
-  window nudged under a resting mouse or a rounding wobble no longer takes the selection from the keys).
+- The pause's pointer now selects a row only when it moves at least 2 logical pixels between ticks: a
+  wobble of a pixel (DPI or rounding) no longer takes the selection from the keys. It does not cover
+  the rig's anomaly: a window moved far under a resting mouse jumps the pointer past the threshold in
+  one tick (a player cannot do that; dragging a window carries the cursor with it). Side effect: a
+  pointer creeping slower than 2 px a tick (about 120 logical px/s) does not highlight a row; its click
+  still chooses it. No check pins the threshold yet. If it matters, measure from an anchor set when the
+  pause opens and on each key move, and pin wobble, slow creep and key-then-rest in test_pn_render_pause.
 - Pause transitions (open, close, selection, with the inputs that caused them) are logged to
   %APPDATA%\Penumbra\penumbra.log, for Ivan's own testing.
 Gates: test_pn_all once - 16 suites, 3719 checks, 0 failures.

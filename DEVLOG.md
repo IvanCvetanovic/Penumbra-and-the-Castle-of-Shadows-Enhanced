@@ -89,7 +89,9 @@ and only after the build log shows it was relinked.
 froze the game (two frames 1.5 s apart byte-identical), and Main menu reached the main menu. Two
 anomalies came from the test, not the game: the window moved under a resting mouse, and the Magic
 Portals session's game windows, opening on the same desktop, took the focus and some of the rig's
-input. The pointer now selects a pause row only when it moves 2 logical pixels or more, and every
-pause transition is logged to penumbra.log. Live desktop tests stopped while another session drives
+input. The pointer now selects a pause row only when it moves 2 logical pixels or more in a tick
+(against a pixel of rounding wobble; the rig's window move is larger and is a test artifact, and a
+pointer creeping slower than that does not highlight), and every pause transition is logged to
+penumbra.log. Live desktop tests stopped while another session drives
 windows here; E13/E14 by hand (Ivan) is the remaining check. test_pn_all once: 16 suites, 3719
 checks, 0 failures.

@@ -152,8 +152,9 @@ PauseStep PauseMenu::Update(const PauseInput& input) {
     const bool confirmPressed = input.confirm && !was.confirm;
     const bool backPressed = input.back && !was.back;
     // Moved by the player's hand, not by a rounding wobble: a pointer that
-    // shifts by a pixel or less (a window nudged under a resting mouse, a
-    // DPI round trip) must not take the selection from the keys.
+    // shifts by a pixel or so in a tick (a DPI round trip) must not take the
+    // selection from the keys. A pointer creeping slower than this does not
+    // highlight a row; its click still chooses one.
     const bool pointerMoved = glm::length(input.pointer - was.pointer) >= kPointerMovePixels;
     const bool focusLost = was.focused && !input.focused;
     if (input.focused && !was.focused) m_focusGrace = kFocusGraceTicks;
