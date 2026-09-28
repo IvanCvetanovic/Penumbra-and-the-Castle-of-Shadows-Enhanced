@@ -84,3 +84,12 @@ Penumbra.exe eight times after Smart App Control had refused it (eight notificat
 build-then-run chain relaunched a refused test_pn_all because the edit meant to relink it had not
 applied. Rule written down (memory + CLAUDE.md rule 5 practice): launch a new binary once, alone,
 and only after the build log shows it was relinked.
+
+**Session 2, the pause live.** Driven with real input events: Esc in level 1 opened the pause,
+froze the game (two frames 1.5 s apart byte-identical), and Main menu reached the main menu. Two
+anomalies came from the test, not the game: the window moved under a resting mouse, and the Magic
+Portals session's game windows, opening on the same desktop, took the focus and some of the rig's
+input. The pointer now selects a pause row only when it moves 2 logical pixels or more, and every
+pause transition is logged to penumbra.log. Live desktop tests stopped while another session drives
+windows here; E13/E14 by hand (Ivan) is the remaining check. test_pn_all once: 16 suites, 3719
+checks, 0 failures.
