@@ -528,12 +528,135 @@ check.bat clean on every touched file; not built or run this step.
 Gates: Windows build zero warnings, test_pn_all once, 17 suites, 7539 checks, 0 failures; Linux
 7450, 0 failures; Android both ABIs build.
 
+### Step 20 - the touch controls: the knob at rest, the options' back, hints in touch wording (E16 addendum, 2026-09-28)
+Three of Step 19's "for Ivan's eye" points, which he approved as fixes.
+- **The knob at rest.** Magic Rampage's focus brackets were drawn at the direction control's centre
+  with no thumb on it, framing the empty gap between left and right like a missing button. They are
+  now drawn only while the thumb points a direction (past the dead zone and not within 22.5 degrees
+  of straight up), on the button it holds as before; by where the thumb is, not by what is held,
+  since a combo presses a side with no thumb there. A manifest field, `knob.atRest`
+  (TouchManifest::knobAtRest): the struct's default is the old `true`; the shipped manifest and
+  DefaultManifest() say `false`; the placeholder manifest, which names every field, says `true` and
+  keeps its knob at its disc's centre. A check now holds DefaultManifest() equal to the shipped
+  file.
+- **The corner button, screen by screen.** It was Back on the options screen too, beside the
+  original's own Back arrow (putBackButton, videoModes.as:65), which a finger already clicks. The
+  rule is now TouchControls::CornerFor, one reason per screen: the pause - hidden (its rows lead
+  on); a level or an arena - pause; their end screens - back (waitForInputToMenu); the arena select
+  and game over - back (they read cancel only and draw no button); the options - hidden (a Back of
+  their own); the main menu and before any scene - hidden (cancel does nothing there).
+- **Control hints in touch wording.** Every text the game draws that names a key, found by
+  grepping the scripts, data.enml and the scenes for setas, tecla, pressione, joystick,
+  direcionais, CTRL, espaço, 'S', 'D', Enter, Esc, START: level 1's seven help signs (HUD line and
+  its echo under the wizard), data.enml's comboTip lore sign, and menu.as's como_jogar panel. Each
+  has a touch wording in both languages in strings.json's new `touch` section, keyed by the
+  original's Portuguese, naming the buttons by what they show ("Utilize as setas no canto inferior
+  esquerdo para mover-se" / "Use the arrows at the bottom left to move", "Golpe de espada: botão
+  da espada" / "Sword strike: the sword button"). Localization::SetTouch, set by the layer from its
+  switch every frame before the HUD draws, so the options row takes effect at once; the lookup is
+  whole strings, in either language, with its own memo (the English memo must not hand a touch
+  wording back once touch is off); off, not a byte changes. The scripts are untouched. Left in
+  the original's words on purpose: "Pressione Alt+Enter..." (E20 does not draw it on a phone; a
+  desktop with --touch still has the keyboard), the Versus screen's joystick messages and the
+  settings blurb (what the mode needs, not a key to press), the options' row labels.
+- **How to Play, decided:** the controls block's keyboard names give way to the buttons line for
+  line ("Pulo: botão de pulo", "Ataque/espada: botão da espada"...), "Detectar joysticks: segure J"
+  becomes the combo buttons and the pause button (no J on a phone; the menu finds a pad by itself),
+  and the 2-player part (the second pad's START) stays word for word. Not both lists: the panel's
+  column holds three more lines, not seven. The joystick numbers go too: a line with a button name
+  and "(joystick N)" is wider than the 381 px column, and a player on a pad turns the touch controls
+  off in the options and reads the original. 26 lines, 720 px of the 768.
+- **Tests.** test_pn_render_touch: no knob at rest or with the thumb in the dead zone or straight
+  up, nor under a combo's side; one while left, right, down or a diagonal is held; the placeholder's
+  knob at rest at its centre, idle alpha, as before; DefaultManifest() == the shipped file; atRest
+  read and a wrong type reported; CornerFor for every scene the original ships (13, none
+  unclassified), a checkpoint reload, the end screens, the pause; on the options screen nothing drawn
+  and a finger on the original's Back a click, no Esc; level 1 of the real game shows the first help
+  sign on the HUD, and it translates to its touch wording (on) and to today's English (off).
+  test_pn_render_hud: every text of the original's (and the enhanced rows' labels) that names a
+  control has a touch wording in both languages unless kept for a reason, and nothing else has one;
+  every `touch` key matches one of them (9); off gives exactly what a Localization never told about
+  touch gives, on gives the wording, and a language switch with touch on gives it too; the three
+  spellings of como_jogar (CRLF, LF, Script.hpp's lone CR) find one wording; the wordings fit where
+  they are drawn, measured with the bundled stand-in fonts (help line under 1024 px at Arial 30,
+  the panel 381 px by 768, the lore sign's two lines); HudRenderer draws the wording's glyphs with
+  touch on and the original's with it off.
+Gates: Windows check.bat clean at /W4 on every touched file (TouchControls, Localization,
+PenumbraLayer, HeaderCheck, both suites); not built or run. Linux (WSL, GCC, -Wall -Wextra
+-Wpedantic) no warnings in the touched files; test_pn_all 17 suites, 7879 checks: render_hud 631
+and render_touch 3584, 0 failures each (in level 1 the first help sign's text is on the HUD 4
+times - its line and the echo, each shadowed). The tree also held the shadows work in progress at
+the time, whose render_lights failed 2 ShadowRenderer slot-count checks; that is not this step's.
+Not tried on a device: the emulator pass is a later step's.
+
+### Step 21 - the baked shadows take only their own light (2026-09-28)
+- **0.7.12** (ETHRenderEntity::GenerateLightmap, E:ETHRenderEntity.cpp:465-531; E:ETHScene.cpp:929-947;
+  docs/spec/21 §2.6, §3.2): a static caster's shadow from a static light existed only in the
+  lightmaps. Per static light, the receiver's light pass alone went into a scratch target, every
+  static castShadow entity's shadow was drawn over THAT target (BeginShadowPass: AM_PIXEL, black
+  shadow.dds; maxOpacity: alpha byte(255 x opacity); drawToTarget: length x 8), none for an
+  ET_VERTICAL receiver, and the target was added into the lightmap; the live pass of that pair, and
+  its real-time shadow, never ran. So the shadow took away its own light and left the ambient and
+  every other light alone. The port drew those shadows black over the finished frame (real-time
+  alpha, length cut to the light's reach), ambient and all: the menu barrels' shadows near-black
+  where the original's are purple.
+- **Now** (render/Lighting.cpp kBakedShadowsOwnLight, on): ShadowRenderer hands each baked pair's
+  strip - the bake's, x 8 uncut at alpha byte(255 x opacity) - to its light (BakedStrips ->
+  LightRenderer -> the light's Light2DShadowsComponent), shadow.dds's alpha is the engine's mask,
+  and every lit static sprite that does not stand up (Sprite2DLight::lightShadows) multiplies each
+  light's add, highlight included, by what that light's strips leave of it at the fragment: the
+  bake's scratch target, per fragment, the lights still live (the torches flicker). Real-time pairs (a dynamic
+  light or a dynamic caster) are overlays as before. Off, the old capped overlay returns.
+- **Engine** (opt-in): Light2DShadowsComponent and Light2DShadowMask; scene binding 13 (a count,
+  per-light ranges in GatherLights2D's order, a 32 x 32 mask, up to 256 strips of 64 bytes);
+  Sprite2DLight::lightShadows (flag bit 7); shadeSprite2D multiplies each light's clamped add by
+  lightShadowKeep2D after the alpha test; CPU twins Light2D::ShadowMaskAt, ShadowStripUv,
+  ShadowKeep; ARCHITECTURE.md. frag.spv regenerated with the SDK's glslc (which first reproduced
+  the committed frag.spv byte for byte from the committed source). With this engine and the switch
+  off, the menu and levels 1-3 are pixel-identical to the previous build's (lavapipe).
+- **Measured** (lavapipe, 1024x768, Portuguese, frame 300, cursor (875,383); mean absolute
+  difference from the original's captures; out/shots/shadows): menu 4.96 -> 4.14 over the screen;
+  on the 8.0% of pixels the change moves by more than 8 levels, 12.14 -> 3.98 (49913 closer by more
+  than 4 levels, 870 further). The top-right barrel's shadow (920-990 x 270-390): original
+  (61, 21, 64), before (44, 25, 54), after (59, 22, 62); the shadow right of the middle barrels
+  (660-740 x 300-360): (37, 4, 36), (34, 11, 27), (39, 7, 37); unshadowed floor unchanged. The
+  devils' long shadows from their fires now darken the floor behind them as the original's do.
+  Level 1 (05_level1_after14s): the shadow of the block under the first torch, 6567 pixels changed,
+  8.55 -> 0.91 (whole screen 0.78 -> 0.67). Levels 2 and 3, pvp_lv3, pvp_lv6 and arena_select have
+  no baked pair in view at frame 300: unchanged (the arenas against the switch-off build, the
+  menu's and levels' stand-in for the old one). pvp_lv2 changes (122030 pixels: its torches'
+  tile_shadow cones and the crystals' single_tile_shadow strips, x 9.5, now removing only their
+  light, fully); no capture of the original to compare.
+- **Not modelled**: the bake used every static caster in the scene, the snapshot holds the visible
+  buckets' only (Machine.cpp, Scene::VisibleBuckets: no border ring in the menu and levels, one in
+  PvP), so a caster in a bucket off screen casts nothing - its shadow points away from its light,
+  so into view mostly when that light is off screen too, where the port has no live light at all
+  (Open, below); a receiver is looked up where it is
+  drawn (the menu floor is at z 0, where that is where it is lit); the scratch target's 8-bit steps.
+  Around the menu's left fire the port is 15-20 levels greener than the original in shadow and out
+  of it (its halo or its light: another difference), which the black overlay used to hide inside
+  the upper-left barrel's shadow (0-20 x 300-370: 8.9 -> 13.0). The fragment stage now reads 7
+  storage buffers (was 6): not run on a phone or an Apple GPU this step.
+Gates: check.bat clean at /W4 on every touched C++ file (game, engine, the three suites); Linux
+(WSL, GCC) test_pn_all 17 suites, 7935 checks, 0 failures (render_lights 249; the tree held the
+touch work in progress too); engine alone on Linux, 57 of 57 suites (test_light2d 281, test_materials
+418). Windows not built or run this step.
+- **Caught on the emulator before the push**: binding 13 made eight storage buffers per scene set
+  while VulkanRenderer's pool still budgeted a literal seven. Windows and Linux drivers allocated
+  the set anyway; SwiftShader refused it and the APK died at startup (allocateDescriptorSets:
+  ErrorOutOfPoolMemory) - for every engine game, not only this one. The pool is now sized from
+  VulkanPipeline::kStorageBuffersPerSceneSet (8, listed binding by binding, pinned by
+  test_materials), and createDescriptorSetLayout throws if the layout it builds ever disagrees.
+  After the fix the APK starts, and the menu's shadows are purple on the emulator too.
+Gates after the fix: Windows build zero warnings, test_pn_all once - 17 suites, 8024 checks, 0
+failures; Linux 7935, 0 failures; engine 57 of 57 (ctest, on Linux); Android both ABIs, the menu
+and level 1 on the emulator (out/shots/android/fixes/final_*.png).
+
 ### Open
 - **iOS: builds, untested** (Ivan, 2026-09-28: "leave it alone, we only need it to build"). No frame
   in the simulator (base-instance drawing); no signed device run. Not to be worked on unless asked.
-- **Light, still not modelled** (Step 16): the live shadows (E9) darken the ambient too, where
-  0.7.12's baked shadow removed only its own light (the menu barrel's shadow is near-black, the
-  original's purple); baked light on static sprites' soft edges went through the sprite's own blend;
+- **Light, still not modelled** (Step 16; the baked shadows are Step 21's, which lists what they
+  still miss): baked light on static sprites' soft edges went through the sprite's own blend;
   a translucent texel's depth write blocked fog drawn behind it; the bake used every static light
   in the scene, the port's live lights come from visible buckets (unverified at screen edges).
 - **Touch (E16), for Ivan:** a combo button (Left-Left-Sword and Down-Forward-Fire are hard with a

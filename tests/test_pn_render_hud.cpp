@@ -1,8 +1,10 @@
 // The top layer's text: game/data/strings.json against the original's real
 // strings (every literal that reaches DrawText, the heredocs, data.enml's lore
 // and arena texts, the scenes' help signs and arena titles), the composed
-// strings through the pattern rules, FontAtlas's layout of a two-line cp1252
-// string with an accent (when the system has the fonts), and the quads
+// strings through the pattern rules, the control hints' touch wording (E16:
+// every text that names a key has it, in both languages, and fits where it is
+// drawn; with touch off not a byte changes), FontAtlas's layout of a two-line
+// cp1252 string with an accent (when the system has the fonts), and the quads
 // HudRenderer builds on a bare registry.
 #include <algorithm>
 #include <cmath>
@@ -10,6 +12,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iterator>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -323,6 +326,244 @@ void TestLocalization() {
     CHECK(!own.HasTranslation("Tchau (7)"));
 }
 
+// ENHANCEMENT E16: the control hints' touch wording (strings.json "touch").
+// A text that holds one of these names a key or a button to press (cp1252).
+bool NamesAControl(const std::string& text) {
+    for (const char* word : {"seta", "Seta", "tecla", "Tecla", "CTRL", "espa\xE7o", "ESPA\xC7O", "joystick",
+                             "para cima", "segure", "Pressione", "Enter", "'S'", "'D'", "START"}) {
+        if (text.find(word) != std::string::npos) return true;
+    }
+    return false;
+}
+
+// What a touch wording must no longer say: the keyboard's keys. The
+// joystick, only in a one-line hint: the how-to-play keeps the 2-player
+// part, whose second pad is still a pad.
+bool NamesAKey(const std::string& text) {
+    for (const char* word : {"CTRL", "tecla", "espa\xE7o", "ESPA\xC7O", "'S'", "'D'", "SPACE", "space", " key",
+                             "segure J", "hold J", "setas ou", "arrow keys", "d-pad", "< e >", "< and >"}) {
+        if (text.find(word) != std::string::npos) return true;
+    }
+    return text.find('\n') == std::string::npos && text.find("joystick") != std::string::npos;
+}
+
+// The form strings.json keys take: line ends normalised, trimmed.
+std::string Key(const std::string& cp1252) {
+    const std::string text = Render::Localization::Normalise(cp1252);
+    std::size_t begin = 0;
+    std::size_t end = text.size();
+    while (begin < end && (text[begin] == ' ' || text[begin] == '\n' || text[begin] == '\t')) ++begin;
+    while (end > begin && (text[end - 1] == ' ' || text[end - 1] == '\n' || text[end - 1] == '\t')) --end;
+    return text.substr(begin, end - begin);
+}
+
+// What HudRenderer turns into quads: one for each character with pixels.
+std::size_t Inked(const std::string& text) {
+    return static_cast<std::size_t>(
+        std::count_if(text.begin(), text.end(), [](char c) { return c != ' ' && c != '\n' && c != '\t'; }));
+}
+
+void TestTouchHints() {
+    enum class Where { Literal, Label, Heredoc, Enml, Sign, Title, Composed };
+    struct Text {
+        std::string text;
+        Where kind;
+        std::string where;
+    };
+    // Every text of the original's that reaches the HUD, as the suite above
+    // collects them, and the enhanced rows' labels.
+    std::vector<Text> texts;
+    for (const Literal& literal : kLiterals) texts.push_back({Unescape(literal.source), Where::Literal, literal.file});
+    for (const char* label : kE10Labels) texts.push_back({label, Where::Label, "videoModes.cpp (E10)"});
+    const std::string menu = ReadBytes(kApp + "/menu.as");
+    for (const char* name : {"como_jogar", "config", "creditos", "novo_jogo"}) {
+        texts.push_back({Heredoc(menu, name), Where::Heredoc, std::string("menu.as ") + name});
+    }
+    const std::string enml = WithoutCr(ReadBytes(kApp + "/data.enml"));
+    for (const char* key : {"story01", "story02", "story03", "story04", "soldados", "fun", "comboTip", "bridge",
+                            "annoying", "flyingWall", "portalToCastle", "warning", "nights", "wisdom", "arena1",
+                            "arena2", "arena3", "arena4", "arena5", "arena6"}) {
+        texts.push_back({EnmlValue(enml, key), Where::Enml, std::string("data.enml ") + key});
+    }
+    for (const auto& entry : std::filesystem::directory_iterator(kApp + "/scenes")) {
+        if (entry.path().extension() != ".esc") continue;
+        const std::string scene = ReadBytes(entry.path().string());
+        for (const std::string& text : SceneStrings(scene, "message")) {
+            texts.push_back({text, Where::Sign, entry.path().filename().string()});
+        }
+        for (const std::string& text : SceneStrings(scene, "title")) {
+            texts.push_back({text, Where::Title, entry.path().filename().string()});
+        }
+    }
+    const std::string noJoystick = std::string("\xC9 necess\xE1rio ao menos um joystick\n para jogar neste modo.") +
+                                   "\n\nJ\xE1 h\xE1 um joystick plugado.\nMude as op\xE7\xF5" +
+                                   "es de entrada no menu\nde configura\xE7\xF5" +
+                                   "es para poder\nutilizar o teclado e o joystick\npor 2 jogadores.";
+    texts.push_back({noJoystick, Where::Composed, "menu.as versus without a joystick"});
+
+    // The texts that name a control and keep the original's wording, each for
+    // a reason.
+    const std::pair<std::string, const char*> kept[] = {
+        {"Pressione Alt+Enter para trocar entre fullscreen e modo janela",
+         "E20 does not draw it on a phone; a desktop with touch keeps the keyboard it names"},
+        {"\xC9 necess\xE1rio ao menos um joystick\n para jogar neste modo.", "what Versus needs, not a key to press"},
+        {noJoystick, "the same"},
+        {Heredoc(menu, "config"), "the settings blurb: what the screen sets up"},
+        {"2\xBA joystick para jogador 2", "a row's label"},
+        {"1\xBA joystick para jogador 1", "a row's label"},
+        {"Teclado para o jogador 2", "a row's label"},
+        {"Jogador 2 s\xF3 no joystick", "a row's label"},
+    };
+
+    Render::Localization plain;   // never told about touch: today's text
+    CHECK(plain.Load());
+    Render::Localization loc;
+    CHECK(loc.Load());
+    CHECK(!loc.Touch());
+
+    // Every text that names a control has its touch wording in both
+    // languages, unless it is kept, and no other text has one.
+    std::set<std::string> worded;
+    std::vector<const Text*> hints;
+    for (const Text& t : texts) {
+        CHECK_MSG(!t.text.empty(), t.where);
+        const bool names = NamesAControl(t.text);
+        const bool keep = std::any_of(std::begin(kept), std::end(kept),
+                                      [&](const auto& k) { return Key(k.first) == Key(t.text); });
+        const bool touch = loc.HasTouchVariant(t.text);
+        if (names && !keep) CHECK_MSG(touch, t.where + ": names a control but has no touch wording: " + t.text);
+        if (!names || keep) CHECK_MSG(!touch, t.where + ": has touch wording it should not: " + t.text);
+        if (touch && worded.insert(Key(t.text)).second) hints.push_back(&t);
+    }
+    // Every "touch" key is one of these texts (a typo would never match).
+    CHECK_EQ(worded.size(), loc.TouchCount());
+    // Seven help signs, the combo lore sign, the how-to-play panel.
+    CHECK_EQ(loc.TouchCount(), std::size_t{9});
+
+    Render::FontAtlas fonts;
+    fonts.SetSystemFontsEnabled(false);   // the stand-ins: the same widths on every machine
+    for (const Text* hint : hints) {
+        const std::string& text = hint->text;
+        const std::string ptToday = plain.Translate(text, Language::Portuguese);
+        const std::string enToday = plain.Translate(text, Language::English);
+        CHECK(ptToday == text);
+        // Off: exactly today's, in both languages.
+        CHECK_MSG(loc.Translate(text, Language::Portuguese) == ptToday, hint->where);
+        CHECK_MSG(loc.Translate(text, Language::English) == enToday, hint->where);
+
+        // On: the touch wording in either language, no key named.
+        loc.SetTouch(true);
+        const std::string pt = loc.Translate(text, Language::Portuguese);
+        const std::string en = loc.Translate(text, Language::English);
+        CHECK_MSG(pt != ptToday && en != enToday, hint->where);
+        CHECK_MSG(!NamesAKey(pt), hint->where + ": " + pt);
+        CHECK_MSG(!NamesAKey(en), hint->where + ": " + en);
+        // The language switched with touch on, and back.
+        CHECK(loc.Translate(text, Language::Portuguese) == pt);
+        CHECK(loc.Translate(text, Language::English) == en);
+        // Its blank lines around it kept, as a translation keeps them.
+        CHECK(loc.Translate("\n" + text + "\n", Language::English) == "\n" + en + "\n");
+        // What the Language setting draws.
+        loc.SetLanguage(Language::Portuguese);
+        CHECK(loc.Translate(text) == pt);
+        loc.SetLanguage(Language::English);
+        CHECK(loc.Translate(text) == en);
+
+        // Where it is drawn, it fits.
+        for (const std::string& wording : {pt, en}) {
+            if (hint->kind == Where::Sign) {
+                // addMessage's line at (10,70) in Arial 30, on the narrowest screen.
+                const float width = fonts.Layout(wording, "Arial", 30.0f, glm::vec2(10.0f, 70.0f)).width;
+                CHECK_MSG(width > 0.0f && 10.0f + width <= 1024.0f, wording + ": " + std::to_string(width));
+            } else if (hint->kind == Where::Enml) {
+                // A lore sign: as many lines as the original's.
+                CHECK_EQ(std::count(wording.begin(), wording.end(), '\n'), std::count(text.begin(), text.end(), '\n'));
+            } else if (hint->kind == Where::Heredoc) {
+                // showData's panel: 391 px from x 633, the text at +10; from y 70
+                // in Arial Narrow 25 on the 768 px menu (menu.as:217-229).
+                const Render::TextLayout layout = fonts.Layout(wording, "Arial Narrow", 25.0f, glm::vec2(0.0f));
+                CHECK_MSG(layout.width > 0.0f && layout.width <= 381.0f, std::to_string(layout.width));
+                CHECK_MSG(70.0f + static_cast<float>(layout.lines) * layout.lineHeight <= 768.0f,
+                          std::to_string(layout.lines) + " lines");
+            }
+        }
+
+        // Off again: today's text, byte for byte.
+        loc.SetTouch(false);
+        CHECK_MSG(loc.Translate(text, Language::Portuguese) == ptToday, hint->where);
+        CHECK_MSG(loc.Translate(text, Language::English) == enToday, hint->where);
+    }
+
+    // The how-to-play as the compiler read it, without CRs, and as
+    // Script.hpp holds it (CRLF, a lone CR at the end, which is a line break
+    // and stays one): one wording.
+    const std::string howTo = Heredoc(menu, "como_jogar");
+    std::string crlf;
+    for (const char c : WithoutCr(howTo)) {
+        if (c == '\n') crlf += '\r';
+        crlf += c;
+    }
+    loc.SetTouch(true);
+    const std::string howToEn = loc.Translate(howTo, Language::English);
+    CHECK(howToEn.rfind("\x95"
+                        "Touch controls",
+                        0) == 0);
+    CHECK(loc.Translate(WithoutCr(howTo), Language::English) == howToEn);
+    CHECK(loc.Translate(crlf + "\r", Language::English) == howToEn + "\n");
+    CHECK(plain.Translate(crlf + "\r", Language::English) == plain.Translate(howTo, Language::English) + "\n");
+    CHECK(loc.Translate(howTo, Language::Portuguese).rfind("\x95"
+                                                           "Controles de toque",
+                                                           0) == 0);
+    // The 2-player part is the original's, word for word.
+    CHECK(howToEn.find(" press START on the 2nd controller.") != std::string::npos);
+    CHECK(loc.Translate("Utilize as setas ou as direcionais do joystick para mover-se", Language::Portuguese) ==
+          "Utilize as setas no canto inferior esquerdo para mover-se");
+    CHECK(loc.Translate("Golpe de espada: tecla 'S'", Language::English) == "Sword strike: the sword button");
+    // A text touch does not list goes its usual way.
+    CHECK(loc.Translate("Checkpoint...", Language::English) == "Checkpoint...");
+    CHECK(loc.Translate("Caveiras recuperam seu HP", Language::English) == "Skulls restore your HP");
+    CHECK(loc.Translate("Caveiras recuperam seu HP", Language::Portuguese) == "Caveiras recuperam seu HP");
+
+    // HudRenderer draws the touch wording while touch is on, and today's
+    // text once it is off again: a quad for each inked character.
+    entt::registry registry;
+    Render::TextureCache textures(kApp);
+    Render::FontAtlas hudFonts;
+    hudFonts.SetSystemFontsEnabled(false);
+    Render::HudRenderer hud;
+    hud.Attach(registry, textures, hudFonts, loc);
+    Render::View view;
+    view.logicalScreen = glm::vec2(1024.0f, 768.0f);
+    view.windowPixels = glm::uvec2(1024, 768);
+    view.scale = 1.0f;
+    view.viewportMin = glm::vec2(0.0f);
+    view.viewportMax = glm::vec2(1024.0f, 768.0f);
+    Eth::RenderSnapshot snapshot;
+    Eth::HudCmd sign;
+    sign.kind = Eth::HudCmd::Kind::Text;
+    sign.text = "Utilize as setas ou as direcionais do joystick para mover-se";
+    sign.font = "Arial";
+    sign.fontSize = 30.0f;
+    sign.pos = glm::vec2(10.0f, 70.0f);
+    sign.color = 0xFFCBCBE4u;
+    snapshot.hud.push_back(sign);
+    const auto quadsFor = [&]() {
+        std::vector<Supersonic::ScreenOverlay::Quad> quads;
+        hud.Build(snapshot, view, quads);
+        return quads.size();
+    };
+    loc.SetLanguage(Language::English);
+    loc.SetTouch(true);
+    CHECK_EQ(quadsFor(), Inked("Use the arrows at the bottom left to move"));
+    loc.SetTouch(false);
+    CHECK_EQ(quadsFor(), Inked("Use the arrow keys or the joystick's d-pad to move"));
+    loc.SetLanguage(Language::Portuguese);
+    CHECK_EQ(quadsFor(), Inked(sign.text));
+    loc.SetTouch(true);
+    CHECK_EQ(quadsFor(), Inked("Utilize as setas no canto inferior esquerdo para mover-se"));
+    hud.Detach();
+}
+
 bool EndsWithNoCase(std::string text, std::string tail) {
     const auto lower = [](std::string s) {
         std::transform(s.begin(), s.end(), s.begin(), [](char c) {
@@ -558,6 +799,7 @@ int main() {
         return 77;
     }
     TestLocalization();
+    TestTouchHints();
     TestFontStandIns();
     TestFontAtlas();
     TestHudRenderer();

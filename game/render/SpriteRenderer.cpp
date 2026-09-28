@@ -328,6 +328,8 @@ void SpriteRenderer::drawSprite(entt::registry& registry, const Eth::RenderSnaps
     record.bakedEye = lighting.bakedEye;
     record.bakedEyeY = lighting.bakedEyeY;
     record.lightAlphaTest = lighting.lightAlphaTest;
+    // The baked shadows' switch (render/Lighting.cpp): off unless set there.
+    record.lightShadows = lighting.lightShadows;
     const std::string& normal = lighting.lit ? lighting.normalKey : std::string();
     const std::string& gloss = lighting.specularStrength > 0.0f ? lighting.glossKey : std::string();
 

@@ -268,6 +268,7 @@ TouchManifest TouchControls::DefaultManifest() {
     m.dpadDown = "images/touch/dpad_down.png";
     m.knobImage = "images/touch/dpad_knob.png";
     m.knobSize = {112.0f, 112.0f};
+    m.knobAtRest = false;   // the brackets only on the button the thumb holds
     m.deadZone = 0.25f;
     m.idleAlpha = 0.45f;
     m.pressedAlpha = 0.9f;
@@ -343,6 +344,10 @@ TouchManifest TouchControls::ManifestFromJson(const std::string& text, std::stri
             if (knob.IsObject()) {
                 ReadString(knob, "image", where + ".knob", manifest.knobImage, warning);
                 ReadPair(knob, "size", where + ".knob", 1.0f, manifest.knobSize, warning);
+                if (knob.Has("atRest")) {
+                    if (knob["atRest"].IsBool()) manifest.knobAtRest = knob["atRest"].AsBool();
+                    else Warn(warning, where + ".knob.atRest is not true/false");
+                }
             } else {
                 Warn(warning, where + ".knob is not an object");
             }
@@ -368,6 +373,24 @@ bool TouchControls::EnabledBySetting(const std::string& setting) {
     if (EqualsIgnoreCase(setting, "on")) return true;
     if (EqualsIgnoreCase(setting, "off")) return false;
     return kMobileBuild;   // "auto"
+}
+
+TouchCorner TouchControls::CornerFor(const TouchScreen& screen) {
+    // The pause's own rows lead on: Resume, Main menu.
+    if (screen.paused) return TouchCorner::Hidden;
+    // A level or an arena opens E13's pause; their end screens have no pause
+    // and leave on cancel (doLoop's waitForInputToMenu, escToGoToMenu).
+    if (screen.level) return screen.gameFinished ? TouchCorner::Back : TouchCorner::Pause;
+    // The main menu: cancel does nothing there (goToMenu, menu.as:383).
+    // Before the first scene: nothing to leave.
+    if (screen.sceneFile.empty() || screen.sceneFile == "scenes/menu.esc") return TouchCorner::Hidden;
+    // The options: the original's own Back arrow is on the screen
+    // (putBackButton, videoModes.as:65), clicked by a finger as by the mouse;
+    // a second one beside it would only say the same twice.
+    if (screen.sceneFile == "scenes/videoModes.esc") return TouchCorner::Hidden;
+    // The arena select and game over read cancel alone (waitForInputToMenu,
+    // menu.as:374) and draw no button for it: this is their way out.
+    return TouchCorner::Back;
 }
 
 TouchInsets TouchControls::WindowInsetsToLogical(const TouchInsets& windowPixels, const View& view) {
@@ -615,6 +638,7 @@ TouchStep TouchControls::Update(const TouchInput& input) {
     const float radius = 0.5f * std::min(dpadSize.x, dpadSize.y);
     m_knob = dpad.Centre();
     m_dpadHeld = false;
+    m_dpadPointing = false;
     const auto hold = [&step](TouchAction action) { step.held[static_cast<std::size_t>(action)] = true; };
     for (auto& entry : m_contacts) {
         Held& held = entry.second;
@@ -630,6 +654,7 @@ TouchStep TouchControls::Update(const TouchInput& input) {
                     const bool nearVertical = across < std::fabs(d.y) * kTan22;
                     // Down and both of its diagonals (y is down).
                     const bool downward = d.y > 0.0f && d.y >= across * kTan22;
+                    m_dpadPointing = !nearVertical || downward;
                     if (!comboRuns) {
                         if (!nearVertical) {
                             m_lastSide = d.x > 0.0f ? TouchAction::Right : TouchAction::Left;
@@ -729,7 +754,9 @@ void TouchControls::AppendOverlay(std::vector<Eth::HudCmd>& out) const {
                 draw(m_manifest.dpadRight, box.min, box.Size(), held(TouchAction::Right) ? pressed : idle, false);
                 draw(m_manifest.dpadDown, box.min, box.Size(), held(TouchAction::Down) ? pressed : idle, false);
                 const glm::vec2 knob = m_manifest.knobSize * std::clamp(m_manifest.scale, kMinScale, kMaxScale);
-                if (knob.x > 0.0f && knob.y > 0.0f) {
+                // At rest (no thumb, or one in the dead zone or pointing up)
+                // only where the manifest keeps it there.
+                if (knob.x > 0.0f && knob.y > 0.0f && (m_manifest.knobAtRest || m_dpadPointing)) {
                     draw(m_manifest.knobImage, m_knob - knob * 0.5f, knob, m_dpadHeld ? pressed : idle, false);
                 }
                 break;

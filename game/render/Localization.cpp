@@ -117,6 +117,8 @@ bool Localization::LoadFromJson(const std::string& utf8Json, std::string& error)
     m_images.clear();
     m_memo.clear();
     m_imageResolved.clear();
+    m_touchStrings.clear();
+    m_touchMemo.clear();
     m_loaded = false;
 
     // A BOM is what an editor on Windows may leave; the parser would call it
@@ -148,6 +150,13 @@ bool Localization::LoadFromJson(const std::string& utf8Json, std::string& error)
     for (const auto& [path, entry] : root["images"].AsObject()) {
         if (path.empty() || path[0] == '_') continue;
         m_images[PathKey(path)] = entry["en"].AsString();
+    }
+    // E16: keyed as "strings" is, so a hint is found however the original
+    // spelled its line ends.
+    const auto touchText = [](const std::string& utf8) { return Trimmed(Normalise(Eth::Utf8ToCp1252(utf8))); };
+    for (const auto& [key, entry] : root["touch"].AsObject()) {
+        if (key.empty() || key[0] == '_' || !entry.IsObject()) continue;
+        m_touchStrings[touchText(key)] = TouchText{touchText(entry["pt"].AsString()), touchText(entry["en"].AsString())};
     }
     m_loaded = true;
     return true;
@@ -350,7 +359,44 @@ int Localization::translateCore(const std::string& core, std::string& out, const
     return 1;
 }
 
+const Localization::TouchText* Localization::touchVariant(const std::string& cp1252) const {
+    if (m_touchStrings.empty() || !HasLetters(cp1252)) return nullptr;
+    auto it = m_touchMemo.find(cp1252);
+    if (it == m_touchMemo.end()) {
+        TouchText wrapped;
+        const std::string text = Normalise(cp1252);
+        std::size_t begin = 0;
+        std::size_t end = text.size();
+        while (begin < end && IsSpace(text[begin])) ++begin;
+        while (end > begin && IsSpace(text[end - 1])) --end;
+        if (const auto found = m_touchStrings.find(text.substr(begin, end - begin)); found != m_touchStrings.end()) {
+            // The blank lines around it, as translateNormalised keeps them.
+            const auto around = [&](const std::string& core) {
+                return core.empty() ? core : text.substr(0, begin) + core + text.substr(end);
+            };
+            wrapped.pt = around(found->second.pt);
+            wrapped.en = around(found->second.en);
+        }
+        if (m_touchMemo.size() >= kMemoCap) m_touchMemo.clear();
+        it = m_touchMemo.emplace(cp1252, std::move(wrapped)).first;
+    }
+    return it->second.pt.empty() && it->second.en.empty() ? nullptr : &it->second;
+}
+
+bool Localization::HasTouchVariant(const std::string& cp1252) const {
+    const TouchText* touch = touchVariant(cp1252);
+    return touch != nullptr && !touch->pt.empty() && !touch->en.empty();
+}
+
 std::string Localization::Translate(const std::string& cp1252, const Language language) const {
+    // E16: a control hint's touch wording, in either language. Only while
+    // touch is on, so with it off every text takes the path it always took.
+    if (m_touch) {
+        if (const TouchText* touch = touchVariant(cp1252); touch != nullptr) {
+            const std::string& worded = language == Language::Portuguese ? touch->pt : touch->en;
+            if (!worded.empty()) return worded;
+        }
+    }
     if (language == Language::Portuguese || !m_loaded || !HasLetters(cp1252)) return cp1252;
     if (const auto it = m_memo.find(cp1252); it != m_memo.end()) return it->second;
 

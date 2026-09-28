@@ -7,7 +7,7 @@
   "scale": 1.0,
   "controls": {
     "dpad": {
-      "_note": "Left, right and down (K_LEFT, K_RIGHT, K_DOWN); no up, which only jumps. One round control the thumb slides on without lifting; 'deadZone' is the fraction of the radius at the centre that means nothing. Its look is Magic Rampage's buttons: the three arrows are each a whole button alone on a canvas the size of the control, where its direction's sector is (tools/art/make_mr_touch_art.py checks that every pixel of the left and right buttons is that direction alone), each brightened while its direction is held; the base image is empty (Magic Rampage has no disc). The knob, Magic Rampage's focus brackets, follows the thumb onto the button it holds.",
+      "_note": "Left, right and down (K_LEFT, K_RIGHT, K_DOWN); no up, which only jumps. One round control the thumb slides on without lifting; 'deadZone' is the fraction of the radius at the centre that means nothing. Its look is Magic Rampage's buttons: the three arrows are each a whole button alone on a canvas the size of the control, where its direction's sector is (tools/art/make_mr_touch_art.py checks that every pixel of the left and right buttons is that direction alone), each brightened while its direction is held; the base image is empty (Magic Rampage has no disc). The knob, Magic Rampage's focus brackets, follows the thumb onto the button it holds; 'atRest' false draws nothing there while no thumb points a direction, since the brackets at the centre would frame the empty gap between the left and right buttons like a missing button (true keeps the knob at the centre, as the placeholder look's disc has it).",
       "image": "images/touch/dpad.png",
       "anchor": "bottomLeft",
       "offset": [24, 24],
@@ -22,7 +22,8 @@
       },
       "knob": {
         "image": "images/touch/dpad_knob.png",
-        "size": [112, 112]
+        "size": [112, 112],
+        "atRest": false
       }
     },
     "jump": {
@@ -91,7 +92,7 @@
       "hitPadding": 12
     },
     "back": {
-      "_note": "K_ESC in the arena select, the options, game over and the end screens: back to the menu (waitForInputToMenu, escToGoToMenu). Hidden in the main menu and in the pause.",
+      "_note": "K_ESC in the arena select, game over and the end screens: back to the menu (waitForInputToMenu, escToGoToMenu). Hidden in the main menu, in the options (the original's own Back arrow is there, clicked by a finger) and in the pause.",
       "image": "images/touch/back.png",
       "anchor": "topRight",
       "offset": [20, 44],

@@ -6,6 +6,8 @@
 #include "core/Components.hpp"
 #include "core/Log.hpp"
 #include "core/MeshData.hpp"
+#include "render/Lighting.hpp"
+#include "render/TextureDecode.hpp"
 #include "renderer/MeshRegistry.hpp"
 
 namespace Penumbra::Render {
@@ -37,10 +39,13 @@ float ShadowLength(const glm::vec3& pe, const glm::vec3& pl, float height, float
 
 } // namespace
 
+ShadowRenderer::ShadowRenderer() : m_bakedOwnLight(BakedShadowsOwnLight()) {}
+
 // ---- the pure mapping -------------------------------------------------------------
 
 ShadowGeometry ShadowRenderer::ComputeShadow(const Eth::SpriteDraw& caster, const Eth::LightDraw& light,
-                                             const glm::vec3& sceneAmbient, bool capBakedLength) {
+                                             const glm::vec3& sceneAmbient, bool capBakedLength,
+                                             bool bakedOwnLight) {
     ShadowGeometry g;
     // BeginShadowPass (E:ETHShaderManager.cpp:369-371): the light casts and the
     // entity casts; DrawProjShadow needs a sprite (E:ETHRenderEntity.cpp:824).
@@ -72,8 +77,11 @@ ShadowGeometry ShadowRenderer::ComputeShadow(const Eth::SpriteDraw& caster, cons
                caster.shadowLengthScale;
     // entityZ = max(m_shadowZ, z), m_shadowZ being 0 for every entity (:905, :68).
     const float entityZ = std::max(0.0f, pe.z);
+    // Drawn into a lightmap: the length stays the bake's, and the alpha is
+    // maxOpacity's (below).
+    const bool asBaked = g.baked && bakedOwnLight;
 
-    if (g.baked && capBakedLength) {
+    if (g.baked && capBakedLength && !asBaked) {
         // ENHANCEMENT (ShadowRenderer.hpp, LENGTH): the visible end at most
         // where the light still reaches, at the caster's height. Along the
         // strip's middle the texture's v runs from 1 at the base, planarDist -
@@ -93,16 +101,21 @@ ShadowGeometry ShadowRenderer::ComputeShadow(const Eth::SpriteDraw& caster, cons
         g.length = std::min(g.length, std::max(height, fits));
     }
 
-    // THE ALPHA: the real-time formula (:918-935), for the baked pairs too
+    // THE ALPHA. Into a lightmap maxOpacity kept attenBias at 1 (:919-921,
+    // GenerateLightmap passes true, E:ETHRenderEntity.cpp:514). Otherwise the
+    // real-time formula (:918-935), for the overlaid baked pairs too
     // (ShadowRenderer.hpp, ALPHA). The light's colour is the one the frame's
     // light list held, dimmed by the particle ratio when it is not static
     // (E:ETHScene.cpp:821-826).
-    const glm::vec3 color = light.color * (light.isStatic ? 1.0f : light.particleRatio);
-    float attenBias = 1.0f - squaredDist / std::max(squaredDist, squaredRange);
-    attenBias *= std::min(std::max({color.r, color.g, color.b}), 1.0f);
-    const float ambientColorLen = 1.0f - (sceneAmbient.r + sceneAmbient.g + sceneAmbient.b) / 3.0f;
-    attenBias = std::min(attenBias * ambientColorLen, 1.0f);
-    attenBias *= std::clamp(1.0f - pe.z / std::max(height, 1.0f), 0.0f, 1.0f);
+    float attenBias = 1.0f;
+    if (!asBaked) {
+        const glm::vec3 color = light.color * (light.isStatic ? 1.0f : light.particleRatio);
+        attenBias = 1.0f - squaredDist / std::max(squaredDist, squaredRange);
+        attenBias *= std::min(std::max({color.r, color.g, color.b}), 1.0f);
+        const float ambientColorLen = 1.0f - (sceneAmbient.r + sceneAmbient.g + sceneAmbient.b) / 3.0f;
+        attenBias = std::min(attenBias * ambientColorLen, 1.0f);
+        attenBias *= std::clamp(1.0f - pe.z / std::max(height, 1.0f), 0.0f, 1.0f);
+    }
     // GS_BYTE(attenBias * 255 * opacity): truncated (:935), and nothing under 8 (:937).
     const float byteValue = attenBias * 255.0f * opacity;
     g.alpha8 = byteValue <= 0.0f ? 0 : static_cast<int>(std::min(byteValue, 255.0f));
@@ -139,6 +152,21 @@ ShadowGeometry ShadowRenderer::ComputeShadow(const Eth::SpriteDraw& caster, cons
     return g;
 }
 
+Supersonic::Light2DShadowMask ShadowRenderer::DecodeMask(const std::string& shadowDdsPath) {
+    Supersonic::Light2DShadowMask mask;
+    // Plain: no colour key, the alpha as the file holds it - the channel
+    // shadow.dds's A8L8 carries the shape in (its luminance is 0 throughout).
+    const DecodedImage image = DecodeTexture(shadowDdsPath, TextureVariant::Plain);
+    if (!image.Valid()) return mask;
+    const auto texels = static_cast<std::size_t>(image.width) * static_cast<std::size_t>(image.height);
+    if (texels > Supersonic::kMaxShadowMask2DTexels) return mask;
+    mask.width = static_cast<std::uint32_t>(image.width);
+    mask.height = static_cast<std::uint32_t>(image.height);
+    mask.alpha.resize(texels);
+    for (std::size_t t = 0; t < texels; ++t) mask.alpha[t] = static_cast<float>(image.rgba[t * 4 + 3]) / 255.0f;
+    return mask;
+}
+
 // ---- the pool ----------------------------------------------------------------------
 
 void ShadowRenderer::Attach(entt::registry& registry, TextureCache& textures) {
@@ -158,6 +186,9 @@ void ShadowRenderer::Detach(entt::registry& registry) {
     m_slots.clear();
     m_byPair.clear();
     m_seen.clear();
+    m_bakedStrips.clear();
+    m_bakedStripCount = 0;
+    registry.ctx().erase<Supersonic::Light2DShadowMask>();
     m_textures = nullptr;
     m_meshes = nullptr;
     m_shadowKey.clear();
@@ -278,6 +309,11 @@ void ShadowRenderer::Draw(entt::registry& registry, const Eth::RenderSnapshot& s
     m_rebuilds = 0;
     for (Slot& slot : m_slots) slot.used = false;
     m_seen.clear();
+    // One list per light of this snapshot, emptied (their storage kept), so a
+    // light no strip reaches this frame hands the engine none.
+    m_bakedStrips.resize(snapshot.lights.size());
+    for (LightStrips& strips : m_bakedStrips) strips.clear();
+    m_bakedStripCount = 0;
 
     MeshRegistry* meshes = nullptr;
     if (auto* const* found = registry.ctx().find<MeshRegistry*>()) meshes = *found;
@@ -302,6 +338,19 @@ void ShadowRenderer::Draw(entt::registry& registry, const Eth::RenderSnapshot& s
         return;
     }
 
+    // The mask every baked strip samples: shadow.dds's alpha, as the overlay
+    // draws it. Decoded once; published whenever the context lacks it (it is
+    // runtime state, and Detach takes it away).
+    if (m_bakedOwnLight) {
+        if (!m_maskDecoded && m_textures != nullptr) {
+            m_mask = DecodeMask(m_textures->GameRoot() + "/" + kShadowTexture);
+            m_maskDecoded = true;
+        }
+        if (!m_mask.alpha.empty() && registry.ctx().find<Light2DShadowMask>() == nullptr) {
+            registry.ctx().emplace<Light2DShadowMask>(m_mask);
+        }
+    }
+
     for (std::size_t i = 0; i < snapshot.sprites.size(); ++i) {
         const Eth::SpriteDraw& caster = shape.sprites[i];
         if (!caster.castShadow) continue;
@@ -324,9 +373,23 @@ void ShadowRenderer::Draw(entt::registry& registry, const Eth::RenderSnapshot& s
             continue;
         }
 
-        for (const Eth::LightDraw& light : shape.lights) {
-            const ShadowGeometry g = ComputeShadow(caster, light, shape.ambient, m_capBakedLength);
+        for (std::size_t li = 0; li < shape.lights.size(); ++li) {
+            const Eth::LightDraw& light = shape.lights[li];
+            const ShadowGeometry g = ComputeShadow(caster, light, shape.ambient, m_capBakedLength, m_bakedOwnLight);
             if (!g.visible) continue;
+
+            // BAKED, AS BAKED (ShadowRenderer.hpp): the strip goes to its light,
+            // placed where the caster stands, in engine axes; nothing is drawn.
+            if (g.baked && m_bakedOwnLight) {
+                Supersonic::Light2DShadowsComponent::Strip strip;
+                for (std::size_t k = 0; k < g.vertices.size(); ++k) {
+                    strip.corners[k] = glm::vec2(ToWorld(g.vertices[k] - g.anchor + placedAt, 0.0f));
+                }
+                strip.opacity = g.alpha;
+                m_bakedStrips[li].push_back(strip);
+                ++m_bakedStripCount;
+                continue;
+            }
 
             const int occurrence = m_seen[{caster.entityId, light.ownerId}]++;
             // Taken before the reference: SlotFor may grow the pool.

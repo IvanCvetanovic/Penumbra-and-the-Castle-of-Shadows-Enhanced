@@ -59,7 +59,18 @@ struct SpriteLighting {
     // Sprite2DLight::lightAlphaTest: each light's pass alpha-tested as 0.7.12's
     // was. Every lit sprite, with kLightPassAlphaTest.
     bool lightAlphaTest = false;
+    // Sprite2DLight::lightShadows: each light's add darkened by the baked
+    // shadows that light casts, and by nothing else (render/Lighting.cpp, THE
+    // BAKED SHADOWS). Every lit static sprite that does not stand up, with
+    // kBakedShadowsOwnLight.
+    bool lightShadows = false;
 };
+
+// THE BAKED SHADOWS switch (render/Lighting.cpp, kBakedShadowsOwnLight): whether
+// a static caster's shadow from a static light takes away that light alone, on
+// the static sprites under it (on), or is drawn over the frame like a real-time
+// shadow (off). ShadowRenderer's default.
+bool BakedShadowsOwnLight();
 
 class Localization;
 

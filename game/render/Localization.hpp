@@ -10,6 +10,15 @@
 //   "strings":  { "<Portuguese>": "<English>" }   whole strings, exact
 //   "patterns": [ { "pt": "Jogador {int} é o vencedor!", "en": "Player {1} wins!" } ]
 //   "images":   { "<original image>": { "en": "<variant under game/data>", "labels": {...} } }
+//   "touch":    { "<Portuguese>": { "pt": "<Portuguese>", "en": "<English>" } }
+//
+// TOUCH (ENHANCEMENT E16). The original's control hints name keys ("tecla
+// 'S'", "CTRL", "as setas"): a help sign, the how-to-play panel, a lore sign.
+// While the touch controls are on (SetTouch, which the layer sets from its
+// switch every frame) a text "touch" lists is drawn in its touch wording
+// instead, in either language, naming the on-screen buttons. Whole strings
+// only, normalised and trimmed as "strings" keys are; a text it does not list
+// goes on as below. With touch off nothing changes: not a byte.
 //
 // PATTERNS are for the strings the scripts compose at run time ("hp: " + hp,
 // "Jogador " + id + " \xE9 o vencedor!", a mana cost, a time). A pattern is the
@@ -68,13 +77,22 @@ public:
     void SetLanguage(Language language) { m_language = language; }
     Language CurrentLanguage() const { return m_language; }
 
-    // cp1252 in, cp1252 out. Portuguese returns the text untouched.
+    // E16: the touch controls are on, so a control hint "touch" lists is drawn
+    // in its touch wording (TOUCH above). Kept across Load.
+    void SetTouch(bool touch) { m_touch = touch; }
+    bool Touch() const { return m_touch; }
+
+    // cp1252 in, cp1252 out. Portuguese returns the text untouched - but for a
+    // control hint's touch wording, while SetTouch is on.
     std::string Translate(const std::string& cp1252, Language language) const;
     std::string Translate(const std::string& cp1252) const { return Translate(cp1252, m_language); }
 
     // Whether the English for this cp1252 text is fully known (a text with no
     // letters counts as known). For the suites and for a coverage log.
     bool HasTranslation(const std::string& cp1252) const;
+    // Whether "touch" has this text, worded in both languages.
+    bool HasTouchVariant(const std::string& cp1252) const;
+    std::size_t TouchCount() const { return m_touchStrings.size(); }
 
     // An English variant of an image whose words are baked in (the menu's
     // buttons, the logo, the "Voltar" arrow), as an ABSOLUTE path, when
@@ -105,6 +123,15 @@ private:
         std::vector<Slot> captureSlots;  // one per placeholder, in order
         std::string source;              // the "pt" text, for logs
     };
+    // A control hint's touch wording, one per language ("" = none).
+    struct TouchText {
+        std::string pt;
+        std::string en;
+    };
+
+    // The touch wording of a text as drawn, its own surrounding whitespace
+    // put back; nullptr when "touch" does not list it.
+    const TouchText* touchVariant(const std::string& cp1252) const;
 
     // Translates normalised text; returns how many pieces stayed untranslated
     // (0 = all of it). `out` always holds the best effort.
@@ -122,10 +149,17 @@ private:
     std::string m_dataDir;                          // PENUMBRA_DATA_DIR, or the loaded file's folder
     Language m_language = Language::English;
     bool m_loaded = false;
+    // E16: normalised, trimmed Portuguese -> its touch wording.
+    std::unordered_map<std::string, TouchText> m_touchStrings;
+    bool m_touch = false;
 
     // Translate runs on every DrawText of every frame; most texts repeat, so
     // the answer is remembered (bounded: a clock makes a new string a second).
     mutable std::unordered_map<std::string, std::string> m_memo;
+    // touchVariant's answers by the text as drawn, both languages at once (an
+    // empty pair: not listed). Apart from m_memo, which holds English only
+    // and must not hand a touch wording back once touch is off.
+    mutable std::unordered_map<std::string, TouchText> m_touchMemo;
     mutable std::unordered_set<std::string> m_logged;
     // ImageVariant's answers, "" included, so a HUD sprite costs no stat().
     mutable std::map<std::string, std::string> m_imageResolved;

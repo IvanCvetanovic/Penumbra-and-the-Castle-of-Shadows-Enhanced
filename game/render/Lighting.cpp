@@ -114,6 +114,28 @@
 // (Sprite2DLight::lightAlphaTest) and LightRenderer hands the engine the
 // scene's lightIntensity (Light2DAlphaTest). Per-pixel lighting only: the
 // per-vertex fallback's pass is not modelled here at all.
+//
+// THE BAKED SHADOWS. A static light's shadows from static casters existed only
+// in the lightmaps (ETHRenderEntity::GenerateLightmap, E:ETHRenderEntity.cpp:
+// 465-531): for each static light, the receiver's light pass alone into a
+// scratch target, then - unless the receiver is ET_VERTICAL (:500) - every
+// static castShadow entity's shadow for that light drawn over the SAME target
+// (:502-519: BeginShadowPass sets AM_PIXEL, black shadow.dds, maxOpacity and
+// drawToTarget, so alpha = opacity and length x 8), and the target added into
+// the lightmap (:523-530). So a baked shadow multiplied its own light's pass by
+// (1 - alpha) and took nothing else: the ambient pass, the lightmap's other
+// lights and every live pass were untouched - in the menu's purple ambient the
+// barrels' shadows stay purple. The live pair never drew it again: the light
+// pass, and with it the real-time shadow, is skipped for a static light on a
+// static entity (E:ETHScene.cpp:929-947). The port lights live (E9), and until
+// this switch drew those shadows black over the finished frame, ambient and all
+// (near-black in the menu). With kBakedShadowsOwnLight each static light carries
+// the strips its static casters throw (ShadowRenderer, LightRenderer ->
+// Light2DShadowsComponent) and a lit static sprite that does not stand up
+// multiplies that light's add by what survives them (Sprite2DLight::
+// lightShadows), which is the bake's arithmetic per fragment. Real-time
+// shadows (a dynamic light or a dynamic caster) are still drawn over the frame,
+// as 0.7.12 drew them.
 
 #include "render/Lighting.hpp"
 
@@ -139,6 +161,12 @@ constexpr bool kBakedHighlightEye = true;
 // THE LIGHT PASS'S ALPHA TEST above: true tests each light's pass as 0.7.12's
 // alpha test did; false adds every pass whatever its alpha.
 constexpr bool kLightPassAlphaTest = true;
+
+// THE BAKED SHADOWS above: true takes a static light's baked shadow from that
+// light's add alone, on the lit static sprites that lie flat (0.7.12's
+// lightmap); false draws it black over the frame, ambient and all (the port
+// before this switch, ShadowRenderer's capped overlay).
+constexpr bool kBakedShadowsOwnLight = true;
 
 // SetFakeEyePosition's 1.5 screen heights and m_fakeEyeHeight
 // (ETHShaderManager.cpp:55, :81), which the scripts never change.
@@ -221,8 +249,14 @@ SpriteLighting ComputeSpriteLighting(const Eth::SpriteDraw& sprite, const Eth::R
     }
     // THE LIGHT PASS'S ALPHA TEST above.
     lighting.lightAlphaTest = kLightPassAlphaTest && lighting.lit && snapshot.pixelShaders;
+    // THE BAKED SHADOWS above: only a static receiver had a lightmap, and a
+    // standing one took no shadows into it.
+    lighting.lightShadows = kBakedShadowsOwnLight && lighting.lit && sprite.isStatic &&
+                            sprite.type != Eth::ET_VERTICAL;
     return lighting;
 }
+
+bool BakedShadowsOwnLight() { return kBakedShadowsOwnLight; }
 
 glm::vec3 LightmapBakeEye(const Eth::SpriteDraw& sprite, const Eth::RenderSnapshot& snapshot,
                           const glm::vec3& lightPosition) {

@@ -87,10 +87,16 @@
 // pause, a menu) or a scene load (TouchInput::sceneSerial) cancels it, and
 // its keys are simply not pressed any more.
 //
-// THE CORNER BUTTON sends K_ESC; its picture says what that does. Hidden in
-// the main menu (cancel does nothing there) and in the pause (its rows are the
-// way on); the only way out of the arena select and game over, whose screens
-// read cancel and not a click.
+// THE CORNER BUTTON sends K_ESC; its picture says what that does. Which one a
+// screen gets is CornerFor's, one reason a screen:
+//   the pause               hidden: its rows are the way on
+//   a level, an arena       pause (E13)
+//   their end screens       back: doLoop's waitForInputToMenu reads cancel
+//   the arena select,       back: they read cancel (waitForInputToMenu) and
+//   game over                     no click, and draw no button of their own
+//   the options             hidden: the original's own Back arrow is there
+//                                   (putBackButton), and a finger clicks it
+//   the main menu           hidden: cancel does nothing there (goToMenu)
 //
 // THE LOOK is data, not code: game/data/touch_controls.json names each
 // control's image (under game/data: images/touch/ holds Magic Rampage's
@@ -155,9 +161,17 @@ enum class TouchScene {
 };
 
 enum class TouchCorner {
-    Hidden,   // the main menu, the pause
+    Hidden,   // the main menu, the options (a Back of their own), the pause
     Pause,    // in play: K_ESC opens E13's pause
-    Back,     // the arena select, the options, game over, the end screens: K_ESC leaves
+    Back,     // the arena select, game over, the end screens: K_ESC leaves
+};
+
+// Where the game is, for TouchControls::CornerFor.
+struct TouchScreen {
+    std::string sceneFile;       // GetSceneFileName(): "scenes/menu.esc", "" before the first load
+    bool level = false;          // levelLoop or pvpLoop runs: a level, an arena, or their end screen
+    bool gameFinished = false;   // g_gameFinished: that end screen (the campaign's, a Versus win)
+    bool paused = false;         // E13's pause is open
 };
 
 // Which way the wizard faces (his currentDir), when there is a wizard.
@@ -227,6 +241,11 @@ struct TouchManifest {
     std::string dpadDown;
     std::string knobImage;
     glm::vec2 knobSize{0.0f};
+    // The knob with no thumb pointing a direction: at the control's centre
+    // (true, the placeholder's disc and its knob) or not drawn (false, the
+    // shipped look: Magic Rampage's brackets there frame the empty gap
+    // between the left and right buttons, which reads as a missing button).
+    bool knobAtRest = true;
     float deadZone = 0.25f;         // of the direction control's radius: the thumb there means nothing
     float idleAlpha = 0.45f;        // what a control is drawn at, 0..1
     float pressedAlpha = 0.9f;      // and while it is held
@@ -280,6 +299,9 @@ public:
 
     // settings.touchControls: "on", "off", or "auto" (on in a mobile build).
     static bool EnabledBySetting(const std::string& setting);
+
+    // The corner button a screen gets (THE CORNER BUTTON above).
+    static TouchCorner CornerFor(const TouchScreen& screen);
 
     // Safe-area insets as a platform reports them (window pixels, from each
     // edge of the window) -> logical pixels, less whatever the pillarbox bars
@@ -369,6 +391,10 @@ private:
     TouchStep m_last;
     glm::vec2 m_knob{0.0f};                  // where the knob is drawn (the thumb, within the disc)
     bool m_dpadHeld = false;
+    // The thumb on the direction control points a direction: past the dead
+    // zone and not straight up. By where it is, not by what is held, which a
+    // combo holds back or presses with no thumb there.
+    bool m_dpadPointing = false;
 
     Combo m_combo;
     TouchAction m_lastSide = TouchAction::Right;   // the disc's last left or right

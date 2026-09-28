@@ -113,8 +113,15 @@ public:
 
     void Attach(entt::registry& registry, TextureCache& textures);
     void Detach(entt::registry& registry);
+    // `bakedStrips` (optional): ShadowRenderer::BakedStrips() for this same
+    // snapshot, index for index its lights. A light with strips gets them as
+    // its Light2DShadowsComponent (render/Lighting.cpp, THE BAKED SHADOWS);
+    // every other light, and every light without the argument, has none.
+    // Handed over here, not by the shadow renderer, because the slots - which
+    // entity is which light - are this Draw's.
     void Draw(entt::registry& registry, const Eth::RenderSnapshot& snapshot, const View& view,
-              const DrawOrder& order);
+              const DrawOrder& order,
+              const std::vector<std::vector<Supersonic::Light2DShadowsComponent::Strip>>* bakedStrips = nullptr);
 
     // ENHANCEMENT switch (see the header comment). On by default.
     void SetTorchFlicker(bool flicker) { m_torchFlicker = flicker; }

@@ -202,6 +202,52 @@
         }
     ],
 
+    "touch": {
+        "_about": "ENHANCEMENT E16: the original's control hints - every text it draws that names a key to press - worded for the on-screen touch controls, drawn in place of the original (either language) while they are on (render/Localization SetTouch, from the layer's switch every frame; off, the text is exactly what it always was). Keyed by the original's Portuguese as 'strings' is; whole strings only. The buttons are named by what they show: the arrows at the bottom left (the direction control, left, right and down), the jump, sword, fire and light buttons at the bottom right, the two combo buttons above them, the pause button at the top right. Each fits where the original is drawn (the help messages at (10,70) in Arial 30 and at half size under the wizard; the how-to-play panel's 381 px column in Arial Narrow 25, 768 px tall; the lore sign's two lines in Arial Narrow 16), which test_pn_render_hud measures. Not here, on purpose: 'Pressione Alt+Enter...' (menu.as:101: E20 does not draw it on a phone, and a desktop with touch controls still has the keyboard it names); the Versus screen's joystick messages and the settings blurb (menu.as:151, 278-283: what the mode or the screen needs, not a key to press); the options' row labels.",
+
+        "_help signs: scenes/level1.esc 'message' (ETHCallback_help -> addMessage)": "",
+        "Utilize as setas ou as direcionais do joystick para mover-se": {
+            "pt": "Utilize as setas no canto inferior esquerdo para mover-se",
+            "en": "Use the arrows at the bottom left to move"
+        },
+        "Pressione a seta para cima ou CTRL para pular": {
+            "pt": "Pressione o botão de pulo para pular",
+            "en": "Press the jump button to jump"
+        },
+        "Pulo duplo: para cima enquanto estiver no ar": {
+            "pt": "Pulo duplo: botão de pulo enquanto estiver no ar",
+            "en": "Double jump: press jump while in the air"
+        },
+        "Pressione espaço para ativar a luz": {
+            "pt": "Pressione o botão da luz para ativar a luz",
+            "en": "Press the light button to cast the light"
+        },
+        "Golpe de espada: tecla 'S'": {
+            "pt": "Golpe de espada: botão da espada",
+            "en": "Sword strike: the sword button"
+        },
+        "Bola de fogo: tecla 'D'": {
+            "pt": "Bola de fogo: botão do fogo",
+            "en": "Fireball: the fire button"
+        },
+        "Próxima fase: seta para baixo": {
+            "pt": "Próxima fase: seta para baixo, embaixo à esquerda",
+            "en": "Next level: the down arrow at the bottom left"
+        },
+
+        "_lore sign: data.enml global.comboTip (ETHCallback_story); the combos are the same moves on the arrows and the sword and fire buttons, which the two combo buttons also make in one tap": "",
+        "Experimente algumas combinações de teclas,\ncomo [frente + frente + espada] entre outras": {
+            "pt": "Experimente algumas combinações de botões,\ncomo [frente + frente + espada] entre outras",
+            "en": "Try out a few button combinations,\nlike [forward + forward + sword] and more"
+        },
+
+        "_menu.as:123 como_jogar (heredoc): the keyboard names give way to the buttons, line for line. Not both lists: the panel has room for three more lines, not seven, and a phone has no keyboard. The joystick numbers go with the keyboard's (a line with both is wider than the column): a player on a pad turns the touch controls off (the options' row) and reads the original. 'Detectar joysticks: segure J' becomes the combo and pause buttons (no J on a phone; the menu finds a pad by itself, menu.as:74). The 2-player part names the second pad's START, still true, and stays.": "",
+        "•Controles\n Movimento: < e >\n Pulo: ^ ou CTRL (joystick 3)\n Ataque/espada: S (joystick 4)\n Ataque/fogo: D (joystick 2)\n Acionar Luz: ESPAÇO (joystick 1)\n\n Detectar joysticks: segure J\n\n•2 jogadores:\n Se houver um joystick plugado,\n o personagem principal ganha\n a habilidade de invocar a\n criatura que pode ser controlada\n pelo 2º jogador.\n\n Para invocar a criatura basta pres-\n sionar START no 2º controle.\n\n A mágica de invocação custa 50 mana\n e uma vida, mas possibilitará que 2\n jogadores lutem lado-a-lado.\n\n Somente o jogador 1 pode pegar\n checkpoints e passar de fase.": {
+            "pt": "•Controles de toque\n Movimento: setas embaixo à esquerda\n Pulo: botão de pulo\n Ataque/espada: botão da espada\n Ataque/fogo: botão do fogo\n Acionar Luz: botão da luz\n\n Combos: os dois botões acima deles\n Pausa: botão no canto superior direito\n\n•2 jogadores:\n Se houver um joystick plugado,\n o personagem principal ganha\n a habilidade de invocar a\n criatura que pode ser controlada\n pelo 2º jogador.\n\n Para invocar a criatura basta pres-\n sionar START no 2º controle.\n\n A mágica de invocação custa 50 mana\n e uma vida, mas possibilitará que 2\n jogadores lutem lado-a-lado.\n\n Somente o jogador 1 pode pegar\n checkpoints e passar de fase.",
+            "en": "•Touch controls\n Move: the arrows at the bottom left\n Jump: the jump button\n Attack/sword: the sword button\n Attack/fire: the fire button\n Cast light: the light button\n\n Combos: the two buttons above them\n Pause: the button at the top right\n\n•2 players:\n If a joystick is plugged in,\n the main character gains\n the power to summon a\n creature that can be controlled\n by the 2nd player.\n\n To summon the creature, just\n press START on the 2nd controller.\n\n The summoning spell costs 50 mana\n and one life, but it lets 2\n players fight side by side.\n\n Only player 1 can pick up\n checkpoints and finish a level."
+        }
+    },
+
     "images": {
         "_about": "Images with Portuguese baked into their pixels, keyed by the path the original loads (a normal or gloss map is its own entry). 'en' is the English variant's path relative to this file's folder, generated by tools/art/make_english_art.py from the original (same size, mode and layout, so every rectangle the scripts compute still fits); empty means the original is drawn in both languages. Localization::ImageVariant returns it when it exists. 'labels' is what the variant says. entities/gameover.png already reads 'Game Over'.",
         "entities/menu_buttons.png": {

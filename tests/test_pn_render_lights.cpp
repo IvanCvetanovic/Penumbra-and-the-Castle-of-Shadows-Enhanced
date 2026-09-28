@@ -27,6 +27,14 @@
 //     the halo's ratio for all, ConvertToDW, the flicker's bounds.
 //   - The pools on a bare registry: the same snapshot drawn twice changes
 //     nothing, a light that leaves keeps its slot, the 64-light cap.
+//   - The baked shadows (render/Lighting.cpp, THE BAKED SHADOWS): only static
+//     receivers that lie flat take them; a baked pair is the bake's strip (x8,
+//     uncut, alpha byte(255 x opacity)) handed to its own light, not an
+//     overlay; shadow.dds's alpha is the engine's mask; and, through the
+//     engine's transliteration, a floor texel in the menu barrel's opaque band
+//     keeps its ambient and loses the torch - purple, not black. The easy
+//     mistakes: a slot's strips surviving into its next owner, or a live pair
+//     taken for a baked one.
 //
 // Needs no file of the original except where a check says so (the normal
 // map, the halo bitmap, shadow.dds), and those checks follow what the
@@ -930,6 +938,10 @@ void ShadowPool(Render::TextureCache& textures) {
     // shown (a shadow is visible only once its mesh exists).
     entt::registry registry;
     ShadowRenderer renderer;
+    // The overlay pool, baked pair included: with the baked shadows taken from
+    // their own light (the default, BakedStripsGoToTheirLight below) the static
+    // pair here would make no slot.
+    renderer.SetBakedOwnLight(false);
     renderer.Attach(registry, textures);
     Render::View view;
 
@@ -971,6 +983,223 @@ void ShadowPool(Render::TextureCache& textures) {
     CHECK_EQ(registry.storage<entt::entity>().free_list(), std::size_t{0});
 }
 
+// ---- the baked shadows (render/Lighting.cpp, THE BAKED SHADOWS) --------------------
+
+// menu.esc's barrel 117 by ground_fire 107's torch, as MenuBarrelShadow has them.
+Eth::SpriteDraw MenuBarrel() {
+    Eth::SpriteDraw barrel;
+    barrel.entityId = 117;
+    barrel.sprite = "barril.png";
+    barrel.type = Eth::ET_VERTICAL;
+    barrel.isStatic = true;
+    barrel.applyLight = true;
+    barrel.castShadow = true;
+    barrel.shadowLengthScale = 1.0f;
+    barrel.shadowOpacity = 1.0f;
+    barrel.position = glm::vec3(69.0f, 404.0f, 0.0f);
+    barrel.size = glm::vec2(48.0f, 58.0f);
+    return barrel;
+}
+
+Eth::LightDraw MenuTorch() {
+    Eth::LightDraw torch;
+    torch.ownerId = 107;
+    torch.position = glm::vec3(110.0f, 326.0f, 16.0f);
+    torch.color = glm::vec3(1.0f, 0.5f, 0.3f);
+    torch.range = 256.0f;
+    torch.isStatic = true;
+    torch.castShadows = true;
+    return torch;
+}
+
+void BakedShadowsReachOnlyStaticFlatReceivers(Render::TextureCache& textures) {
+    // GenerateLightmap: static receivers only (E:ETHRenderEntity.cpp:423), and
+    // no shadows into an ET_VERTICAL one's map (:500). A sprite no light
+    // reaches has no light to lose.
+    CHECK(Render::BakedShadowsOwnLight());
+    Eth::RenderSnapshot snapshot;
+    snapshot.ambient = glm::vec3(0.2f, 0.0f, 0.2f);
+    Eth::SpriteDraw floor = Tile(0.0f);
+    floor.isStatic = true;
+    CHECK(Render::ComputeSpriteLighting(floor, snapshot, textures).lightShadows);
+    Eth::SpriteDraw moving = floor;
+    moving.isStatic = false;
+    CHECK(!Render::ComputeSpriteLighting(moving, snapshot, textures).lightShadows);
+    Eth::SpriteDraw standing = floor;
+    standing.type = Eth::ET_VERTICAL;
+    CHECK(!Render::ComputeSpriteLighting(standing, snapshot, textures).lightShadows);
+    Eth::SpriteDraw dark = floor;
+    dark.applyLight = false;
+    CHECK(!Render::ComputeSpriteLighting(dark, snapshot, textures).lightShadows);
+    // Layerable and decal types lie flat: they take them.
+    Eth::SpriteDraw layer = floor;
+    layer.type = Eth::ET_LAYERABLE;
+    CHECK(Render::ComputeSpriteLighting(layer, snapshot, textures).lightShadows);
+}
+
+void BakedShadowsAreDrawnAsTheBakeDrewThem() {
+    // Into a lightmap: maxOpacity, so alpha byte(255 x opacity); drawToTarget,
+    // so x 8 and nothing cuts it - the light's own falloff ends it.
+    const Eth::SpriteDraw barrel = MenuBarrel();
+    const Eth::LightDraw torch = MenuTorch();
+    const glm::vec3 ambient(0.2f, 0.0f, 0.2f);
+    const Render::ShadowGeometry baked = ShadowRenderer::ComputeShadow(barrel, torch, ambient, true, true);
+    CHECK(baked.visible);
+    CHECK(baked.baked);
+    CHECK_MSG(Near(baked.length, 464.0f), std::to_string(baked.length));
+    CHECK_EQ(baked.alpha8, 255);
+    // The same strip as the uncut overlay's, only opaque: 0.7.12 drew one shape.
+    const Render::ShadowGeometry overlay = ShadowRenderer::ComputeShadow(barrel, torch, ambient, false, false);
+    for (std::size_t k = 0; k < 5; ++k) CHECK(Near(baked.vertices[k], overlay.vertices[k]));
+    CHECK_EQ(overlay.alpha8, 193);
+    // shadowOpacity scales the byte (GS_BYTE truncates), and under 8 is nothing.
+    Eth::SpriteDraw faint = barrel;
+    faint.shadowOpacity = 0.5f;
+    CHECK_EQ(ShadowRenderer::ComputeShadow(faint, torch, ambient, true, true).alpha8, 127);
+    faint.shadowOpacity = 0.03f;   // 7.65 -> 7
+    CHECK(!ShadowRenderer::ComputeShadow(faint, torch, ambient, true, true).visible);
+    // A real-time pair is what it was.
+    Eth::LightDraw spell = torch;
+    spell.isStatic = false;
+    const Render::ShadowGeometry live = ShadowRenderer::ComputeShadow(barrel, spell, ambient, true, true);
+    const Render::ShadowGeometry liveBefore = ShadowRenderer::ComputeShadow(barrel, spell, ambient, true, false);
+    CHECK(!live.baked);
+    CHECK_EQ(live.alpha8, liveBefore.alpha8);
+    CHECK(Near(live.length, liveBefore.length));
+}
+
+void BakedStripsGoToTheirLight(Render::TextureCache& textures) {
+    entt::registry registry;
+    ShadowRenderer shadows;
+    LightRenderer lights;
+    CHECK(shadows.BakedOwnLight());
+    shadows.Attach(registry, textures);
+    lights.Attach(registry, textures);
+    Render::View view;
+
+    // The menu's barrel with its torch (baked) and a dynamic light beside it
+    // (a real-time overlay pair).
+    Eth::RenderSnapshot snapshot;
+    snapshot.ambient = glm::vec3(0.2f, 0.0f, 0.2f);
+    snapshot.lightIntensity = 2.0f;
+    snapshot.sprites = {MenuBarrel()};
+    snapshot.lights = {MenuTorch(), MenuTorch()};
+    snapshot.lights[1].ownerId = 8;
+    snapshot.lights[1].isStatic = false;
+    snapshot.lights[1].position = glm::vec3(150.0f, 380.0f, 16.0f);
+    Render::DrawOrder order;
+    order.spriteRank = {1};
+    order.shadowRankBase = {0};
+    order.haloRank = 10;
+
+    const bool textureReadable = !textures.Key("data/shadow.dds", Render::TextureVariant::Plain).empty();
+    shadows.Draw(registry, snapshot, view, order);
+    lights.Draw(registry, snapshot, view, order, &shadows.BakedStrips());
+    if (!textureReadable) {
+        // Without shadow.dds nothing is cast at all, baked or not.
+        CHECK_EQ(shadows.BakedStripCount(), std::size_t{0});
+        shadows.Detach(registry);
+        lights.Detach(registry);
+        return;
+    }
+
+    // One baked strip, on the torch; the overlay pool holds only the live pair.
+    CHECK_EQ(shadows.BakedStripCount(), std::size_t{1});
+    CHECK_EQ(shadows.BakedStrips().size(), std::size_t{2});
+    CHECK_EQ(shadows.BakedStrips()[0].size(), std::size_t{1});
+    CHECK(shadows.BakedStrips()[1].empty());
+    CHECK_EQ(shadows.SlotCount(), std::size_t{1});
+    const Render::ShadowGeometry g =
+        ShadowRenderer::ComputeShadow(snapshot.sprites[0], snapshot.lights[0], snapshot.ambient, true, true);
+    const Supersonic::Light2DShadowsComponent::Strip& strip = shadows.BakedStrips()[0][0];
+    CHECK(Near(strip.opacity, 1.0f));
+    for (std::size_t k = 0; k < 5; ++k) {
+        // In the engine's axes: y up.
+        CHECK_MSG(Near(strip.corners[k], glm::vec2(g.vertices[k].x, -g.vertices[k].y)), Str(strip.corners[k]));
+    }
+
+    // The mask: shadow.dds's alpha, 32 x 32, clear at both ends, opaque near the base.
+    const auto* mask = registry.ctx().find<Supersonic::Light2DShadowMask>();
+    CHECK(mask != nullptr);
+    if (mask != nullptr) {
+        CHECK_EQ(mask->width, 32u);
+        CHECK_EQ(mask->height, 32u);
+        CHECK_EQ(mask->alpha.size(), std::size_t{1024});
+        if (mask->alpha.size() == 1024) {
+            CHECK(Near(mask->alpha[2 * 32 + 16], 0.0f));
+            CHECK(Near(mask->alpha[24 * 32 + 16], 1.0f));
+            CHECK(Near(mask->alpha[29 * 32 + 16], 0.0f));
+        }
+    }
+
+    // LightRenderer handed the torch's entity its strip, and the spell's none;
+    // the engine's gather finds it in the torch's place.
+    std::vector<Supersonic::GpuLight2D> gathered;
+    std::vector<entt::entity> entities;
+    Supersonic::Light2D::GatherLights2D(registry, gathered, Supersonic::kMaxLights2D, nullptr, &entities);
+    CHECK_EQ(entities.size(), std::size_t{2});
+    std::vector<glm::uvec2> ranges;
+    std::vector<Supersonic::GpuShadow2D> strips;
+    CHECK_EQ(Supersonic::Light2D::GatherShadows2D(registry, entities, ranges, strips, Supersonic::kMaxShadows2D), 1u);
+    std::size_t torchIndex = entities.size();
+    for (std::size_t i = 0; i < gathered.size(); ++i) {
+        if ((gathered[i].layers & Supersonic::kLight2DBakedBit) != 0) torchIndex = i;
+    }
+    CHECK(torchIndex < entities.size());
+    if (torchIndex < entities.size()) {
+        CHECK(ranges[torchIndex] == glm::uvec2(0u, 1u));
+        CHECK(ranges[1 - torchIndex] == glm::uvec2(0u, 0u));
+    }
+
+    // Where the bake left the torch nothing - the strip's opaque band on its
+    // middle line, v = 0.75 - the floor keeps its ambient and loses the
+    // torch: the purple the original shows, not the black of a frame-wide
+    // overlay. Off the strip the torch is whole.
+    if (mask != nullptr && mask->alpha.size() == 1024 && !strips.empty()) {
+        const glm::vec2 apex = strip.corners[2];
+        const glm::vec2 base = 0.5f * (strip.corners[1] + strip.corners[3]);
+        const glm::vec2 band = apex + 0.75f * (base - apex);
+        const float keep = Supersonic::Light2D::ShadowKeep(strips, glm::uvec2(0, 1), mask->alpha.data(), 32, 32, band);
+        CHECK_MSG(Near(keep, 0.0f), std::to_string(keep));
+        const glm::vec2 beside = base + 3.0f * (strip.corners[3] - strip.corners[1]);
+        CHECK(Near(Supersonic::Light2D::ShadowKeep(strips, glm::uvec2(0, 1), mask->alpha.data(), 32, 32, beside), 1.0f));
+
+        const glm::vec3 texel(0.6f, 0.5f, 0.4f);
+        const glm::vec3 base3 = texel * snapshot.ambient;
+        const Supersonic::GpuLight2D& torchGpu = gathered[torchIndex];
+        const glm::vec3 normal(0.0f, 0.0f, 1.0f);
+        const glm::vec3 add = Supersonic::Light2D::Contribution(torchGpu, 0xFF, glm::vec3(band, 0.0f), normal, texel);
+        CHECK_MSG(add.r > 0.01f, Str(add));   // the torch lights that floor ...
+        const glm::vec3 shaded = base3 + add * keep;
+        CHECK_MSG(Near(shaded, glm::vec3(0.12f, 0.0f, 0.08f)), Str(shaded));   // ... and its shadow takes it back
+    }
+
+    // Drawn without the strips (another caller, or the switch off): the torch
+    // carries none.
+    lights.Draw(registry, snapshot, view, order);
+    CHECK(registry.view<Supersonic::Light2DShadowsComponent>().empty());
+    lights.Draw(registry, snapshot, view, order, &shadows.BakedStrips());
+    CHECK(!registry.view<Supersonic::Light2DShadowsComponent>().empty());
+    // The torch leaves: its slot's strips go with it, not to the next owner.
+    snapshot.lights.erase(snapshot.lights.begin());
+    shadows.Draw(registry, snapshot, view, order);
+    lights.Draw(registry, snapshot, view, order, &shadows.BakedStrips());
+    CHECK(registry.view<Supersonic::Light2DShadowsComponent>().empty());
+
+    // Switched off, the baked pair is an overlay again and no light has strips.
+    snapshot.lights.insert(snapshot.lights.begin(), MenuTorch());
+    shadows.SetBakedOwnLight(false);
+    shadows.Draw(registry, snapshot, view, order);
+    lights.Draw(registry, snapshot, view, order, &shadows.BakedStrips());
+    CHECK_EQ(shadows.BakedStripCount(), std::size_t{0});
+    CHECK(registry.view<Supersonic::Light2DShadowsComponent>().empty());
+    CHECK_EQ(shadows.SlotCount(), std::size_t{2});
+
+    shadows.Detach(registry);
+    lights.Detach(registry);
+    CHECK(registry.ctx().find<Supersonic::Light2DShadowMask>() == nullptr);
+}
+
 } // namespace
 
 int main() {
@@ -997,5 +1226,8 @@ int main() {
     TorchFlicker();
     LightPool(textures);
     ShadowPool(textures);
+    BakedShadowsReachOnlyStaticFlatReceivers(textures);
+    BakedShadowsAreDrawnAsTheBakeDrewThem();
+    BakedStripsGoToTheirLight(textures);
     return test::summary("test_pn_render_lights", 100);
 }

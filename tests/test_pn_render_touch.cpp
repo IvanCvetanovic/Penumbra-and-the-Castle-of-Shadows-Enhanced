@@ -3,14 +3,17 @@
 // then KS_DOWN, then KS_RELEASE); the direction control's sectors and a thumb
 // sliding between them; several fingers at once; a finger's control being the
 // one it landed on; the pause opened and tapped through E13's own pieces; a
-// tap in a menu as a click at that point; what is shown where; the layout on
-// 4:3 and widescreen screens with and without a safe area; the manifest and
-// its art; the touchControls setting. Then the combo buttons: each macro's
-// keys tick by tick for both facings, the wait for the combo buffer to empty,
-// a double tap, the fingers held back under a combo, its cancelling - and the
-// combos firing through the ported Combo in a bare Machine, and through the
-// real game in level 1 (skipped without the original's files, the rest of the
-// suite is not).
+// tap in a menu as a click at that point; what is shown where (the knob only
+// while the thumb points a direction, the placeholder's at rest as before);
+// the corner button for every scene the original has, the options screen's
+// own Back included; the layout on 4:3 and widescreen screens with and without
+// a safe area; the manifest (the built-in one the shipped file's) and its art;
+// the touchControls setting. Then the combo buttons: each macro's keys tick by
+// tick for both facings, the wait for the combo buffer to empty, a double
+// tap, the fingers held back under a combo, its cancelling - and the combos
+// firing through the ported Combo in a bare Machine, and through the real game
+// in level 1, whose first help sign the HUD draws in touch wording (skipped
+// without the original's files, the rest of the suite is not).
 // No window. Only the combo checks run a Machine.
 
 #include "script/Script.hpp"
@@ -136,6 +139,13 @@ KEY_STATE Tick(InputState& state, const TouchStep& step, KEY key) {
 }
 
 std::uint8_t Alpha(uint argb) { return static_cast<std::uint8_t>(argb >> 24); }
+
+// How many of an overlay's commands draw the direction control's knob.
+int Knobs(const std::vector<HudCmd>& out) {
+    return static_cast<int>(std::count_if(out.begin(), out.end(), [](const HudCmd& cmd) {
+        return cmd.sprite.find("dpad_knob.png") != std::string::npos;
+    }));
+}
 
 void testKeys() {
     // What playerInput.as reads for player 0 (the header's table).
@@ -641,16 +651,18 @@ void testShownWhere() {
     CHECK(!touch.Visible(TouchControl::Jump));
     if (!out.empty()) CHECK(out[0].sprite.find("back.png") != std::string::npos);
 
-    // In play: the disc, its three arrows, the knob, four buttons, the two
-    // combo buttons, pause.
+    // In play: the disc, its three arrows, four buttons, the two combo
+    // buttons, pause - and no knob, with no thumb on the disc.
     const TouchManifest manifest = TouchControls::DefaultManifest();
     const std::uint8_t idle = static_cast<std::uint8_t>(std::lround(manifest.idleAlpha * 255.0f));
     const std::uint8_t pressed = static_cast<std::uint8_t>(std::lround(manifest.pressedAlpha * 255.0f));
     CHECK(pressed > idle);
+    CHECK(!manifest.knobAtRest);
     touch.Update(Play());
     out.clear();
     touch.AppendOverlay(out);
-    CHECK_EQ(out.size(), std::size_t{12});
+    CHECK_EQ(out.size(), std::size_t{11});
+    CHECK_EQ(Knobs(out), 0);
     for (const HudCmd& cmd : out) {
         CHECK(cmd.kind == HudCmd::Kind::ShapedSprite);   // every image found
         CHECK_EQ(static_cast<int>(Alpha(cmd.color)), static_cast<int>(idle));
@@ -676,10 +688,69 @@ void testShownWhere() {
     }
     CHECK_EQ(bright, 3);
     // The knob follows the thumb, right of the centre.
+    CHECK_EQ(Knobs(out), 1);
     for (const HudCmd& cmd : out) {
         if (cmd.sprite.find("dpad_knob.png") == std::string::npos) continue;
         CHECK((cmd.pos + cmd.size * 0.5f).x > Dpad({0.0f, 0.0f}).x + 10.0f);
     }
+    // Down and left too, on the button held; none for a thumb pointing no
+    // direction (the dead zone, straight up), nor once it lifts.
+    const auto knobsFor = [&](glm::vec2 offset) {
+        touch.Update(Play({Finger(3, Dpad(offset))}));
+        std::vector<HudCmd> drawn;
+        touch.AppendOverlay(drawn);
+        return Knobs(drawn);
+    };
+    CHECK_EQ(knobsFor({0.0f, 100.0f}), 1);
+    CHECK_EQ(knobsFor({-100.0f, 0.0f}), 1);
+    CHECK_EQ(knobsFor({70.0f, -70.0f}), 1);   // up and right: right
+    CHECK_EQ(knobsFor({5.0f, 5.0f}), 0);      // the dead zone
+    CHECK_EQ(knobsFor({0.0f, -100.0f}), 0);   // straight up: nothing held
+    touch.Update(Play());
+    out.clear();
+    touch.AppendOverlay(out);
+    CHECK_EQ(Knobs(out), 0);
+    // A combo presses a side with no thumb on the disc: still no knob.
+    TouchControls comboing;
+    comboing.SetImageRoot(PENUMBRA_DATA_DIR);   // the knob's image found: only the rule keeps it off
+    comboing.Update(Play({Finger(4, Centre(TouchControl::SwordCombo))}));
+    bool sideHeld = false;
+    for (int i = 0; i < 6; ++i) {
+        out.clear();
+        const TouchStep step = comboing.Update(Play());
+        sideHeld = sideHeld || step.Held(TouchAction::Right) || step.Held(TouchAction::Left);
+        comboing.AppendOverlay(out);
+        CHECK_EQ(Knobs(out), 0);
+    }
+    CHECK(sideHeld);
+
+    // The placeholder look keeps its knob at rest, at the disc's centre, as
+    // it always had it (its manifest says "atRest": true).
+    std::string warning;
+    const TouchManifest placeholder = TouchControls::LoadManifest(
+        fs::path(PENUMBRA_DATA_DIR) / "images" / "touch" / "placeholder" / TouchControls::kManifestFile, &warning);
+    CHECK_MSG(warning.empty(), warning);
+    CHECK(placeholder.knobAtRest);
+    TouchControls old;
+    old.SetManifest(placeholder);
+    old.SetImageRoot(PENUMBRA_DATA_DIR);
+    old.Update(Play());
+    out.clear();
+    old.AppendOverlay(out);
+    CHECK_EQ(out.size(), std::size_t{12});
+    CHECK_EQ(Knobs(out), 1);
+    const glm::vec2 placeholderCentre =
+        TouchControls::ComputeLayout(placeholder, kFourThree, TouchInsets{})[TouchControl::Dpad].Centre();
+    for (const HudCmd& cmd : out) {
+        if (cmd.sprite.find("dpad_knob.png") == std::string::npos) continue;
+        CHECK_NEAR((cmd.pos + cmd.size * 0.5f).x, placeholderCentre.x);
+        CHECK_NEAR((cmd.pos + cmd.size * 0.5f).y, placeholderCentre.y);
+        CHECK_EQ(static_cast<int>(Alpha(cmd.color)), static_cast<int>(idle));
+    }
+    old.Update(Play({Finger(1, placeholderCentre + glm::vec2(5.0f, 5.0f))}));   // a thumb resting in the dead zone
+    out.clear();
+    old.AppendOverlay(out);
+    CHECK_EQ(Knobs(out), 1);
 
     // The end screens: the controls (the wizard still walks) with back, not pause.
     touch.Update([] {
@@ -698,6 +769,73 @@ void testShownWhere() {
     bare.AppendOverlay(out);
     CHECK_EQ(out.size(), std::size_t{8});   // the disc, six buttons, pause; no arrows or knob
     for (const HudCmd& cmd : out) CHECK(cmd.kind == HudCmd::Kind::Rectangle);
+}
+
+// The corner button, screen by screen (TouchControls::CornerFor), for every
+// scene the original has, the options screen with its own Back included.
+void testCorner() {
+    using Penumbra::Render::TouchScreen;
+    const auto corner = [](const std::string& scene, bool level, bool finished = false, bool paused = false) {
+        return TouchControls::CornerFor(TouchScreen{scene, level, finished, paused});
+    };
+    // The screens that are not levels, each with its reason.
+    CHECK(corner("scenes/menu.esc", false) == TouchCorner::Hidden);          // cancel does nothing there
+    CHECK(corner("scenes/videoModes.esc", false) == TouchCorner::Hidden);    // the original's own Back arrow
+    CHECK(corner("scenes/arena_select.esc", false) == TouchCorner::Back);    // reads cancel only
+    CHECK(corner("scenes/gameover.esc", false) == TouchCorner::Back);        // the same
+    CHECK(corner("", false) == TouchCorner::Hidden);                         // before the first scene
+    // A level, an arena, a checkpoint's reload: the pause; their end screens
+    // (the campaign's, a Versus win): back.
+    for (const char* scene : {"scenes/level1.esc", "scenes/checkpoint.esc", "scenes/pvp_lv3.esc"}) {
+        CHECK_MSG(corner(scene, true) == TouchCorner::Pause, scene);
+        CHECK_MSG(corner(scene, true, true) == TouchCorner::Back, scene);
+    }
+    // The pause's rows are the way on, wherever it is open.
+    CHECK(corner("scenes/level1.esc", true, false, true) == TouchCorner::Hidden);
+    CHECK(corner("scenes/level3.esc", true, true, true) == TouchCorner::Hidden);
+
+    // Every scene the original ships, classified: none falls through unseen.
+    const fs::path scenes = fs::path(PENUMBRA_ORIGINAL_DIR) / "scenes";
+    std::error_code ec;
+    if (fs::is_directory(scenes, ec)) {
+        int seen = 0;
+        for (const auto& entry : fs::directory_iterator(scenes, ec)) {
+            if (entry.path().extension() != ".esc") continue;
+            const std::string name = entry.path().filename().string();
+            const std::string scene = "scenes/" + name;
+            ++seen;
+            // What doLoop runs them under: levelLoop or pvpLoop (main.as:116,
+            // menu.as:333); the others have their own loops.
+            const bool level = name.rfind("level", 0) == 0 || name.rfind("pvp_lv", 0) == 0;
+            TouchCorner expected = TouchCorner::Pause;
+            if (!level) {
+                if (name == "menu.esc" || name == "videoModes.esc") expected = TouchCorner::Hidden;
+                else if (name == "arena_select.esc" || name == "gameover.esc") expected = TouchCorner::Back;
+                else CHECK_MSG(false, "a scene the corner rule was not written for: " + name);
+            }
+            CHECK_MSG(corner(scene, level) == expected, name);
+            CHECK_MSG(corner(scene, level, false, true) == TouchCorner::Hidden, name);
+        }
+        CHECK_EQ(seen, 13);
+    } else {
+        std::printf("  (the original is not at %s: its scenes are not enumerated)\n", PENUMBRA_ORIGINAL_DIR);
+    }
+
+    // On the options screen nothing is drawn, and a finger on the original's
+    // Back arrow (DrawSprite at (500,40), videoModes.as:81) is the mouse
+    // there: a click on it, no cancel.
+    TouchControls touch;
+    touch.SetImageRoot(PENUMBRA_DATA_DIR);
+    const glm::vec2 arrow(540.0f, 70.0f);
+    const TouchStep step = touch.Update(Menu({Finger(1, arrow)}, corner("scenes/videoModes.esc", false)));
+    std::vector<HudCmd> out;
+    touch.AppendOverlay(out);
+    CHECK(out.empty());
+    for (int i = 0; i < kTouchActionCount; ++i) CHECK(!step.Held(static_cast<TouchAction>(i)));
+    CHECK(step.pointer);
+    CHECK(step.pointerPos == arrow);
+    CHECK(FrameOf(step).keys[K_LMOUSE]);
+    CHECK(!FrameOf(step).keys[K_ESC]);
 }
 
 void testSceneChanges() {
@@ -1058,6 +1196,10 @@ void testManifest() {
     std::string warning;
     const TouchManifest manifest = TouchControls::LoadManifest(file, &warning);
     CHECK_MSG(warning.empty(), warning);
+    // The built-in layout is the shipped file's, field for field: a manifest
+    // that goes missing changes nothing.
+    CHECK(manifest == TouchControls::DefaultManifest());
+    CHECK(!manifest.knobAtRest);
 
     const char* const ids[] = {"dpad",       "jump",       "sword", "fire", "light",
                                "swordCombo", "spellCombo", "pause", "back"};
@@ -1138,12 +1280,20 @@ void testManifest() {
     CHECK(partial.dpadLeft == "l.png");
     CHECK(partial.dpadRight == TouchControls::DefaultManifest().dpadRight);
     CHECK(partial.knobSize == glm::vec2(50.0f, 50.0f));
+    CHECK(partial.knobAtRest == TouchControls::DefaultManifest().knobAtRest);
     CHECK(warning.find("sword.anchor") != std::string::npos);
     CHECK(warning.find("sword.offset") != std::string::npos);
     CHECK(warning.find("sword.size") != std::string::npos);
     CHECK(warning.find("kick") != std::string::npos);
     CHECK(warning.find("_note") == std::string::npos);
     CHECK(warning.find("_about") == std::string::npos);
+    warning.clear();
+    CHECK(TouchControls::ManifestFromJson(R"({"controls": {"dpad": {"knob": {"atRest": true}}}})", &warning)
+              .knobAtRest);
+    CHECK(warning.empty());
+    CHECK(!TouchControls::ManifestFromJson(R"({"controls": {"dpad": {"knob": {"atRest": "yes"}}}})", &warning)
+               .knobAtRest);
+    CHECK(warning.find("knob.atRest") != std::string::npos);
     warning.clear();
     CHECK(TouchControls::LoadManifest(dataDir / "no_such_manifest.json", &warning) == TouchControls::DefaultManifest());
     CHECK(!warning.empty());
@@ -1455,7 +1605,8 @@ void testComboManifest() {
     CHECK(touch.Visible(TouchControl::Jump));
     std::vector<HudCmd> out;
     touch.AppendOverlay(out);
-    CHECK_EQ(out.size(), std::size_t{10});
+    // The disc, its three arrows, the four buttons, pause (no knob at rest).
+    CHECK_EQ(out.size(), std::size_t{9});
     for (const HudCmd& cmd : out) CHECK(cmd.sprite.find("combo_") == std::string::npos);
     step = touch.Update(Play({Finger(1, Centre(TouchControl::SwordCombo)), Finger(2, Centre(TouchControl::Jump))}));
     CHECK(Only(step, {TouchAction::Jump}));
@@ -1747,6 +1898,32 @@ void testComboInGame() {
         for (int i = 0; i < 20; ++i) tick({});
         const glm::vec2 screen = machine.GetScreenSize();
 
+        // E16's touch wording in the real level: he stands at the first help
+        // sign, whose message is on the HUD (addMessage's line at (10,70) and
+        // its echo under him), and the HUD draws it through Localization -
+        // in touch wording while the controls are on, as it was when off.
+        {
+            using Penumbra::Render::Language;
+            const std::string sign = "Utilize as setas ou as direcionais do joystick para mover-se";
+            Penumbra::Render::Localization loc;
+            CHECK(loc.Load());
+            int shown = 0;
+            for (const HudCmd& cmd : machine.Snapshot().hud) {
+                if (cmd.kind != HudCmd::Kind::Text || cmd.text != sign) continue;
+                ++shown;
+                loc.SetTouch(true);
+                CHECK(loc.Translate(cmd.text, Language::Portuguese) ==
+                      "Utilize as setas no canto inferior esquerdo para mover-se");
+                CHECK(loc.Translate(cmd.text, Language::English) == "Use the arrows at the bottom left to move");
+                loc.SetTouch(false);
+                CHECK(loc.Translate(cmd.text, Language::Portuguese) == sign);
+                CHECK(loc.Translate(cmd.text, Language::English) ==
+                      "Use the arrow keys or the joystick's d-pad to move");
+            }
+            std::printf("  level 1's first help sign: %d text commands on the HUD, drawn in touch wording\n", shown);
+            CHECK(shown >= 2);   // the line and its echo
+        }
+
         // The sword combo, the way he stands.
         wizard->AddIntData("mp", wizard->GetIntData("maxMp"));
         int mp = wizard->GetIntData("mp");
@@ -1802,6 +1979,7 @@ void runTests() {
     testMenus();
     testPlatformMouse();
     testShownWhere();
+    testCorner();
     testSceneChanges();
     testLatch();
     testLayout();

@@ -7,7 +7,7 @@
   "scale": 1.0,
   "controls": {
     "dpad": {
-      "_note": "Left, right and down (K_LEFT, K_RIGHT, K_DOWN); no up, which only jumps. The thumb slides without lifting; 'deadZone' is the fraction of the radius at the centre that means nothing. The arrows are drawn over the disc in the same box, each brightened while its direction is held; the knob follows the thumb.",
+      "_note": "Left, right and down (K_LEFT, K_RIGHT, K_DOWN); no up, which only jumps. The thumb slides without lifting; 'deadZone' is the fraction of the radius at the centre that means nothing. The arrows are drawn over the disc in the same box, each brightened while its direction is held; the knob follows the thumb, and 'atRest' true keeps it at the disc's centre with no thumb there.",
       "image": "images/touch/placeholder/dpad.png",
       "anchor": "bottomLeft",
       "offset": [40, 40],
@@ -22,7 +22,8 @@
       },
       "knob": {
         "image": "images/touch/placeholder/dpad_knob.png",
-        "size": [104, 104]
+        "size": [104, 104],
+        "atRest": true
       }
     },
     "jump": {
@@ -91,7 +92,7 @@
       "hitPadding": 12
     },
     "back": {
-      "_note": "K_ESC in the arena select, the options, game over and the end screens: back to the menu (waitForInputToMenu, escToGoToMenu). Hidden in the main menu and in the pause.",
+      "_note": "K_ESC in the arena select, game over and the end screens: back to the menu (waitForInputToMenu, escToGoToMenu). Hidden in the main menu, in the options (the original's own Back arrow is there) and in the pause.",
       "image": "images/touch/placeholder/back.png",
       "anchor": "topRight",
       "offset": [20, 44],

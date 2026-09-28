@@ -165,6 +165,8 @@ void LightRenderer::DisableSlot(entt::registry& registry, const Slot& slot) {
     if (slot.light != entt::null && registry.valid(slot.light)) {
         auto& component = registry.get<Supersonic::Light2DComponent>(slot.light);
         if (component.enabled) component.enabled = false;
+        // The next owner must not inherit the last one's shadows.
+        registry.remove<Supersonic::Light2DShadowsComponent>(slot.light);
     }
     if (slot.halo != entt::null && registry.valid(slot.halo)) {
         auto& renderable = registry.get<Supersonic::RenderableComponent>(slot.halo);
@@ -194,7 +196,8 @@ std::size_t LightRenderer::SlotFor(entt::registry& registry, int ownerId) {
 }
 
 void LightRenderer::Draw(entt::registry& registry, const Eth::RenderSnapshot& snapshot, const View& /*view*/,
-                         const DrawOrder& order) {
+                         const DrawOrder& order,
+                         const std::vector<std::vector<Supersonic::Light2DShadowsComponent::Strip>>* bakedStrips) {
     using namespace Supersonic;
     const std::vector<Eth::LightDraw>& lights = snapshot.lights;
 
@@ -251,6 +254,14 @@ void LightRenderer::Draw(entt::registry& registry, const Eth::RenderSnapshot& sn
         component.layers = state.layers;
         component.baked = state.baked;
         component.enabled = state.enabled;
+        // Its baked shadows (render/Lighting.cpp, THE BAKED SHADOWS), or none:
+        // a slot may have carried another owner's last frame.
+        const bool hasStrips = bakedStrips != nullptr && i < bakedStrips->size() && !(*bakedStrips)[i].empty();
+        if (hasStrips) {
+            registry.get_or_emplace<Light2DShadowsComponent>(slot.light).strips = (*bakedStrips)[i];
+        } else {
+            registry.remove<Light2DShadowsComponent>(slot.light);
+        }
 
         const HaloState halo = ComputeHalo(light, snapshot.zAxisDirection, order.haloRank + static_cast<int>(i),
                                            flicker);

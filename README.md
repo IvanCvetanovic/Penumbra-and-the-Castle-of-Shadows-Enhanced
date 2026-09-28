@@ -171,7 +171,7 @@ down, is the finger.
 | Light spell | Top button | Space |
 | Sword combo | The left button of the two above the four | the way he faces twice, then S |
 | Spell combo | The right button of the two above the four | Down, the way he faces, then D |
-| Pause (in a level) / back (arena select, options, game over) | The button at the top right | Esc |
+| Pause (in a level) / back (arena select, game over, the end screens) | The button at the top right | Esc |
 
 - Several fingers work at once: hold a direction and tap the buttons.
 - A combo button presses its combo's keys one a tick, toward the way the wizard faces. If a
@@ -180,7 +180,16 @@ down, is the finger.
   combo always registers. While it runs the disc, the sword and the fireball buttons wait; jump,
   light and pause do not. A second tap is ignored until it is done; the pause or a new scene stops it.
 - In the menus, the options, game over and the pause, the buttons are hidden and a tap clicks
-  where it lands.
+  where it lands. The options screen has no back button at the top right: the original's own Back
+  arrow is on it, and a tap on it goes back. The main menu and the pause have none either.
+- The focus brackets show on the direction button the thumb holds, and nowhere while no direction
+  is held (`"atRest"` in the manifest's `knob`; the placeholder look keeps its knob at the centre).
+- The game's control hints speak of the buttons while the touch controls are on, in both
+  languages: level 1's help signs ("Use the arrows at the bottom left to move", "Sword strike: the
+  sword button", ...), the lore sign about key combinations, and the How to Play panel, whose
+  keyboard lines become the buttons (a player on a pad turns the touch controls off in the options
+  and reads the original). They are the `touch` section of `data/strings.json`; with the touch
+  controls off every text is the original's.
 - The buttons are Magic Rampage's (Asantee Games, used with the authors' permission), taken from
   its Android package by `tools/art/make_mr_touch_art.py`. The ones it has no equivalent for - down,
   fire, light, the two combos - are made in its style from its parts: its blank button with one of
@@ -211,7 +220,7 @@ Each enhancement is listed with what the original did. The full record is
 | E12 | One gamepad plays the wizard and drives the menu; a second plays the princess | The first pad was player 2's |
 | E13 | A pause: in a level or an arena, Esc or player 1's Back freezes the game (the clock too, so best times leave it out) under Resume / Main menu, with the music at 40%. It also opens when the window loses focus (`pauseOnFocusLoss`, a row on the options screen). Not on the end screens, where Esc and Back still go to the menu. | No pause: Esc in a level went straight to the main menu and the run was lost |
 | E14 | In the menus, the arena select, the options and game over, a pad's A also confirms and B also goes back | Only Start confirmed and only Back went back |
-| E16 | On-screen touch controls for phones and tablets: a direction disc, jump, sword, fireball, light, the two combos and pause, pressing player 1's own keys; a tap clicks in the menus. Placeholder art, laid out by `data/touch_controls.json`. `touchControls` in `settings.json`, `--touch` on a desktop. | Keyboard and joysticks only |
+| E16 | On-screen touch controls for phones and tablets: a direction disc, jump, sword, fireball, light, the two combos and pause, pressing player 1's own keys; a tap clicks in the menus. Magic Rampage's buttons, laid out by `data/touch_controls.json`. While they are on, the control hints name the buttons, not the keys (`touch` in `data/strings.json`). `touchControls` in `settings.json`, `--touch` on a desktop. | Keyboard and joysticks only; hints name the keys |
 
 ## Settings and saves
 
@@ -402,12 +411,12 @@ every suite through its own executable, and a second registration would run each
 | `test_pn_render_textures` | Colour keys, DDS, normal maps, blend variants |
 | `test_pn_render_lights` | Lights, halos and projected shadows |
 | `test_pn_render_particles` | Particles drawn as pooled quads |
-| `test_pn_render_hud` | `strings.json` against every string the scripts draw, the font layout, the HUD's quads |
+| `test_pn_render_hud` | `strings.json` against every string the scripts draw, the control hints' touch wording (every hint has it, it fits, touch off changes nothing), the font layout, the HUD's quads |
 | `test_pn_render_english` | The English images: each variant exists at the original's size, and the renderers swap them with the language |
 | `test_pn_render_input` | Keys, pads and the keyboard second player mapped onto the original's input; A and B in the menus (E14); the settings file |
 | `test_pn_render_interp` | Smooth motion (E8): the blend between two ticks, whole pixels kept whole, never across a scene load, a frame gap or a jump |
 | `test_pn_render_pause` | The pause (E13): when it opens, the frozen ticks, the menu, the one-tick cancel to the main menu, focus loss, the overlay, the input held back after it |
-| `test_pn_render_touch` | The touch controls (E16): the key each control presses, the direction disc, several fingers at once, the pause opened and tapped, a tap in a menu as a click, the layout on 4:3 and widescreen with a safe area, the manifest and its art, the setting; the combo buttons' key timelines, and the combos firing through the ported combo buffer and in level 1 |
+| `test_pn_render_touch` | The touch controls (E16): the key each control presses, the direction disc, several fingers at once, the pause opened and tapped, a tap in a menu as a click, the knob only while a direction is held, the corner button screen by screen, the layout on 4:3 and widescreen with a safe area, the manifest and its art, the setting; the combo buttons' key timelines, and the combos firing through the ported combo buffer and in level 1, where the first help sign is drawn in touch wording |
 
 ## Repository layout
 

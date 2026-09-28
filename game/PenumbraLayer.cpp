@@ -231,19 +231,10 @@ void PenumbraLayer::ApplyTouch(Eth::InputFrame& frame) {
     const std::string& loop = m_machine->LoopFunction();
     const bool level = loop == "levelLoop" || loop == "pvpLoop";
     const bool paused = m_pause.Paused();
-    const std::string& scene = m_machine->GetSceneFileName();
     input.scene = level && !paused ? Render::TouchScene::Play : Render::TouchScene::Menu;
-    if (paused || scene.empty() || scene == "scenes/menu.esc") {
-        // The pause's rows are the way on; in the main menu cancel does
-        // nothing (goToMenu, menu.as:383).
-        input.corner = Render::TouchCorner::Hidden;
-    } else if (level && InPlayScene()) {
-        input.corner = Render::TouchCorner::Pause;
-    } else {
-        // The arena select and game over read only cancel (waitForInputToMenu,
-        // menu.as:374); the end screens and the options take it too.
-        input.corner = Render::TouchCorner::Back;
-    }
+    // Pause, back or nothing, screen by screen: TouchControls::CornerFor.
+    input.corner = Render::TouchControls::CornerFor(
+        Render::TouchScreen{m_machine->GetSceneFileName(), level, Script::g_gameFinished, paused});
     // E16's combo buttons press toward the way the wizard faces: his own
     // currentDir (controlCharacter writes it from every device, a level's
     // start leaves it unwritten, which reads as RIGHT), from the last tick.
@@ -557,7 +548,7 @@ void PenumbraLayer::OnUpdate(entt::registry& registry, float deltaTime) {
     const Render::DrawOrder order = Render::ComputeDrawOrder(snapshot);
     m_sprites.Draw(registry, world, m_view, order);
     m_shadows.Draw(registry, world, m_view, order, &snapshot);
-    m_lights.Draw(registry, world, m_view, order);
+    m_lights.Draw(registry, world, m_view, order, &m_shadows.BakedStrips());
     m_particles.Draw(registry, world, m_view, order);
     // E13: the pause's overlay over the scripts' HUD, under the bars. Once a
     // frame: it begins the font atlas's frame.
@@ -566,6 +557,9 @@ void PenumbraLayer::OnUpdate(entt::registry& registry, float deltaTime) {
     m_overlay.clear();
     if (m_touchEnabled) m_touch.AppendOverlay(m_overlay);
     m_pause.AppendOverlay(m_overlay);
+    // E16: the scripts' control hints in touch wording while the touch
+    // controls are on (strings.json "touch"), from this frame on.
+    m_localization.SetTouch(m_touchEnabled);
     m_hud.Draw(registry, snapshot, m_view, m_overlay.empty() ? nullptr : &m_overlay);
     m_input.EndFrame();                       // once a frame, tick or not
     // E16: a finger that came down in a frame no tick saw is handed to the

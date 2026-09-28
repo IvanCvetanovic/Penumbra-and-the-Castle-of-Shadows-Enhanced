@@ -29,9 +29,17 @@
 //   - REAL TIME: every other pair, drawn after the caster's own light pass, so
 //     only for a caster that applies light (E:ETHScene.cpp:924-948,
 //     E:ETHShaderManager.cpp:217), length factor 2, the alpha formula above.
-// The enhanced port lights everything live, so both are drawn live as one
-// darkening overlay. The overlay darkens ambient and every light under it, not
-// just its own light's term, so:
+// BAKED, AS BAKED (render/Lighting.cpp, THE BAKED SHADOWS; kBakedShadowsOwnLight,
+// on): a baked pair is not drawn over the frame at all. Its strip - length
+// factor 8, uncut, alpha byte(255 x opacity) as maxOpacity drew it - goes to its
+// light (BakedStrips, which LightRenderer hands the engine as that light's
+// Light2DShadowsComponent), and the lit static sprites that lie flat multiply
+// that light's add by what the strips leave of it. Only real-time pairs are
+// overlays then.
+//
+// OVERLAID (the switch off, the port before it): the enhanced port lights
+// everything live, so both are drawn live as one darkening overlay. The overlay
+// darkens ambient and every light under it, not just its own light's term, so:
 //   - ALPHA: the real-time formula for both. It scales with the light's
 //     falloff at the caster and with how much the ambient leaves to darken,
 //     which is what "remove this light's contribution" amounts to. 0.7.12's
@@ -76,6 +84,7 @@
 //   Attach(registry, textures)                   once, after TextureCache::Attach
 //   Draw(registry, snapshot, view, order)        every frame, after ComputeDrawOrder
 //                                                (E8: the blend, with &tick as `shapes`)
+//   LightRenderer::Draw(..., &BakedStrips())     after it, the same snapshot
 //   Detach(registry)                             on shutdown / before the registry goes
 
 #include <array>
@@ -90,6 +99,7 @@
 #include <entt/entt.hpp>
 #include <glm/glm.hpp>
 
+#include "core/Light2D.hpp"
 #include "eth/Snapshot.hpp"
 #include "render/DrawOrder.hpp"
 #include "render/TextureCache.hpp"
@@ -117,6 +127,11 @@ struct ShadowGeometry {
 
 class ShadowRenderer {
 public:
+    // One light's baked strips, as the engine takes them (engine world xy).
+    using LightStrips = std::vector<Supersonic::Light2DShadowsComponent::Strip>;
+
+    ShadowRenderer();
+
     // RM_THREE_TRIANGLES: position = texture coordinate (the 2013 gs2d,
     // D3D9VideoInfo.cpp:181-188; the mode is in 2010 too, G:gs2d.h:103).
     static constexpr std::array<glm::vec2, 5> kStripUv = {
@@ -157,14 +172,34 @@ public:
     void Draw(entt::registry& registry, const Eth::RenderSnapshot& snapshot, const View& view,
               const DrawOrder& order, const Eth::RenderSnapshot* shapes = nullptr);
 
-    // ENHANCEMENT switch (see LENGTH above). On by default.
+    // ENHANCEMENT switch (see LENGTH above). On by default; only the overlaid
+    // baked pairs read it.
     void SetCapBakedLength(bool cap) { m_capBakedLength = cap; }
     bool CapBakedLength() const { return m_capBakedLength; }
 
+    // BAKED, AS BAKED above. Defaults to render/Lighting.cpp's
+    // kBakedShadowsOwnLight, which also decides which sprites take the strips.
+    void SetBakedOwnLight(bool own) { m_bakedOwnLight = own; }
+    bool BakedOwnLight() const { return m_bakedOwnLight; }
+
+    // The last Draw's baked strips, per snapshot light (index for index its
+    // `lights`), placed where the snapshot's casters stand: empty for a light
+    // with none, and all empty with BakedOwnLight off.
+    const std::vector<LightStrips>& BakedStrips() const { return m_bakedStrips; }
+    std::size_t BakedStripCount() const { return m_bakedStripCount; }
+
     // The whole of one shadow: who casts, the strip, the alpha. Not visible
     // when 0.7.12 would have drawn nothing. `sceneAmbient` is the snapshot's.
+    // `bakedOwnLight`: a baked pair as the lightmap bake drew it (BAKED, AS
+    // BAKED above) - length factor 8 uncut, alpha byte(255 x opacity) - rather
+    // than as an overlay.
     static ShadowGeometry ComputeShadow(const Eth::SpriteDraw& caster, const Eth::LightDraw& light,
-                                        const glm::vec3& sceneAmbient, bool capBakedLength = true);
+                                        const glm::vec3& sceneAmbient, bool capBakedLength = true,
+                                        bool bakedOwnLight = false);
+
+    // shadow.dds's alpha as the engine's mask (Light2DShadowMask): the image's
+    // alpha, row by row from its top. Empty when the image does not read.
+    static Supersonic::Light2DShadowMask DecodeMask(const std::string& shadowDdsPath);
 
     // For suites and the debug overlay.
     std::size_t SlotCount() const { return m_slots.size(); }
@@ -201,6 +236,11 @@ private:
     std::uint64_t m_draws = 0;
     std::uint32_t m_nextKey = 0;
     bool m_capBakedLength = true;
+    bool m_bakedOwnLight = true;
+    std::vector<LightStrips> m_bakedStrips;
+    std::size_t m_bakedStripCount = 0;
+    Supersonic::Light2DShadowMask m_mask;     // decoded once, published to the registry's context
+    bool m_maskDecoded = false;
     std::size_t m_shown = 0;
     std::size_t m_rebuilds = 0;
 };
