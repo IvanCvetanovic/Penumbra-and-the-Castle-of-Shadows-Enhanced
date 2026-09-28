@@ -444,6 +444,16 @@ extern Stepper g_effectsVolume;                       // E10: tenths of the effe
 extern Switch g_smoothMotion;                         // E10: 0 = smooth motion on (E8), 1 = off
 extern Switch g_pauseOnFocusLoss;                     // E13: 0 = pause on focus loss, 1 = play on
 
+// ENHANCEMENT E20 (not in the original): the options screen on a phone. The    // E20
+// layer raises g_mobileLayout when it attaches (PENUMBRA_MOBILE builds); the     // E20
+// scripts then leave out what a phone has no use for - the video-mode list,     // E20
+// g_windowed's switch and the Alt+Enter line (showToggleFullscreenMessage) -    // E20
+// and draw g_touchControls, E16's on/off, where g_windowed's switch was. A       // E20
+// runtime flag rather than a build one, so the desktop suites can run the        // E20
+// phone's screen; left down, every screen is drawn exactly as before.           // E20
+extern bool g_mobileLayout;                           // E20
+extern Switch g_touchControls;                        // E20: 0 = touch controls on (E16), 1 = off
+
 string videoModeToString(const videoMode& vm);        // videoModes.as:47
 void screenModesPreLoop();                            // videoModes.as:52
 void ETHCallback_picker(ETHEntity thisEntity);        // videoModes.as:58

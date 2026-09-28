@@ -18,8 +18,8 @@
 #   --package-only               skip configure and build; repackage what is built
 #
 # Uses the SDK at $ANDROID_SDK (default %LOCALAPPDATA%/Android/Sdk): NDK 28.2.13676358's
-# toolchain file, its cmake 3.22.1 and ninja, build-tools 35.0.0 (aapt2, zipalign,
-# apksigner) and platform 35's android.jar; a JDK 17 for keytool and apksigner; Python 3
+# toolchain file, its cmake 3.22.1 and ninja, build-tools 35.0.0 (aapt2, d8, zipalign,
+# apksigner) and platform 35's android.jar; a JDK 17 for javac, keytool and apksigner; Python 3
 # with Pillow (tools/android_package.py). Build trees: build-android-<abi>/ at the repo
 # root. Output: out/android/Penumbra-debug.apk.
 set -euo pipefail
@@ -105,6 +105,26 @@ for abi in "${ABIS[@]}"; do
     LIB_SPECS+=("$abi=$(win "$OUT/lib/$abi/libPenumbra.so")")
 done
 
+# ---- The Java side ---------------------------------------------------------------
+# The engine's SupersonicActivity (engine/src/platform/android/java/), the one
+# class the manifest names: javac against platform 35's android.jar, then d8
+# into classes.dex. Java 8 bytecode, which d8 takes whatever JDK compiled it.
+JAVA_SRC="$REPO/engine/src/platform/android/java"
+rm -rf "$OUT/classes" "$OUT/dex"
+mkdir -p "$OUT/classes" "$OUT/dex"
+mapfile -t JAVA_FILES < <(find "$JAVA_SRC" -name '*.java')
+JAVA_WIN=()
+for f in "${JAVA_FILES[@]}"; do JAVA_WIN+=("$(win "$f")"); done
+javac -source 8 -target 8 -Xlint:-options -Xlint:deprecation -encoding UTF-8 \
+    -bootclasspath "$(win "$ANDROID_JAR")" -d "$(win "$OUT/classes")" "${JAVA_WIN[@]}"
+mapfile -t CLASS_FILES < <(find "$OUT/classes" -name '*.class')
+CLASS_WIN=()
+for f in "${CLASS_FILES[@]}"; do CLASS_WIN+=("$(win "$f")"); done
+cmd //c "$(win "$BUILD_TOOLS/d8.bat")" --release --min-api "$MIN_SDK" --lib "$(win "$ANDROID_JAR")" \
+    --output "$(win "$OUT/dex")" "${CLASS_WIN[@]}"
+[[ -f "$OUT/dex/classes.dex" ]] || { echo "d8 made no classes.dex" >&2; exit 1; }
+LIB_SPECS+=("classes.dex=$(win "$OUT/dex/classes.dex")")
+
 # ---- Package ------------------------------------------------------------------
 STAGE="$OUT/stage"
 python "$(win "$REPO/tools/android_package.py")" stage "$(win "$STAGE")"
@@ -155,5 +175,5 @@ if [[ $RUN -eq 1 ]]; then
         # app's external directory.
         printf '%s\n' "$RUN_FLAGS" | "$ADB" -s "$SERIAL" exec-in run-as "$PACKAGE" sh -c 'cat > files/penumbra_args.txt'
     fi
-    "$ADB" -s "$SERIAL" shell am start -n "$PACKAGE/android.app.NativeActivity"
+    "$ADB" -s "$SERIAL" shell am start -n "$PACKAGE/com.ivancvetanovic.supersonic.SupersonicActivity"
 fi

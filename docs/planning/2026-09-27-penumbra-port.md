@@ -51,6 +51,7 @@ in this repository, with the engine improved where the game needs it.
 | E17 | Stand-in fonts (game/data/fonts: Liberation Sans Bold 2.1.5, SIL OFL; DejaVu Sans Bold 2.37, Bitstream Vera licence): off Windows, and on a Windows machine missing a face, FontAtlas draws with them at the metrics of the Windows face they stand for (Arial Narrow = Liberation Sans Bold at 82% width, within 1/2048 em of Arial Narrow Bold on every cp1252 character the game draws). On Windows the system faces still come first | the Windows system faces (D3DXCreateFontA), nothing else |
 | E18 | MP3 without Media Foundation (eth/SoundDecode, dr_mp3 vendored at a pinned commit): where the engine cannot decode an MP3 (every platform but Windows) the port decodes it itself; on Windows the engine's Media Foundation path still decodes, dr_mp3 only if it refuses a file | Audiere on Windows |
 | E19 | The first language off Windows: Portuguese when LC_ALL, LC_MESSAGES or LANG starts with pt (Settings::SetSystemLocale is the hook Android and iOS feed the device locale into) | Portuguese only |
+| E20 | The options screen on a phone (Script::g_mobileLayout, raised by the layer on PENUMBRA_MOBILE builds; a runtime flag, so test_pn_scenarios 21 runs it on the desktop): no video-mode list, no windowed/fullscreen switch and no "Pressione Alt+Enter" line (menu footer and options screen); in the switch's place E16's touch controls on/off ("Ativa/Desativa controles de toque", saved as settings.touchControls "on"/"off", applied at once) | the video modes, the window switch and the Alt+Enter line, on every machine |
 
 ## Steps
 
@@ -364,7 +365,24 @@ only); the editor compiles on Windows with zero warnings (not launched); Penumbr
 build zero warnings, test_pn_all once - 17 suites, 5006 checks, 0 failures; Android: both ABIs
 build, the APK packages.
 
-### Step 15 - macOS and iOS (2026-09-28)
+### Step 15 - Android, rounds 2 and 3 (2026-09-28)
+- **Music on the phone**: every MP3 decodes through E18 (menu.mp3 14 s, fase.mp3 120 s, chefao.mp3,
+  the effects), one log line per decode. **Language**: a fresh install follows the device (English
+  on en-US; Portuguese after persist.sys.locale pt-BR). **Keyboard player 2** is off on a phone.
+- **Immersive**: the engine's SupersonicActivity (a small NativeActivity subclass, javac + d8 in
+  tools/build_android.sh, no Gradle) hides both system bars, again after Home and on focus.
+- **The notch (orchestrator's ruling, option b)**: the window stays off the display cutout, so the
+  whole game - its HUD in the top corners included - is drawn clear of it; measured with the tall
+  cutout overlay: 1184x720 beside a 96 px black strip, the HUD right of it. The engine's
+  SafeArea::Get() (window-pixel insets, zero on the desktop) still feeds E16's controls whatever
+  insets remain, and is the API iOS implements.
+- **No name entry to port**: the high scores (hs.enml) hold times only; GetLastCharInput's one caller,
+  stringInput, is never called (docs/spec/90).
+- **E20**, the options screen on a phone (above): no video-mode list, no window switch, no Alt+Enter
+  line (menu footer too); a touch-controls switch in their place, saved as touchControls on/off.
+Not measured: Android 15+ (edge-to-edge enforced; the emulator is API 33), a real phone.
+
+### Step 16 - macOS and iOS (2026-09-28, branch apple-port)
 Built and run only on GitHub's macOS runners (macos-15 arm64, Xcode 26.3, iOS 26.2 simulators):
 this laptop cannot compile against Apple's SDKs. `.github/workflows/apple.yml`, on pushes to the
 `apple-port` branch and by hand, never on main; MoltenVK 1.4.2 from the KhronosGroup release's
@@ -384,8 +402,9 @@ offered. Its README's Platforms section lists it all.
   engine/assets/shaders, the original's skull icon via tools/apple/ico_to_png.py, ad-hoc signed).
 - **The notch (orchestrator's ruling):** the game is drawn clear of it - the Metal view is the
   safe area's width (black beside the notch or Dynamic Island) and runs to the bottom edge;
-  SafeArea::Get reports what remains inside it (measured: 2250x1206 of 2622x1206 pixels, a
-  60-pixel home-indicator band).
+  SafeArea::Get (the engine's, Step 15) reports what remains inside it (measured: 2250x1206
+  of 2622x1206 pixels, a 60-pixel home-indicator band). E20's phone options follow
+  PENUMBRA_MOBILE, so iOS has them too (not seen: no frame in the simulator).
 - **extracted/ is CRLF on every checkout now** (.gitattributes): the repository stores it LF,
   and test_pn_formats' round trips against the shipped bytes failed 14 checks on the Mac's LF
   checkout. The readme.txt files keep the *.txt rule, as on Windows.
@@ -394,9 +413,11 @@ offered. Its README's Platforms section lists it all.
   17 suites, 4914 checks, 0 failures (Linux 4917: test_pn_paths' three case-sensitive checks
   skip on APFS's case-insensitive default, as on Windows; Windows' 5006 include its fonts and
   Media Foundation). Penumbra.app, started from an unrelated folder, rendered level 1 on the
-  runner's Apple Paravirtual GPU (--window 1024x768 came out 1024x653: the runner's display is
-  smaller), English text, lights and torches as on Windows; CoreAudio pulled 384000 frames in 750
-  callbacks from the runner's virtual sound device (not heard).
+  runner's Apple Paravirtual GPU (--window 1024x768 came out 1024x653, presumably fitted to
+  the runner's display, whose size was not measured), English text, lights and torches as on Windows; CoreAudio pulled 384000 frames in 750
+  callbacks from the runner's virtual sound device (not heard). With the Mac's language list
+  set to Portuguese (AppleLanguages pt-BR, LANG still English, no settings.json) the same
+  capture's text is Portuguese: NSLocale reaches E19's hook.
 - **Measured, iOS:** the simulator build (arm64) and a device build (iphoneos arm64, minos 16.3)
   compile, link and assemble. In the simulator the app installs and launches (the skull icon on
   the home screen), the scene connects, CoreAudio's RemoteIO pulls, Vulkan instance, device and
@@ -409,6 +430,7 @@ offered. Its README's Platforms section lists it all.
   signing and notarising, the Mac's own fullscreen/Retina check by a person, sound heard on
   either.
 
+### Open
 - **Not modelled in the light**: the light pass's alpha test (a texel at alpha <= 1/255 took no
   light, highlight included); the highlights 0.7.12 baked into static sprites' lightmaps with the
   first frame's eye (every light is live here, E9, so they follow the camera); per-pixel depth of

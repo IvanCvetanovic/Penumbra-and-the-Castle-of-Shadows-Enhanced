@@ -2,7 +2,7 @@
 and icon, and putting the native libraries into the linked APK.
 
     python tools/android_package.py stage <stage dir>
-    python tools/android_package.py addlibs <in.apk> <out.apk> <abi>=<libPenumbra.so> [...]
+    python tools/android_package.py addlibs <in.apk> <out.apk> <abi>=<libPenumbra.so> [...] [classes.dex=<file>]
 
 `stage` writes <stage>/assets and <stage>/res from the repository:
 
@@ -99,9 +99,11 @@ def addlibs(apk_in, apk_out, libs):
             copy.external_attr = info.external_attr
             apk.writestr(copy, src.read(info.filename))
         for spec in libs:
-            abi, path = spec.split("=", 1)
-            apk.write(path, f"lib/{abi}/libPenumbra.so", compress_type=zipfile.ZIP_DEFLATED)
-            print(f"added lib/{abi}/libPenumbra.so ({os.path.getsize(path) // 1024} KB)")
+            # <abi>=<libPenumbra.so>, or classes.dex=<file> for the Java side.
+            key, path = spec.split("=", 1)
+            name = key if key.endswith(".dex") else f"lib/{key}/libPenumbra.so"
+            apk.write(path, name, compress_type=zipfile.ZIP_DEFLATED)
+            print(f"added {name} ({os.path.getsize(path) // 1024} KB)")
 
 
 def main(argv):

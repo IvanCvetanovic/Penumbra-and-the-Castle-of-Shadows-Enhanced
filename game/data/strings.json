@@ -73,6 +73,9 @@
         "Desativa movimento suave": "Disable smooth motion",
         "Pausa ao perder o foco": "Pause on focus loss",
         "Continua sem o foco": "Play on without focus",
+        "_videoModes.cpp ENHANCEMENT E20: the phone's row, in the window switch's place (the port's own Portuguese, worded as the original's pixel shader row)": "",
+        "Ativa controles de toque": "Enable touch controls",
+        "Desativa controles de toque": "Disable touch controls",
 
         "_render/PauseMenu.cpp ENHANCEMENT E13: the pause (not in the original, which had none; the Portuguese is the port's own, Arial Narrow 40 and 30 in a 316 px row)": "",
         "Pausado": "Paused",

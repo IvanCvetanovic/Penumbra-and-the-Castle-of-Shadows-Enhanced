@@ -151,6 +151,9 @@ private:
     // E16: this tick's touches pressed into the frame, before the pause and
     // the game read it.
     void ApplyTouch(Eth::InputFrame& frame);
+    // E16/E20: the touch controls on or off, their layout read the first time
+    // they come on (at attach, or from the options screen's row).
+    void SetTouchEnabled(bool enabled);
 
     Options m_options;
     Render::Settings m_settings;
@@ -172,6 +175,7 @@ private:
     // E16: the touch controls, when this run has them.
     Render::TouchControls m_touch;
     bool m_touchEnabled = false;
+    bool m_touchManifestLoaded = false;
     unsigned m_ticksThisFrame = 0;   // the latch of a tap no tick saw
     // The layer's own HUD commands for the HUD pass, in drawing order: the
     // touch controls (E16), then the pause (E13).

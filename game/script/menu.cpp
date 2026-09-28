@@ -78,7 +78,10 @@ void showToggleFullscreenMessage()
 {
     const vector2 screenSize = GetScreenSize();
     InputState& input = GetInputHandle();                             // menu.as:100
-    shadowText(vector2(0,screenSize.y-15), "Pressione Alt+Enter para trocar entre fullscreen e modo janela", "Arial Narrow", 15.0f, 255,203,203,228);
+    // E20: not on a phone, which has neither the keys nor a window to switch;   // E20
+    // the switching below stays (g_windowed's row is not drawn there).          // E20
+    if (!g_mobileLayout)                                                         // E20
+        shadowText(vector2(0,screenSize.y-15), "Pressione Alt+Enter para trocar entre fullscreen e modo janela", "Arial Narrow", 15.0f, 255,203,203,228);
 
     // g_windowed's row 0 is "Janela" (windowed): when the switch disagrees with
     // the window, the window follows the switch (menu.as:103-106).
