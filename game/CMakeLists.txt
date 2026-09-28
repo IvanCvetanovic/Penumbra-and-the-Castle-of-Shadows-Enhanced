@@ -29,9 +29,9 @@ set(PENUMBRA_DATA_DIR "${CMAKE_CURRENT_SOURCE_DIR}/data"
     CACHE PATH "The port's own JSON data (game/data)")
 target_compile_definitions(PenumbraGame PUBLIC PENUMBRA_DATA_DIR="${PENUMBRA_DATA_DIR}")
 
-# A phone: a touchscreen and, usually, no keyboard, so touchControls "auto"
-# turns the on-screen controls on (render/TouchControls.hpp).
-if (ANDROID)
+# A phone or tablet: a touchscreen and, usually, no keyboard, so touchControls
+# "auto" turns the on-screen controls on (render/TouchControls.hpp). Not a Mac.
+if (ANDROID OR IOS)
     target_compile_definitions(PenumbraGame PUBLIC PENUMBRA_MOBILE=1)
 endif()
 
@@ -41,8 +41,24 @@ if (ANDROID)
     # enters it through SupersonicMain (android/AndroidMain.cpp), which unpacks
     # the files and calls main.cpp's PenumbraMain as main() does on desktop.
     add_library(Penumbra SHARED main.cpp android/AndroidMain.cpp)
+elseif (IOS)
+    # The engine's main() (engine/src/platform/ios/IOSApp.mm) starts UIKit and
+    # enters the game through SupersonicMain (ios/IOSMain.mm), which points it at
+    # the files in the app bundle and calls PenumbraMain. A plain executable:
+    # tools/apple/make_app.sh puts it, Info.plist and the files into Penumbra.app.
+    add_executable(Penumbra main.cpp ios/IOSMain.mm)
+    target_link_libraries(Penumbra PRIVATE "-framework Foundation")
+elseif (APPLE)
+    # main() is macos/MacMain.mm's: the language the Mac is set to, and inside a
+    # Penumbra.app (tools/apple/make_app.sh) the files in its Resources, then
+    # PenumbraMain as everywhere else.
+    add_executable(Penumbra main.cpp macos/MacMain.mm)
+    target_link_libraries(Penumbra PRIVATE "-framework Foundation")
 else()
     add_executable(Penumbra main.cpp)
+endif()
+if (APPLE)
+    set_source_files_properties(macos/MacMain.mm ios/IOSMain.mm PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
 endif()
 # The icon (the original's, read in place), version information and the
 # manifest (per-monitor DPI aware); the top-level CMakeLists.txt says why.

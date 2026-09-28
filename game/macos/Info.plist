@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Penumbra.app on macOS. tools/apple/make_app.sh copies this into Contents/ and
+     sets LSMinimumSystemVersion to what the build targeted. -->
+<plist version="1.0">
+<dict>
+    <key>CFBundleDevelopmentRegion</key>
+    <string>en</string>
+    <key>CFBundleLocalizations</key>
+    <array>
+        <string>en</string>
+        <string>pt</string>
+    </array>
+    <key>CFBundleDisplayName</key>
+    <string>Penumbra</string>
+    <key>CFBundleName</key>
+    <string>Penumbra</string>
+    <key>CFBundleExecutable</key>
+    <string>Penumbra</string>
+    <key>CFBundleIdentifier</key>
+    <string>com.ivancvetanovic.penumbra</string>
+    <key>CFBundleInfoDictionaryVersion</key>
+    <string>6.0</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleShortVersionString</key>
+    <string>1.0</string>
+    <key>CFBundleVersion</key>
+    <string>1</string>
+    <key>CFBundleIconFile</key>
+    <string>Penumbra</string>
+    <key>LSApplicationCategoryType</key>
+    <string>public.app-category.action-games</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>13.3</string>
+    <key>NSHighResolutionCapable</key>
+    <true/>
+    <key>NSSupportsAutomaticGraphicsSwitching</key>
+    <true/>
+</dict>
+</plist>

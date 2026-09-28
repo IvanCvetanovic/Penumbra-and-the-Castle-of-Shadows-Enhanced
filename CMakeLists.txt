@@ -18,6 +18,14 @@
 cmake_minimum_required(VERSION 3.20)
 project(Penumbra LANGUAGES C CXX)
 
+# Objective-C++ on Apple platforms: the entries in game/macos and game/ios ask
+# the system for its language and the bundle's folders, and the engine's iOS
+# backend is UIKit. Enabled here, the directory above everything that compiles
+# or links it (the engine enables it too, for its own build).
+if (APPLE)
+    enable_language(OBJCXX)
+endif()
+
 # The engine's headers are C++20, and SupersonicCore says so on its interface;
 # the port's own code is held to the same standard here, where the engine's
 # directory settings do not reach.

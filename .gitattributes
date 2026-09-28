@@ -28,4 +28,7 @@
 # LF on every checkout (bash in WSL reads a CR as part of the command), and a
 # font is bytes, never text.
 *.sh    text eol=lf
+*.mm    text eol=lf
+*.plist text eol=lf
+*.yml   text eol=lf
 *.ttf   binary

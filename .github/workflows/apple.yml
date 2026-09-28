@@ -1,0 +1,329 @@
+name: Apple
+
+# The port on macOS and iOS, built where Apple's SDKs are: a GitHub macOS runner.
+#
+#   macos  Penumbra and test_pn_all for macOS (GLFW + MoltenVK), every suite run
+#          once, Penumbra.app assembled (tools/apple/make_app.sh) and, where the
+#          runner has a Metal device, a capture of level 1 taken from inside it.
+#   ios    Penumbra for the iOS simulator (UIKit + MoltenVK), unsigned apart
+#          from the ad-hoc signature arm64 needs, assembled into Penumbra.app,
+#          installed on a simulator and run for 300 frames with a capture.
+#
+# MoltenVK is linked into the program (SUPERSONIC_MOLTENVK_LIBRARY), from the
+# KhronosGroup/MoltenVK release's static xcframework: no Vulkan loader, no SDK.
+#
+# PRIVATE REPOSITORY, BILLED MINUTES, macOS at ten times the Linux rate: runs
+# only on a push to the apple-port branch or by hand, never on main, and a newer
+# push cancels the run it supersedes.
+on:
+  push:
+    branches: [apple-port]
+  workflow_dispatch:
+
+concurrency:
+  group: apple-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    # bash -eo pipefail: without pipefail, `build | tee log` passes whatever the build did.
+    shell: bash
+
+env:
+  MOLTENVK_VERSION: v1.4.2
+  HOMEBREW_NO_AUTO_UPDATE: "1"
+  HOMEBREW_NO_INSTALL_CLEANUP: "1"
+  HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK: "1"
+  CCACHE_MAXSIZE: 600M
+
+jobs:
+  macos:
+    name: macOS - build, test, bundle, capture
+    runs-on: macos-15
+    timeout-minutes: 40
+    env:
+      CCACHE_DIR: ${{ github.workspace }}/.ccache
+    steps:
+      - uses: actions/checkout@v4
+
+      # The engine is a private submodule; ENGINE_DEPLOY_KEY is a read-only
+      # deploy key on it. Loaded into an agent, never printed.
+      - uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.ENGINE_DEPLOY_KEY }}
+      - name: Engine submodule
+        run: |
+          git -c url."git@github.com:".insteadOf="https://github.com/" submodule update --init engine
+          git -C engine log --oneline -1
+
+      # The newest release Xcode the image has: MoltenVK's release is built with
+      # a recent one, and its static library names Metal symbols an older SDK
+      # may not have.
+      - name: Xcode
+        run: |
+          ls -d /Applications/Xcode*.app
+          XCODE="$(ls -d /Applications/Xcode_[0-9]*.app | grep -v -i -e beta -e release_candidate | sort -V | tail -1)"
+          sudo xcode-select -s "$XCODE/Contents/Developer"
+          xcodebuild -version
+
+      - name: Runner
+        run: |
+          sw_vers
+          echo "cpus $(sysctl -n hw.ncpu), memory $(( $(sysctl -n hw.memsize) / 1073741824 )) GB"
+          system_profiler SPDisplaysDataType || true
+          system_profiler SPAudioDataType || true
+          printf 'import Metal\nprint("Metal device: \\(MTLCreateSystemDefaultDevice()?.name ?? "none")")\n' > "$RUNNER_TEMP/metal.swift"
+          xcrun swiftc -o "$RUNNER_TEMP/metal" "$RUNNER_TEMP/metal.swift" && "$RUNNER_TEMP/metal" || true
+
+      - name: MoltenVK (cached)
+        id: moltenvk
+        uses: actions/cache@v4
+        with:
+          path: ~/moltenvk-macos
+          key: moltenvk-${{ env.MOLTENVK_VERSION }}-macos
+      - name: MoltenVK (download)
+        if: steps.moltenvk.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/moltenvk-macos
+          curl -fsSL -o "$RUNNER_TEMP/mvk.tar" \
+            "https://github.com/KhronosGroup/MoltenVK/releases/download/$MOLTENVK_VERSION/MoltenVK-all.tar"
+          tar -xf "$RUNNER_TEMP/mvk.tar" -C ~/moltenvk-macos \
+            MoltenVK/MoltenVK/static/MoltenVK.xcframework/macos-arm64_x86_64/libMoltenVK.a MoltenVK/LICENSE
+          rm "$RUNNER_TEMP/mvk.tar"
+
+      - name: Tools
+        run: brew install ninja ccache
+
+      - name: ccache (restore)
+        uses: actions/cache/restore@v4
+        with:
+          path: .ccache
+          key: ccache-macos-${{ github.sha }}
+          restore-keys: ccache-macos-
+
+      - name: Configure
+        run: |
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DSUPERSONIC_ENABLE_VALIDATION=OFF \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=13.3 \
+            -DSUPERSONIC_MOLTENVK_LIBRARY="$HOME/moltenvk-macos/MoltenVK/MoltenVK/static/MoltenVK.xcframework/macos-arm64_x86_64/libMoltenVK.a" \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_OBJCXX_COMPILER_LAUNCHER=ccache
+
+      # -k 0: one run reports every file that does not compile, not the first.
+      - name: Build
+        run: |
+          mkdir -p out/logs
+          set -o pipefail
+          cmake --build build --target Penumbra test_pn_all --parallel 3 -- -k 0 2>&1 | tee out/logs/build-macos.log
+          echo "warnings: $(grep -c 'warning:' out/logs/build-macos.log || true)"
+          grep 'warning:' out/logs/build-macos.log | grep -v '/third_party/' | sort | uniq -c | sort -rn | head -40 || true
+          ccache -s || true
+
+      - name: Test (test_pn_all, once)
+        run: |
+          set -o pipefail
+          build/tests/test_pn_all 2>&1 | tee out/logs/tests-macos.log
+
+      # Past a failing suite as well: the job still fails, and the run still
+      # reports on the bundle and the capture.
+      - name: Bundle
+        if: ${{ !cancelled() }}
+        run: |
+          bash tools/apple/make_app.sh macos build "$PWD/out/Penumbra.app"
+          ls -la out/Penumbra.app/Contents out/Penumbra.app/Contents/MacOS out/Penumbra.app/Contents/Resources
+
+      # From inside the bundle and from an unrelated folder: that is what
+      # exercises the bundle's paths, the engine's working directory and GLFW's
+      # own chdir. Headless-ish: a real window on the runner's session, 300
+      # fixed ticks, one PNG.
+      - name: Capture (level 1, from the bundle)
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        run: |
+          mkdir -p out/shots
+          cd "$RUNNER_TEMP"
+          set -o pipefail
+          perl -e 'alarm shift; exec @ARGV' 300 \
+            "$GITHUB_WORKSPACE/out/Penumbra.app/Contents/MacOS/Penumbra" --start level1 --window 1024x768 \
+            --fixed-step --frames 300 --screenshot "$GITHUB_WORKSPACE/out/shots/level1-macos.png" \
+            2>&1 | tee "$GITHUB_WORKSPACE/out/logs/capture-macos.log"
+
+      - name: Collect
+        if: always()
+        run: |
+          mkdir -p out/logs
+          cp "$HOME/Library/Application Support/Penumbra/penumbra.log" out/logs/penumbra-macos.log 2>/dev/null || true
+          ls -la out/shots 2>/dev/null || true
+          if [ -d out/Penumbra.app ]; then ditto -c -k --keepParent out/Penumbra.app out/Penumbra-macos.zip; fi
+
+      - name: ccache (save)
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: .ccache
+          key: ccache-macos-${{ github.sha }}
+
+      - name: Upload
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos
+          retention-days: 7
+          if-no-files-found: ignore
+          path: |
+            out/logs
+            out/shots
+            out/Penumbra-macos.zip
+
+  ios:
+    name: iOS - simulator build and run
+    runs-on: macos-15
+    timeout-minutes: 40
+    env:
+      CCACHE_DIR: ${{ github.workspace }}/.ccache
+      BUNDLE_ID: com.ivancvetanovic.penumbra
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.ENGINE_DEPLOY_KEY }}
+      - name: Engine submodule
+        run: |
+          git -c url."git@github.com:".insteadOf="https://github.com/" submodule update --init engine
+          git -C engine log --oneline -1
+
+      # The newest release Xcode the image has: MoltenVK's release is built with
+      # a recent one, and its static library names Metal symbols an older SDK
+      # may not have.
+      - name: Xcode
+        run: |
+          ls -d /Applications/Xcode*.app
+          XCODE="$(ls -d /Applications/Xcode_[0-9]*.app | grep -v -i -e beta -e release_candidate | sort -V | tail -1)"
+          sudo xcode-select -s "$XCODE/Contents/Developer"
+          xcodebuild -version
+
+      - name: Runner
+        run: |
+          sw_vers
+          xcrun --sdk iphonesimulator --show-sdk-version
+          xcrun simctl list runtimes
+
+      - name: MoltenVK (cached)
+        id: moltenvk
+        uses: actions/cache@v4
+        with:
+          path: ~/moltenvk-ios
+          key: moltenvk-${{ env.MOLTENVK_VERSION }}-ios
+      - name: MoltenVK (download)
+        if: steps.moltenvk.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/moltenvk-ios
+          curl -fsSL -o "$RUNNER_TEMP/mvk.tar" \
+            "https://github.com/KhronosGroup/MoltenVK/releases/download/$MOLTENVK_VERSION/MoltenVK-all.tar"
+          tar -xf "$RUNNER_TEMP/mvk.tar" -C ~/moltenvk-ios \
+            MoltenVK/MoltenVK/static/MoltenVK.xcframework/ios-arm64_x86_64-simulator/libMoltenVK.a \
+            MoltenVK/MoltenVK/static/MoltenVK.xcframework/ios-arm64/libMoltenVK.a MoltenVK/LICENSE
+          rm "$RUNNER_TEMP/mvk.tar"
+
+      - name: Tools
+        run: brew install ninja ccache
+
+      - name: ccache (restore)
+        uses: actions/cache/restore@v4
+        with:
+          path: .ccache
+          key: ccache-ios-${{ github.sha }}
+          restore-keys: ccache-ios-
+
+      # The simulator, arm64, the SDK's own sysroot. No suites: an iOS app
+      # cannot start the processes test_pn_all runs them in, and the macOS job
+      # runs them against the same sources.
+      - name: Configure
+        run: |
+          cmake -S . -B build-ios -G Ninja -DCMAKE_BUILD_TYPE=Release -DSUPERSONIC_ENABLE_VALIDATION=OFF \
+            -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_SYSROOT=iphonesimulator -DCMAKE_OSX_ARCHITECTURES=arm64 \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=16.3 -DPENUMBRA_BUILD_TESTS=OFF \
+            -DSUPERSONIC_MOLTENVK_LIBRARY="$HOME/moltenvk-ios/MoltenVK/MoltenVK/static/MoltenVK.xcframework/ios-arm64_x86_64-simulator/libMoltenVK.a" \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_OBJCXX_COMPILER_LAUNCHER=ccache
+
+      - name: Build
+        run: |
+          mkdir -p out/logs
+          set -o pipefail
+          cmake --build build-ios --target Penumbra --parallel 3 -- -k 0 2>&1 | tee out/logs/build-ios.log
+          echo "warnings: $(grep -c 'warning:' out/logs/build-ios.log || true)"
+          grep 'warning:' out/logs/build-ios.log | grep -v '/third_party/' | sort | uniq -c | sort -rn | head -40 || true
+          ccache -s || true
+          ls -la build-ios/game
+
+      - name: Bundle
+        run: |
+          bash tools/apple/make_app.sh ios build-ios "$PWD/out/ios/Penumbra.app" iphonesimulator
+          ls -la out/ios/Penumbra.app
+
+      # A simulator from the newest iOS runtime, the app installed, and a run
+      # of 300 fixed ticks of level 1 with the game's own capture, its flags in
+      # Documents/penumbra_args.txt (game/ios/IOSMain.mm). The simulator's own
+      # screenshot is taken while it runs as well.
+      - name: Simulator run
+        continue-on-error: true
+        run: |
+          mkdir -p out/shots
+          UDID="$(xcrun simctl list devices available --json | python3 -c '
+          import json, re, sys
+          data = json.load(sys.stdin)["devices"]
+          def version(runtime):
+              m = re.search(r"iOS-(\d+)-(\d+)", runtime)
+              return (int(m.group(1)), int(m.group(2))) if m else (0, 0)
+          for runtime in sorted((r for r in data if "iOS" in r), key=version, reverse=True):
+              phones = [d for d in data[runtime] if d["name"].startswith("iPhone")]
+              if phones:
+                  print(phones[0]["udid"]); break
+          ')"
+          echo "simulator: $UDID"
+          xcrun simctl list devices | grep "$UDID"
+          xcrun simctl boot "$UDID" || true
+          xcrun simctl bootstatus "$UDID" -b
+          xcrun simctl install "$UDID" out/ios/Penumbra.app
+          DATA="$(xcrun simctl get_app_container "$UDID" "$BUNDLE_ID" data)"
+          echo "data container: $DATA"
+          mkdir -p "$DATA/Documents"
+          printf -- '--start level1 --fixed-step --frames 300 --screenshot "%s"\n' \
+            "$DATA/Documents/level1-ios.png" > "$DATA/Documents/penumbra_args.txt"
+          perl -e 'alarm shift; exec @ARGV' 300 \
+            xcrun simctl launch --console --terminate-running-process "$UDID" "$BUNDLE_ID" \
+            > out/logs/simulator-console.log 2>&1 &
+          LAUNCH=$!
+          sleep 25
+          xcrun simctl io "$UDID" screenshot out/shots/simulator-during.png || true
+          wait "$LAUNCH" || echo "launch ended with $?"
+          tail -60 out/logs/simulator-console.log || true
+          cp "$DATA/Documents/level1-ios.png" out/shots/ || echo "no capture from the game"
+          cp "$DATA/Library/Application Support/Penumbra/penumbra.log" out/logs/penumbra-ios.log || true
+          ls -la "$DATA/Documents" out/shots
+
+      - name: Collect
+        if: always()
+        run: |
+          if [ -d out/ios/Penumbra.app ]; then ditto -c -k --keepParent out/ios/Penumbra.app out/Penumbra-ios-simulator.zip; fi
+
+      - name: ccache (save)
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: .ccache
+          key: ccache-ios-${{ github.sha }}
+
+      - name: Upload
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios
+          retention-days: 7
+          if-no-files-found: ignore
+          path: |
+            out/logs
+            out/shots
+            out/Penumbra-ios-simulator.zip
