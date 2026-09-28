@@ -1,3 +1,13 @@
+# The original game's text files as it shipped them - CRLF - on every checkout.
+# They are LF in the repository (committed with text=auto; see the catch-all
+# below). A Windows checkout turned them back into the shipped bytes; a macOS
+# or Linux clone left them LF, and test_pn_formats' round trips (the 0.7.12
+# writer must give back the shipped bytes, CRLF included) failed there - first
+# measured on the apple-port macOS runner, 14 failures. First in the file, so
+# the *.txt rule below still decides the readme.txt files, as it does on
+# Windows.
+extracted/** eol=crlf
+
 # Batch files MUST be CRLF or cmd.exe mis-parses them (a LF .bat makes `@echo off`
 # fail and comment lines execute as commands). Everything we write stays LF.
 *.bat   text eol=crlf
