@@ -100,6 +100,7 @@ void PenumbraLayer::OnAttach(entt::registry& registry) {
     Script::g_musicVolume.setCurrent(Script::g_musicVolume.stepFor(m_settings.musicVolume));
     Script::g_effectsVolume.setCurrent(Script::g_effectsVolume.stepFor(m_settings.effectsVolume));
     Script::g_smoothMotion.setCurrent(SmoothMotion() ? 0u : 1u);   // E8's row: as this run draws (--smooth, --fixed-step)
+    Script::g_pauseOnFocusLoss.setCurrent(PauseOnFocusLoss() ? 0u : 1u);   // E13's, likewise
     m_input.SetControls(m_settings.controls);
     m_interp.SetEnabled(SmoothMotion());
 
@@ -359,7 +360,8 @@ void PenumbraLayer::OnFixedUpdate(entt::registry& registry, float fixedDelta) {
     }
 
     // E10: the enhanced rows. A pick on the screen replaces this run's --lang,
-    // --widescreen or --smooth flag, which would otherwise go on overriding it.
+    // --widescreen or --smooth flag (or --fixed-step's pause-off), which would
+    // otherwise go on overriding it.
     // Volumes are compared as steps, so a hand-edited 0.75 is left as it is
     // until the player moves it. The language, the volumes and smooth motion
     // apply at once (SaveSettings); the view at the next scene load
@@ -367,11 +369,12 @@ void PenumbraLayer::OnFixedUpdate(entt::registry& registry, float fixedDelta) {
     const bool portuguese = Script::g_language.getCurrent() == 0;
     const bool widescreen = Script::g_widescreen.getCurrent() == 0;
     const bool smoothMotion = Script::g_smoothMotion.getCurrent() == 0;
+    const bool pauseOnFocusLoss = Script::g_pauseOnFocusLoss.getCurrent() == 0;
     const bool musicMoved = Script::g_musicVolume.getCurrent() != Script::g_musicVolume.stepFor(m_settings.musicVolume);
     const bool effectsMoved =
         Script::g_effectsVolume.getCurrent() != Script::g_effectsVolume.stepFor(m_settings.effectsVolume);
-    if (portuguese != Portuguese() || widescreen != Widescreen() || smoothMotion != SmoothMotion() || musicMoved ||
-        effectsMoved) {
+    if (portuguese != Portuguese() || widescreen != Widescreen() || smoothMotion != SmoothMotion() ||
+        pauseOnFocusLoss != PauseOnFocusLoss() || musicMoved || effectsMoved) {
         if (portuguese != Portuguese()) {
             m_options.languageOverride.reset();
             m_settings.language = portuguese ? "pt" : "en";
@@ -383,6 +386,10 @@ void PenumbraLayer::OnFixedUpdate(entt::registry& registry, float fixedDelta) {
         if (smoothMotion != SmoothMotion()) {
             m_options.smoothMotionOverride.reset();
             m_settings.smoothMotion = smoothMotion;
+        }
+        if (pauseOnFocusLoss != PauseOnFocusLoss()) {
+            m_options.pauseOnFocusLossOverride.reset();
+            m_settings.pauseOnFocusLoss = pauseOnFocusLoss;
         }
         if (musicMoved) m_settings.musicVolume = Script::g_musicVolume.getFraction();
         if (effectsMoved) m_settings.effectsVolume = Script::g_effectsVolume.getFraction();

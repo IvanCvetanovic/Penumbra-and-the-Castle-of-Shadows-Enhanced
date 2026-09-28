@@ -71,6 +71,8 @@
         "Volume dos efeitos": "Effects volume",
         "Ativa movimento suave": "Enable smooth motion",
         "Desativa movimento suave": "Disable smooth motion",
+        "Pausa ao perder o foco": "Pause on focus loss",
+        "Continua sem o foco": "Play on without focus",
 
         "_render/PauseMenu.cpp ENHANCEMENT E13: the pause (not in the original, which had none; the Portuguese is the port's own, Arial Narrow 40 and 30 in a 316 px row)": "",
         "Pausado": "Paused",

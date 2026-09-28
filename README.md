@@ -175,7 +175,7 @@ Each enhancement is listed with what the original did. The full record is
 | E10 | The options screen also sets keyboard player 2, widescreen or 4:3 levels, Portuguese or English, the music and effects volumes in 10% steps, and smooth motion (E8), all saved | The screen had the video modes, pixel shaders, window/fullscreen and the joystick layout, all forgotten at exit |
 | E11 | Standing on two floor tiles at once counts as standing | The last tile decided, so the wizard was airborne for one frame at each seam |
 | E12 | One gamepad plays the wizard and drives the menu; a second plays the princess | The first pad was player 2's |
-| E13 | A pause: in a level or an arena, Esc or player 1's Back freezes the game (the clock too, so best times leave it out) under Resume / Main menu, with the music at 40%. It also opens when the window loses focus (`pauseOnFocusLoss`). Not on the end screens, where Esc and Back still go to the menu. | No pause: Esc in a level went straight to the main menu and the run was lost |
+| E13 | A pause: in a level or an arena, Esc or player 1's Back freezes the game (the clock too, so best times leave it out) under Resume / Main menu, with the music at 40%. It also opens when the window loses focus (`pauseOnFocusLoss`, a row on the options screen). Not on the end screens, where Esc and Back still go to the menu. | No pause: Esc in a level went straight to the main menu and the run was lost |
 | E14 | In the menus, the arena select, the options and game over, a pad's A also confirms and B also goes back | Only Start confirmed and only Back went back |
 
 ## Settings and saves

@@ -278,13 +278,24 @@ Gates: build zero warnings (full build, then Penumbra alone); test_pn_all 16/16.
   %APPDATA%\Penumbra\penumbra.log, for Ivan's own testing.
 Gates: test_pn_all once - 16 suites, 3719 checks, 0 failures.
 
+### Step 11 - session 3 opens: the pause's options row (2026-09-28)
+Ivan's ruling for session 3: polish the open list, and make the game play on Android, iOS, Windows,
+Linux and macOS, with on-screen controls for mobile (button art from Magic Rampage, which is not on
+this laptop: placeholder art until he gives its path; macOS/iOS verified on a GitHub Actions macOS
+runner). The Magic Portals session does no platform work: the engine's platform backends are ours,
+additive, the desktop path unchanged.
+- **pauseOnFocusLoss** now has its row: "Pausa ao perder o foco" / "Continua sem o foco" (Pause on
+  focus loss / Play on without focus), a Switch at x 540-796, y 694-744, beside E8's (the column at
+  x 255 is full to the Alt+Enter line). Seeded from what the run does (--fixed-step turns it off), a
+  pick replaces that override and is saved as E8's is.
+Gates: build zero warnings; test_pn_all once - 16 suites, 3731 checks, 0 failures (scenario 14 clicks
+the new row both ways; render_hud checks its English).
+
 ### Open
 - **Not modelled in the light**: the light pass's alpha test (a texel at alpha <= 1/255 took no
   light, highlight included); the highlights 0.7.12 baked into static sprites' lightmaps with the
   first frame's eye (every light is live here, E9, so they follow the camera); per-pixel depth of
   vertical sprites, which leaned back in the z-buffer in 0.7.12 (docs/spec/21).
-- **pauseOnFocusLoss** has no row on the options screen (settings.json only); the column at x 255
-  is full down to the Alt+Enter line.
 - **Decided (orchestrator, 2026-09-28):** the misnamed horror markers play (E15, switchable). A solo
   player counts as having a second controller while keyboard player 2 is on (E4): Versus opens and the
   AI may look for a princess that is not there - intended, harmless. The original's off-screen second

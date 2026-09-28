@@ -442,6 +442,7 @@ extern Switch g_language;                             // E10: 0 = Portuguese, 1 
 extern Stepper g_musicVolume;                         // E10: tenths of the music's master volume
 extern Stepper g_effectsVolume;                       // E10: tenths of the effects' master volume
 extern Switch g_smoothMotion;                         // E10: 0 = smooth motion on (E8), 1 = off
+extern Switch g_pauseOnFocusLoss;                     // E13: 0 = pause on focus loss, 1 = play on
 
 string videoModeToString(const videoMode& vm);        // videoModes.as:47
 void screenModesPreLoop();                            // videoModes.as:52

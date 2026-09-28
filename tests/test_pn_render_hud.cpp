@@ -176,6 +176,8 @@ const char* const kE10Labels[] = {
     "Volume dos efeitos",
     "Ativa movimento suave",   // E8's row
     "Desativa movimento suave",
+    "Pausa ao perder o foco",   // E13's row
+    "Continua sem o foco",
 };
 
 void TestLocalization() {
@@ -203,6 +205,7 @@ void TestLocalization() {
     CHECK(loc.Translate("[\x95] English") == "[\x95] English");
     CHECK(loc.Translate("Volume da m\xFAsica") == "Music volume");
     CHECK(loc.Translate("[ ] Desativa movimento suave") == "[ ] Disable smooth motion");
+    CHECK(loc.Translate("[\x95] Pausa ao perder o foco") == "[\x95] Pause on focus loss");
     CHECK(loc.HasTranslation("[<]"));
     CHECK(loc.HasTranslation("70%"));
     CHECK(loc.Translate("Carregando...\n") == "Loading...\n");   // the trailing break kept

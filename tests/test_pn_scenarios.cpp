@@ -2009,6 +2009,8 @@ void ScenarioOptionsE10(Game& g) {
     // clicked below exercise; read only, so no later scenario's timing moves).
     CHECK(HudHas(g.m, "[\x95] Ativa movimento suave"));
     CHECK(HudHas(g.m, "[ ] Desativa movimento suave"));
+    CHECK(HudHas(g.m, "[\x95] Pausa ao perder o foco"));   // E13's, beside it
+    CHECK(HudHas(g.m, "[ ] Continua sem o foco"));
     CHECK(HudHas(g.m, "[<]"));
     CHECK(HudHas(g.m, "[>]"));
     CHECK(HudHas(g.m, "100%"));
@@ -2020,27 +2022,31 @@ void ScenarioOptionsE10(Game& g) {
     // second row selects it, one on the first selects it back.
     struct E10Switch {
         Script::Switch* widget;
+        float x;
         float y;
         const char* row0;
         const char* row1;
     };
     const E10Switch e10Switches[] = {
-        {&Script::g_keyboardP2, 424.0f, "Teclado para o jogador 2", "Jogador 2 s\xF3 no joystick"},
-        {&Script::g_widescreen, 494.0f, "Tela larga (widescreen)", "Tela 4:3 (original)"},
-        {&Script::g_language, 564.0f, "Portugu\xEAs", "English"},
+        {&Script::g_keyboardP2, 255.0f, 424.0f, "Teclado para o jogador 2", "Jogador 2 s\xF3 no joystick"},
+        {&Script::g_widescreen, 255.0f, 494.0f, "Tela larga (widescreen)", "Tela 4:3 (original)"},
+        {&Script::g_language, 255.0f, 564.0f, "Portugu\xEAs", "English"},
+        // E13's, in the second column (x 540-796) beside E8's.
+        {&Script::g_pauseOnFocusLoss, 540.0f, 694.0f, "Pausa ao perder o foco", "Continua sem o foco"},
     };
     for (const E10Switch& row : e10Switches) {
         CHECK_EQ(row.widget->getCurrent(), 0u);
-        click(vector2(300.0f, row.y + 37.0f));
+        click(vector2(row.x + 45.0f, row.y + 37.0f));
         std::printf("  '%s': switch %u\n", Utf8(row.row1).c_str(), row.widget->getCurrent());
         CHECK_EQ(row.widget->getCurrent(), 1u);
         CHECK(WaitForHud(g, string("[\x95] ") + row.row1, 3));
         CHECK(HudHas(g.m, string("[ ] ") + row.row0));
-        click(vector2(300.0f, row.y + 12.0f));
+        click(vector2(row.x + 45.0f, row.y + 12.0f));
         CHECK_EQ(row.widget->getCurrent(), 0u);
         CHECK(WaitForHud(g, string("[\x95] ") + row.row0, 3));
     }
-    // None of them moved the original's switches.
+    // None of them moved the original's switches, nor E8's beside E13's.
+    CHECK_EQ(Script::g_smoothMotion.getCurrent(), 0u);
     CHECK_EQ(Script::g_enablePS.getCurrent(), 0u);
     CHECK_EQ(Script::g_windowed.getCurrent(), 0u);
     CHECK_EQ(Script::g_controls.getCurrent(), 0u);

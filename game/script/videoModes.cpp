@@ -28,6 +28,8 @@ Stepper g_musicVolume("Volume da m\xFAsica", 10, 10);                           
 Stepper g_effectsVolume("Volume dos efeitos", 10, 10);                          // E10
 // E8's switch, worded as the original's own on/off row (g_enablePS).           // E10
 Switch g_smoothMotion("Ativa movimento suave", "Desativa movimento suave");     // E10
+// E13's automatic pause (settings.pauseOnFocusLoss), beside E8's.             // E13
+Switch g_pauseOnFocusLoss("Pausa ao perder o foco", "Continua sem o foco");      // E13
 
 // videoModes.as:47
 string videoModeToString(const videoMode& vm)
@@ -139,6 +141,7 @@ void screenModesLoop()
     g_musicVolume.put(vector2(255, origin.y+534), "Arial Narrow", fontSize, 180);  // E10: y 634-659
     g_effectsVolume.put(vector2(255, origin.y+559), "Arial Narrow", fontSize, 180);   // E10: y 659-684
     g_smoothMotion.put(vector2(255, origin.y+594), "Arial Narrow", fontSize, 256);    // E10: y 694-744
+    g_pauseOnFocusLoss.put(vector2(540, origin.y+594), "Arial Narrow", fontSize, 256);   // E13: x 540-796, y 694-744
 
     showToggleFullscreenMessage();                                    // videoModes.as:131
     waitForInputToMenu();
