@@ -141,9 +141,11 @@ void SpriteRenderer::Detach(entt::registry& registry) {
         if (e != entt::null && registry.valid(e)) registry.destroy(e);
     };
     for (auto& [key, slot] : m_slots) destroy(slot.quad);
+    for (auto& [key, slot] : m_bandSlots) destroy(slot.quad);
     for (const entt::entity e : m_free) destroy(e);
     destroy(m_background);
     m_slots.clear();
+    m_bandSlots.clear();
     m_free.clear();
     m_background = entt::null;
     m_backgroundSource.clear();
@@ -228,6 +230,7 @@ void SpriteRenderer::Draw(entt::registry& registry, const Eth::RenderSnapshot& s
     if (m_textures == nullptr) return;
     m_visible = 0;
     for (auto& [key, slot] : m_slots) slot.used = false;
+    for (auto& [key, slot] : m_bandSlots) slot.used = false;
     const Language language =
         m_localization != nullptr ? m_localization->CurrentLanguage() : Language::Portuguese;
 
@@ -272,6 +275,22 @@ void SpriteRenderer::Draw(entt::registry& registry, const Eth::RenderSnapshot& s
         }
     }
 
+    // The bands' quads likewise.
+    for (auto it = m_bandSlots.begin(); it != m_bandSlots.end();) {
+        BandSlot& slot = it->second;
+        if (slot.used) {
+            ++it;
+            continue;
+        }
+        hide(registry, slot.quad);
+        if (++slot.idleDraws > kIdleDrawsBeforeRecycle) {
+            if (slot.quad != entt::null && registry.valid(slot.quad)) m_free.push_back(slot.quad);
+            it = m_bandSlots.erase(it);
+        } else {
+            ++it;
+        }
+    }
+
     drawBackground(registry, snapshot, view);
 }
 
@@ -282,15 +301,6 @@ void SpriteRenderer::drawSprite(entt::registry& registry, const Eth::RenderSnaps
 
     // A stale order (not this snapshot's) still draws, in snapshot order.
     const int rank = index < order.spriteRank.size() ? order.spriteRank[index] : static_cast<int>(index);
-    glm::vec3 position(0.0f);
-    glm::vec3 scale(1.0f);
-    float rotationZ = 0.0f;
-    Placement(sprite, snapshot.zAxisDirection, RankZ(rank), position, scale, rotationZ);
-
-    auto& transform = registry.get<TransformComponent>(slot.quad);
-    Assign(transform.position, position);
-    Assign(transform.scale, scale);
-    Assign(transform.rotation, glm::vec3(0.0f, 0.0f, rotationZ));
 
     const SpriteLighting lighting = ComputeSpriteLighting(sprite, snapshot, *m_textures, m_localization);
     const Look look = LookFor(sprite, lighting);
@@ -313,6 +323,11 @@ void SpriteRenderer::drawSprite(entt::registry& registry, const Eth::RenderSnaps
     record.verticalBaseY = lighting.verticalBaseY;
     record.specularStrength = lighting.specularStrength;
     record.specularPower = lighting.specularPower;
+    // 0.7.12's bake eye for a static glossy sprite, and the light pass's alpha
+    // test (render/Lighting.cpp): both off unless ComputeSpriteLighting set them.
+    record.bakedEye = lighting.bakedEye;
+    record.bakedEyeY = lighting.bakedEyeY;
+    record.lightAlphaTest = lighting.lightAlphaTest;
     const std::string& normal = lighting.lit ? lighting.normalKey : std::string();
     const std::string& gloss = lighting.specularStrength > 0.0f ? lighting.glossKey : std::string();
 
@@ -322,20 +337,98 @@ void SpriteRenderer::drawSprite(entt::registry& registry, const Eth::RenderSnaps
     glm::vec2 uvOffset(0.0f);
     FrameUv(sprite, bitmap, uvScale, uvOffset);
 
-    auto& material = registry.get<MaterialComponent>(slot.quad);
-    Assign(material.unlit, true);
-    Assign(material.transparent, look.transparent);
-    Assign(material.blend, look.blend);
-    Assign(material.alphaCutoff, look.alphaCutoff);
-    Assign(material.albedoColor, look.colour);
-    Assign(material.albedoTexturePath, albedoKey);
-    Assign(material.normalTexturePath, normal);
-    Assign(material.glossTexturePath, gloss);
-    Assign(material.sprite2D, record);
-    Assign(material.uvScale, uvScale);
-    Assign(material.uvOffset, uvOffset);
+    // One quad's worth of the sprite: the whole of it, or one band of its rows
+    // (DrawOrder's bands, a standing sprite cut where a piece lies between its
+    // base and its top). A band is the same material over fewer rows: its own
+    // placement and texture rows, everything else the sprite's.
+    const auto fill = [&](entt::entity quad, int bandRank, int rowBegin, int rowEnd) {
+        glm::vec3 position(0.0f);
+        glm::vec3 scale(1.0f);
+        float rotationZ = 0.0f;
+        Placement(sprite, snapshot.zAxisDirection, RankZ(bandRank), position, scale, rotationZ);
+        glm::vec2 bandUvScale = uvScale;
+        glm::vec2 bandUvOffset = uvOffset;
+        if (rowBegin != 0 || rowEnd != static_cast<int>(sprite.size.y)) {
+            BandPlacement(sprite, rowBegin, rowEnd, RankZ(bandRank), position, scale);
+            BandUv(sprite, rowBegin, rowEnd, bandUvScale, bandUvOffset);
+        }
 
-    Assign(registry.get<RenderableComponent>(slot.quad).isVisible, true);
+        auto& transform = registry.get<TransformComponent>(quad);
+        Assign(transform.position, position);
+        Assign(transform.scale, scale);
+        Assign(transform.rotation, glm::vec3(0.0f, 0.0f, rotationZ));
+
+        auto& material = registry.get<MaterialComponent>(quad);
+        Assign(material.unlit, true);
+        Assign(material.transparent, look.transparent);
+        Assign(material.blend, look.blend);
+        Assign(material.alphaCutoff, look.alphaCutoff);
+        Assign(material.albedoColor, look.colour);
+        Assign(material.albedoTexturePath, albedoKey);
+        Assign(material.normalTexturePath, normal);
+        Assign(material.glossTexturePath, gloss);
+        Assign(material.sprite2D, record);
+        Assign(material.uvScale, bandUvScale);
+        Assign(material.uvOffset, bandUvOffset);
+
+        Assign(registry.get<RenderableComponent>(quad).isVisible, true);
+    };
+
+    // Drawn whole, or cut: the sprite's own quad takes its bottom band (the
+    // one at the sprite's rank), a pooled quad each band above it.
+    const int first = index < order.firstBand.size() ? order.firstBand[index] : -1;
+    if (first < 0) {
+        fill(slot.quad, rank, 0, static_cast<int>(sprite.size.y));
+        return;
+    }
+    int ordinal = 0;
+    for (std::size_t b = static_cast<std::size_t>(first);
+         b < order.bands.size() && order.bands[b].sprite == static_cast<int>(index); ++b) {
+        const SpriteBand& band = order.bands[b];
+        if (band.rowEnd == static_cast<int>(sprite.size.y)) {
+            fill(slot.quad, band.rank, band.rowBegin, band.rowEnd);
+            continue;
+        }
+        fill(bandQuadFor(registry, sprite.entityId, ordinal++), band.rank, band.rowBegin, band.rowEnd);
+    }
+}
+
+void SpriteRenderer::BandPlacement(const Eth::SpriteDraw& sprite, int rowBegin, int rowEnd, float engineZ,
+                                   glm::vec3& position, glm::vec3& scale) {
+    // Rows of a standing sprite, which never turns (ETHRenderEntity.cpp:707,
+    // :721): the band's own centre and height, one row a world unit.
+    const glm::vec2 centre(sprite.origin.x + sprite.size.x * 0.5f,
+                           sprite.origin.y + 0.5f * static_cast<float>(rowBegin + rowEnd));
+    position = ToWorld(centre, engineZ);
+    scale = glm::vec3(sprite.size.x, static_cast<float>(rowEnd - rowBegin), 1.0f);
+}
+
+void SpriteRenderer::BandUv(const Eth::SpriteDraw& sprite, int rowBegin, int rowEnd, glm::vec2& uvScale,
+                            glm::vec2& uvOffset) {
+    // FrameUv's rectangle, narrowed to the band's rows: v runs down the image
+    // from the frame's top, uvScale.y / rows of it a row.
+    const float rows = sprite.size.y;
+    if (!(rows > 0.0f)) return;
+    const float perRow = uvScale.y / rows;
+    uvOffset.y += static_cast<float>(rowBegin) * perRow;
+    uvScale.y = static_cast<float>(rowEnd - rowBegin) * perRow;
+}
+
+entt::entity SpriteRenderer::bandQuadFor(entt::registry& registry, int entityId, int ordinal) {
+    const std::uint64_t key = PoolKey(entityId, static_cast<std::uint32_t>(ordinal));
+    BandSlot& slot = m_bandSlots[key];
+    if (slot.quad == entt::null || !registry.valid(slot.quad)) {
+        slot.quad = entt::null;
+        while (!m_free.empty() && slot.quad == entt::null) {
+            const entt::entity reused = m_free.back();
+            m_free.pop_back();
+            if (registry.valid(reused)) slot.quad = reused;
+        }
+        if (slot.quad == entt::null) slot.quad = makeQuad(registry, "Penumbra Sprite Band");
+    }
+    slot.used = true;
+    slot.idleDraws = 0;
+    return slot.quad;
 }
 
 void SpriteRenderer::drawBackground(entt::registry& registry, const Eth::RenderSnapshot& snapshot, const View& view) {

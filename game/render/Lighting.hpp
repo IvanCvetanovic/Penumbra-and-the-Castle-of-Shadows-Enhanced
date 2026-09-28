@@ -51,6 +51,14 @@ struct SpriteLighting {
     std::string glossKey;
     float specularStrength = 0.0f;
     float specularPower = 50.0f;
+    // Sprite2DLight::bakedEye / bakedEyeY: a static sprite with a highlight
+    // sees the static lights' highlight from 0.7.12's lightmap-bake eye
+    // (LightmapBakeEye), in the engine's y. Only with kBakedHighlightEye.
+    bool bakedEye = false;
+    float bakedEyeY = 0.0f;
+    // Sprite2DLight::lightAlphaTest: each light's pass alpha-tested as 0.7.12's
+    // was. Every lit sprite, with kLightPassAlphaTest.
+    bool lightAlphaTest = false;
 };
 
 class Localization;
@@ -60,5 +68,12 @@ class Localization;
 // renderer swaps the image itself (E5).
 SpriteLighting ComputeSpriteLighting(const Eth::SpriteDraw& sprite, const Eth::RenderSnapshot& snapshot,
                                      TextureCache& textures, const Localization* localization = nullptr);
+
+// Where 0.7.12's lightmap bake saw a static light's highlight on a static
+// sprite from, in Ethanon's world (+y down): (L.x, top + 1.5 screenH, z + 768),
+// the sprite's unrounded top edge and its z - wherever the camera is
+// (render/Lighting.cpp, THE BAKED EYE).
+glm::vec3 LightmapBakeEye(const Eth::SpriteDraw& sprite, const Eth::RenderSnapshot& snapshot,
+                          const glm::vec3& lightPosition);
 
 } // namespace Penumbra::Render

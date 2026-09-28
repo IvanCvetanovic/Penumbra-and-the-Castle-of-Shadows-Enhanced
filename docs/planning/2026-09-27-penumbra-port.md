@@ -382,11 +382,41 @@ build, the APK packages.
   line (menu footer too); a touch-controls switch in their place, saved as touchControls on/off.
 Not measured: Android 15+ (edge-to-edge enforced; the emulator is API 33), a real phone.
 
+### Step 16 - rendering fidelity: baked highlights, the light pass's alpha test, standing sprites' rows (2026-09-28)
+- **Static highlights** (Lighting.cpp kBakedHighlightEye, on): static glossy sprites see static
+  lights' highlights from 0.7.12's lightmap-bake eye, (L.x, top + 1.5 screenH, z + 768), fixed to the
+  sprite (ETHShaderManager.cpp:76-90, ETHScene.cpp:561-589); the live eye slid them with the camera
+  (up to 28 levels for a 200 px camera move, pvp_lv5, through the engine's CPU copy of the light
+  loop). Menu vs the original's capture: 5.28 -> 4.96 overall, 7.66 -> 4.21 on the pixels it changes.
+  The devils' "bronze" was this sheen plus fog, halo-ratio and torch-flicker variation from frame to
+  frame: at frame 360 the left devil is within 0.2 levels of the reference.
+- **The light pass's alpha test** (Lighting.cpp kLightPassAlphaTest, on): each light's pass is
+  alpha-tested as 0.7.12's was (ALPHAREF 1 GREATER, the pass alpha per shader variant, lightIntensity
+  kept apart; GameSpace.dll SetAlphaMode, BeginLightPass @0x43a1b0). Faint glows no longer tint:
+  menu letter edges 9.3 -> 2.6, level2 18.7 -> 15.8, level3 10.3 -> 6.0 on the pixels changed by more
+  than 8 levels.
+- **Standing sprites' rows** (DrawOrder.cpp kPerRowVerticalDepth, on): a standing sprite is cut into
+  bands of rows where a sprite or particle overlapping it lies between its base and top, as 0.7.12's
+  per-row depth (defaultStaticAmbientVS.cg:132, pixelLightVS.cg:129) sorted them: the cursor's
+  sparkles go behind the arena thumbnails' upper rows; the low fog behind the menu barrels 4.9 -> 0.7.
+- **Engine** (opt-in; without the game's flags the menu, level 2 and level 3 are pixel-identical to
+  the old engine's): Light2DComponent::baked, Sprite2DLight::bakedEye/bakedEyeY/lightAlphaTest,
+  Light2DAlphaTest in the light buffer's former padding word; shader.frag, frag.spv regenerated with
+  the SDK's glslc (which reproduces the previous frag.spv byte for byte from the previous source).
+- docs/spec/21: the bake-eye formula, which held only in the bake's moved frame.
+Gates: Linux test_pn_all 17 suites, 5008 checks, 0 failures (render_lights 193, render_textures
+184); engine suites on Linux (test_light2d 187, test_materials 395); Windows build zero warnings;
+Windows test_pn_all refused by Smart App Control this build (exit 126, one notification): not run.
+
 ### Open
-- **Not modelled in the light**: the light pass's alpha test (a texel at alpha <= 1/255 took no
-  light, highlight included); the highlights 0.7.12 baked into static sprites' lightmaps with the
-  first frame's eye (every light is live here, E9, so they follow the camera); per-pixel depth of
-  vertical sprites, which leaned back in the z-buffer in 0.7.12 (docs/spec/21).
+- **Light, still not modelled** (Step 16): the live shadows (E9) darken the ambient too, where
+  0.7.12's baked shadow removed only its own light (the menu barrel's shadow is near-black, the
+  original's purple); baked light on static sprites' soft edges went through the sprite's own blend;
+  a translucent texel's depth write blocked fog drawn behind it; the bake used every static light
+  in the scene, the port's live lights come from visible buckets (unverified at screen edges).
+- **Touch (E16), for Ivan:** a combo button (Left-Left-Sword and Down-Forward-Fire are hard with a
+  thumb); Versus on a phone needs pads; the layout and the placeholder art until the Magic Rampage
+  buttons (not on this laptop) are given.
 - **Decided (orchestrator, 2026-09-28):** the misnamed horror markers play (E15, switchable). A solo
   player counts as having a second controller while keyboard player 2 is on (E4): Versus opens and the
   AI may look for a princess that is not there - intended, harmless. The original's off-screen second

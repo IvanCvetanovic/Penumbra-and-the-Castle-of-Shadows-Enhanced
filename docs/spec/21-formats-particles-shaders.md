@@ -363,7 +363,7 @@ out  = ( T·C·d·Lc·LI  +  spec · T.a · G ) · att
 - `specularPower` values: 50 ×2591, 60, 71, 100, 20, 30, 61. `specularBrightness` is always 1.
 - `Eye`: `fakeEyePos` is set in 2010 (`@0x439713`). From 2013 `Shader/ETHFakeEyePositionManager.cpp:26-61`, with 768.0f present twice in the 2010 `.rdata`:
   - real time: `Eye = (L.x, 2·camY + 1.5·screenH - L.y, 768)`
-  - lightmap bake (camera 0, `drawToTarget`): `Eye = (L.x, 1.5·screenH, 768)`
+  - lightmap bake (camera 0, `drawToTarget`): `Eye = (L.x, 1.5·screenH, 768)` **in the bake's moved frame**, where the receiver's origin sits at (0, 0, 0) and every light is shifted by the same offset (§3.2 step 2). In the world that is `Eye = (L.x, top + 1.5·screenH, R.z + 768)`, with `top = R.y - (centre + pivotAdjust).y` - the receiver's top edge with no ZAxisDirection shift and no rounding - so the baked highlight is fixed to the receiver and never moves with the camera (0.7.12 `ETHShaderManager.cpp:76-90`, `ETHScene.cpp:561-589`). Verified in the port (render/Lighting.cpp `LightmapBakeEye`): the menu's left devil sees its fire's highlight from (110, 1312, 768).
   - Both are rotated by -angle about the light for rotated entities.
 
 **Which lights hit which sprite.** Structure from 2013 `Renderer/ETHEntityRenderingManager.cpp:110-116, 161-183` and `Renderer/ETHEntitySpriteRenderer.cpp:61-101`; the checks are confirmed in the 2010 binary.
@@ -482,7 +482,7 @@ The base segment is perpendicular to the light direction. The far edge is a 3-ve
   2. Place R so its top-left is at RT (0,0) with z = 0: `newPos = (absOrigin, 0)`. Set the camera to (0,0) and z-buffer off. Shift every light by `(newPos - oldPos)`, which preserves relative 3D offsets.
   3. For each static light Lk:
      - Create a temporary RT, cleared black.
-     - Draw R's **light pass** for Lk, the §2.3 shader, at angle 0 and scale 1. BeginLightPass uses `maxH = screenH`, `minH = 0`, the scene `lightIntensity`, `drawToTarget = true`, and the eye `(L.x, 1.5·screenH, 768)`.
+     - Draw R's **light pass** for Lk, the §2.3 shader, at angle 0 and scale 1. BeginLightPass uses `maxH = screenH`, `minH = 0`, the scene `lightIntensity`, `drawToTarget = true`, and the eye `(L.x, 1.5·screenH, 768)` in this moved frame, i.e. `(L.x, top + 1.5·screenH, R.z + 768)` in the world (§2.3).
      - If R is **not vertical**: for every static entity S in the scene, including R itself, shifted the same way, if `S.castShadow && Lk.castShadows`, draw S's projected shadow into the same temporary RT with `maxOpacity = true` (a = 1 × shadowOpacity) and `drawToTarget = true` (length factor 8, not 2).
      - Add the temporary RT into LM with AM_ADD (2010 `push 1 → SetAlphaMode(1)`). The 8-bit target saturates.
   4. `LM->GenerateBackup()`.
@@ -509,7 +509,7 @@ P = R horizontal: (R.x-ox+u·w, R.y-oy+v·h, R.z) ; vertical: (R.x-ox+u·w, R.y,
 LM = 0
 for each static active light L (pos = owner.pos + light.pos, colour c, range r, castShadows):
     if |R.pos - L.pos|² > (r + max(w,h))²: continue
-    x = shade(T(u,v), N(u,v), P, L, LI=scene lightIntensity, C=instance colour, Eye=(L.x,1.5·screenH,768))   // §2.3, h/v, main/mainSpecular
+    x = shade(T(u,v), N(u,v), P, L, LI=scene lightIntensity, C=instance colour, Eye=(L.x, top+1.5·screenH, R.z+768))   // §2.3, h/v, main/mainSpecular; world coordinates, top = R.y-(centre+pivot).y
     x = clamp(x, 0, 1);   if alpha(x) <= 1/255: x = 0        // alpha-tested pass
     if R not vertical: for each static caster S with castShadow (incl. R) and L.castShadows:
         a = shadowAlpha_S(P.xy)     // rasterise §2.6 strip in R-relative coords, bake variant (len factor 8, a=opacity), bilinear shadow.dds
@@ -596,11 +596,11 @@ Things the port can do without the engine:
 - Normal maps: the 2010 Cg renormalises (-normalize(2*(nm-0.5))). The engine's shadeSprite2D deliberately does not renormalise. Needs a per-material switch.
 - Vertical (type 2) lighting space is missing. Its pixel position runs along XZ (z = baseZ + height above bottom, y constant) with the normal swizzled (n.x, n.z, -n.y). The engine's 2D light uses P = (x, y, constant height) only.
 - No specular/gloss term. Needed: Blinn-Phong with a gloss map, specularPower (20..100), specularBrightness, and a fake eye (L.x, 2camY + 1.5screenH - L.y, 768). Used by 253 entity definitions.
-- Light-pass alpha weighting differs by variant. hPixelLight main multiplies the light by tex.a (matches the non-premultiplied path). vPixelLight main and both mainSpecular diffuse terms add at full weight (premultiplied path). mainSpecular's specular term is weighted by tex.a*gloss. The light pass is also alpha-tested (alpha = tex.a^2*C.a*d*att*LI <= 1/255 means no light); the engine's cutoff applies only to albedo alpha.
+- Light-pass alpha weighting differs by variant. hPixelLight main multiplies the light by tex.a (matches the non-premultiplied path). vPixelLight main and both mainSpecular diffuse terms add at full weight (premultiplied path). mainSpecular's specular term is weighted by tex.a*gloss. The light pass is also alpha-tested (alpha = tex.a^2*C.a*d*att*LI <= 1/255 means no light); the engine's cutoff applies only to albedo alpha. **Modelled since 2026-09-28** (engine Sprite2DLight::lightAlphaTest, per-variant pass alpha, Light2DAlphaTest for LI; port kLightPassAlphaTest).
 - No projected dynamic shadow primitive. The original draws a 5-vertex strip extruded per vertex away from the light (dynaShadowVS), alpha-blended black, depth-tested at caster depth - 0.001, darkening the whole framebuffer. The engine has no custom 2D vertex extrusion; it would need CPU-built arbitrary 2D mesh draws with depth.
 - No runtime render-to-texture lightmap bake. The engine only loads an overlay file (MaterialComponent::overlayTexturePath). An offline CPU baker in the port repo that writes PNG overlays avoids any engine change.
 - Overlay UVs: the engine samples overlayMap with the albedo's transformed UV. The original samples the lightmap with raw 0..1 quad UVs, and its lightmap is frame-sized. For the ~255 static placements with SpriteCut > 1, the baker must emit sheet-sized overlays with only the frame rect filled, or the engine needs a separate overlay UV.
-- Per-pixel depth for vertical sprites (depth rising along the sprite's height via the z-buffer) is not modelled. Engine 2D sprites sort by a single quad z. Low impact: few vertical entities (barrel x13, devil x2, ground_fire, menu items).
+- Per-pixel depth for vertical sprites (depth rising along the sprite's height via the z-buffer). Engine 2D sprites sort by a single quad z. **Modelled game-side since 2026-09-28**: render/DrawOrder cuts a vertical sprite into bands of rows wherever a sprite or particle overlapping it has a depth strictly inside its rows (the cursor's sparkles over the arena thumbnails, fog over the menu logo and barrels). Not modelled: a translucent texel's depth write, which rejected pieces drawn later behind it outright.
 - Particles are sorted among themselves and drawn after all transparents in the engine. The original interleaves particle pieces with sprites by depth: layerable clouds at depth 0.001 behind everything, fog at layerDepth 1 in front, torch flames at z+8. The port should draw particles as its own depth-sorted quads (MP approach).
 - Light gathering: the engine sends every enabled Light2D (cap 64). The original uses only lights whose owners are in visible buckets, each pass scissored to a 2*range square. level1 alone places 44 static lights plus dynamic ones; use layers (static lights excluded from static receivers, as in MP's ReceiverMask) and/or culling to stay under 64.
 - No 2010 particle SoundEffect/soundVolume support anywhere. It is gameplay/audio code the port must add. Also the 2010 particle frame-speed cap (2.0 units) differs from MP's Particles.cpp (250 ms).

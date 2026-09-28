@@ -76,6 +76,8 @@ struct LightState {
     float intensity = 0.0f;        // Light2DComponent::intensity
     float range = 0.0f;            // Light2DComponent::range, world units = pixels
     std::uint8_t layers = 0;       // Light2DComponent::layers
+    bool baked = false;            // Light2DComponent::baked: a static light, which 0.7.12 baked into
+                                   // static sprites (render/Lighting.cpp, THE BAKED EYE)
 };
 
 // What one snapshot light puts on its halo quad. Pure data.

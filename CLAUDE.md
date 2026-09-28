@@ -110,7 +110,11 @@ build/tests/test_pn_all.exe --list                        # the suites it holds;
 ```
 
 Linux (WSL) and Android, from Git Bash. No Smart App Control there: a Linux binary or an APK
-can be launched as often as needed. Put `MSYS_NO_PATHCONV=1` before any `wsl` call.
+can be launched as often as needed. Put `MSYS_NO_PATHCONV=1` before any `wsl` call. Never install
+a shader compiler (glslc, glslang) in WSL: the engine's build writes SPIR-V into
+engine/assets/shaders, and Ubuntu's glslc rewrote every committed blob with different bytes once.
+Shader edits are compiled on Windows with the Vulkan SDK's glslc (`glslc <src> -o <out>`), which
+reproduces the committed blobs; tools/build_linux.sh stops if a build dir has a compiler cached.
 
 ```bash
 MSYS_NO_PATHCONV=1 wsl -d Ubuntu-24.04 -u root -- bash /mnt/c/Users/icvet/Desktop/Penumbra-and-the-Castle-of-Shadows-Enhanced/tools/build_linux.sh --test

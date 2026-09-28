@@ -28,6 +28,11 @@
 //              every mode but NONE discards alpha <= 1/255, as GameSpace.dll's
 //              SetAlphaMode alpha-tests all of them (docs/spec/30 §3.3).
 //
+// A standing sprite that DrawOrder cut into bands of rows (a piece lying between
+// its base and its top, which 0.7.12's per-row depth put behind its upper rows)
+// is drawn as one quad a band: its own quad takes the bottom band, pooled quads
+// the bands above, each the same material over its own rows.
+//
 // The background image (SetBackgroundImage / PositionBackgroundImage /
 // SetBackgroundAlphaAdd) is one more quad, fixed to the camera in screen
 // pixels, white, unlit, drawn behind rank 0 (ETHEngine.cpp:594-606 drew it
@@ -85,7 +90,7 @@ public:
     // The quad drawing that entity this frame, entt::null if none.
     entt::entity QuadFor(int entityId) const;
     entt::entity BackgroundQuad() const { return m_background; }
-    std::size_t PooledQuads() const { return m_slots.size() + m_free.size(); }
+    std::size_t PooledQuads() const { return m_slots.size() + m_bandSlots.size() + m_free.size(); }
     std::size_t VisibleQuads() const { return m_visible; }
 
     // ---- the pure halves, for suites ----------------------------------------
@@ -104,6 +109,14 @@ public:
     // a vertical one never turns (ETHRenderEntity.cpp:707, :721).
     static void Placement(const Eth::SpriteDraw& sprite, const glm::vec2& zAxisDirection, float engineZ,
                           glm::vec3& position, glm::vec3& scale, float& rotationZ);
+
+    // One band of a standing sprite's rows (DrawOrder's bands, rows counted
+    // from the frame's top): the band quad's centre and scale, and FrameUv's
+    // rectangle narrowed to its rows.
+    static void BandPlacement(const Eth::SpriteDraw& sprite, int rowBegin, int rowEnd, float engineZ,
+                              glm::vec3& position, glm::vec3& scale);
+    static void BandUv(const Eth::SpriteDraw& sprite, int rowBegin, int rowEnd, glm::vec2& uvScale,
+                       glm::vec2& uvOffset);
 
 private:
     struct Slot {
@@ -124,8 +137,18 @@ private:
     // "entities/<sprite>", or its variant in the current language.
     std::string imagePath(const std::string& relativePath) const;
 
+    // A quad drawing one band of a cut standing sprite above its bottom band
+    // (the bottom band is the sprite's own quad), pooled like the sprites'.
+    struct BandSlot {
+        entt::entity quad = entt::null;
+        int idleDraws = 0;
+        bool used = false;
+    };
+
     entt::entity makeQuad(entt::registry& registry, const char* tag);
     Slot& slotFor(entt::registry& registry, int entityId);
+    // The pooled quad of band `ordinal` (0 = the top band) of `entityId`.
+    entt::entity bandQuadFor(entt::registry& registry, int entityId, int ordinal);
     void drawSprite(entt::registry& registry, const Eth::RenderSnapshot& snapshot, std::size_t index,
                     const DrawOrder& order, Slot& slot, const std::string& albedoKey);
     void drawBackground(entt::registry& registry, const Eth::RenderSnapshot& snapshot, const View& view);
@@ -136,6 +159,7 @@ private:
     // Keyed by entity id, and by an occurrence count above it on the (never
     // expected) frame one id is drawn twice, so neither steals the other's quad.
     std::unordered_map<std::uint64_t, Slot> m_slots;
+    std::unordered_map<std::uint64_t, BandSlot> m_bandSlots;
     std::vector<entt::entity> m_free;
     entt::entity m_background = entt::null;
     std::string m_backgroundSource;
