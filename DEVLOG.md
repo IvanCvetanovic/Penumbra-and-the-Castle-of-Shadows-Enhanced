@@ -125,3 +125,34 @@ checkout of extracted/ is LF.
 rewrite in a bundle; no validation layers). A bundle is never written: the engine runs from
 ~/Library/Caches (Library/Caches on iOS). The game's view on a notched phone is the safe area's
 width (orchestrator's ruling). The simulator's base-instance limit is left to the renderer.
+
+---
+
+## 2026-09-28 — session 3: every platform, touch controls, the open polish
+
+**Asked.** Ivan: do the open polish; make the game play on Android, iOS, Windows, Linux and macOS
+"if possible"; controls for mobile, the buttons from Magic Rampage (not on this laptop: placeholder
+art until he gives a path); Apple verified on GitHub Actions (his choice; a read-only deploy key
+on the engine for the CI, approved).
+
+**Built.** The pause's focus-loss row. Linux (WSL): one path resolver, stand-in fonts (E17),
+dr_mp3 (E18), the POSIX locale (E19), posix_spawn suites. E16 touch controls, then combo buttons.
+The engine on Android (android_main, the ANativeWindow surface, touch, pads, AAudio, an immersive
+Java activity, SafeArea) and the APK without Gradle; E20, the options screen on a phone. The
+rendering fidelity items (the baked highlight eye, the light pass's alpha test, standing sprites'
+rows). macOS and iOS (above). Planning steps 11-18.
+
+**Numbers.** Windows, the final tree: build zero warnings; test_pn_all once, 17 suites, 5685
+checks, 0 failures. Linux 5596, macOS (CI) 5005 at the Apple merge. Engine suites 57 of 57 on the
+desktop path (Linux) at every engine push. Android: both ABIs, an 18 MB APK; on the emulator the
+menu, taps, level 1 with the controls, Back, Home and resume, the music, the device's language.
+
+**Broke.** A docs script of mine dropped the planning doc's "Open" heading (restored a commit
+later). Ubuntu's glslc, installed in WSL by the polish work, rewrote every committed .spv through
+the engine's build; caught before the push, removed, and build_linux.sh now refuses a configured
+shader compiler. Smart App Control refused test_pn_all once (exit 126, one notification), at the
+polish build; the next relink ran.
+
+**Not verified.** A real phone (Android arm64, any iPhone), a frame in the iOS simulator
+(base-instance drawing), sound by ear on any new platform, two-finger touch on a device, a person
+playing on each.
