@@ -29,11 +29,13 @@
 // combo (playerInput.as:380). Every action fires on its KS_HIT and none repeats
 // while held, so a button is simply held while a finger is on it.
 //
-// THE DIRECTION CONTROL is a disc the thumb slides on without lifting: left and
-// right by which side of the centre it is, down within 67.5 degrees of
-// straight down, nothing in the dead zone at the centre or within 22.5 degrees
-// of straight up. Straight down is down alone, so a thumb held down at the
-// door does not walk off it.
+// THE DIRECTION CONTROL is one round control the thumb slides on without
+// lifting: left and right by which side of the centre it is, down within 67.5
+// degrees of straight down, nothing in the dead zone at the centre or within
+// 22.5 degrees of straight up. Straight down is down alone, so a thumb held
+// down at the door does not walk off it. It is drawn as three buttons, left,
+// right and down, each where its sector is (tools/art/make_mr_touch_art.py
+// checks the art against these sectors).
 //
 // FINGERS. A contact belongs to what it first landed on, until it lifts:
 // sliding off a button keeps it held, sliding onto one presses nothing, and a
@@ -91,14 +93,16 @@
 // read cancel and not a click.
 //
 // THE LOOK is data, not code: game/data/touch_controls.json names each
-// control's image (under game/data, images/touch/ for the placeholders
-// tools/art/make_touch_art.py draws) and places it - the corner of the
-// logical screen it hangs from, its distance from that corner, its size, in
-// logical pixels (the logical screen is always 768 tall, so these are already
-// relative to the screen). Replacing the art is replacing the PNGs and editing
-// the manifest; a control the manifest marks "enabled": false is not there at
-// all (a layout without the combo buttons, say). Images go through the HUD's
-// TextureCache as the scripts' HUD images do, magenta (#FF00FF) keyed out.
+// control's image (under game/data: images/touch/ holds Magic Rampage's
+// screen-pad buttons, which tools/art/make_mr_touch_art.py makes from its
+// package, and images/touch/placeholder/ the first look, with its own
+// manifest) and places it - the corner of the logical screen it hangs from,
+// its distance from that corner, its size, in logical pixels (the logical
+// screen is always 768 tall, so these are already relative to the screen).
+// Replacing the art is replacing the PNGs and editing the manifest; a control
+// the manifest marks "enabled": false is not there at all (a layout without
+// the combo buttons, say). Images go through the HUD's TextureCache as the
+// scripts' HUD images do, magenta (#FF00FF) keyed out.
 //
 // Pure, like PauseMenu: fed this tick's contacts (and, for the combos, the
 // frames the game ran), it answers what is held. No window, no Machine.

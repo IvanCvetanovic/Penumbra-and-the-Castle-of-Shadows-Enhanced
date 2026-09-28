@@ -12,6 +12,7 @@ This repository holds several things under different terms.
 | dr_mp3 (David Reid, based on minimp3), for MP3 where the engine has no decoder | `game/third_party/dr_mp3/` | Public domain (Unlicense) or MIT No Attribution, the user's choice (end of `dr_mp3.h`) |
 | Liberation Sans Bold 2.1.5, stand-in for Arial and Arial Narrow | `game/data/fonts/LiberationSans-Bold.ttf` | SIL Open Font License 1.1 (`game/data/fonts/LICENSE-LiberationFonts.txt`) |
 | DejaVu Sans Bold 2.37, stand-in for Arial Black and Verdana | `game/data/fonts/DejaVuSans-Bold.ttf` | Bitstream Vera and Arev font licences, DejaVu changes public domain (`game/data/fonts/LICENSE-DejaVuFonts.txt`) |
+| Magic Rampage's on-screen buttons (Magic Rampage 7.8.7, Asantee Games, from its Android package), some composed from its parts, for the touch controls | `game/data/images/touch/*.png` (not `placeholder/`), made by `tools/art/make_mr_touch_art.py` | Asantee Games'. Used with the authors' permission, as Ivan states it; `game/data/images/touch/README.md` says which of its files each image is and what was composed. |
 | The Supersonic Engine | `engine/` (submodule) | MIT, see `engine/LICENSE` and `engine/THIRD_PARTY_LICENSES.md` |
 | Everything else written for this remake (`game/render/`, the layer, tools, tests, docs, the generated English art) | | © Ivan Cvetanovic. No licence chosen yet - that is his decision. |
 

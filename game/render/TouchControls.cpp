@@ -94,13 +94,14 @@ unsigned ComboInputs(const Eth::InputFrame& frame, int player1Pad) {
     return bits;
 }
 
-TouchControlSpec Spec(const char* image, TouchAnchor anchor, glm::vec2 offset, glm::vec2 size, float hitPadding) {
+TouchControlSpec Spec(const char* image, TouchAnchor anchor, glm::vec2 offset, glm::vec2 size, TouchShape shape,
+                      float hitPadding) {
     TouchControlSpec spec;
     spec.image = image;
     spec.anchor = anchor;
     spec.offset = offset;
     spec.size = size;
-    spec.shape = TouchShape::Circle;
+    spec.shape = shape;
     spec.hitPadding = hitPadding;
     return spec;
 }
@@ -196,8 +197,9 @@ Eth::uint8 AlphaByte(float alpha) {
 
 Eth::HudCmd Sprite(const std::string& path, const glm::vec2& min, const glm::vec2& size, Eth::uint8 alpha) {
     Eth::HudCmd cmd;
-    // Stretched to the box: the art is drawn at twice the logical size, for
-    // the phones whose screens have more pixels than the logical 768.
+    // Stretched to the box: the art has at least the box's logical pixels
+    // (Magic Rampage's 128 px buttons for 96-120), for the phones whose
+    // screens have more pixels than the logical 768.
     cmd.kind = Eth::HudCmd::Kind::ShapedSprite;
     cmd.sprite = path;
     cmd.pos = min;
@@ -233,26 +235,39 @@ Eth::KEY TouchControls::KeyFor(TouchAction action) {
 }
 
 TouchManifest TouchControls::DefaultManifest() {
-    // game/data/touch_controls.json holds the same; see it for why each is where it is.
+    // game/data/touch_controls.json holds the same; see it for why each is where it is. The art is
+    // Magic Rampage's screen pad (tools/art/make_mr_touch_art.py): square buttons, so they are
+    // touched as squares - all but the direction control, one round control whose three buttons
+    // are drawn where its sectors are.
     TouchManifest m;
     constexpr glm::vec2 kButton{120.0f, 120.0f};
-    m[TouchControl::Dpad] = Spec("images/touch/dpad.png", TouchAnchor::BottomLeft, {40.0f, 40.0f}, {260.0f, 260.0f}, 60.0f);
-    m[TouchControl::Jump] = Spec("images/touch/jump.png", TouchAnchor::BottomRight, {142.0f, 24.0f}, kButton, 16.0f);
-    m[TouchControl::Sword] = Spec("images/touch/sword.png", TouchAnchor::BottomRight, {260.0f, 142.0f}, kButton, 16.0f);
-    m[TouchControl::Fire] = Spec("images/touch/fire.png", TouchAnchor::BottomRight, {24.0f, 142.0f}, kButton, 16.0f);
-    m[TouchControl::Light] = Spec("images/touch/light.png", TouchAnchor::BottomRight, {142.0f, 260.0f}, kButton, 16.0f);
+    constexpr glm::vec2 kComboButton{100.0f, 100.0f};
+    constexpr TouchShape kSquare = TouchShape::Rect;
+    m[TouchControl::Dpad] = Spec("images/touch/dpad.png", TouchAnchor::BottomLeft, {24.0f, 24.0f}, {330.0f, 330.0f},
+                                 TouchShape::Circle, 60.0f);
+    m[TouchControl::Jump] =
+        Spec("images/touch/jump.png", TouchAnchor::BottomRight, {152.0f, 24.0f}, kButton, kSquare, 4.0f);
+    m[TouchControl::Sword] =
+        Spec("images/touch/sword.png", TouchAnchor::BottomRight, {280.0f, 152.0f}, kButton, kSquare, 4.0f);
+    m[TouchControl::Fire] =
+        Spec("images/touch/fire.png", TouchAnchor::BottomRight, {24.0f, 152.0f}, kButton, kSquare, 4.0f);
+    m[TouchControl::Light] =
+        Spec("images/touch/light.png", TouchAnchor::BottomRight, {152.0f, 280.0f}, kButton, kSquare, 4.0f);
     // E16 combos: a row above the four, each on its attack's side.
     m[TouchControl::SwordCombo] =
-        Spec("images/touch/combo_sword.png", TouchAnchor::BottomRight, {216.0f, 400.0f}, {100.0f, 100.0f}, 12.0f);
+        Spec("images/touch/combo_sword.png", TouchAnchor::BottomRight, {222.0f, 412.0f}, kComboButton, kSquare, 6.0f);
     m[TouchControl::SpellCombo] =
-        Spec("images/touch/combo_spell.png", TouchAnchor::BottomRight, {88.0f, 400.0f}, {100.0f, 100.0f}, 12.0f);
-    m[TouchControl::Pause] = Spec("images/touch/pause.png", TouchAnchor::TopRight, {20.0f, 44.0f}, {84.0f, 84.0f}, 12.0f);
-    m[TouchControl::Back] = Spec("images/touch/back.png", TouchAnchor::TopRight, {20.0f, 44.0f}, {84.0f, 84.0f}, 12.0f);
+        Spec("images/touch/combo_spell.png", TouchAnchor::BottomRight, {102.0f, 412.0f}, kComboButton, kSquare, 6.0f);
+    // Magic Rampage's pause is a pill, 128x86.
+    m[TouchControl::Pause] =
+        Spec("images/touch/pause.png", TouchAnchor::TopRight, {20.0f, 44.0f}, {96.0f, 64.5f}, kSquare, 12.0f);
+    m[TouchControl::Back] =
+        Spec("images/touch/back.png", TouchAnchor::TopRight, {20.0f, 44.0f}, {96.0f, 96.0f}, kSquare, 12.0f);
     m.dpadLeft = "images/touch/dpad_left.png";
     m.dpadRight = "images/touch/dpad_right.png";
     m.dpadDown = "images/touch/dpad_down.png";
     m.knobImage = "images/touch/dpad_knob.png";
-    m.knobSize = {104.0f, 104.0f};
+    m.knobSize = {112.0f, 112.0f};
     m.deadZone = 0.25f;
     m.idleAlpha = 0.45f;
     m.pressedAlpha = 0.9f;

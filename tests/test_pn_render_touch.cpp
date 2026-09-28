@@ -61,6 +61,7 @@ using Penumbra::Render::TouchAnchor;
 using Penumbra::Render::TouchCombo;
 using Penumbra::Render::TouchContact;
 using Penumbra::Render::TouchControl;
+using Penumbra::Render::TouchControlSpec;
 using Penumbra::Render::TouchControls;
 using Penumbra::Render::TouchCorner;
 using Penumbra::Render::TouchFacing;
@@ -771,7 +772,31 @@ bool Overlap(const TouchLayout::Box& a, const TouchLayout::Box& b) {
 
 // How far from its centre a finger still lands on a round control.
 float Reach(const TouchLayout& layout, TouchControl control) {
-    return 0.5f * layout[control].Size().x + layout.hitPadding[static_cast<std::size_t>(control)];
+    const glm::vec2 size = layout[control].Size();
+    return 0.5f * std::min(size.x, size.y) + layout.hitPadding[static_cast<std::size_t>(control)];
+}
+
+// Where a finger still lands on a square control: its box and its padding.
+TouchLayout::Box Padded(const TouchLayout& layout, TouchControl control) {
+    const float pad = layout.hitPadding[static_cast<std::size_t>(control)];
+    return {layout[control].min - glm::vec2(pad), layout[control].max + glm::vec2(pad)};
+}
+
+// Whether one finger could land on both, each touched by its shape as
+// TouchControls::hit touches it: two round ones by their reaches, two square
+// ones by their padded boxes, a round one and a square one by the circle's
+// distance to the nearest point of the padded box.
+bool ReachBoth(const TouchLayout& layout, const TouchManifest& manifest, TouchControl a, TouchControl b) {
+    const bool roundA = manifest[a].shape == Penumbra::Render::TouchShape::Circle;
+    const bool roundB = manifest[b].shape == Penumbra::Render::TouchShape::Circle;
+    if (roundA && roundB) {
+        return glm::length(layout[a].Centre() - layout[b].Centre()) <= Reach(layout, a) + Reach(layout, b);
+    }
+    if (!roundA && !roundB) return Overlap(Padded(layout, a), Padded(layout, b));
+    const TouchControl round = roundA ? a : b;
+    const TouchLayout::Box box = Padded(layout, roundA ? b : a);
+    const glm::vec2 centre = layout[round].Centre();
+    return glm::length(centre - glm::clamp(centre, box.min, box.max)) <= Reach(layout, round);
 }
 
 // Whether two controls are drawn over each other: as circles when both are
@@ -786,8 +811,16 @@ bool DrawnOver(const TouchLayout& layout, const TouchManifest& manifest, TouchCo
     return Overlap(layout[a], layout[b]);
 }
 
-void testLayout() {
-    const TouchManifest manifest = TouchControls::DefaultManifest();
+// The shipped manifest, and the first (placeholder) look's, kept beside its art.
+fs::path ShippedManifest() { return fs::path(PENUMBRA_DATA_DIR) / TouchControls::kManifestFile; }
+fs::path PlaceholderManifest() {
+    return fs::path(PENUMBRA_DATA_DIR) / "images" / "touch" / "placeholder" / TouchControls::kManifestFile;
+}
+
+// A layout fits every screen: inside the safe area, where the thumbs are,
+// clear of the HUD, nothing drawn over anything else and no finger reaching
+// two controls.
+void CheckLayoutFits(const TouchManifest& manifest, const std::string& name) {
     // 4:3 (the menus, and 4:3 levels), 16:9, a 20:9 phone; bare, a notch and
     // gesture bar in landscape, a tablet's status bar.
     const glm::vec2 screens[] = {kFourThree, kWide, {1707.0f, 768.0f}};
@@ -797,7 +830,7 @@ void testLayout() {
                                  TouchControl::SpellCombo, TouchControl::Pause};
     for (const glm::vec2& screen : screens) {
         for (const TouchInsets& safe : insets) {
-            const std::string where = std::to_string(static_cast<int>(screen.x)) + "x768, inset " +
+            const std::string where = name + ", " + std::to_string(static_cast<int>(screen.x)) + "x768, inset " +
                                       std::to_string(static_cast<int>(safe.left)) + "/" +
                                       std::to_string(static_cast<int>(safe.top));
             const TouchLayout layout = TouchControls::ComputeLayout(manifest, screen, safe);
@@ -812,14 +845,14 @@ void testLayout() {
             // the right, the pause at the top right, below the run's timer
             // (setupScene.as:337, (W-50, 0), 25 px) and clear of the status
             // frames at the top left (interface.as, 226x74 each).
-            CHECK(layout[TouchControl::Dpad].max.x < screen.x * 0.5f);
-            CHECK(layout[TouchControl::Dpad].min.y > screen.y * 0.5f);
+            CHECK_MSG(layout[TouchControl::Dpad].max.x < screen.x * 0.5f, where);
+            CHECK_MSG(layout[TouchControl::Dpad].min.y > screen.y * 0.5f, where);
             for (const TouchControl button : kButtonControls) {
-                CHECK(layout[button].min.x > screen.x * 0.5f);
-                CHECK(layout[button].min.y > screen.y * 0.4f);
+                CHECK_MSG(layout[button].min.x > screen.x * 0.5f, where);
+                CHECK_MSG(layout[button].min.y > screen.y * 0.4f, where);
             }
-            CHECK(layout[TouchControl::Pause].min.x > screen.x * 0.5f);
-            CHECK(layout[TouchControl::Pause].max.y < screen.y * 0.25f);
+            CHECK_MSG(layout[TouchControl::Pause].min.x > screen.x * 0.5f, where);
+            CHECK_MSG(layout[TouchControl::Pause].max.y < screen.y * 0.25f, where);
             // The combo buttons: under the right thumb too, above the four and
             // below the pause.
             for (const TouchControl combo : {TouchControl::SwordCombo, TouchControl::SpellCombo}) {
@@ -828,30 +861,49 @@ void testLayout() {
                 CHECK_MSG(layout[combo].min.y > layout[TouchControl::Pause].max.y, where);
             }
             // Each on its attack's side.
-            CHECK(layout[TouchControl::SwordCombo].Centre().x < layout[TouchControl::SpellCombo].Centre().x);
-            CHECK(!Overlap(layout[TouchControl::Pause], {{screen.x - 50.0f, 0.0f}, {screen.x, 30.0f}}));
-            CHECK(!Overlap(layout[TouchControl::Pause], {{0.0f, 0.0f}, {452.0f, 74.0f}}));
-            CHECK(!Overlap(layout[TouchControl::Dpad], {{0.0f, 0.0f}, {452.0f, 74.0f}}));
+            CHECK_MSG(layout[TouchControl::SwordCombo].Centre().x < layout[TouchControl::SpellCombo].Centre().x, where);
+            CHECK_MSG(!Overlap(layout[TouchControl::Pause], {{screen.x - 50.0f, 0.0f}, {screen.x, 30.0f}}), where);
+            CHECK_MSG(!Overlap(layout[TouchControl::Pause], {{0.0f, 0.0f}, {452.0f, 74.0f}}), where);
+            CHECK_MSG(!Overlap(layout[TouchControl::Dpad], {{0.0f, 0.0f}, {452.0f, 74.0f}}), where);
             // Nothing drawn over anything else, and no finger reaching two
-            // of them (the circles with their padding).
+            // of them (each by its shape, with its padding).
             for (std::size_t a = 0; a < std::size(play); ++a) {
                 for (std::size_t b = a + 1; b < std::size(play); ++b) {
-                    CHECK_MSG(!DrawnOver(layout, manifest, play[a], play[b]),
-                              where + ": " + TouchControls::ControlId(play[a]) + " over " +
-                                  TouchControls::ControlId(play[b]));
-                    const float apart = glm::length(layout[play[a]].Centre() - layout[play[b]].Centre());
-                    CHECK(apart > Reach(layout, play[a]) + Reach(layout, play[b]));
+                    const std::string pair = where + ": " + TouchControls::ControlId(play[a]) + " and " +
+                                             TouchControls::ControlId(play[b]);
+                    CHECK_MSG(!DrawnOver(layout, manifest, play[a], play[b]), pair);
+                    CHECK_MSG(!ReachBoth(layout, manifest, play[a], play[b]), pair);
                 }
             }
         }
     }
+}
 
-    // The anchor arithmetic, exactly.
+void testLayout() {
+    // The built-in layout, the one the game ships, and the placeholder look's.
+    const TouchManifest manifest = TouchControls::DefaultManifest();
+    CheckLayoutFits(manifest, "built in");
+    std::string warning;
+    CheckLayoutFits(TouchControls::LoadManifest(ShippedManifest(), &warning), "shipped");
+    CHECK_MSG(warning.empty(), warning);
+    CheckLayoutFits(TouchControls::LoadManifest(PlaceholderManifest(), &warning), "placeholder");
+    CHECK_MSG(warning.empty(), warning);
+
+    // The anchor arithmetic, exactly (the built-in numbers, whole or half
+    // pixels, so exact in floats): the bottom-left, bottom-right and top-right
+    // corners of a notched widescreen's safe area.
+    const TouchControlSpec& dpadSpec = manifest[TouchControl::Dpad];
+    const TouchControlSpec& jumpSpec = manifest[TouchControl::Jump];
+    const TouchControlSpec& lightSpec = manifest[TouchControl::Light];
+    const TouchControlSpec& pauseSpec = manifest[TouchControl::Pause];
     const TouchLayout wide = TouchControls::ComputeLayout(manifest, kWide, {88.0f, 0.0f, 88.0f, 24.0f});
-    CHECK(wide[TouchControl::Dpad].min == glm::vec2(88.0f + 40.0f, 768.0f - 24.0f - 40.0f - 260.0f));
-    CHECK(wide[TouchControl::Jump].min ==
-          glm::vec2(1366.0f - 88.0f - 142.0f - 120.0f, 768.0f - 24.0f - 24.0f - 120.0f));
-    CHECK(wide[TouchControl::Pause].min == glm::vec2(1366.0f - 88.0f - 20.0f - 84.0f, 44.0f));
+    CHECK(wide[TouchControl::Dpad].min ==
+          glm::vec2(88.0f + dpadSpec.offset.x, 768.0f - 24.0f - dpadSpec.offset.y - dpadSpec.size.y));
+    CHECK(wide[TouchControl::Jump].min == glm::vec2(1366.0f - 88.0f - jumpSpec.offset.x - jumpSpec.size.x,
+                                                    768.0f - 24.0f - jumpSpec.offset.y - jumpSpec.size.y));
+    CHECK(wide[TouchControl::Pause].min ==
+          glm::vec2(1366.0f - 88.0f - pauseSpec.offset.x - pauseSpec.size.x, pauseSpec.offset.y));
+    CHECK(wide[TouchControl::Pause].Size() == pauseSpec.size);
 
     // An offset past the screen is clamped into the safe area; scale grows
     // sizes, offsets and padding together.
@@ -861,13 +913,14 @@ void testLayout() {
     const TouchInsets notch{60.0f, 10.0f, 60.0f, 10.0f};
     const TouchLayout clamped = TouchControls::ComputeLayout(odd, kFourThree, notch);
     CHECK(clamped[TouchControl::Jump].min == glm::vec2(60.0f, 10.0f));
-    CHECK(clamped[TouchControl::Light].min == glm::vec2(60.0f + 142.0f, 10.0f + 260.0f));
+    CHECK(clamped[TouchControl::Light].min == glm::vec2(60.0f + lightSpec.offset.x, 10.0f + lightSpec.offset.y));
     odd = manifest;
     odd.scale = 1.5f;
     const TouchLayout big = TouchControls::ComputeLayout(odd, kWide, {});
-    CHECK(big[TouchControl::Jump].Size() == glm::vec2(180.0f));
-    CHECK(big[TouchControl::Jump].max == glm::vec2(1366.0f - 142.0f * 1.5f, 768.0f - 24.0f * 1.5f));
-    CHECK_NEAR(big.hitPadding[static_cast<std::size_t>(TouchControl::Jump)], 24.0f);
+    CHECK(big[TouchControl::Jump].Size() == jumpSpec.size * 1.5f);
+    CHECK(big[TouchControl::Jump].max ==
+          glm::vec2(1366.0f - jumpSpec.offset.x * 1.5f, 768.0f - jumpSpec.offset.y * 1.5f));
+    CHECK_NEAR(big.hitPadding[static_cast<std::size_t>(TouchControl::Jump)], jumpSpec.hitPadding * 1.5f);
 
     // A platform's safe area (window pixels) into the logical screen.
     View phone;   // a 2400x1080 phone in widescreen: the image is the window
@@ -902,24 +955,11 @@ void testLayout() {
     CHECK(Only(inset.Update(input), {TouchAction::Jump}));
 }
 
-void testManifest() {
+// Every image a manifest names is there, decodes, fits its box undistorted,
+// has at least the pixels it is drawn at, and has no exact magenta (the HUD
+// keys it out).
+void CheckManifestArt(const TouchManifest& manifest) {
     const fs::path dataDir = PENUMBRA_DATA_DIR;
-    const fs::path file = dataDir / TouchControls::kManifestFile;
-    CHECK_MSG(fs::exists(file), file.generic_string());
-    std::string warning;
-    const TouchManifest manifest = TouchControls::LoadManifest(file, &warning);
-    CHECK_MSG(warning.empty(), warning);
-
-    const char* const ids[] = {"dpad",       "jump",       "sword", "fire", "light",
-                               "swordCombo", "spellCombo", "pause", "back"};
-    CHECK_EQ(std::size(ids), static_cast<std::size_t>(kTouchControlCount));
-    for (int i = 0; i < kTouchControlCount; ++i) {
-        CHECK(std::string(TouchControls::ControlId(static_cast<TouchControl>(i))) == ids[i]);
-    }
-
-    // Every image it names is there, decodes, fits its box undistorted, has
-    // at least the pixels it is drawn at, and has no exact magenta (the HUD
-    // keys it out).
     std::vector<std::pair<std::string, glm::vec2>> images;
     for (int i = 0; i < kTouchControlCount; ++i) {
         const TouchControl control = static_cast<TouchControl>(i);
@@ -955,6 +995,87 @@ void testManifest() {
         CHECK_MSG(!magenta, image);
         CHECK_MSG(translucent, image);   // drawn over the game, never a solid square
     }
+}
+
+// The direction control's arrows are drawn where their sectors are (they are
+// whole buttons now, Magic Rampage's, each alone in the control's box): a
+// finger on any opaque pixel of the left or right one holds that side alone,
+// and one on the down one holds down - down alone at its middle; a square
+// button's upper corners reach into the diagonals' sectors.
+void CheckArrowsInSectors(const TouchManifest& manifest, const std::string& name) {
+    const fs::path dataDir = PENUMBRA_DATA_DIR;
+    const TouchLayout::Box dpad =
+        TouchControls::ComputeLayout(manifest, kFourThree, TouchInsets{})[TouchControl::Dpad];
+    const std::pair<std::string, TouchAction> arrows[] = {
+        {manifest.dpadLeft, TouchAction::Left},
+        {manifest.dpadRight, TouchAction::Right},
+        {manifest.dpadDown, TouchAction::Down},
+    };
+    TouchControls touch;
+    touch.SetManifest(manifest);
+    int finger = 0;
+    for (const auto& [image, action] : arrows) {
+        const std::string where = name + ": " + image;
+        const Penumbra::Render::DecodedImage decoded = Penumbra::Render::DecodeTexture(
+            (dataDir / image).generic_string(), Penumbra::Render::TextureVariant::Plain);
+        CHECK_MSG(decoded.Valid(), where);
+        if (!decoded.Valid()) continue;
+        const glm::vec2 texel =
+            dpad.Size() / glm::vec2(static_cast<float>(decoded.width), static_cast<float>(decoded.height));
+        int opaque = 0;
+        int held = 0;
+        int alone = 0;
+        glm::vec2 sum(0.0f);
+        for (int y = 0; y < decoded.height; ++y) {
+            for (int x = 0; x < decoded.width; ++x) {
+                const std::size_t texelIndex = static_cast<std::size_t>(y) * static_cast<std::size_t>(decoded.width) +
+                                               static_cast<std::size_t>(x);
+                if (decoded.rgba[texelIndex * 4u + 3u] != 255) continue;
+                // A fresh finger each tick; the one before lifts.
+                const glm::vec2 at =
+                    dpad.min + (glm::vec2(static_cast<float>(x), static_cast<float>(y)) + 0.5f) * texel;
+                const TouchStep step = touch.Update(Play({Finger(++finger, at)}));
+                ++opaque;
+                held += step.Held(action) ? 1 : 0;
+                alone += Only(step, {action}) ? 1 : 0;
+                sum += at;
+            }
+        }
+        CHECK_MSG(opaque > 0, where);
+        CHECK_MSG(held == opaque, where);
+        if (action != TouchAction::Down) CHECK_MSG(alone == opaque, where);
+        std::printf("  %s: %d opaque texels, %d hold it, %d hold it alone\n", where.c_str(), opaque, held, alone);
+        if (opaque > 0) {
+            CHECK_MSG(Only(touch.Update(Play({Finger(++finger, sum / static_cast<float>(opaque))})), {action}), where);
+        }
+    }
+}
+
+void testManifest() {
+    const fs::path dataDir = PENUMBRA_DATA_DIR;
+    const fs::path file = ShippedManifest();
+    CHECK_MSG(fs::exists(file), file.generic_string());
+    std::string warning;
+    const TouchManifest manifest = TouchControls::LoadManifest(file, &warning);
+    CHECK_MSG(warning.empty(), warning);
+
+    const char* const ids[] = {"dpad",       "jump",       "sword", "fire", "light",
+                               "swordCombo", "spellCombo", "pause", "back"};
+    CHECK_EQ(std::size(ids), static_cast<std::size_t>(kTouchControlCount));
+    for (int i = 0; i < kTouchControlCount; ++i) {
+        CHECK(std::string(TouchControls::ControlId(static_cast<TouchControl>(i))) == ids[i]);
+    }
+
+    // The art the game ships (Magic Rampage's), and the placeholder look kept
+    // one manifest away, with its own manifest beside it.
+    CheckManifestArt(manifest);
+    CheckArrowsInSectors(manifest, "shipped");
+    CHECK_MSG(fs::exists(PlaceholderManifest()), PlaceholderManifest().generic_string());
+    const TouchManifest placeholder = TouchControls::LoadManifest(PlaceholderManifest(), &warning);
+    CHECK_MSG(warning.empty(), warning);
+    CheckManifestArt(placeholder);
+    CheckArrowsInSectors(placeholder, "placeholder");
+    CHECK(placeholder[TouchControl::Jump].image.find("images/touch/placeholder/") == 0);
 
     // Loaded the way the HUD loads its images: through TextureCache, by the
     // absolute path, one quad each.
@@ -1027,7 +1148,9 @@ void testManifest() {
     CHECK(TouchControls::LoadManifest(dataDir / "no_such_manifest.json", &warning) == TouchControls::DefaultManifest());
     CHECK(!warning.empty());
 
-    // A rect-shaped control is touched as a rectangle, corners included.
+    // A rect-shaped control is touched as a rectangle, corners included; a
+    // round one is not touched at its box's corner. (The built-in jump is
+    // square, Magic Rampage's; each shape is set here.)
     TouchManifest square = TouchControls::DefaultManifest();
     square[TouchControl::Jump].shape = Penumbra::Render::TouchShape::Rect;
     square[TouchControl::Jump].hitPadding = 0.0f;
@@ -1035,7 +1158,10 @@ void testManifest() {
     rect.SetManifest(square);
     const TouchLayout::Box box = Default()[TouchControl::Jump];
     CHECK(Only(rect.Update(Play({Finger(1, box.min + glm::vec2(2.0f))})), {TouchAction::Jump}));
+    TouchManifest disc = square;
+    disc[TouchControl::Jump].shape = Penumbra::Render::TouchShape::Circle;
     TouchControls round;
+    round.SetManifest(disc);
     CHECK(Only(round.Update(Play({Finger(1, box.min + glm::vec2(2.0f))})), {}));
 }
 

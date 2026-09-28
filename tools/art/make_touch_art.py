@@ -1,21 +1,21 @@
 #!/usr/bin/env python3
-"""Placeholder art for the on-screen touch controls (E16, game/render/TouchControls).
+"""The placeholder art for the on-screen touch controls (E16, game/render/TouchControls).
 
-Writes simple, readable buttons to game/data/images/touch/: white icons on translucent dark discs,
-at twice the logical size game/data/touch_controls.json draws them at (a 120 px button is a 240 px
-image), so they stay sharp on a phone whose screen has more pixels than the logical 768.
+The buttons the port ships are Magic Rampage's (tools/art/make_mr_touch_art.py). These were the
+first look, kept so it stays one manifest away: they go to game/data/images/touch/placeholder/,
+beside the manifest that lays them out, placeholder/touch_controls.json (the old layout: a disc
+and round buttons). To go back to them, copy that file over game/data/touch_controls.json.
+
+Simple, readable buttons: white icons on translucent dark discs, at twice the logical size the
+manifest draws them at (a 120 px button is a 240 px image), so they stay sharp on a phone whose
+screen has more pixels than the logical 768.
 
     python tools/art/make_touch_art.py
 
 Needs Pillow. Drawn from shapes only (no fonts, no text), so the art is the same in both languages
-and is ours outright.
-
-THESE ARE PLACEHOLDERS. Ivan's ruling (2026-09-28): the real buttons may come from Magic Rampage,
-which is not on this machine. Swapping them is data only: replace the PNGs (any size; the
-manifest's "size" is what they are drawn at, stretched) and edit touch_controls.json - anchor
-corner, offset, size, hit padding, the direction control's arrows and knob. Two things the art must
-keep: straight (not premultiplied) alpha, and no pixel of exact magenta #FF00FF, which the HUD's
-TextureCache keys out as 0.7.12 keyed every sprite (TextureVariant::Sprite).
+and is ours outright. Two things any touch art must keep: straight (not premultiplied) alpha, and
+no pixel of exact magenta #FF00FF, which the HUD's TextureCache keys out as 0.7.12 keyed every
+sprite (TextureVariant::Sprite).
 
 WHAT EACH IS (the icons follow the gamepad mapping E3 gave the actions: A jump, X sword, B fire,
 Y light, and the diamond is laid out as a pad's face buttons):
@@ -40,7 +40,7 @@ import pathlib
 from PIL import Image, ImageDraw
 
 REPO = pathlib.Path(__file__).resolve().parents[2]
-OUT = REPO / "game" / "data" / "images" / "touch"
+OUT = REPO / "game" / "data" / "images" / "touch" / "placeholder"
 
 # Drawn this many times larger, then scaled down: Pillow's shapes have no antialiasing.
 SUPERSAMPLE = 4

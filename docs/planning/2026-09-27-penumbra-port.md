@@ -47,7 +47,7 @@ in this repository, with the engine improved where the game needs it.
 | E13 | A pause: in a level or an arena, Esc or player 1's Back freezes the game (the Machine does not tick: GetTime, fades, cooldowns and the run's clock stop, so best times exclude paused time) under 'Pausado'/'Paused' with Continuar/Resume and Menu principal/Main menu (arrows, stick/D-pad, Enter/A/Start, Esc/B/Back, mouse); Main menu feeds the original's own K_ESC for one tick; the music is ducked to 40%; it opens by itself when the window loses focus in play (settings.pauseOnFocusLoss, on; off under --fixed-step); not on the end screens, where Esc/Back still go to the menu | none: Esc in a level returned straight to the main menu and the run was lost (doLoop's escToGoToMenu) |
 | E14 | Gamepad menus: in the menu, the arena select, the options screen and game over, a pad's A also confirms (JK_10) and B also cancels (JK_09); a button already held when a menu opens counts from its next press | only Start confirmed and only Back cancelled (getConfirmButtonStatus/getCancelButtonStatus, playerInput.as:267-305) |
 | E15 | The five ambient horror.mp3 markers the level designer named "play_sound.ent" (level2 469, 493, 548; level3 219, 427) play once on screen like the correctly named ones (Script.hpp kPlaySoundEntFix) | setupScene.as:175 collected only "play_sound" by exact name: they never played |
-| E16 | On-screen touch controls (render/TouchControls, game/data/touch_controls.json): a direction disc (left/right/down, the thumb slides) and jump/sword/fire/light as a pad's face buttons press player 1's own keys (K_LEFT/K_RIGHT/K_DOWN, K_CTRL, K_S, K_D, K_SPACE); a corner button sends K_ESC (E13's pause in play, back elsewhere); in the menus, the options, game over and the pause the buttons hide and a tap is a click there; placeholder art (tools/art/make_touch_art.py), the look and layout data-only; settings.touchControls auto/on/off (auto = on under PENUMBRA_MOBILE), --touch on the desktop (the held mouse is the finger); two combo buttons play the sword and spell combos as macros of the same keys, toward the way the wizard faces, after the combo buffer has emptied (Step 17) | keyboard and joysticks only |
+| E16 | On-screen touch controls (render/TouchControls, game/data/touch_controls.json): a direction disc (left/right/down, the thumb slides) and jump/sword/fire/light as a pad's face buttons press player 1's own keys (K_LEFT/K_RIGHT/K_DOWN, K_CTRL, K_S, K_D, K_SPACE); a corner button sends K_ESC (E13's pause in play, back elsewhere); in the menus, the options, game over and the pause the buttons hide and a tap is a click there; Magic Rampage's buttons (tools/art/make_mr_touch_art.py, game/data/images/touch/README.md; the first placeholder art, tools/art/make_touch_art.py, kept in images/touch/placeholder/ with its manifest), the look and layout data-only; settings.touchControls auto/on/off (auto = on under PENUMBRA_MOBILE), --touch on the desktop (the held mouse is the finger); two combo buttons play the sword and spell combos as macros of the same keys, toward the way the wizard faces, after the combo buffer has emptied (Step 17) | keyboard and joysticks only |
 | E17 | Stand-in fonts (game/data/fonts: Liberation Sans Bold 2.1.5, SIL OFL; DejaVu Sans Bold 2.37, Bitstream Vera licence): off Windows, and on a Windows machine missing a face, FontAtlas draws with them at the metrics of the Windows face they stand for (Arial Narrow = Liberation Sans Bold at 82% width, within 1/2048 em of Arial Narrow Bold on every cp1252 character the game draws). On Windows the system faces still come first | the Windows system faces (D3DXCreateFontA), nothing else |
 | E18 | MP3 without Media Foundation (eth/SoundDecode, dr_mp3 vendored at a pinned commit): where the engine cannot decode an MP3 (every platform but Windows) the port decodes it itself; on Windows the engine's Media Foundation path still decodes, dr_mp3 only if it refuses a file | Audiere on Windows |
 | E19 | The first language off Windows: Portuguese when LC_ALL, LC_MESSAGES or LANG starts with pt (Settings::SetSystemLocale is the hook Android and iOS feed the device locale into) | Portuguese only |
@@ -493,7 +493,44 @@ suites, 5596 checks, 0 failures (render_touch 1636; in level 1 the sword combo c
 with a tick of regeneration, the spell combo fired 16 ticks after the step, 100 -> 75). Windows:
 check.bat clean on every touched file; not built or run this step.
 
+### Step 19 - Magic Rampage's buttons; the pause and the touch controls tested on the devices (2026-09-28)
+- **The art** (Ivan gave Magic Rampage 7.8.7's XAPK from APKPure): MR's own pad is six square buttons
+  built in its compiled script (CharacterScreenPadController in assets/game_32.bin: left, right,
+  jump, attack, pause, the arcane-rune special), every button dpad-frame.png with an icon baked in,
+  128 px only, no pressed-state image (the press is a tint). Used as shipped: jump, sword (MR's
+  melee dagger), pause (its pill), back (inventory-back-button), left, right, and the knob (SEF's
+  focus brackets). Built from MR parts in MR's style: down (dpad-right's face mirrored onto the
+  frame), fire and light (the frame plus MR's element glyphs, outlined and shadowed like its
+  icons), the sword combo (MR's arcane-rune special: "forward three times and attack") and the
+  spell combo (a fire rune). tools/art/make_mr_touch_art.py makes them from the XAPK (read only) or
+  an extraction; game/data/images/touch/README.md holds the provenance. The placeholders and their
+  layout moved to images/touch/placeholder/ (one manifest copy away). The layout: three square
+  direction buttons where the disc's sectors are, the diamond, the two combos above it, the pill.
+  test_pn_render_touch checks every manifest's art and fit, and that every opaque texel of each
+  arrow presses its direction.
+- **Windows, the pause** (one launch of the packaged exe, input only from the game's own --hold and
+  --cursor): Esc opens it, the game frozen (paused frames 0 px apart), Down and Up move the
+  selection, a pointer at rest over a row does not undo the keys, Enter on Resume runs the game
+  again, Esc reopens and Esc closes without leaving the level, a click selects and chooses, Main
+  menu reaches the menu. Not testable without OS input or a pad: Alt-Tab, a real pad, the music at
+  40%.
+- **Android, the touch controls** (my emulator, adb input only, default settings): a tap on New
+  Game; hold right, hold left, a slide from left to right; jump, sword, fire, light; two fingers
+  (hold right and tap sword, through the emulator's multi-touch events); both combo buttons (the
+  sword beam, the combo fireball, their mana); the pause pill, Resume, Main menu; Back opening and
+  closing the pause; Home and back (the pause open, the frame rebuilt); a pad's A and B in the
+  menus and Select in a level; the options' touch switch. A skeptical review re-read every capture
+  and log: all confirmed but "Start never pauses" (no event shows Start reached the game).
+- **For Ivan's eye:** the combo buttons lie over level 1's first sign at the start; at rest the
+  knob's brackets frame the gap between left and right; the options screen shows the original's
+  Back beside MR's corner back; a thumb between two direction buttons presses both (the sectors);
+  the level tutorial still speaks of arrow keys on a phone.
+Gates: Windows build zero warnings, test_pn_all once, 17 suites, 7539 checks, 0 failures; Linux
+7450, 0 failures; Android both ABIs build.
+
 ### Open
+- **iOS: builds, untested** (Ivan, 2026-09-28: "leave it alone, we only need it to build"). No frame
+  in the simulator (base-instance drawing); no signed device run. Not to be worked on unless asked.
 - **Light, still not modelled** (Step 16): the live shadows (E9) darken the ambient too, where
   0.7.12's baked shadow removed only its own light (the menu barrel's shadow is near-black, the
   original's purple); baked light on static sprites' soft edges went through the sprite's own blend;

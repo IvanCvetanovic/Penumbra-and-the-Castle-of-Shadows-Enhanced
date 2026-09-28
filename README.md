@@ -164,7 +164,7 @@ down, is the finger.
 
 | Action | Touch | The key it presses |
 |---|---|---|
-| Walk / down | The disc at the bottom left: slide the thumb | Left, Right, Down |
+| Walk / down | The three buttons at the bottom left (left, right, down): one control, the thumb slides between them | Left, Right, Down |
 | Jump | Bottom button of the four at the bottom right | Ctrl |
 | Sword | Left button | S |
 | Fireball | Right button | D |
@@ -173,7 +173,7 @@ down, is the finger.
 | Spell combo | The right button of the two above the four | Down, the way he faces, then D |
 | Pause (in a level) / back (arena select, options, game over) | The button at the top right | Esc |
 
-- Several fingers work at once: hold the disc and tap the buttons.
+- Several fingers work at once: hold a direction and tap the buttons.
 - A combo button presses its combo's keys one a tick, toward the way the wizard faces. If a
   direction, the sword or the fireball was pressed in the last fifth of a second, it waits until the
   game's combo memory has emptied (the original forgets a combo 210 ms after its last key), so the
@@ -181,9 +181,14 @@ down, is the finger.
   light and pause do not. A second tap is ignored until it is done; the pause or a new scene stops it.
 - In the menus, the options, game over and the pause, the buttons are hidden and a tap clicks
   where it lands.
-- The buttons are placeholders. Their images and layout are in `data/touch_controls.json` and
-  `data/images/touch/`, so new art is a data change; `"enabled": false` there removes a button
-  (the combo buttons, say).
+- The buttons are Magic Rampage's (Asantee Games, used with the authors' permission), taken from
+  its Android package by `tools/art/make_mr_touch_art.py`. The ones it has no equivalent for - down,
+  fire, light, the two combos - are made in its style from its parts: its blank button with one of
+  its glyphs or rune gems (`data/images/touch/README.md` says which is which). The images and
+  layout are in `data/touch_controls.json` and `data/images/touch/`, so new art is a data change;
+  `"enabled": false` there removes a button (the combo buttons, say). The first, placeholder look
+  is kept in `data/images/touch/placeholder/` with its own manifest: copy that over
+  `data/touch_controls.json` to go back to it.
 
 ## Enhancements
 
@@ -334,6 +339,22 @@ passes them with `--original`/`--data`. Landscape only; minimum Android 8.0 (API
 Vulkan 1.2 is required. The touch controls (E16) are on by default, keyboard player 2 is off (a
 phone has no keyboard: Versus waits for a second pad), and the Back key is Esc. Development flags
 go in `penumbra_args.txt` in the app's files directory (`tools/build_android.sh --run "<flags>"`).
+
+### macOS and iOS
+
+This laptop cannot build for Apple platforms, so both are built on GitHub's macOS runners by
+`.github/workflows/apple.yml`, run by hand (Actions -> Apple -> Run workflow) or by a push to the
+`apple-port` branch. They never run on a push to main. The engine submodule is cloned with the
+read-only deploy key in the `ENGINE_DEPLOY_KEY` secret.
+
+- **macOS: works.** On the runner: every target builds, `test_pn_all` passes, and `Penumbra.app`
+  renders level 1 with CoreAudio producing sound. Download the `macos` artifact of a run; it is kept
+  7 days. The app is only ad-hoc signed, so run `xattr -dr com.apple.quarantine Penumbra.app` before
+  opening it the first time.
+- **iOS: builds, untested.** The simulator and device builds compile and link, but nothing has been
+  seen running: the simulator's GPU cannot draw the engine's instanced batches (no base-instance
+  drawing), and no device build has been signed or run. Ivan's ruling (2026-09-28): iOS only needs
+  to build, and is marked untested.
 
 ## Tests
 
