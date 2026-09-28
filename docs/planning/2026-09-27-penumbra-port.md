@@ -364,6 +364,51 @@ only); the editor compiles on Windows with zero warnings (not launched); Penumbr
 build zero warnings, test_pn_all once - 17 suites, 5006 checks, 0 failures; Android: both ABIs
 build, the APK packages.
 
+### Step 15 - macOS and iOS (2026-09-28)
+Built and run only on GitHub's macOS runners (macos-15 arm64, Xcode 26.3, iOS 26.2 simulators):
+this laptop cannot compile against Apple's SDKs. `.github/workflows/apple.yml`, on pushes to the
+`apple-port` branch and by hand, never on main; MoltenVK 1.4.2 from the KhronosGroup release's
+static xcframework, linked into the program (no loader, no SDK). The engine's side is on its
+`apple-port` branch, all behind `__APPLE__` / `SUPERSONIC_PLATFORM_IOS` / `if (APPLE)`: CoreAudio
+(macOS and iOS), a UIKit backend (src/platform/ios), GLFW told to use the linked Vulkan and to
+leave the working directory alone, MoltenVK linked directly, portability extensions only where
+offered. Its README's Platforms section lists it all.
+- **The game.** macos/MacMain.mm is main() on a Mac: NSLocale's first language into E19's hook
+  (a Finder-started app has no LANG), and inside Penumbra.app --original/--data at
+  Contents/Resources and the engine run from ~/Library/Caches/<bundle id>/engine with the
+  bundle's shaders copied in (a bundle is never written). ios/IOSMain.mm is SupersonicMain on
+  iOS: the same with the bundle's root, the device's language, and one-shot flags from
+  Documents/penumbra_args.txt. PENUMBRA_MOBILE on iOS (E16's controls), not on macOS. InputMapper
+  reads pads from Supersonic::Gamepads wherever the window is not GLFW's. tools/apple/make_app.sh
+  assembles Penumbra.app for either (original/ without the Windows binaries and scripts, data/,
+  engine/assets/shaders, the original's skull icon via tools/apple/ico_to_png.py, ad-hoc signed).
+- **The notch (orchestrator's ruling):** the game is drawn clear of it - the Metal view is the
+  safe area's width (black beside the notch or Dynamic Island) and runs to the bottom edge;
+  SafeArea::Get reports what remains inside it (measured: 2250x1206 of 2622x1206 pixels, a
+  60-pixel home-indicator band).
+- **extracted/ is CRLF on every checkout now** (.gitattributes): the repository stores it LF,
+  and test_pn_formats' round trips against the shipped bytes failed 14 checks on the Mac's LF
+  checkout. The readme.txt files keep the *.txt rule, as on Windows.
+- **Measured, macOS:** every target builds (the game's code with no warnings; the engine's
+  MeshRegistry.cpp and two EnTT instantiations warn under clang, as on Linux); test_pn_all once:
+  17 suites, 4914 checks, 0 failures (Linux 4917: test_pn_paths' three case-sensitive checks
+  skip on APFS's case-insensitive default, as on Windows; Windows' 5006 include its fonts and
+  Media Foundation). Penumbra.app, started from an unrelated folder, rendered level 1 on the
+  runner's Apple Paravirtual GPU (--window 1024x768 came out 1024x653: the runner's display is
+  smaller), English text, lights and torches as on Windows; CoreAudio pulled 384000 frames in 750
+  callbacks from the runner's virtual sound device (not heard).
+- **Measured, iOS:** the simulator build (arm64) and a device build (iphoneos arm64, minos 16.3)
+  compile, link and assemble. In the simulator the app installs and launches (the skull icon on
+  the home screen), the scene connects, CoreAudio's RemoteIO pulls, Vulkan instance, device and
+  swapchain are made, the engine initialises and the game loads level 1 with its touch controls
+  on - and the first draw fails: the simulator's GPU (Metal family Apple 2) cannot draw with a
+  non-zero base instance, which the engine's instanced batches use. Getting that far took two
+  engine fixes found there (array views sampled-only; Tier 1 argument buffers off). No frame, so
+  no screenshot of the game; no device run (it needs a signing identity).
+- **Not done:** a frame in the simulator (a renderer change: base instance), any iOS device,
+  signing and notarising, the Mac's own fullscreen/Retina check by a person, sound heard on
+  either.
+
 - **Not modelled in the light**: the light pass's alpha test (a texel at alpha <= 1/255 took no
   light, highlight included); the highlights 0.7.12 baked into static sprites' lightmaps with the
   first frame's eye (every light is live here, E9, so they follow the camera); per-pixel depth of

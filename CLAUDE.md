@@ -32,6 +32,7 @@ game/
   render/            presentation on the engine: sprites, lights, shadows, particles, text, HUD
   data/              the port's own JSON (translations, settings defaults, touch layout), fonts, images
   android/           AndroidMain.cpp (unpack, flags, locale) and the manifest
+  macos/ ios/        MacMain.mm (main on a Mac) and IOSMain.mm (SupersonicMain on iOS), Info.plists
   PenumbraLayer.*    the EngineLayer that runs the Eth frame on the tick and draws it
   main.cpp
 tests/               test_pn_*.cpp suites (supersonic_add_test)
@@ -41,6 +42,8 @@ tools/check.bat      lock-free compile check of single files (parallel agents)
 tools/package.bat    a playable folder in out/package/Penumbra (never committed)
 tools/build_linux.sh Linux (WSL Ubuntu-24.04) build in ~/pn-build-linux, --test runs test_pn_all
 tools/build_android.sh  debug APK without Gradle (android_package.py): out/android/Penumbra-debug.apk
+tools/apple/         make_app.sh (Penumbra.app for macOS or iOS); Apple builds run only in CI:
+                     .github/workflows/apple.yml on the apple-port branch (this laptop has no Apple SDK)
 tools/art/           make_english_art.py: the English image variants in game/data/images/en
 docs/spec/           what the original is and does (read-only knowledge base, cited)
 docs/planning/       the port's step record

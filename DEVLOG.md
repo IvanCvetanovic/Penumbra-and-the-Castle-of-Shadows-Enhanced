@@ -95,3 +95,33 @@ pointer creeping slower than that does not highlight), and every pause transitio
 penumbra.log. Live desktop tests stopped while another session drives
 windows here; E13/E14 by hand (Ivan) is the remaining check. test_pn_all once: 16 suites, 3719
 checks, 0 failures.
+
+---
+
+## 2026-09-28 — session 3: macOS and iOS (branch apple-port)
+
+**Built.** The port on Apple platforms, compiled and run only on GitHub's macOS runners
+(.github/workflows/apple.yml: apple-port pushes and manual runs, never main, 40-minute jobs).
+Engine (its apple-port branch): a CoreAudio backend, a UIKit backend in src/platform/ios on the
+native-surface seam Android made, MoltenVK linked into the program, GLFW fixes for macOS. Game:
+macos/MacMain.mm and ios/IOSMain.mm (the language, the bundle's files, the engine's writable
+folder, iOS dev flags), tools/apple/make_app.sh for Penumbra.app, extracted/ CRLF on every
+checkout. Planning Step 15 has the whole of it.
+
+**Numbers.** macOS (macos-15 arm64, Xcode 26.3, MoltenVK 1.4.2): every target builds; test_pn_all
+17 suites, 4914 checks, 0 failures; Penumbra.app renders level 1 on the runner's Apple
+Paravirtual GPU; CoreAudio pulled 384000 frames in 750 callbacks. iOS: simulator and device
+builds link; in the simulator the engine initialises and the game loads level 1, CoreAudio's
+RemoteIO pulls, then the first draw fails (no base-instance drawing on the simulator's GPU
+family Apple 2). CI: 4 runs to this point, 19.4 minutes of macOS runner time.
+
+**Broke, and why.** GLFW's .m files compiled as Objective-C++ (OBJCXX enabled without OBJC). The
+simulator refused array views of attachment images (no layered rendering) and its Metal service
+died under MoltenVK's Tier 1 argument-buffer path writing ImGui's sampler descriptor; both fixed
+in the engine, Apple-only. test_pn_formats failed its round trips on the Mac because a non-Windows
+checkout of extracted/ is LF.
+
+**Decisions.** MoltenVK statically linked on both platforms (no loader to find, nothing to
+rewrite in a bundle; no validation layers). A bundle is never written: the engine runs from
+~/Library/Caches (Library/Caches on iOS). The game's view on a notched phone is the safe area's
+width (orchestrator's ruling). The simulator's base-instance limit is left to the renderer.
