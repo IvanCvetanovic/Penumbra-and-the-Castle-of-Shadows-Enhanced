@@ -156,3 +156,8 @@ polish build; the next relink ran.
 **Not verified.** A real phone (Android arm64, any iPhone), a frame in the iOS simulator
 (base-instance drawing), sound by ear on any new platform, two-finger touch on a device, a person
 playing on each.
+
+**Session 3, last.** The packaged Windows game (tools/package.bat, the new fonts and touch art
+in its data) launched once, headless and without input, with the Magic Portals session's
+go-ahead: level 1 at frame 300 on the laptop's Radeon, lights, torches, HUD and English text
+drawn, no touch controls (off on the desktop by default), exit 0.
