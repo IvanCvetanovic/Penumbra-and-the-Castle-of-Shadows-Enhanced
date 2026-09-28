@@ -17,6 +17,12 @@
 //     length rules (x2 live, x8 baked, the 2.2h stretch, the enhanced range
 //     cap on the visible end), each early-out, and the alpha byte; and one
 //     menu barrel with menu.esc's own numbers.
+//   - 0.7.12's lightmap-bake eye for a static light on a static glossy sprite
+//     (the menu devil's (110, 1312, 768), whatever the camera), asked for only
+//     by such a sprite; through the engine's transliteration, a static
+//     highlight that the live eye slides with the camera and the bake eye
+//     holds still. The light pass's alpha test asked for by every lit sprite,
+//     and a faint glow texel whose pass it drops.
 //   - The light mapping: intensity x particle ratio only for dynamic lights,
 //     the halo's ratio for all, ConvertToDW, the flicker's bounds.
 //   - The pools on a bare registry: the same snapshot drawn twice changes
@@ -27,6 +33,7 @@
 // TextureCache could read.
 
 #include <algorithm>
+#include <cmath>
 #include <cstdio>
 #include <filesystem>
 #include <string>
@@ -37,6 +44,7 @@
 
 #include "TestHarness.hpp"
 #include "core/Components.hpp"
+#include "core/Light2D.hpp"
 #include "eth/Snapshot.hpp"
 #include "render/DrawOrder.hpp"
 #include "render/LightRenderer.hpp"
@@ -520,6 +528,188 @@ void ShadowEarlyOutsAndAlpha() {
 
 // ---- LightRenderer's mapping -------------------------------------------------------
 
+// ---- the bake eye and the light pass's alpha test (render/Lighting.cpp) ----------
+
+// The menu's left devil statue, menu.esc id 104: devil.ent at (112, 292, 0),
+// ET_VERTICAL, 139 x 145, pivot (0, -13), static, <Gloss>white_ground.jpg</Gloss>
+// at power 30; drawn from floor(112, 292) - (69.5, 132) under ZAxisDirection (0, -1).
+Eth::SpriteDraw MenuDevil() {
+    Eth::SpriteDraw devil;
+    devil.entityId = 104;
+    devil.sprite = "devil_statue.png";
+    devil.gloss = "white_ground.jpg";
+    devil.type = Eth::ET_VERTICAL;
+    devil.isStatic = true;
+    devil.applyLight = true;
+    devil.specularPower = 30.0f;
+    devil.specularBrightness = 1.0f;
+    devil.position = glm::vec3(112.0f, 292.0f, 0.0f);
+    devil.size = glm::vec2(139.0f, 145.0f);
+    devil.origin = glm::vec2(42.5f, 160.0f);
+    return devil;
+}
+
+void StaticHighlightsAreSeenFromTheBakeEye(Render::TextureCache& textures) {
+    // ETHScene::GenerateLightmaps moved the devil so its origin sat at the
+    // target's corner at z 0, and the eye there was (L.x, 1.5 screenH, 768)
+    // (ETHShaderManager::SetFakeEyePosition, drawToTarget): in the world, its
+    // top edge 292 - 132 = 160 plus 1152, at z 0 + 768. The camera is no part
+    // of it.
+    Eth::RenderSnapshot menu;
+    menu.zAxisDirection = glm::vec2(0.0f, -1.0f);
+    const glm::vec3 fire(110.0f, 326.0f, 16.0f);   // ground_fire.ent 107's light
+    const Eth::SpriteDraw devil = MenuDevil();
+    CHECK_MSG(Near(Render::LightmapBakeEye(devil, menu, fire), glm::vec3(110.0f, 1312.0f, 768.0f)),
+              Str(Render::LightmapBakeEye(devil, menu, fire)));
+    Eth::RenderSnapshot moved = menu;
+    moved.camera = glm::vec2(0.0f, 240.0f);
+    CHECK(Near(Render::LightmapBakeEye(devil, moved, fire), glm::vec3(110.0f, 1312.0f, 768.0f)));
+
+    // A flat tile at z -4 under the menus' axis, drawn 4 pixels lower than it
+    // lies: the bake saw its unshifted top, 200 - 32, and its own z.
+    Eth::SpriteDraw tile = Tile(-4.0f);
+    tile.origin = glm::vec2(268.0f, 172.0f);
+    CHECK_MSG(Near(Render::LightmapBakeEye(tile, menu, fire), glm::vec3(110.0f, 1320.0f, 764.0f)),
+              Str(Render::LightmapBakeEye(tile, menu, fire)));
+
+    // The lights: every static one is marked baked, no dynamic one.
+    CHECK(LightRenderer::ComputeLight(Light(fire, true), 2.0f).baked);
+    CHECK(!LightRenderer::ComputeLight(Light(fire, false), 2.0f).baked);
+
+    if (!HaveOriginal()) {
+        std::printf("  (bake eye sprite checks skipped: the original is not at %s)\n", PENUMBRA_ORIGINAL_DIR);
+        return;
+    }
+    // The sprite asks for it only when it is static and has a highlight; the
+    // engine's y is Ethanon's flipped.
+    const Render::SpriteLighting a = Render::ComputeSpriteLighting(devil, menu, textures);
+    CHECK(a.specularStrength > 0.0f);
+    CHECK(a.bakedEye);
+    CHECK_MSG(Near(a.bakedEyeY, -1312.0f), std::to_string(a.bakedEyeY));
+    Eth::SpriteDraw moving = devil;
+    moving.isStatic = false;
+    CHECK_MSG(!Render::ComputeSpriteLighting(moving, menu, textures).bakedEye,
+              "a dynamic sprite's lights were all live: the live eye");
+    Eth::SpriteDraw matte = devil;
+    matte.gloss.clear();
+    CHECK_MSG(!Render::ComputeSpriteLighting(matte, menu, textures).bakedEye, "no highlight, no eye");
+    Eth::RenderSnapshot noShaders = menu;
+    noShaders.pixelShaders = false;
+    CHECK(!Render::ComputeSpriteLighting(devil, noShaders, textures).bakedEye);
+}
+
+// Through the engine's transliteration of the light loop: pvp_lv5's glossy
+// block (bloco_mario.ent at (352, 32, 0), 64 x 64, <Gloss>white_ground.jpg</Gloss>,
+// power 50, static) under the arena's static huge_ambient_light (962, -225, 44),
+// colour 0.4, range 3530, at two camera heights. The live eye slides the
+// highlight with the camera; the bake eye holds it, and matches mainSpecular
+// seen from 0.7.12's bake eye.
+void BakedHighlightsHoldStillAsTheCameraMoves() {
+    using Supersonic::GpuLight2D;
+    namespace Light2D = Supersonic::Light2D;
+    const float lightIntensity = 2.0f;
+    const glm::vec3 lamp(962.0f, -225.0f, 44.0f);
+    GpuLight2D light;
+    light.position = glm::vec3(lamp.x, -lamp.y, lamp.z);
+    light.range = 3530.0f;
+    light.color = glm::vec3(0.4f) * lightIntensity;
+    light.layers = LightRenderer::kStaticLayer | Supersonic::kLight2DBakedBit;
+
+    Eth::SpriteDraw block = Tile(0.0f);
+    block.position = glm::vec3(352.0f, 32.0f, 0.0f);
+    block.origin = glm::vec2(320.0f, 0.0f);
+    block.isStatic = true;
+    Eth::RenderSnapshot arena;
+    const glm::vec3 bakeEye = Render::LightmapBakeEye(block, arena, lamp);
+    CHECK(Near(bakeEye, glm::vec3(962.0f, 1152.0f, 768.0f)));
+
+    const glm::vec3 tint(0.5f);
+    float liveMoved = 0.0f;
+    float bakedMoved = 0.0f;
+    float worst = 0.0f;
+    // Flat, two bumps, and two facing the light's live half vector at the
+    // first pixel (engine y): a white_ground.jpg bump caught the glints.
+    for (const glm::vec3& facing : {glm::vec3(0.0f, 0.0f, 1.0f), glm::vec3(0.3f, -0.4f, 0.87f),
+                                    glm::vec3(-0.2f, -0.6f, 0.77f), glm::vec3(0.883f, -0.311f, 0.350f),
+                                    glm::vec3(0.8f, -0.45f, 0.4f)}) {
+        const glm::vec3 normal = glm::normalize(facing);   // world axes, engine y
+        for (const glm::vec2 pixel : {glm::vec2(330.0f, 10.0f), glm::vec2(370.0f, 50.0f)}) {
+            const glm::vec3 surface(pixel.x, -pixel.y, 0.0f);
+            glm::vec3 live[2];
+            glm::vec3 baked[2];
+            for (int c = 0; c < 2; ++c) {
+                const float cameraY = c == 0 ? 0.0f : 200.0f;
+                Light2D::Highlight highlight;
+                highlight.gloss = glm::vec3(1.0f) / lightIntensity;
+                highlight.power = 50.0f;
+                highlight.eyeMirrorY = -(cameraY + 0.75f * 768.0f);
+                highlight.eyeHeight = 768.0f;
+                live[c] = Light2D::SpecularContribution(light, LightRenderer::kStaticLayer, surface, normal, tint,
+                                                        highlight);
+                highlight.bakedEye = true;
+                highlight.bakedEyeY = -bakeEye.y;
+                highlight.spriteHeight = 0.0f;
+                baked[c] = Light2D::SpecularContribution(light, LightRenderer::kStaticLayer, surface, normal, tint,
+                                                         highlight);
+            }
+            liveMoved = std::max(liveMoved, glm::length(live[1] - live[0]));
+            bakedMoved = std::max(bakedMoved, glm::length(baked[1] - baked[0]));
+
+            // mainSpecular (hPixelLight.cg) from the bake eye, in Ethanon's axes.
+            const glm::vec3 p(pixel.x, pixel.y, 0.0f);
+            const glm::vec3 n(normal.x, -normal.y, normal.z);
+            const glm::vec3 toLight = glm::normalize(lamp - p);
+            const glm::vec3 toEye = glm::normalize(bakeEye - p);
+            const float d2 = glm::dot(lamp - p, lamp - p);
+            const float att = 1.0f - d2 / (3530.0f * 3530.0f);
+            const float diffuse = glm::dot(toLight, n);
+            const float shine = std::pow(std::max(0.0f, glm::dot(n, glm::normalize(toLight + toEye))), 50.0f);
+            const glm::vec3 expected = glm::clamp(
+                (tint * diffuse * glm::vec3(0.4f) * lightIntensity + glm::vec3(0.4f) * shine * 1.0f) * att, 0.0f, 1.0f);
+            worst = std::max(worst, glm::length(baked[0] - expected));
+        }
+    }
+    CHECK_MSG(liveMoved > 1.0f / 255.0f, "the live eye moves a static highlight with the camera by " +
+                                             std::to_string(liveMoved * 255.0f) + " levels");
+    CHECK_MSG(bakedMoved == 0.0f, "the bake eye does not move it at all");
+    CHECK_MSG(worst < 1e-4f, "and it is mainSpecular from 0.7.12's bake eye: " + std::to_string(worst));
+    std::printf("  a camera 200 px lower moves pvp_lv5's block highlight by up to %.1f levels live, 0 baked\n",
+                liveMoved * 255.0f);
+}
+
+void LitSpritesAlphaTestTheirPasses(Render::TextureCache& textures) {
+    Eth::RenderSnapshot snapshot;
+    const Eth::SpriteDraw tile = Tile(0.0f);
+    CHECK(Render::ComputeSpriteLighting(tile, snapshot, textures).lightAlphaTest);
+    Eth::SpriteDraw unlit = tile;
+    unlit.applyLight = false;
+    CHECK_MSG(!Render::ComputeSpriteLighting(unlit, snapshot, textures).lightAlphaTest, "no pass, no test");
+    Eth::RenderSnapshot noShaders = snapshot;
+    noShaders.pixelShaders = false;
+    CHECK_MSG(!Render::ComputeSpriteLighting(tile, noShaders, textures).lightAlphaTest,
+              "the per-vertex fallback's pass is not modelled");
+
+    // The pass's alpha test through the engine's transliteration: the menu's
+    // "Novo jogo" letters' faint glow (alpha 8/255, flat, no highlight) 150
+    // pixels from green_light_menu - a pass alpha of 8/255 x 8/255 x facing x
+    // falloff x 2, far under 1.5/255: 0.7.12 added none of the green, and the
+    // capture showed the letters' edge grey, not tinted.
+    namespace Light2D = Supersonic::Light2D;
+    Supersonic::GpuLight2D green;
+    green.position = glm::vec3(239.0f, -54.0f, 16.0f);
+    green.range = 284.5f;
+    green.color = glm::vec3(0.3f, 1.0f, 0.7f) * 2.0f;
+    green.layers = 1u;
+    Light2D::PassAlpha glow;
+    glow.albedoAlpha = 8.0f / 255.0f;
+    glow.intensity = 2.0f;
+    const glm::vec3 surface(239.0f + 100.0f, -(54.0f + 110.0f), 10.0f);
+    const glm::vec3 flat(0.0f, 0.0f, 1.0f);
+    const glm::vec3 tint(0.2f);
+    CHECK(Light2D::Contribution(green, 1, surface, flat, tint) != glm::vec3(0.0f));
+    CHECK(Light2D::Contribution(green, 1, surface, flat, tint, &glow) == glm::vec3(0.0f));
+}
+
 void LightMapping() {
     Eth::LightDraw spell;
     spell.ownerId = 3;
@@ -674,6 +864,17 @@ void LightPool(Render::TextureCache& textures) {
     for (float intensity : first) flickered = flickered || !Near(intensity, 2.0f, 1e-6f);
     CHECK(flickered);
 
+    // Static lights are the baked ones (render/Lighting.cpp, THE BAKED EYE),
+    // and the frame carries the scene's unflickered lightIntensity for the
+    // light pass's alpha test.
+    bool allBaked = true;
+    for (auto e : registry.view<Supersonic::Light2DComponent>()) {
+        allBaked = allBaked && registry.get<Supersonic::Light2DComponent>(e).baked;
+    }
+    CHECK(allBaked);
+    const auto* alphaTest = registry.ctx().find<Supersonic::Light2DAlphaTest>();
+    CHECK(alphaTest != nullptr && Near(alphaTest->intensity, snapshot.lightIntensity, 1e-6f));
+
     // Drawn again: nothing made, nothing changed.
     const std::size_t entities = registry.storage<entt::entity>().free_list();
     renderer.Draw(registry, snapshot, view, order);
@@ -789,6 +990,9 @@ int main() {
     MenuBarrelShadow();
     ShadowEarlyOutsAndAlpha();
     LightMapping();
+    StaticHighlightsAreSeenFromTheBakeEye(textures);
+    BakedHighlightsHoldStillAsTheCameraMoves();
+    LitSpritesAlphaTestTheirPasses(textures);
     HaloMapping();
     TorchFlicker();
     LightPool(textures);

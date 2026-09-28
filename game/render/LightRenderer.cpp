@@ -49,6 +49,8 @@ LightState LightRenderer::ComputeLight(const Eth::LightDraw& light, float lightI
     state.intensity = lightIntensity * ratio * flicker;
     state.range = light.range;
     state.layers = light.isStatic ? kStaticLayer : kDynamicLayer;
+    // Only a sprite that asks for its bake eye reads it (Sprite2DLight::bakedEye).
+    state.baked = light.isStatic;
     // Nothing to add: the engine would skip it anyway (Light2D::GatherLights2D),
     // but it must not take one of the 64 places a real light needs.
     const glm::vec3 folded = state.color * state.intensity;
@@ -213,6 +215,12 @@ void LightRenderer::Draw(entt::registry& registry, const Eth::RenderSnapshot& sn
         m_slots[m_assigned[i]].used = true;
     }
 
+    // The intensity a light pass's ALPHA carried in 0.7.12 (BeginLightPass kept
+    // lightIntensity apart from the colour, @0x43a1b0), for the sprites that
+    // alpha-test their passes (render/Lighting.cpp, THE LIGHT PASS'S ALPHA
+    // TEST). Unflickered: the flicker is the port's, and never reached an alpha.
+    registry.ctx().insert_or_assign(Light2DAlphaTest{snapshot.lightIntensity});
+
     m_flameOwners = FlameOwners(snapshot);
     m_enabled = 0;
     m_halos = 0;
@@ -241,6 +249,7 @@ void LightRenderer::Draw(entt::registry& registry, const Eth::RenderSnapshot& sn
         component.range = state.range;
         component.height = state.height;
         component.layers = state.layers;
+        component.baked = state.baked;
         component.enabled = state.enabled;
 
         const HaloState halo = ComputeHalo(light, snapshot.zAxisDirection, order.haloRank + static_cast<int>(i),

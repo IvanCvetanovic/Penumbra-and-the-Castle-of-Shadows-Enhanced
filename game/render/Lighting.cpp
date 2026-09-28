@@ -72,10 +72,48 @@
 // pixel shaders on: the per-vertex fallback had no highlight
 // (h/vVertexLightShader.cg). A gloss file that does not read gives no
 // highlight, as a null m_pGloss chose the plain light shader
-// (ETHShaderManager.cpp:237). Not modelled: the light pass's alpha test (a
-// texel at alpha <= 1/255 got no light at all, highlight included), and the
-// highlights 0.7.12 baked into static sprites' lightmaps from the first
-// frame's eye - every light is live here (E9), so they follow the camera.
+// (ETHShaderManager.cpp:237).
+//
+// THE BAKED EYE. 0.7.12 never lit a static sprite with a static light live: it
+// drew that light into the sprite's lightmap once, at scene load
+// (ETHScene::GenerateLightmaps, ETHRenderEntity::GenerateLightmap), and skipped
+// the pair in every frame after (ETHScene.cpp:929, :1050). The bake moved the
+// sprite so its origin sat at the render target's corner, at z 0, and every
+// static light by the same offset (newPos = (origin, 0), AddLight(light,
+// newPos - oldPos + owner)), with the camera at (0, 0); and with drawToTarget
+// SetFakeEyePosition skipped the live eye's mirror, leaving
+//   (L.x, 1.5 screenH, 768)            in the moved frame (ETHShaderManager.cpp:76-90)
+//   (L.x, top + 1.5 screenH, z + 768)  in the world,
+// top being the sprite's unrounded top edge, position.y - (centre + pivot).y,
+// with no ZAxisDirection shift (LightmapBakeEye). So the highlight of a static
+// light on a static sprite was fixed to the sprite: it never moved with the
+// camera. Every light is live here (E9, the flicker), and the live eye
+// (L.x, 2 camY + 1.5 screenH - L.y, 768) would slide those highlights across
+// static pillars and potions as the camera scrolls up and down. With
+// kBakedHighlightEye a static glossy sprite asks the engine for its bake eye
+// (Sprite2DLight::bakedEye) and LightRenderer marks the static lights
+// (Light2DComponent::baked); dynamic lights, and every light on a dynamic
+// sprite, keep the live eye, as their live passes had it. The engine puts the
+// eye's height at the sprite's lighting height + 768: z + 768 exactly for
+// every type but ET_VERTICAL, whose lighting height is z + ZAxisDirection.y z -
+// the same number wherever z is 0 or ZAxisDirection (0, 0), which is every
+// static glossy standing sprite shipped (the menu's two devils, at z 0).
+//
+// THE LIGHT PASS'S ALPHA TEST. Each light was its own AM_ADD pass, and
+// GameSpace.dll alpha-tests every mode but AM_NONE at ALPHAREF 1, GREATER
+// (docs/spec/21 §2.3), so a texel whose PASS came out at alpha 1/255 or less
+// took nothing from that light, highlight included. The pass alpha is
+// everything the pass multiplied but the light colour, whose alpha
+// BeginLightPass leaves at 1: tex.a x colour.a x facing x falloff x
+// lightIntensity, x tex.a again for hPixelLight's main, + shine x gloss.a x
+// specularBrightness for mainSpecular (h/vPixelLight.cg). On an opaque texel
+// that is invisible - a pass of alpha under 1.5/255 carries under 1.5/255 of
+// the light's colour - but on the faint edge texels of a standing or glossy
+// sprite, whose passes add at full weight, the untested add is a fringe the
+// original never drew. With kLightPassAlphaTest every lit sprite asks for it
+// (Sprite2DLight::lightAlphaTest) and LightRenderer hands the engine the
+// scene's lightIntensity (Light2DAlphaTest). Per-pixel lighting only: the
+// per-vertex fallback's pass is not modelled here at all.
 
 #include "render/Lighting.hpp"
 
@@ -92,6 +130,20 @@ namespace {
 // See THE MASK above: false would draw a sprite at its ambient alone once pixel
 // shaders are off, which 0.7.12 never did.
 constexpr bool kLightWithoutPixelShaders = true;
+
+// THE BAKED EYE above: true sees a static light's highlight on a static sprite
+// from 0.7.12's lightmap-bake eye, fixed to the sprite (the original); false
+// from the live eye, so it follows the camera (the port before this switch).
+constexpr bool kBakedHighlightEye = true;
+
+// THE LIGHT PASS'S ALPHA TEST above: true tests each light's pass as 0.7.12's
+// alpha test did; false adds every pass whatever its alpha.
+constexpr bool kLightPassAlphaTest = true;
+
+// SetFakeEyePosition's 1.5 screen heights and m_fakeEyeHeight
+// (ETHShaderManager.cpp:55, :81), which the scripts never change.
+constexpr float kFakeEyeScreenHeights = 1.5f;
+constexpr float kFakeEyeHeight = 768.0f;
 
 // 0.7.12 looked normal maps up in entities\normalmaps\ (E:ETHCommon.h:77), and
 // gloss maps in entities\ (ETHRenderEntity.cpp:335, ETH_ENTITY_FOLDER).
@@ -161,7 +213,29 @@ SpriteLighting ComputeSpriteLighting(const Eth::SpriteDraw& sprite, const Eth::R
             lighting.specularPower = sprite.specularPower;
         }
     }
+    // THE BAKED EYE above: only a static sprite was baked, and the eye enters
+    // only the highlight.
+    if (kBakedHighlightEye && sprite.isStatic && lighting.specularStrength > 0.0f) {
+        lighting.bakedEye = true;
+        lighting.bakedEyeY = -LightmapBakeEye(sprite, snapshot, glm::vec3(0.0f)).y;   // ToWorld's y
+    }
+    // THE LIGHT PASS'S ALPHA TEST above.
+    lighting.lightAlphaTest = kLightPassAlphaTest && lighting.lit && snapshot.pixelShaders;
     return lighting;
+}
+
+glm::vec3 LightmapBakeEye(const Eth::SpriteDraw& sprite, const Eth::RenderSnapshot& snapshot,
+                          const glm::vec3& lightPosition) {
+    // The snapshot's origin is floor(ToScreenPos(position)) - (centre + pivot)
+    // (Machine.cpp, from ETHRenderEntity.cpp:604-640); the bake put the origin
+    // at the target's corner with neither the ZAxisDirection shift nor the
+    // rounding (ETHScene.cpp:561-572), so the top edge it saw is position.y
+    // less (centre + pivot).y.
+    glm::vec2 at = glm::vec2(sprite.position.x, sprite.position.y) + snapshot.zAxisDirection * sprite.position.z;
+    if (snapshot.roundUp) at = glm::floor(at);
+    const float top = sprite.position.y - (at.y - sprite.origin.y);
+    return glm::vec3(lightPosition.x, top + kFakeEyeScreenHeights * snapshot.screenSize.y,
+                     sprite.position.z + kFakeEyeHeight);
 }
 
 } // namespace Penumbra::Render

@@ -540,6 +540,147 @@ void Sprites() {
     CHECK(!registry.valid(quad));
 }
 
+// THE ROWS (render/DrawOrder.cpp): arena_select's thumbnails stand at z 4, 64
+// rows tall, and the cursor's sparkles hover over them at depth(z 20 + rise):
+// 0.7.12's per-row depth hid a sparkle behind every row more than 16 above the
+// thumbnail's bottom edge. Depth here is (z + 128) / 1024, one unit 1/1024 (exact
+// in floats, so the tie below is a tie).
+void StandingSpritesAreCutByWhatLiesInTheirRows() {
+    Eth::RenderSnapshot snapshot;
+    Eth::SpriteDraw floor = Sprite(1, Eth::ET_HORIZONTAL, 0.0f, 128.0f / 1024.0f);
+    floor.sprite = "white_ground.jpg";
+    floor.origin = glm::vec2(200.0f, 150.0f);
+    floor.size = glm::vec2(256.0f);
+    floor.bitmapSize = floor.size;
+    Eth::SpriteDraw thumb = Sprite(40, Eth::ET_VERTICAL, 4.0f, 132.0f / 1024.0f);
+    thumb.sprite = "thumbnails.png";
+    thumb.origin = glm::vec2(244.0f, 176.0f);
+    thumb.size = glm::vec2(64.0f);
+    thumb.bitmapSize = glm::vec2(256.0f);
+    thumb.spriteCutX = 4;
+    thumb.spriteCutY = 4;
+    thumb.frame = 5;
+    snapshot.sprites = {floor, thumb};
+    Eth::ParticleDraw spark = Particle(148.0f / 1024.0f);
+    spark.position = glm::vec2(276.0f, 198.0f);
+    spark.size = 26.4f;
+    snapshot.particles = {spark};
+
+    DrawOrder order = ComputeDrawOrder(snapshot);
+    CHECK_EQ(order.firstBand.size(), std::size_t{2});
+    CHECK_EQ(order.bands.size(), std::size_t{2});
+    if (order.bands.size() == 2 && order.firstBand.size() == 2) {
+        CHECK_EQ(order.firstBand[0], -1);
+        CHECK_EQ(order.firstBand[1], 0);
+        // ceil(64 - 0.5 - 16): rows 0-47 stand above the sparkle, 48-63 below.
+        CHECK(order.bands[0].rowBegin == 0 && order.bands[0].rowEnd == 48);
+        CHECK(order.bands[1].rowBegin == 48 && order.bands[1].rowEnd == 64);
+        CHECK_MSG(order.bands[1].rank == order.spriteRank[1], "the bottom band is the sprite's own rank");
+        CHECK_MSG(order.spriteRank[1] < order.particleRank[0] && order.particleRank[0] < order.bands[0].rank,
+                  "the sparkle over the thumbnail's lower rows, under its upper rows");
+        CHECK(order.spriteRank[0] < order.spriteRank[1]);
+        CHECK_EQ(order.haloRank, 6);   // two sprites and their shadow slots, the band, the spark
+    }
+
+    // Not cut: a sparkle elsewhere, one at or below the base, one above the top.
+    const auto uncut = [&](const glm::vec2& at, float depth) {
+        Eth::RenderSnapshot other = snapshot;
+        other.particles[0].position = at;
+        other.particles[0].depth = depth;
+        const DrawOrder o = ComputeDrawOrder(other);
+        return o.bands.empty() && o.firstBand.size() == 2 && o.firstBand[1] == -1;
+    };
+    CHECK(uncut(glm::vec2(600.0f, 600.0f), 148.0f / 1024.0f));
+    CHECK(uncut(spark.position, 132.0f / 1024.0f));
+    CHECK(uncut(spark.position, 128.0f / 1024.0f));
+    CHECK(uncut(spark.position, 200.0f / 1024.0f));
+
+    // Two sparkles, two cuts; and a tie goes to the particle: at height 16.5
+    // exactly, row 47's centre, the row is behind it.
+    Eth::RenderSnapshot two = snapshot;
+    two.particles.push_back(spark);
+    two.particles[1].depth = 168.0f / 1024.0f;
+    const DrawOrder t = ComputeDrawOrder(two);
+    CHECK_EQ(t.bands.size(), std::size_t{3});
+    if (t.bands.size() == 3) {
+        CHECK(t.bands[0].rowEnd == 28 && t.bands[1].rowEnd == 48 && t.bands[2].rowEnd == 64);
+        CHECK(t.spriteRank[1] < t.particleRank[0] && t.particleRank[0] < t.bands[1].rank &&
+              t.bands[1].rank < t.particleRank[1] && t.particleRank[1] < t.bands[0].rank);
+    }
+    Eth::RenderSnapshot tie = snapshot;
+    tie.particles[0].depth = 148.5f / 1024.0f;
+    const DrawOrder tied = ComputeDrawOrder(tie);
+    CHECK(tied.bands.size() == 2 && tied.bands[0].rowEnd == 47);
+
+    // A band's quad: its own rows of the frame (frame 5 of the 4 x 4 sheet is
+    // FrameUv's (0.25, 0.25) + (0.25, 0.25) uv), its own centre and height.
+    glm::vec2 uvScale(1.0f);
+    glm::vec2 uvOffset(0.0f);
+    SpriteRenderer::FrameUv(thumb, thumb.bitmapSize, uvScale, uvOffset);
+    glm::vec2 upperScale = uvScale;
+    glm::vec2 upperOffset = uvOffset;
+    SpriteRenderer::BandUv(thumb, 0, 48, upperScale, upperOffset);
+    CHECK_NEAR(upperOffset.y, 0.25f);
+    CHECK_NEAR(upperScale.y, 48.0f / 256.0f);
+    CHECK_NEAR(upperScale.x, 0.25f);
+    glm::vec2 lowerScale = uvScale;
+    glm::vec2 lowerOffset = uvOffset;
+    SpriteRenderer::BandUv(thumb, 48, 64, lowerScale, lowerOffset);
+    CHECK_NEAR(lowerOffset.y, 0.25f + 48.0f / 256.0f);
+    CHECK_NEAR(lowerScale.y, 16.0f / 256.0f);
+    glm::vec3 position(0.0f);
+    glm::vec3 scale(1.0f);
+    SpriteRenderer::BandPlacement(thumb, 48, 64, RankZ(3), position, scale);
+    CHECK_NEAR(position.x, 276.0f);
+    CHECK_NEAR(position.y, -232.0f);
+    CHECK_NEAR(scale.y, 16.0f);
+    CHECK_NEAR(scale.x, 64.0f);
+
+    // Drawn: the thumbnail's own quad is its bottom band, one pooled quad the
+    // band above; drawn again, nothing new; the sparkle gone, whole again.
+    entt::registry registry;
+    TextureCache textures(kRoot);
+    SpriteRenderer renderer;
+    renderer.Attach(registry, textures);
+    const View view = CameraRig::ComputeView(snapshot, glm::uvec2(1024, 768), false);
+    renderer.Draw(registry, snapshot, view, order);
+    const entt::entity quad = renderer.QuadFor(40);
+    CHECK(quad != entt::null && registry.valid(quad));
+    CHECK_EQ(renderer.PooledQuads(), std::size_t{3});
+    if (quad != entt::null && registry.valid(quad)) {
+        const auto& transform = registry.get<Supersonic::TransformComponent>(quad);
+        CHECK_NEAR(transform.scale.y, 16.0f);
+        CHECK_NEAR(transform.position.z, RankZ(order.spriteRank[1]));
+    }
+    std::size_t visible = 0;
+    bool upperFound = false;
+    for (auto e : registry.view<Supersonic::RenderableComponent>()) {
+        if (!registry.get<Supersonic::RenderableComponent>(e).isVisible) continue;
+        ++visible;
+        const auto& transform = registry.get<Supersonic::TransformComponent>(e);
+        if (order.bands.size() == 2 && std::fabs(transform.scale.y - 48.0f) < 1e-3f) {
+            upperFound = std::fabs(transform.position.z - RankZ(order.bands[0].rank)) < 1e-6f &&
+                         std::fabs(transform.position.y - (-200.0f)) < 1e-3f;
+        }
+    }
+    CHECK_EQ(visible, std::size_t{3});   // floor, the thumbnail's two bands
+    CHECK_MSG(upperFound, "the upper band at its own rank, centred on its rows");
+    renderer.Draw(registry, snapshot, view, order);
+    CHECK_EQ(renderer.PooledQuads(), std::size_t{3});
+    Eth::RenderSnapshot calm = snapshot;
+    calm.particles.clear();
+    renderer.Draw(registry, calm, view, ComputeDrawOrder(calm));
+    if (quad != entt::null && registry.valid(quad)) {
+        CHECK_NEAR(registry.get<Supersonic::TransformComponent>(quad).scale.y, 64.0f);
+    }
+    visible = 0;
+    for (auto e : registry.view<Supersonic::RenderableComponent>()) {
+        if (registry.get<Supersonic::RenderableComponent>(e).isVisible) ++visible;
+    }
+    CHECK_EQ(visible, std::size_t{2});
+    renderer.Detach(registry);
+}
+
 } // namespace
 
 int main() {
@@ -551,6 +692,7 @@ int main() {
     HandMade();
     CacheWithoutADevice();
     Order();
+    StandingSpritesAreCutByWhatLiesInTheirRows();
     Camera();
     Sprites();
     return test::summary("test_pn_render_textures", 100);
