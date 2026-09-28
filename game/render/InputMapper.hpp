@@ -19,6 +19,11 @@
 //    (playerInput.as:159-164) sees a second controller. A key bound to player 2
 //    no longer produces its own KEY, so J walking the princess left does not
 //    also hold K_J, which setupScene.as:393 reads to show the joystick icons.
+//  - MENU MODE (E14, SetMenuMode): in the screens laid out as menus a real
+//    gamepad's A ALSO presses JK_10 and its B ALSO JK_09. The original's
+//    menus confirm only on Start and cancel only on Back
+//    (getConfirmButtonStatus/getCancelButtonStatus, playerInput.as:267-305);
+//    a player with a modern pad presses A and B.
 //
 // Map() is pure: raw states in, frame out, so a suite checks the mapping
 // without a window. InputMapper around it adds what spans frames: the latch
@@ -63,15 +68,30 @@ struct RawDevices {
     std::vector<std::uint32_t> typed;                        // codepoints typed this frame
 };
 
+// E14: what menu mode adds to one frame. Only MAPPED gamepads (RawPad::gamepad)
+// are aliased: an unmapped joystick's numbering is the device's own, and the
+// keyboard second player's keys are not a pad's A and B.
+struct MenuButtons {
+    bool on = false;
+    // Bit i: the i-th present joystick (RawDevices::pads order) has held A
+    // (heldA) or B (heldB) since before menu mode began, and that button is
+    // not aliased until it is released. Without this, a scene change made
+    // with A held - Main menu picked with A in the pause, a death into
+    // gameover.esc with B held - would press JK_10/JK_09 out of nowhere, and
+    // the new screen's first frame would read it as a fresh confirm or cancel.
+    std::uint32_t heldA = 0;
+    std::uint32_t heldB = 0;
+};
+
 class InputMapper {
 public:
     // ---- The pure mapping ---------------------------------------------------
 
     // One frame from the devices. `cursor` is the (virtual) cursor in logical
     // screen pixels; `player2Pad` is the index player 2 reads,
-    // getPlayerJoystick(1).
+    // getPlayerJoystick(1); `menu` is E14's menu mode (off by default).
     static Eth::InputFrame Map(const RawDevices& raw, const ControlSettings& controls, const glm::vec2& cursor,
-                               int player2Pad);
+                               int player2Pad, const MenuButtons& menu = {});
 
     // Which pad index each real pad takes, in order: 0,1,2,3 as winmm numbered
     // them, or player 1's index first when controls.firstPadIsPlayer1.
@@ -104,6 +124,12 @@ public:
     // getPlayerJoystick(1) of the ported playerInput: 0 while g_controls is 0.
     void SetPlayer2Pad(int index);
     int Player2Pad() const { return m_player2Pad; }
+    // E14: on in the screens laid out as menus (the layer's
+    // IsFixedLayoutScene: menu.esc, arena_select.esc, videoModes.esc,
+    // gameover.esc), before BuildTick. A or B already held when it turns on
+    // is aliased only from its next press (MenuButtons).
+    void SetMenuMode(bool on) { m_menuMode = on; }
+    bool MenuMode() const { return m_menuMode; }
 
     // OnFixedUpdate, once per tick, before InputState::Update.
     Eth::InputFrame BuildTick(const View& view);
@@ -123,8 +149,16 @@ public:
 private:
     static constexpr std::size_t kMaxPendingTyped = 64;
 
+    // E14: steps the held-since-before bits against these devices and returns
+    // what Map applies (nothing while menu mode is off).
+    MenuButtons stepMenuButtons(const RawDevices& raw);
+
     ControlSettings m_controls;
     int m_player2Pad = 0;
+    bool m_menuMode = false;
+    bool m_menuWasOn = false;       // menu mode was on at the last step
+    std::uint32_t m_menuHeldA = 0;
+    std::uint32_t m_menuHeldB = 0;
 
     glm::vec2 m_cursor{0.0f};
     glm::vec2 m_lastMouseWindow{0.0f};

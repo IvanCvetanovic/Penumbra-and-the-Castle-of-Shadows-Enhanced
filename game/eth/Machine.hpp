@@ -130,6 +130,7 @@ public:
     void LoadScene(const string& file, const string& onLoad, const string& onLoop, const vector2& bucketSize);
     bool SaveScene(const string& file);
     string GetSceneFileName() const;
+    const string& LoopFunction() const { return m_loopFunction; }
 
     int AddEntity(const string& file, const vector3& pos, float angle);
     int AddEntity(const string& file, const vector3& pos, ETHEntity& out);

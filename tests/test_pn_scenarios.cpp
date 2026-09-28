@@ -4,8 +4,11 @@
 // out into the game-over screen, the king and the end screen with its high
 // score, a Versus match to three points; then the wizard's other moves (double
 // jump, light, both combos) against a knight, the co-op creature summoned by a
-// second controller, the options screen's enhanced rows (E10), and the menu's
-// Quit.
+// second controller, the options screen's enhanced rows (E10); then the paths
+// those leave out - level2 by the K_2 cheat and its play_sound markers,
+// level2's own exit into level3, the paladin and the master knight, the
+// summon's price and refusals, arenas 2 to 6 - and the menu's Quit. Last, a
+// second runtime booted for a player with one gamepad and nothing else (E12).
 //
 // The harness is test_pn_boot's: one Machine (the script module's globals live
 // for the whole program, as they lived for the whole of machine.exe),
@@ -14,25 +17,36 @@
 // take minutes, the suite takes a SHORTCUT, and each one is named where it is
 // taken, in the printed trace and in a comment:
 //   - teleporting the wizard or the princess (SetPosition, forces zeroed);
-//   - moving a spawn MARKER next to the wizard, so that doLoop spawns the enemy
-//     from it exactly as it would have when the camera reached it;
-//   - writing a custom datum the game itself writes (hp, mp), e.g. "the wizard
-//     is not at full health", "the king has lost his last hit point".
+//   - moving a spawn or play_sound MARKER next to the wizard, so that doLoop
+//     spawns the enemy (plays the sound) exactly as it would have when the
+//     camera reached it;
+//   - writing a custom datum or a global the game itself writes (hp, mp,
+//     g_lives), e.g. "the wizard is not at full health", "the king has lost
+//     his last hit point".
 // Nothing else is forced: AI, damage, deaths, fades, loads, saves are the
 // game's.
 //
 // The chain of scenes is the game's own: menu -> level1 -> checkpoint ->
 // level2 -> game over -> menu -> level3 (the original's K_3 cheat) -> end
-// screen -> menu -> arena select -> pvp_lv1 -> menu -> level1. Each scenario
-// still starts from a known state and, if the previous one did not leave it
-// there, gets there by the game's own entry point (LoadScene with setupScene,
-// newGame).
+// screen -> menu -> arena select -> pvp_lv1 -> menu -> level1 -> menu ->
+// level2 (the K_2 cheat) -> level3 (level2's next_level) -> level1 ->
+// pvp_lv2..pvp_lv6 -> menu. Each scenario still starts from a known state and,
+// if the previous one did not leave it there, gets there by the game's own
+// entry point (LoadScene with setupScene, newGame). New scenarios go at the
+// end of the chain: the runtime reseeds rand() from the clock after frames
+// with particles in view, so frames added earlier reshuffle every later roll.
 //
 // Findings about the ORIGINAL that the suite pins rather than fixes: the
 // checkpoint save holds the checkpoint itself, so a respawn takes it again
-// (main.as:184-186); and the walk cycle restarts where two floor tiles meet,
+// (main.as:184-186); the walk cycle restarts where two floor tiles meet,
 // because doCharacterCollision keeps only the last collided box's thinner-box
-// test (controlCharacters.as:126), leaving the wizard "in the air" for a frame.
+// test (controlCharacters.as:126), leaving the wizard "in the air" for a frame
+// (E11 fixes it); five horror.mp3 markers named "play_sound.ent" never play
+// (setupScene.as:175 collects the exact name "play_sound"); a summon is
+// refused only while the first creature is VISIBLE (controlCharacters.as:
+// 688-697), so one off screen lets a second through for another life; and a
+// level has no way back to the menu but ESC (setupScene.as:392), which a
+// player with only a gamepad does not have.
 //
 // A sound recorder stands in for the speakers: every sample the game plays is
 // logged with its frame and loop flag (see SoundLog for how long a one-shot
@@ -40,6 +54,7 @@
 
 #include "script/Script.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <exception>
@@ -154,6 +169,14 @@ public:
         }
         return false;
     }
+    // How many times `file` was played on frame `since` or later.
+    uint PlayCount(const string& file, const uint since) const {
+        uint n = 0;
+        for (const PlayEvent& e : plays) {
+            if (e.file == file && e.frame >= since) ++n;
+        }
+        return n;
+    }
     // The newest voice of `file` loops and has not been stopped.
     bool Looping(const string& file) const {
         for (auto it = voices.rbegin(); it != voices.rend(); ++it) {
@@ -178,8 +201,23 @@ struct Game {
     // pad that stays connected once plugged (InputState re-reads `connected`
     // every frame).
     InputFrame base;
+    // Stand in for the layer's InputMapper::WarpCursor: a SetCursorPos the
+    // scripts made this frame (menu.as:239, videoModes.as:61) becomes the next
+    // frame's cursor, clamped to the screen as the OS cursor was. Off, the
+    // requests are dropped and the suite places the cursor itself.
+    bool warpCursor = false;
 
-    void Step(const InputFrame& input) { m.Frame(input); }
+    void Step(const InputFrame& input) {
+        m.Frame(input);
+        vector2 warp(0.0f);
+        if (m.Input().TakeCursorRequest(warp) && warpCursor) {
+            const vector2 screen = m.GetScreenSize();
+            warp.x = warp.x < 0.0f ? 0.0f : (warp.x > screen.x ? screen.x : warp.x);
+            warp.y = warp.y < 0.0f ? 0.0f : (warp.y > screen.y ? screen.y : warp.y);
+            base.cursor = warp;
+            base.cursorAbsolute = warp;
+        }
+    }
     void Step() { Step(base); }
     void Steps(const uint n) {
         for (uint i = 0; i < n; ++i) Step();
@@ -1967,6 +2005,10 @@ void ScenarioOptionsE10(Game& g) {
     CHECK(HudHas(g.m, "[ ] English"));
     CHECK(HudHas(g.m, "Volume da m\xFAsica"));
     CHECK(HudHas(g.m, "Volume dos efeitos"));
+    // E8's switch (drawn at y 694-744 by the same Switch::put the three rows
+    // clicked below exercise; read only, so no later scenario's timing moves).
+    CHECK(HudHas(g.m, "[\x95] Ativa movimento suave"));
+    CHECK(HudHas(g.m, "[ ] Desativa movimento suave"));
     CHECK(HudHas(g.m, "[<]"));
     CHECK(HudHas(g.m, "[>]"));
     CHECK(HudHas(g.m, "100%"));
@@ -2057,6 +2099,1074 @@ void ScenarioOptionsE10(Game& g) {
     g.Steps(10);
 }
 
+// === 15. level2 by the K_2 cheat, and the play_sound markers =================================
+//
+// setupScene.as:174-175 collects the markers named exactly "play_sound" into
+// g_sounds; doLoop (setupScene.as:315-326) plays each one's sample on the first
+// frame it is within the screen (+/-SIZE_TOLERANCE) and deletes it, so each
+// plays once. Only level2 has such markers: 460 (-391,-74) and 463
+// (-1149,-77), both horror.mp3.
+//
+// ORIGINAL BUG, pinned rather than fixed (it only loses a sound): five more
+// horror.mp3 markers carry the FILE name "play_sound.ent" as their entity name
+// - level2's 469, 493 and 548, level3's 219 and 427 - and GetEntityArray
+// compares names exactly (ETHScene.cpp:1620-1631), so setupScene.as:175 never
+// collects them and they never play.
+void ScenarioPlaySound(Game& g) {
+    CHECK(EnsureMenu(g));
+    std::printf("-- New game with 2 held (main.as:110-111): level2\n");
+    g.base.cursor = kNewGameButton;
+    g.Steps(3);
+    CHECK(LastButton() == "novo_jogo");
+    g.Step(g.With({K_RETURN, K_2}));
+    const InputFrame hold2 = g.With({K_2});
+    const int loaded = WaitFor(g, 200, [] { return GetSceneFileName() == "scenes/level2.esc"; }, &hold2);
+    const uint loadFrame = g.Frame();
+    std::printf("  level2.esc loaded %d frames after the press, loop '%s'\n", loaded, g.m.LoopFunction().c_str());
+    CHECK(loaded >= 180 && loaded <= 183);
+    CHECK(g.m.LoopFunction() == "levelLoop");
+    CHECK_EQ(Script::g_lives, 13);
+    CHECK_EQ(Script::g_exp[0], 0);
+    CHECK_EQ(Script::g_charLevel[0], 1);
+    const ETHEntity p = WaitForPlayerReady(g, 240, "level2 start");
+    if (!Ready(p)) {
+        CHECK_MSG(false, "no wizard in level2");
+        return;
+    }
+    Trace(g, "level2 running");
+    CHECK(std::fabs(p->GetPosition().x - 173.0f) < 2.0f);
+
+    std::printf("-- what setupScene collected\n");
+    std::set<int> collected;
+    std::printf("  g_sounds:");
+    for (const ETHEntity& s : Script::g_sounds) {
+        std::printf(" %d '%s' %s at (%.0f,%.0f) alive %d;", s->GetID(), s->GetEntityName().c_str(),
+                    s->GetStringData("name").c_str(), s->GetPosition().x, s->GetPosition().y, s->IsAlive() ? 1 : 0);
+        collected.insert(s->GetID());
+        CHECK(s->GetStringData("name") == "horror.mp3");
+    }
+    std::printf("\n");
+    // E15 (Script.hpp kPlaySoundEntFix) collects the misnamed markers too.
+    CHECK(collected == (Script::kPlaySoundEntFix ? std::set<int>{460, 463, 469, 493, 548} : std::set<int>{460, 463}));
+    ETHEntityArray misnamed;
+    GetEntityArray("play_sound.ent", misnamed);
+    std::set<int> misnamedIds;
+    std::printf("  named 'play_sound.ent' (never collected, ORIGINAL BUG setupScene.as:175):");
+    for (const ETHEntity& s : misnamed) {
+        std::printf(" %d %s at (%.0f,%.0f);", s->GetID(), s->GetStringData("name").c_str(), s->GetPosition().x,
+                    s->GetPosition().y);
+        misnamedIds.insert(s->GetID());
+    }
+    std::printf("\n");
+    CHECK(misnamedIds == (std::set<int>{469, 493, 548}));
+
+    const ETHEntity m460 = SeekEntity(460);
+    CHECK(m460 != nullptr);
+    if (m460 == nullptr) return;
+    const vector2 cam = GetCameraPos();
+    std::printf("  camera (%.0f,%.0f), screen %.0fx%.0f: marker 460 at (%.0f,%.0f) alive %s; horror.mp3 since the "
+                "load: %s\n",
+                cam.x, cam.y, GetScreenSize().x, GetScreenSize().y, m460->GetPosition().x, m460->GetPosition().y,
+                m460->IsAlive() ? "yes" : "NO", g.sound.PlayedSince("horror.mp3", loadFrame) ? "PLAYED" : "not played");
+    CHECK(m460->IsAlive());
+    CHECK(!g.sound.PlayedSince("horror.mp3", loadFrame));
+
+    std::printf("-- marker 460 on screen: horror.mp3 once, the marker deleted\n");
+    const vector2 wiz = p->GetPositionXY();
+    std::printf("  SHORTCUT: play_sound marker 460 moved to (%.0f,%.0f)\n", wiz.x + 120.0f, wiz.y - 40.0f);
+    const uint moved = g.Frame() + 1;
+    m460->SetPosition(vector3(wiz.x + 120.0f, wiz.y - 40.0f, 0.0f));
+    const int played = WaitFor(g, 3, [&] { return g.sound.PlayedSince("horror.mp3", moved); });
+    std::printf("  horror.mp3 played %d frame(s) after the move; the marker alive %s\n", played,
+                m460->IsAlive() ? "YES" : "no");
+    CHECK_EQ(played, 1);
+    CHECK(!m460->IsAlive());
+    g.Steps(120);
+    std::printf("  120 frames later horror.mp3 has played %u time(s)\n", g.sound.PlayCount("horror.mp3", moved));
+    CHECK_EQ(g.sound.PlayCount("horror.mp3", moved), 1u);
+
+    std::printf("-- a 'play_sound.ent' marker on screen: silent in the original, plays under E15\n");
+    const ETHEntity m493 = SeekEntity(493);
+    CHECK(m493 != nullptr);
+    if (m493 == nullptr) return;
+    std::printf("  SHORTCUT: 'play_sound.ent' marker 493 moved to (%.0f,%.0f)\n", wiz.x + 120.0f, wiz.y - 40.0f);
+    const uint moved2 = g.Frame() + 1;
+    m493->SetPosition(vector3(wiz.x + 120.0f, wiz.y - 40.0f, 0.0f));
+    g.Steps(60);
+    std::printf("  60 frames on screen: horror.mp3 %s, marker 493 alive %s\n",
+                g.sound.PlayedSince("horror.mp3", moved2) ? "PLAYED" : "not played", m493->IsAlive() ? "yes" : "NO");
+    if (Script::kPlaySoundEntFix) {
+        // E15: it plays once on screen and goes, like the correctly named ones.
+        CHECK_EQ(g.sound.PlayCount("horror.mp3", moved2), 1u);
+        CHECK(!m493->IsAlive());
+    } else {
+        CHECK(!g.sound.PlayedSince("horror.mp3", moved2));
+        CHECK(m493->IsAlive());
+    }
+}
+
+// === 16. level2 -> level3 through level2's own exit ===============================================
+
+void ScenarioLevel2ToLevel3(Game& g) {
+    const ETHEntity p = EnsureLevel(g, "scenes/level2.esc");
+    if (!Ready(p)) {
+        CHECK_MSG(false, "no wizard");
+        return;
+    }
+    // level2's next_level id 428 at (320,-1864), name=level3.esc.
+    const ETHEntity door = SeekEntity(428);
+    CHECK(door != nullptr);
+    if (door == nullptr) return;
+    CHECK(door->GetEntityName() == "next_level");
+    const string target = door->GetStringData("name");
+    std::printf("  next_level 428's 'name' = '%s'\n", target.c_str());
+    CHECK(target == "level3.esc");
+    const int lives = Script::g_lives;
+    const int exp0 = Script::g_exp[0];
+    const int exp1 = Script::g_exp[1];
+    const int level0 = Script::g_charLevel[0];
+    const int level1 = Script::g_charLevel[1];
+    const uint elapsed = Script::g_timer.getElapsedTime();
+
+    // SHORTCUT: minions 510 and 511 wait 80-120 px from the exit and would come
+    // for him during the 3 s fade.
+    std::printf("  SHORTCUT: wizard hp and maxHp set to 1000, teleported onto next_level 428; DOWN held\n");
+    p->AddIntData("maxHp", 1000);
+    p->AddIntData("hp", 1000);
+    Teleport(p, door->GetPositionXY());
+    const InputFrame down = g.With({K_DOWN});
+    const int fading = WaitFor(g, 10, [&] { return door->CheckCustomData("fadeOut") != DT_NODATA; }, &down);
+    std::printf("  fade started %d frames after the teleport, the wizard %.1f px from the exit (< 80)\n", fading,
+                Dist(p, door));
+    CHECK(fading >= 0);
+    bool loading = false;
+    int hpLow = p->GetIntData("hp");
+    const int loaded = WaitFor(g, 200, [&] {
+        loading = loading || HudHas(g.m, "Carregando...");
+        if (GetSceneFileName() == "scenes/level2.esc" && p->IsAlive()) hpLow = std::min(hpLow, p->GetIntData("hp"));
+        return GetSceneFileName() == "scenes/" + target;
+    }, &down);
+    std::printf("  %s loaded %d frames after the fade began (loop '%s'); 'Carregando...' %s; the wizard's hp during "
+                "the fade went down to %d\n",
+                ("scenes/" + target).c_str(), loaded, g.m.LoopFunction().c_str(), loading ? "shown" : "NOT shown",
+                hpLow);
+    CHECK(loaded >= 180 && loaded <= 182);
+    CHECK(loading);
+    CHECK(g.m.LoopFunction() == "levelLoop");
+    const ETHEntity w = WaitForPlayerReady(g, 240, "level3 start");
+    CHECK(Ready(w));
+    if (!Ready(w)) return;
+    Trace(g, "level3 running");
+    // level3's wizard marker 1 at (218,227): a fresh bruxo.ent.
+    std::printf("  level3: wizard at (%.1f,%.1f) (marker 1 at (218,227)), hp %d/%d; lives %d (were %d), exp %d/%d "
+                "level %d/%d (were %d/%d, %d/%d); run timer %u ms (was %u)\n",
+                w->GetPosition().x, w->GetPosition().y, w->GetIntData("hp"), w->GetIntData("maxHp"), Script::g_lives,
+                lives, Script::g_exp[0], Script::g_exp[1], Script::g_charLevel[0], Script::g_charLevel[1], exp0, exp1,
+                level0, level1, Script::g_timer.getElapsedTime(), elapsed);
+    CHECK(std::fabs(w->GetPosition().x - 218.0f) < 2.0f);
+    CHECK_EQ(w->GetIntData("hp"), 100);
+    CHECK_EQ(w->GetIntData("maxHp"), 100);
+    CHECK(w->CheckCustomData("hasCheckpoint") == DT_NODATA);
+    // A level exit is not a new game: nothing of resetData runs.
+    CHECK_EQ(Script::g_lives, lives);
+    CHECK_EQ(Script::g_exp[0], exp0);
+    CHECK_EQ(Script::g_exp[1], exp1);
+    CHECK_EQ(Script::g_charLevel[0], level0);
+    CHECK_EQ(Script::g_charLevel[1], level1);
+    CHECK(Script::g_timer.getElapsedTime() >= elapsed + 3000u);
+    // level3's two horror markers are both named "play_sound.ent" (scenario 15).
+    std::printf("  level3 g_sounds %u; 'play_sound.ent' markers:", Script::g_sounds.size());
+    ETHEntityArray misnamed;
+    GetEntityArray("play_sound.ent", misnamed);
+    std::set<int> ids;
+    for (const ETHEntity& s : misnamed) {
+        std::printf(" %d", s->GetID());
+        ids.insert(s->GetID());
+    }
+    std::printf("\n");
+    // E15 (kPlaySoundEntFix) collects them; the original collected none.
+    CHECK_EQ(Script::g_sounds.size(), Script::kPlaySoundEntFix ? 2u : 0u);
+    CHECK(ids == (std::set<int>{219, 427}));
+    // level3's 'play' 1106 at (444,190) restarts the level music and goes.
+    std::printf("  fase.mp3 looping %s; play 1106 %s\n", g.sound.Looping("fase.mp3") ? "yes" : "NO",
+                SeekEntity(1106) == nullptr ? "gone" : "STILL THERE");
+    CHECK(g.sound.Looping("fase.mp3"));
+    CHECK(SeekEntity(1106) == nullptr);
+}
+
+// === 17. The paladin and the master knight ==========================================================
+//
+// meleeCharacterAI (characterAI.as:117-199) with their data.enml rows. The
+// paladin: 400 hp, paladin_sword 20, fire resistant, and jumpBackAfterAttack -
+// after each swing it knocks itself (+-12,-12) away from the wizard
+// (characterAI.as:189-194). The master knight: 1700 hp, dark_sword 25,
+// waitBeforeAttack - it swings only once the wizard has been in its reach for
+// its whole coolDown, counted from the last frame he was not (swords.as:51-62)
+// - pushBackBias 0.05, and it dies in fade_out_beam_large
+// (controlCharacters.as:582). Both spawn from their markers with their
+// showUpSfx (setupScene.as:302-306).
+
+// Swings the wizard's sword (S), facing right, whenever `enemy` is 0-`reach` px
+// to his right and 15 frames have passed since the last swing, until the
+// enemy's hp drops (untilDead false) or reaches 0, or `limit` frames pass.
+// Returns each hp drop.
+std::vector<int> SwordAt(Game& g, const ETHEntity& p, const ETHEntity& enemy, const float reach, const uint limit,
+                         const bool untilDead, Spotter* spot) {
+    std::vector<int> drops;
+    int hp = enemy->GetIntData("hp");
+    uint lastPress = 0;
+    for (uint i = 0; i < limit && enemy->IsAlive() && enemy->GetIntData("hp") > 0; ++i) {
+        const float dx = enemy->GetPosition().x - p->GetPosition().x;
+        if (dx > 0.0f && dx < reach && g.Frame() >= lastPress + 15) {
+            lastPress = g.Frame();
+            g.Step(g.With({K_S}));
+        } else {
+            g.Step();
+        }
+        if (spot != nullptr) spot->Poll();
+        const int now = enemy->GetIntData("hp");
+        if (now < hp) drops.push_back(hp - now);
+        hp = now;
+        if (!untilDead && !drops.empty()) break;
+    }
+    return drops;
+}
+
+// The `file` entity doLoop spawns from `marker` once it is moved to `at`, or
+// null.
+ETHEntity SpawnFromMarker(Game& g, const ETHEntity& marker, const vector2& at, const string& file) {
+    const int since = GetLastID();
+    marker->SetPosition(vector3(at.x, at.y, 0.0f));
+    ETHEntity spawned;
+    WaitFor(g, 3, [&] {
+        const ETHEntityArray found = NewEntities(file, since);
+        if (!found.empty()) spawned = found[0];
+        return spawned != nullptr;
+    });
+    return spawned;
+}
+
+void ScenarioPaladinAndMasterKnight(Game& g) {
+    const ETHEntity p = EnsureLevel(g, "scenes/level3.esc");
+    if (!Ready(p)) {
+        CHECK_MSG(false, "no wizard");
+        return;
+    }
+    // SHORTCUT: the wizard's hp and maxHp set to 1000 so that he lives through
+    // both fights (addToHp clamps at maxHp).
+    std::printf("  SHORTCUT: wizard hp and maxHp set to 1000 for both fights\n");
+    p->AddIntData("maxHp", 1000);
+    p->AddIntData("hp", 1000);
+    if (p->GetUIntData("currentDir") != Script::RIGHT) {
+        g.Step(g.With({K_RIGHT}));
+        g.Steps(10);
+    }
+    WaitForPlayerReady(g, 60, "paladin");
+
+    std::printf("-- the paladin\n");
+    const ETHEntity pm = FindMarker("paladin", 209);
+    CHECK(pm != nullptr);
+    if (pm == nullptr) return;
+    const vector2 wiz = p->GetPositionXY();
+    std::printf("  SHORTCUT: paladin marker %d moved to (%.0f,%.0f)\n", pm->GetID(), wiz.x + 90.0f, wiz.y - 20.0f);
+    const int since = GetLastID();
+    const ETHEntity paladin = SpawnFromMarker(g, pm, wiz + vector2(90.0f, -20.0f), "paladin.ent");
+    CHECK(paladin != nullptr);
+    if (paladin == nullptr) return;
+    const uint spawnFrame = g.Frame();
+    std::printf("  paladin id %d: hp %d damage %d speed %.0f viewRadius %.0f attackRadius %.0f coolDown %u "
+                "waitBeforeAttack %u jumpBackAfterAttack %u fireResistant %u pushBackBias %.2f expGiven %d; "
+                "paladin_appear.mp3 on its spawn frame %s\n",
+                paladin->GetID(), paladin->GetIntData("hp"), paladin->GetIntData("damage"),
+                paladin->GetFloatData("speed"), paladin->GetFloatData("viewRadius"),
+                paladin->GetFloatData("attackRadius"), paladin->GetUIntData("coolDown"),
+                paladin->GetUIntData("waitBeforeAttack"), paladin->GetUIntData("jumpBackAfterAttack"),
+                paladin->GetUIntData("fireResistant"), paladin->GetFloatData("pushBackBias"),
+                paladin->GetIntData("expGiven"), g.sound.PlayedAt("paladin_appear.mp3", spawnFrame) ? "yes" : "NO");
+    CHECK(!pm->IsAlive());
+    CHECK_EQ(paladin->GetIntData("hp"), 400);
+    CHECK_EQ(paladin->GetIntData("damage"), 20);
+    CHECK_NEAR(paladin->GetFloatData("speed"), 80.0f);
+    CHECK_NEAR(paladin->GetFloatData("attackRadius"), 47.0f);
+    CHECK_EQ(paladin->GetUIntData("coolDown"), 550u);
+    CHECK_EQ(paladin->GetUIntData("waitBeforeAttack"), 0u);
+    CHECK_EQ(paladin->GetUIntData("jumpBackAfterAttack"), 1u);
+    CHECK_EQ(paladin->GetUIntData("fireResistant"), 1u);
+    CHECK_NEAR(paladin->GetFloatData("pushBackBias"), 0.05f);
+    CHECK_EQ(paladin->GetIntData("expGiven"), 400);
+    CHECK(g.sound.PlayedAt("paladin_appear.mp3", spawnFrame));
+
+    std::printf("-- it chases, swings (paladin_sword, 20) and jumps back\n");
+    Spotter ps(since, {"paladin_sword.ent", "fade_out_beam.ent", "fade_out_beam_large.ent", "hit_fail.ent"});
+    const float px0 = paladin->GetPosition().x;
+    bool chasing = false;
+    int hpW = p->GetIntData("hp");
+    int firstDrop = 0;
+    float kbx = 0.0f;
+    float kby = 0.0f;
+    const int attacked = WaitFor(g, 300, [&] {
+        ps.Poll();
+        if (paladin->GetUIntData("action") == Script::CHASING) chasing = true;
+        for (const auto& entry : ps.seen["paladin_sword.ent"]) {
+            if (entry.second->GetIntData("ownerID") == paladin->GetID() && kbx == 0.0f) {
+                kbx = paladin->GetFloatData("knockBackX");
+                kby = paladin->GetFloatData("knockBackY");
+            }
+        }
+        const int hp = p->GetIntData("hp");
+        if (hp < hpW && firstDrop == 0) firstDrop = hpW - hp;
+        hpW = hp;
+        return firstDrop != 0 && kbx != 0.0f;
+    });
+    // util.as:188-218 move(): the knock is capped at 0.9 * 0.4 * the smaller
+    // side of the entity, then scaled by 0.8.
+    const vector2 palSize = paladin->GetSize();
+    const float cap = std::min(palSize.x, palSize.y) * 0.4f;
+    const float jumpLength = std::sqrt(12.0f * 12.0f * 2.0f);
+    const float jumpX = (jumpLength >= cap ? 12.0f / jumpLength * cap * 0.9f : 12.0f) * 0.8f;
+    std::printf("  swung after %d frames (x %.1f -> %.1f, chasing seen %s): wizard -%d; the paladin's knockBack then "
+                "(%.2f,%.2f) (expected (%.2f,%.2f): (12,-12) away from him through one move, size %.0fx%.0f)\n",
+                attacked, px0, paladin->GetPosition().x, chasing ? "yes" : "NO", firstDrop, kbx, kby, jumpX, -jumpX,
+                palSize.x, palSize.y);
+    CHECK(attacked >= 0);
+    CHECK(chasing);
+    CHECK_EQ(firstDrop, 20);
+    CHECK(kbx > 0.0f);
+    CHECK(kby < 0.0f);
+    CHECK(std::fabs(kbx - jumpX) < 0.05f);
+    CHECK(std::fabs(kby + jumpX) < 0.05f);
+
+    std::printf("-- the wizard's fireball (D): fire resistant, damage / 5 and hit_fail\n");
+    // SHORTCUT: mana restored; the paladin put 150 px away, out of its reach,
+    // once its sword is gone (a fireball also bursts on a blow it meets).
+    p->AddIntData("mp", p->GetIntData("maxMp"));
+    WaitFor(g, 60, [] {
+        ETHEntityArray swords;
+        GetEntityArray("paladin_sword.ent", swords);
+        return swords.empty();
+    });
+    WaitForPlayerReady(g, 60, "before the fireball");
+    Teleport(paladin, p->GetPositionXY() + vector2(150.0f, -10.0f));
+    std::printf("  SHORTCUT: mp set to maxMp, the paladin teleported 150 px to the wizard's right\n");
+    g.Steps(8);
+    CHECK_EQ(p->GetUIntData("currentDir"), Script::RIGHT);
+    const int palHp0 = paladin->GetIntData("hp");
+    Spotter fs(GetLastID(), {"fire_ball.ent", "hit_fail.ent", "explosion.ent"});
+    g.Step(g.With({K_D}));
+    fs.Poll();
+    const ETHEntity ball = fs.First("fire_ball.ent");
+    CHECK(ball != nullptr);
+    if (ball != nullptr) CHECK_EQ(ball->GetIntData("damage"), 30);
+    const int hit = WaitFor(g, 90, [&] {
+        fs.Poll();
+        return paladin->GetIntData("hp") != palHp0;
+    });
+    fs.Poll();
+    const int fireExpected = MainCharDamage(30, Script::g_charLevel[0]) / 5;
+    std::printf("  paladin hp %d -> %d after %d frames (expected -%d = (30 + int(30*%d/4)) / 5); hit_fail.ent %u, "
+                "explosion.ent %u\n",
+                palHp0, paladin->GetIntData("hp"), hit, fireExpected, Script::g_charLevel[0], fs.Count("hit_fail.ent"),
+                fs.Count("explosion.ent"));
+    CHECK(hit > 0);
+    CHECK_EQ(palHp0 - paladin->GetIntData("hp"), fireExpected);
+    CHECK(fs.Count("hit_fail.ent") >= 1u);
+    CHECK_EQ(fs.Count("explosion.ent"), 0u);
+
+    std::printf("-- its last hit points go to the sword: 400 experience to both players\n");
+    int e0 = Script::g_exp[0], l0 = Script::g_charLevel[0];
+    int e1 = Script::g_exp[1], l1 = Script::g_charLevel[1];
+    const int exp0 = e0, exp1 = e1;
+    // SHORTCUT: 400 hp is sixteen blows.
+    std::printf("  SHORTCUT: paladin hp set to 20 (a sword blow is %d)\n", MainCharDamage(20, l0));
+    paladin->AddIntData("hp", 20);
+    const std::vector<int> palDrops = SwordAt(g, p, paladin, 60.0f, 600, true, &ps);
+    std::printf("  paladin hp drops:");
+    for (const int d : palDrops) std::printf(" -%d", d);
+    std::printf("; hp %d\n", paladin->GetIntData("hp"));
+    CHECK(paladin->GetIntData("hp") <= 0);
+    const int deathAt = WaitFor(g, 3, [&] {
+        ps.Poll();
+        return paladin->CheckCustomData("deathTime") != DT_NODATA;
+    });
+    CHECK(deathAt >= 0);
+    const uint palDeath = g.Frame();
+    ExpectedExp(e0, l0, 400);
+    ExpectedExp(e1, l1, 400);
+    std::printf("  exp player0 %d -> %d (level %d), player1 %d -> %d (level %d); expected %d/%d and %d/%d; "
+                "fade_out_beam.ent %u\n",
+                exp0, Script::g_exp[0], Script::g_charLevel[0], exp1, Script::g_exp[1], Script::g_charLevel[1], e0, l0,
+                e1, l1, ps.Count("fade_out_beam.ent"));
+    CHECK_EQ(Script::g_exp[0], e0);
+    CHECK_EQ(Script::g_charLevel[0], l0);
+    CHECK_EQ(Script::g_exp[1], e1);
+    CHECK_EQ(Script::g_charLevel[1], l1);
+    CHECK(ps.Count("fade_out_beam.ent") >= 1u);
+    const int palGone = WaitFor(g, 200, [&] { return !paladin->IsAlive(); });
+    std::printf("  deleted %u frames after its death frame\n", g.Frame() - palDeath);
+    CHECK(palGone >= 0);
+    CHECK_EQ(g.Frame() - palDeath, 180u);
+
+    std::printf("-- the master knight\n");
+    WaitForPlayerReady(g, 120, "master knight");
+    if (p->GetUIntData("currentDir") != Script::RIGHT) {
+        g.Step(g.With({K_RIGHT}));
+        g.Steps(10);
+    }
+    const ETHEntity mm = FindMarker("master_knight", 645);
+    CHECK(mm != nullptr);
+    if (mm == nullptr) return;
+    const vector2 wiz2 = p->GetPositionXY();
+    std::printf("  SHORTCUT: master_knight marker %d moved to (%.0f,%.0f)\n", mm->GetID(), wiz2.x + 150.0f,
+                wiz2.y - 60.0f);
+    const int sinceM = GetLastID();
+    const ETHEntity mk = SpawnFromMarker(g, mm, wiz2 + vector2(150.0f, -60.0f), "master_knight.ent");
+    CHECK(mk != nullptr);
+    if (mk == nullptr) return;
+    const uint mkSpawn = g.Frame();
+    std::printf("  master knight id %d: hp %d damage %d speed %.0f viewRadius %.0f attackRadius %.0f coolDown %u "
+                "waitBeforeAttack %u jumpBackAfterAttack %u fireResistant %u pushBackBias %.2f expGiven %d; "
+                "creature_show_up.mp3 on its spawn frame %s\n",
+                mk->GetID(), mk->GetIntData("hp"), mk->GetIntData("damage"), mk->GetFloatData("speed"),
+                mk->GetFloatData("viewRadius"), mk->GetFloatData("attackRadius"), mk->GetUIntData("coolDown"),
+                mk->GetUIntData("waitBeforeAttack"), mk->GetUIntData("jumpBackAfterAttack"),
+                mk->GetUIntData("fireResistant"), mk->GetFloatData("pushBackBias"), mk->GetIntData("expGiven"),
+                g.sound.PlayedAt("creature_show_up.mp3", mkSpawn) ? "yes" : "NO");
+    CHECK_EQ(mk->GetIntData("hp"), 1700);
+    CHECK_EQ(mk->GetIntData("damage"), 25);
+    CHECK_NEAR(mk->GetFloatData("attackRadius"), 80.0f);
+    CHECK_EQ(mk->GetUIntData("coolDown"), 420u);
+    // doLoop wrote 0 (setupScene.as:282); spawn() then read data.enml's 1.
+    CHECK_EQ(mk->GetUIntData("waitBeforeAttack"), 1u);
+    CHECK_EQ(mk->GetUIntData("jumpBackAfterAttack"), 0u);
+    CHECK_EQ(mk->GetUIntData("fireResistant"), 0u);
+    CHECK_NEAR(mk->GetFloatData("pushBackBias"), 0.05f);
+    CHECK_EQ(mk->GetIntData("expGiven"), 1700);
+    CHECK(g.sound.PlayedAt("creature_show_up.mp3", mkSpawn));
+
+    std::printf("-- it chases, then waits its whole coolDown in reach before it swings (dark_sword, 25)\n");
+    Spotter ms(sinceM, {"dark_sword.ent", "fade_out_beam_large.ent"});
+    const float mx0 = mk->GetPosition().x;
+    uint prevLtds = mk->GetUIntData("lastTimeDidntSee");
+    uint prevTime = GetTime();
+    uint ltdsBefore = 0;
+    uint timeBefore = 0;
+    uint swordTime = 0;
+    uint firstReachTime = 0;
+    bool mkChasing = false;
+    ETHEntity darkSword;
+    int hpM = p->GetIntData("hp");
+    int mkDrop = 0;
+    const int mkSwung = WaitFor(g, 400, [&] {
+        ms.Poll();
+        if (mk->GetUIntData("action") == Script::CHASING) mkChasing = true;
+        if (darkSword == nullptr) {
+            for (const auto& entry : ms.seen["dark_sword.ent"]) {
+                if (entry.second->GetIntData("ownerID") == mk->GetID()) {
+                    darkSword = entry.second;
+                    swordTime = GetTime();
+                    ltdsBefore = prevLtds;
+                    timeBefore = prevTime;
+                }
+            }
+        }
+        if (firstReachTime == 0 && Dist(mk, p) <= 80.0f) firstReachTime = GetTime();
+        prevLtds = mk->GetUIntData("lastTimeDidntSee");
+        prevTime = GetTime();
+        const int hp = p->GetIntData("hp");
+        if (hp < hpM && mkDrop == 0) mkDrop = hpM - hp;
+        hpM = hp;
+        return darkSword != nullptr && mkDrop != 0;
+    });
+    std::printf("  x %.1f -> %.1f, chasing seen %s; first within 80 px at %u ms; its last frame without him in reach "
+                "(lastTimeDidntSee) %u ms; the frame before the swing %u ms (+%u); dark_sword at %u ms (+%u); wizard "
+                "-%d\n",
+                mx0, mk->GetPosition().x, mkChasing ? "yes" : "NO", firstReachTime, ltdsBefore, timeBefore,
+                timeBefore - ltdsBefore, swordTime, swordTime - ltdsBefore, mkDrop);
+    CHECK(mkSwung >= 0);
+    CHECK(mkChasing);
+    CHECK(mk->GetPosition().x < mx0 - 20.0f);
+    // swords.as:57: (GetTime()-lastTimeDidntSee) < coolDown holds it back; on
+    // the first frame it does not, it swings.
+    CHECK(swordTime - ltdsBefore >= 420u);
+    CHECK(timeBefore - ltdsBefore < 420u);
+    CHECK_EQ(mkDrop, 25);
+
+    std::printf("-- the wizard's sword on it: pushed by only 4 * pushBackBias 0.05\n");
+    const int mkHp0 = mk->GetIntData("hp");
+    const std::vector<int> firstHit = SwordAt(g, p, mk, 80.0f, 300, false, &ms);
+    const float mkKbx = mk->GetFloatData("knockBackX");
+    const int swordExpected = MainCharDamage(20, Script::g_charLevel[0]);
+    std::printf("  master knight hp %d -> %d (expected -%d = 20 + int(20*%d/4)); its knockBackX then %.3f (a "
+                "warrior's would be up to 4)\n",
+                mkHp0, mk->GetIntData("hp"), swordExpected, Script::g_charLevel[0], mkKbx);
+    CHECK_EQ(static_cast<uint>(firstHit.size()), 1u);
+    if (!firstHit.empty()) CHECK_EQ(firstHit[0], swordExpected);
+    CHECK(mkKbx > 0.0f && mkKbx <= 0.2001f);
+
+    std::printf("-- it falls to the sword: fade_out_beam_large, 1700 experience to both players\n");
+    int f0 = Script::g_exp[0], m0 = Script::g_charLevel[0];
+    int f1 = Script::g_exp[1], m1 = Script::g_charLevel[1];
+    const int mexp0 = f0, mexp1 = f1;
+    // SHORTCUT: 1700 hp is some sixty blows.
+    std::printf("  SHORTCUT: master knight hp set to 20\n");
+    mk->AddIntData("hp", 20);
+    SwordAt(g, p, mk, 80.0f, 600, true, &ms);
+    CHECK(mk->GetIntData("hp") <= 0);
+    const int mkDeathAt = WaitFor(g, 3, [&] {
+        ms.Poll();
+        return mk->CheckCustomData("deathTime") != DT_NODATA;
+    });
+    CHECK(mkDeathAt >= 0);
+    const uint mkDeath = g.Frame();
+    ExpectedExp(f0, m0, 1700);
+    ExpectedExp(f1, m1, 1700);
+    std::printf("  exp player0 %d -> %d (level %d), player1 %d -> %d (level %d); expected %d/%d and %d/%d; "
+                "fade_out_beam_large.ent %u\n",
+                mexp0, Script::g_exp[0], Script::g_charLevel[0], mexp1, Script::g_exp[1], Script::g_charLevel[1], f0,
+                m0, f1, m1, ms.Count("fade_out_beam_large.ent"));
+    CHECK_EQ(Script::g_exp[0], f0);
+    CHECK_EQ(Script::g_charLevel[0], m0);
+    CHECK_EQ(Script::g_exp[1], f1);
+    CHECK_EQ(Script::g_charLevel[1], m1);
+    CHECK(ms.Count("fade_out_beam_large.ent") >= 1u);
+    const int mkGone = WaitFor(g, 200, [&] { return !mk->IsAlive(); });
+    std::printf("  deleted %u frames after its death frame\n", g.Frame() - mkDeath);
+    CHECK(mkGone >= 0);
+    CHECK_EQ(g.Frame() - mkDeath, 180u);
+    p->AddIntData("maxHp", 100);
+    p->AddIntData("hp", 100);
+    std::printf("  SHORTCUT: wizard hp and maxHp back to 100\n");
+}
+
+// === 18. The summon's price and its refusals ==========================================================
+//
+// player1Summoner (controlCharacters.as:674-731): START on player 2's pad (his
+// JK_10, playerInput.as:281-283) costs the wizard 50 mana - refused at 50 or
+// less (`<= 50`, :681) - and a life, and puts the princess one box-width plus
+// 1 px to his right and 6 px up: bruxo.ent's box is (0,4) 14x36, so at his
+// position + (15,-2). Refused while a princess is VISIBLE (:688-697), or where
+// a collidable box fills that spot (:700-718).
+void ScenarioSummonRules(Game& g) {
+    const ETHEntity p = LoadLevel(g, "scenes/level1.esc");
+    if (!Ready(p)) {
+        CHECK_MSG(false, "no wizard");
+        return;
+    }
+    CHECK_EQ(Script::g_sounds.size(), 0u);   // level1 has no play_sound marker
+    std::printf("-- two pads (E12): player 1's on index 1, player 2's on index 0\n");
+    g.base.pads[0].connected = true;
+    g.base.pads[1].connected = true;
+    g.Steps(2);
+    CHECK(Script::hasASecondController());
+    CHECK_EQ(Script::getPlayerJoystick(0), 1u);
+    CHECK_EQ(Script::getPlayerJoystick(1), 0u);
+    InputFrame start = g.base;
+    start.pads[0].buttons[static_cast<std::size_t>(JK_10)] = true;
+    // A START press: one frame down, one up (the next press is a fresh HIT).
+    const auto pressStart = [&g, &start] {
+        g.Step(start);
+        g.Step();
+    };
+    // The mana a step asks for, with doMpRecovery's clock reset so that it
+    // gives nothing back on the frame of the press (it runs before
+    // player1Summoner in ETHCallback_bruxo, controlCharacters.as:286-289).
+    const auto setMp = [&p](const int mp) {
+        p->AddIntData("mp", mp);
+        p->AddUIntData("lastMpIncr", GetTime());
+    };
+    const int lives = Script::g_lives;
+
+    std::printf("-- 50 mana is not enough\n");
+    std::printf("  SHORTCUT: mp set to 50 (and lastMpIncr to now)\n");
+    setMp(50);
+    int since = GetLastID();
+    pressStart();
+    std::printf("  princess.ent new %u, mp %d, lives %d\n", static_cast<uint>(NewEntities(kPrincess, since).size()),
+                p->GetIntData("mp"), Script::g_lives);
+    CHECK(NewEntities(kPrincess, since).empty());
+    CHECK_EQ(p->GetIntData("mp"), 50);
+    CHECK_EQ(Script::g_lives, lives);
+    CHECK(WaitForHud(g, "necess\xE1rio de 50 mana para invocar a criatura", 3));
+
+    std::printf("-- no room to his right\n");
+    // level1's tile01 10 at (482,352): box x 450-514, y 320-384.
+    const ETHEntity block = SeekEntity(10);
+    CHECK(block != nullptr);
+    if (block != nullptr) CHECK(block->GetEntityName() == "tile01.ent");
+    std::printf("  SHORTCUT: mp set to 100, the wizard teleported to (440,352): his box ends 3 px left of tile01 10\n");
+    setMp(100);
+    since = GetLastID();
+    Teleport(p, vector2(440.0f, 352.0f));
+    pressStart();
+    std::printf("  princess.ent new %u, mp %d, lives %d\n", static_cast<uint>(NewEntities(kPrincess, since).size()),
+                p->GetIntData("mp"), Script::g_lives);
+    CHECK(NewEntities(kPrincess, since).empty());
+    CHECK_EQ(Script::g_lives, lives);
+    CHECK_EQ(p->GetIntData("mp"), 100);
+    CHECK(WaitForHud(g, "Imposs\xEDvel invocar criatura daqui", 3));
+    WaitForPlayerReady(g, 120, "after the fall");
+
+    std::printf("-- 51 mana: she comes\n");
+    std::printf("  SHORTCUT: mp set to 51\n");
+    setMp(51);
+    since = GetLastID();
+    g.Step(start);
+    const vector3 at = p->GetPosition();
+    const ETHEntityArray princesses = NewEntities(kPrincess, since);
+    const ETHEntityArray summons = NewEntities("summon.ent", since);
+    CHECK_EQ(princesses.size(), 1u);
+    CHECK_EQ(summons.size(), 1u);
+    if (princesses.empty() || summons.empty()) return;
+    const ETHEntity q = princesses[0];
+    const vector3 summonAt = summons[0]->GetPosition();
+    std::printf("  wizard at (%.2f,%.2f,%.2f); summon.ent at (%.2f,%.2f,%.2f) = + (%.2f,%.2f); princess at "
+                "(%.2f,%.2f); mp %d, lives %d -> %d\n",
+                at.x, at.y, at.z, summonAt.x, summonAt.y, summonAt.z, summonAt.x - at.x, summonAt.y - at.y,
+                q->GetPosition().x, q->GetPosition().y, p->GetIntData("mp"), lives, Script::g_lives);
+    CHECK(std::fabs(summonAt.x - at.x - 15.0f) < 0.01f);
+    CHECK(std::fabs(summonAt.y - at.y + 2.0f) < 0.01f);
+    CHECK(std::fabs(q->GetPosition().x - at.x - 15.0f) < 1.0f);
+    CHECK_EQ(p->GetIntData("mp"), 1);
+    CHECK_EQ(Script::g_lives, lives - 1);
+    g.Step();
+    CHECK(WaitForHud(g, "Criatura m\xE1gica invocada", 3));
+    g.Steps(20);
+
+    std::printf("-- a second one while she is on screen: refused\n");
+    std::printf("  SHORTCUT: mp set to 100\n");
+    setMp(100);
+    since = GetLastID();
+    pressStart();
+    CHECK(NewEntities(kPrincess, since).empty());
+    CHECK_EQ(Script::g_lives, lives - 1);
+    CHECK_EQ(p->GetIntData("mp"), 100);
+    CHECK(WaitForHud(g, "invocar 2 criaturas ao mesmo tempo", 3));
+
+    std::printf("-- off screen she no longer counts: a second princess, a second life\n");
+    // The refusal looks only at GetVisibleEntities (controlCharacters.as:
+    // 688-697); the one off screen vanishes 3 s later on its own.
+    std::printf("  SHORTCUT: the princess teleported 2000 px to the right\n");
+    const uint setup = Script::g_levelStartTime;
+    Teleport(q, q->GetPositionXY() + vector2(2000.0f, 0.0f));
+    const uint teleported = g.Frame();
+    g.Steps(2);
+    ETHEntityArray visible;
+    GetVisibleEntities(visible);
+    bool qVisible = false;
+    for (const ETHEntity& e : visible) qVisible = qVisible || e == q;
+    std::printf("  SHORTCUT: mp set to 100\n");
+    setMp(100);
+    since = GetLastID();
+    pressStart();
+    const ETHEntityArray second = NewEntities(kPrincess, since);
+    std::printf("  the first princess visible %s; after START: princess.ent new %u, mp %d, lives %d\n",
+                qVisible ? "YES" : "no", static_cast<uint>(second.size()), p->GetIntData("mp"), Script::g_lives);
+    CHECK(!qVisible);
+    CHECK_EQ(second.size(), 1u);
+    CHECK_EQ(p->GetIntData("mp"), 50);
+    CHECK_EQ(Script::g_lives, lives - 2);
+    const int died = WaitFor(g, 240, [&] { return q->GetIntData("hp") <= 0; });
+    const uint diedAfter = g.Frame() - teleported;
+    const int gone = WaitFor(g, 200, [&] { return !q->IsAlive(); });
+    std::printf("  the first: hp 0 %u frames after its teleport, deleted %d frames later; the second alive %s hp %d; "
+                "lives %d; scene set up again %s\n",
+                diedAfter, gone, (!second.empty() && second[0]->IsAlive()) ? "yes" : "NO",
+                second.empty() ? 0 : second[0]->GetIntData("hp"), Script::g_lives,
+                Script::g_levelStartTime != setup ? "YES" : "no");
+    CHECK(died >= 0);
+    CHECK(diedAfter >= 180u && diedAfter <= 192u);
+    CHECK(gone >= 180 && gone <= 183);
+    if (!second.empty()) {
+        CHECK(second[0]->IsAlive());
+        CHECK(second[0]->GetIntData("hp") > 0);
+    }
+    CHECK_EQ(Script::g_lives, lives - 2);
+    CHECK(Script::g_levelStartTime == setup);
+    CHECK(Ready(Player()));
+    g.base.pads[0].connected = false;
+    g.base.pads[1].connected = false;
+    g.Steps(5);
+}
+
+// === 19. Versus in arenas 2 to 6 ======================================================================
+//
+// Each arena as the arena select's thumbnail starts it (menu.as:338-342, then
+// newGame("pvp_lvN.esc"), main.as:118-121): both players from their markers
+// with hp and maxHp x5 (setupScene.as:289-293), a point for the wizard's
+// killing blow (doDamage.as:170-183) and the arena set up again 3 s later
+// (controlCharacters.as:443-449). Arena 6 is played to the end: 3 points.
+
+// One point for the wizard: the princess put 30 px to his LEFT (each arena's
+// wizard marker has floor on that side) with 20 hp, and his sword. Returns
+// whether the point came.
+bool PvpPoint(Game& g, const int round) {
+    const int ready = WaitFor(g, 240, [] { return Ready(Player()) && Ready(Princess()); });
+    CHECK(ready >= 0);
+    if (ready < 0) return false;
+    const ETHEntity w = Player();
+    const ETHEntity q = Princess();
+    const int points0 = Script::g_pvpPoints[0];
+    const int points1 = Script::g_pvpPoints[1];
+    int scored = -1;
+    for (int attempt = 1; attempt <= 3 && scored < 0 && q->IsAlive() && q->GetIntData("hp") > 0; ++attempt) {
+        // SHORTCUT: the princess teleported beside the wizard, her hp set to 20
+        // (a sword blow is 25 or more).
+        Teleport(q, w->GetPositionXY() + vector2(-30.0f, -4.0f));
+        g.Steps(10);
+        q->AddIntData("hp", 20);
+        if (w->GetUIntData("currentDir") != Script::LEFT) {
+            g.Step(g.With({K_LEFT}));
+            g.Steps(15);
+        }
+        uint lastPress = 0;
+        for (int i = 0; i < 180; ++i) {
+            if (Script::g_pvpPoints[0] > points0) {
+                scored = i;
+                break;
+            }
+            const float dx = w->GetPosition().x - q->GetPosition().x;
+            if (dx > 0.0f && dx < 50.0f && g.Frame() >= lastPress + 15) {
+                lastPress = g.Frame();
+                g.Step(g.With({K_S}));
+            } else {
+                g.Step();
+            }
+        }
+        std::printf("  round %d, attempt %d: SHORTCUT princess 30 px left of the wizard with hp 20; point after %d "
+                    "frames: %d - %d\n",
+                    round, attempt, scored, Script::g_pvpPoints[0], Script::g_pvpPoints[1]);
+    }
+    CHECK(scored >= 0);
+    CHECK_EQ(Script::g_pvpPoints[0], points0 + 1);
+    CHECK_EQ(Script::g_pvpPoints[1], points1);
+    return scored >= 0;
+}
+
+void ScenarioArenas(Game& g) {
+    g.base.pads[0].connected = true;   // player 2's
+    g.base.pads[1].connected = true;   // player 1's (E12)
+    const uint matchStart = g.Frame();
+    for (int n = 2; n <= 6; ++n) {
+        const string scene = "pvp_lv" + std::to_string(n) + ".esc";
+        std::printf("-- %s by newGame(\"%s\")\n", scene.c_str(), scene.c_str());
+        const uint setup = Script::g_levelStartTime;
+        Script::newGame(scene);
+        const int set = WaitFor(g, 3, [&] { return Script::g_levelStartTime != setup; });
+        std::printf("  set up %d frames later: %s, loop '%s'; lives %d, points %d - %d\n", set,
+                    GetSceneFileName().c_str(), g.m.LoopFunction().c_str(), Script::g_lives, Script::g_pvpPoints[0],
+                    Script::g_pvpPoints[1]);
+        CHECK(set >= 0);
+        CHECK(GetSceneFileName() == "scenes/" + scene);
+        CHECK(g.m.LoopFunction() == "pvpLoop");
+        CHECK_EQ(Script::g_lives, 13);
+        CHECK_EQ(Script::g_pvpPoints[0], 0);
+        CHECK_EQ(Script::g_pvpPoints[1], 0);
+        const int both = WaitFor(g, 240, [] { return Ready(Player()) && Ready(Princess()); });
+        if (both < 0) {
+            CHECK_MSG(false, "both players did not stand in " + scene);
+            Trace(g, scene.c_str());
+            continue;
+        }
+        const ETHEntity w = Player();
+        const ETHEntity q = Princess();
+        std::printf("  wizard (%.1f,%.1f) hp %d/%d pvpMode %u; princess (%.1f,%.1f) hp %d/%d pvpMode %u; chefao.mp3 "
+                    "looping %s\n",
+                    w->GetPosition().x, w->GetPosition().y, w->GetIntData("hp"), w->GetIntData("maxHp"),
+                    w->GetUIntData("pvpMode"), q->GetPosition().x, q->GetPosition().y, q->GetIntData("hp"),
+                    q->GetIntData("maxHp"), q->GetUIntData("pvpMode"), g.sound.Looping("chefao.mp3") ? "yes" : "NO");
+        CHECK_EQ(w->GetIntData("hp"), 500);
+        CHECK_EQ(w->GetIntData("maxHp"), 500);
+        CHECK_EQ(q->GetIntData("hp"), 500);
+        CHECK_EQ(q->GetIntData("maxHp"), 500);
+        CHECK_EQ(w->GetUIntData("pvpMode"), 1u);
+        CHECK_EQ(q->GetUIntData("pvpMode"), 1u);
+        CHECK(g.sound.Looping("chefao.mp3"));
+        std::printf("  enemies:");
+        for (const char* name : {"warrior", "knight", "minion", "impy", "paladin", "master_knight"}) {
+            ETHEntityArray found;
+            GetEntityArray(string(name) + ".ent", found);
+            uint alive = 0;
+            for (const ETHEntity& e : found) {
+                if (!e->IsAlive()) continue;
+                ++alive;
+                CHECK_EQ(e->GetUIntData("pvpMode"), 1u);
+            }
+            if (alive != 0) std::printf(" %s %u", name, alive);
+        }
+        uint markers = 0;
+        for (const ETHEntity& marker : Script::g_spawn) markers += marker->IsAlive() ? 1u : 0u;
+        std::printf("; markers not yet spawned %u\n", markers);
+
+        const int rounds = n == 6 ? Script::MAX_PVP_POINTS : 1;
+        for (int round = 1; round <= rounds; ++round) {
+            if (!PvpPoint(g, round)) break;
+            if (Script::g_pvpPoints[0] >= Script::MAX_PVP_POINTS) break;
+            const int reload = WaitForSetup(g, 200);
+            const int back = WaitFor(g, 240, [] { return Ready(Player()) && Ready(Princess()); });
+            std::printf("    %s set up again %d frames later; points still %d - %d; both standing again after %d, "
+                        "hp %d and %d\n",
+                        GetSceneFileName().c_str(), reload, Script::g_pvpPoints[0], Script::g_pvpPoints[1], back,
+                        Player() != nullptr ? Player()->GetIntData("hp") : -1,
+                        Princess() != nullptr ? Princess()->GetIntData("hp") : -1);
+            CHECK(reload >= 180 && reload <= 184);
+            CHECK(GetSceneFileName() == "scenes/" + scene);
+            CHECK(back >= 0);
+            if (back >= 0) {
+                CHECK_EQ(Player()->GetIntData("hp"), 500);
+                CHECK_EQ(Princess()->GetIntData("hp"), 500);
+            }
+        }
+    }
+
+    std::printf("-- pvp_lv6 to 3 points\n");
+    const int won = WaitFor(g, 3, [] { return Script::g_gameFinished; });
+    std::printf("  %d - %d: g_gameFinished after %d frames; pvp_win.ogg %s\n", Script::g_pvpPoints[0],
+                Script::g_pvpPoints[1], won, g.sound.PlayedSince("pvp_win.ogg", matchStart) ? "played" : "NOT played");
+    CHECK_EQ(Script::g_pvpPoints[0], Script::MAX_PVP_POINTS);
+    CHECK(won >= 0);
+    CHECK(g.sound.PlayedSince("pvp_win.ogg", matchStart));
+    CHECK(WaitForHud(g, "Jogador 1 \xE9 o vencedor!", 3));
+    g.Steps(60);
+    CHECK(GetSceneFileName() == "scenes/pvp_lv6.esc");
+    std::printf("-- the end screen's cancel: JK_09 (Back) on player 1's pad (setupScene.as:390)\n");
+    InputFrame back = g.base;
+    back.pads[1].buttons[static_cast<std::size_t>(JK_09)] = true;
+    g.Step(back);
+    const int menu = WaitFor(g, 3, [] { return GetSceneFileName() == "scenes/menu.esc"; });
+    std::printf("  menu.esc %d frames after the press\n", menu);
+    CHECK(menu >= 0);
+    g.base.pads[0].connected = false;
+    g.base.pads[1].connected = false;
+    g.Steps(5);
+}
+
+// === 20. A lone gamepad, from boot (E12 under the shipped defaults) ===================================
+//
+// A fresh runtime booted with only what the layer reports for a player with
+// one gamepad who touches neither keyboard nor mouse, under the shipped
+// settings: firstPadIsPlayer1 (E12) puts the pad on index 1, player 1's under
+// g_controls 0 (playerInput.as:43-53); keyboardPlayer2 (E4) keeps index 0
+// connected and idle for a keyboard second player. Game::warpCursor stands in
+// for InputMapper::WarpCursor. The script module's globals are not reset by a
+// new Machine (the original ran one module per process), so the switches the
+// earlier scenarios touched are checked back at row 0 first.
+
+// Player 1's pad this frame: the stick at `xy`, `buttons` down.
+InputFrame PadFrame(const Game& g, const vector2& xy, std::initializer_list<J_KEY> buttons = {}) {
+    InputFrame f = g.base;
+    f.pads[1].xy = xy;
+    for (const J_KEY b : buttons) f.pads[1].buttons[static_cast<std::size_t>(b)] = true;
+    return f;
+}
+
+// One press of a button on player 1's pad: down for a frame, then up.
+void PadPress(Game& g, const J_KEY button) {
+    g.Step(PadFrame(g, vector2(0.0f), {button}));
+    g.Step();
+}
+
+// The stick pushed toward `target` as a player would - full tilt when far,
+// easing off within 5 px - until the cursor is within 2 px; then two frames
+// with the stick at rest (the cursor entity trails the cursor by one,
+// menu.as:238-240). Returns the frames taken, or -1.
+int SteerTo(Game& g, const vector2& target, const uint limit) {
+    for (uint i = 0; i < limit; ++i) {
+        const vector2 d = target - g.base.cursor;
+        const float len = std::sqrt(d.x * d.x + d.y * d.y);
+        if (len < 2.0f) {
+            g.Steps(2);
+            return static_cast<int>(i);
+        }
+        const float tilt = len < 5.0f ? len / 5.0f : 1.0f;
+        g.Step(PadFrame(g, d * (tilt / len)));
+    }
+    return -1;
+}
+
+void ScenarioGamepadOnly(Game& g) {
+    std::printf("  devices: pad 1 (the gamepad, E12) and pad 0 (keyboard player 2, E4, idle); no key; the mouse "
+                "resting at (%.0f,%.0f)\n",
+                g.base.cursor.x, g.base.cursor.y);
+    CHECK_EQ(Script::g_controls.getCurrent(), 0u);
+    CHECK_EQ(Script::g_enablePS.getCurrent(), 0u);
+    CHECK_EQ(Script::getPlayerJoystick(0), 1u);
+    CHECK_EQ(Script::getPlayerJoystick(1), 0u);
+    WaitFor(g, 3, [] { return GetSceneFileName() == "scenes/menu.esc"; });
+    CHECK(GetSceneFileName() == "scenes/menu.esc");
+    g.Steps(30);
+    CHECK(g.sound.Looping("menu.mp3"));
+    // menu.as:79-88: an icon per detected joystick.
+    CHECK(HudHasSprite(g.m, "joystick.png"));
+
+    std::printf("-- the menu: Back does nothing\n");
+    PadPress(g, JK_09);
+    g.Steps(3);
+    CHECK(GetSceneFileName() == "scenes/menu.esc");
+    CHECK(SeekEntity("cursor.ent") != nullptr);
+
+    std::printf("-- the stick moves the cursor, 5 px a frame at full tilt (menu.as:239)\n");
+    const vector2 c0 = g.base.cursor;
+    for (int i = 0; i < 10; ++i) g.Step(PadFrame(g, vector2(-1.0f, 0.0f)));
+    const ETHEntity cursor = SeekEntity("cursor.ent");
+    std::printf("  10 frames left: cursor (%.1f,%.1f) -> (%.1f,%.1f); cursor.ent at x %.1f\n", c0.x, c0.y,
+                g.base.cursor.x, g.base.cursor.y, cursor != nullptr ? cursor->GetPosition().x : -1.0f);
+    CHECK_NEAR(g.base.cursor.x, c0.x - 50.0f);
+    CHECK_NEAR(g.base.cursor.y, c0.y);
+    if (cursor != nullptr) CHECK_NEAR(cursor->GetPosition().x, c0.x - 45.0f);
+
+    std::printf("-- to the options with the stick, Start, a row, Back\n");
+    const int toOptions = SteerTo(g, kOptionsButton, 400);
+    std::printf("  on '%s' after %d frames\n", LastButton().c_str(), toOptions);
+    CHECK(toOptions >= 0);
+    CHECK(LastButton() == "opcoes_de_video");
+    PadPress(g, JK_10);
+    const int options = WaitFor(g, 3, [] { return GetSceneFileName() == "scenes/videoModes.esc"; });
+    std::printf("  Start: videoModes.esc %d frames later\n", options);
+    CHECK(options >= 0);
+    g.Steps(3);
+    // The picker follows the stick as the menu cursor does (videoModes.as:58-63).
+    const int toRow = SteerTo(g, vector2(300.0f, 137.0f), 400);
+    const ETHEntity picker = SeekEntity("picker");
+    std::printf("  on 'Desativa pixel shaders' after %d frames; picker at (%.1f,%.1f)\n", toRow,
+                picker != nullptr ? picker->GetPosition().x : -1.0f, picker != nullptr ? picker->GetPosition().y : -1.0f);
+    CHECK(toRow >= 0);
+    CHECK(picker != nullptr);
+    if (picker != nullptr) {
+        CHECK(std::fabs(picker->GetPosition().x - 300.0f) < 2.5f);
+        CHECK(std::fabs(picker->GetPosition().y - 137.0f) < 2.5f);
+    }
+    PadPress(g, JK_10);
+    std::printf("  Start: g_enablePS %u\n", Script::g_enablePS.getCurrent());
+    CHECK_EQ(Script::g_enablePS.getCurrent(), 1u);
+    SteerTo(g, vector2(300.0f, 112.0f), 400);
+    PadPress(g, JK_10);
+    CHECK_EQ(Script::g_enablePS.getCurrent(), 0u);
+    PadPress(g, JK_09);
+    const int backToMenu = WaitFor(g, 3, [] { return GetSceneFileName() == "scenes/menu.esc"; });
+    std::printf("  Back: menu.esc %d frames later\n", backToMenu);
+    CHECK(backToMenu >= 0);
+    g.Steps(10);
+
+    std::printf("-- Versus: pad 0 (keyboard player 2) makes a second controller\n");
+    SteerTo(g, kVersusButton, 400);
+    CHECK(LastButton() == "versus");
+    CHECK(Script::hasASecondController());
+    CHECK(WaitForHud(g, "Escolha uma arena", 3));
+    PadPress(g, JK_10);
+    const int select = WaitFor(g, 3, [] { return GetSceneFileName() == "scenes/arena_select.esc"; });
+    std::printf("  Start: arena_select.esc %d frames later\n", select);
+    CHECK(select >= 0);
+    g.Steps(3);
+    SteerTo(g, kArena1Thumbnail, 400);
+    CHECK(LastButton() == "thumbnail");
+    CHECK(WaitForHud(g, "Obelisco", 3));
+    // Thumbnail "5" (Templo Sagrado) at (510,219), score 720000: this user
+    // directory has no record, so the best time is the shipped hs.enml's 59:59
+    // and the arena is locked - Start is refused with fail.ogg (menu.as:311-338).
+    std::printf("  best time %u ms: Templo Sagrado (score 720000) locked\n", Script::getGetBestTime());
+    SteerTo(g, vector2(510.0f, 251.0f), 400);
+    CHECK(LastButton() == "thumbnail");
+    CHECK(WaitForHud(g, "Templo Sagrado", 3));
+    CHECK(HudHas(g.m, "liberar esta arena"));
+    const uint locked = g.Frame() + 1;
+    PadPress(g, JK_10);
+    const ETHEntity selectCursor = SeekEntity("cursor.ent");
+    std::printf("  Start on it: fail.ogg %s, newGame %s\n", g.sound.PlayedSince("fail.ogg", locked) ? "played" : "NOT played",
+                (selectCursor != nullptr && selectCursor->CheckCustomData("newGame") != DT_NODATA) ? "SET" : "not set");
+    CHECK(g.sound.PlayedSince("fail.ogg", locked));
+    if (selectCursor != nullptr) CHECK(selectCursor->CheckCustomData("newGame") == DT_NODATA);
+    CHECK(GetSceneFileName() == "scenes/arena_select.esc");
+    PadPress(g, JK_09);
+    const int fromSelect = WaitFor(g, 3, [] { return GetSceneFileName() == "scenes/menu.esc"; });
+    std::printf("  Back: menu.esc %d frames later\n", fromSelect);
+    CHECK(fromSelect >= 0);
+    g.Steps(10);
+
+    std::printf("-- New game with Start\n");
+    const int toNew = SteerTo(g, kNewGameButton, 400);
+    std::printf("  on '%s' after %d frames\n", LastButton().c_str(), toNew);
+    CHECK(LastButton() == "novo_jogo");
+    const uint press = g.Frame() + 1;
+    PadPress(g, JK_10);
+    CHECK(g.sound.PlayedSince("newgame.mp3", press));
+    const int loaded = WaitFor(g, 240, [] { return GetSceneFileName() == "scenes/level1.esc"; });
+    std::printf("  level1.esc %d frames after the release\n", loaded);
+    CHECK(loaded >= 178 && loaded <= 182);
+    const ETHEntity p = WaitForPlayerReady(g, 240, "level1 by the pad");
+    if (!Ready(p)) {
+        CHECK_MSG(false, "no wizard");
+        return;
+    }
+
+    std::printf("-- in the level the pad plays: stick, JK_03 jump, JK_04 sword\n");
+    const float x0 = p->GetPosition().x;
+    for (int i = 0; i < 30; ++i) g.Step(PadFrame(g, vector2(1.0f, 0.0f)));
+    g.Step();
+    std::printf("  30 frames of stick right: x %.1f -> %.1f, facing %u\n", x0, p->GetPosition().x,
+                p->GetUIntData("currentDir"));
+    CHECK(p->GetPosition().x - x0 > 50.0f);
+    CHECK_EQ(p->GetUIntData("currentDir"), Script::RIGHT);
+    WaitForPlayerReady(g, 60, "before the jump");
+    const float y0 = p->GetPosition().y;
+    PadPress(g, JK_03);
+    float apex = y0;
+    for (int i = 0; i < 40; ++i) {
+        g.Step();
+        apex = std::min(apex, p->GetPosition().y);
+    }
+    std::printf("  JK_03: %.1f px up\n", y0 - apex);
+    CHECK(y0 - apex > 30.0f);
+    WaitForPlayerReady(g, 60, "before the sword");
+    int since = GetLastID();
+    g.Step(PadFrame(g, vector2(0.0f), {JK_04}));
+    const uint swords = static_cast<uint>(NewEntities("sword0.ent", since).size());
+    g.Step();
+    std::printf("  JK_04: sword0.ent %u\n", swords);
+    CHECK_EQ(swords, 1u);
+
+    std::printf("-- Start and Back do nothing in a level: no summon (player 2's Start does that), no way out\n");
+    since = GetLastID();
+    const uint setup = Script::g_levelStartTime;
+    PadPress(g, JK_10);
+    PadPress(g, JK_09);
+    g.Steps(5);
+    CHECK(NewEntities(kPrincess, since).empty());
+    CHECK(GetSceneFileName() == "scenes/level1.esc");
+    CHECK(Script::g_levelStartTime == setup);
+
+    std::printf("-- game over, and Back to the menu (gameover.as:68)\n");
+    // SHORTCUT: no lives left, and the wizard's hp set to 0.
+    std::printf("  SHORTCUT: g_lives set to 0, wizard hp to 0\n");
+    Script::g_lives = 0;
+    p->AddIntData("hp", 0);
+    const int over = WaitFor(g, 200, [] { return GetSceneFileName() == "scenes/gameover.esc"; });
+    std::printf("  gameover.esc %d frames later\n", over);
+    CHECK(over >= 180 && over <= 183);
+    g.Steps(30);
+    PadPress(g, JK_09);
+    const int fromOver = WaitFor(g, 3, [] { return GetSceneFileName() == "scenes/menu.esc"; });
+    std::printf("  Back: menu.esc %d frames later\n", fromOver);
+    CHECK(fromOver >= 0);
+    g.Steps(10);
+
+    std::printf("-- Quit with Start\n");
+    SteerTo(g, kQuitButton, 400);
+    CHECK(LastButton() == "sair");
+    CHECK(!g.m.QuitRequested());
+    PadPress(g, JK_10);
+    CHECK(g.m.QuitRequested());
+
+    std::printf("  player 1's pad (index 1), screen by screen:\n"
+                "    menu.esc            confirm JK_10 (Start) on the button under the cursor; cancel none (JK_09 is "
+                "read, and goToMenu does nothing on the menu)\n"
+                "    videoModes.esc      confirm JK_10 on a row or on the back arrow; cancel JK_09 -> menu\n"
+                "    arena_select.esc    confirm JK_10 on an unlocked thumbnail; cancel JK_09 -> menu\n"
+                "    a level             neither: JK_10 is player 2's summon; the way out is ESC only "
+                "(setupScene.as:392)\n"
+                "    end screens         cancel JK_09 -> menu (campaign and Versus, setupScene.as:390)\n"
+                "    gameover.esc        cancel JK_09 -> menu\n");
+}
+
 } // namespace
 
 int main() {
@@ -2103,6 +3213,13 @@ int main() {
         RunScenario(g, "11. double jump, light, combos, a knight", ScenarioMoves);
         RunScenario(g, "12. co-op: the summoned princess", ScenarioCoop);
         RunScenario(g, "14. the options screen's enhanced rows (E10)", ScenarioOptionsE10);   // before the Quit
+        // The paths no scenario above takes, appended so that none above
+        // changes (every added frame would reshuffle the later random rolls).
+        RunScenario(g, "15. level2 by the K_2 cheat; the play_sound markers", ScenarioPlaySound);
+        RunScenario(g, "16. level2 -> level3 through next_level", ScenarioLevel2ToLevel3);
+        RunScenario(g, "17. the paladin and the master knight", ScenarioPaladinAndMasterKnight);
+        RunScenario(g, "18. the summon's price and its refusals", ScenarioSummonRules);
+        RunScenario(g, "19. versus in arenas 2-6, arena 6 to 3 points", ScenarioArenas);
         RunScenario(g, "13. the menu's Quit", [](Game& game) {
             CHECK(EnsureMenu(game));
             game.base.cursor = kQuitButton;
@@ -2125,6 +3242,36 @@ int main() {
         for (const string& site : machine.AbortSites()) std::printf("    ABORT %s\n", Utf8(site).c_str());
         std::printf("  sound files that failed to load: %zu\n", sound.failedLoads.size());
         for (const string& f : sound.failedLoads) std::printf("    %s\n", f.c_str());
+        CHECK(sound.failedLoads.empty());
+        CHECK_EQ(machine.ScriptAborts(), 0u);
+    }
+
+    // 20: a second runtime, booted for a player with one gamepad.
+    {
+        const std::filesystem::path padRoot = userRoot / "pad-only";
+        std::filesystem::create_directories(padRoot, ec);
+        SoundLog sound;
+        MachineConfig config;
+        config.userRoot = padRoot.generic_string();
+        Machine machine(config);
+        Machine::Scope scope(machine);
+        machine.Samples().SetOutput(&sound);
+        Script::RegisterAll(machine);
+        machine.Boot(Script::ScriptMain);
+
+        Game g{machine, sound, padRoot.generic_string(), InputFrame{}};
+        g.warpCursor = true;
+        g.base.cursor = vector2(900.0f, 700.0f);
+        g.base.cursorAbsolute = g.base.cursor;
+        g.base.pads[0].connected = true;   // keyboard player 2 (E4), idle
+        g.base.pads[1].connected = true;   // the one gamepad (E12)
+        RunScenario(g, "20. a lone gamepad from boot (E12)", ScenarioGamepadOnly);
+        const Result& r = g_results.back();
+        std::printf("\n=== second runtime (frame %u)\n  %-50s %s  %d failed checks, %u aborts%s\n",
+                    machine.FrameIndex(), r.name.c_str(), (r.failures == 0 && r.aborts == 0 && !r.threw) ? "PASS" : "FAIL",
+                    r.failures, r.aborts, r.threw ? ", threw" : "");
+        for (const string& site : machine.AbortSites()) std::printf("    ABORT %s\n", Utf8(site).c_str());
+        for (const string& f : sound.failedLoads) std::printf("    failed to load %s\n", f.c_str());
         CHECK(sound.failedLoads.empty());
         CHECK_EQ(machine.ScriptAborts(), 0u);
     }

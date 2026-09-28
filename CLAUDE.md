@@ -34,6 +34,7 @@ game/
   PenumbraLayer.*    the EngineLayer that runs the Eth frame on the tick and draws it
   main.cpp
 tests/               test_pn_*.cpp suites (supersonic_add_test)
+tests/all/           test_pn_all: RunAll.cpp (the runner), WrapSuite.cmake (writes each suite's wrapper), SuiteRegistry.hpp
 tools/build.bat      configure + build with MSVC (Build Tools 18) and the Vulkan SDK's glslc
 tools/check.bat      lock-free compile check of single files (parallel agents)
 tools/package.bat    a playable folder in out/package/Penumbra (never committed)
@@ -69,7 +70,12 @@ reference/           gitignored: Ethanon 0.7.12 source (eth-0.7.12), GS2D r485, 
    refusal pops a notification for Ivan. Launch each suite/exe at most once per build; never loop
    ctest or relink-and-retry; report a refused exe as "not run". `ctest --test-dir build -N` lists
    without launching. Every executable gets `penumbra_windows_resources` (icon, VERSIONINFO,
-   manifest): refusals stopped once they carried them.
+   manifest): refusals stopped once they carried them. Prefer `build/tests/test_pn_all.exe` to
+   ctest: one executable holds every suite (tests/all/), so there is one Smart App Control
+   judgement per build instead of one per suite. Each suite runs in a child process of that same
+   file, and the runner stops at the first child that cannot start. It is not registered with
+   ctest, because ctest already runs each suite's own exe and registering it would run every
+   suite twice.
 6. **Builds are serialised.** Only one agent builds at a time, in the one `build/` directory:
    `cmd //c "tools\build.bat --target <T>"` from Git Bash at the repo root. Zero warnings (/W4).
    Parallel agents write code; an integration step builds and runs.
@@ -95,6 +101,9 @@ build/game/Penumbra.exe                                   # the menu
 build/game/Penumbra.exe --start level1 --window 1280x720 --fixed-step --frames 300 \
     --screenshot "$PWD/out/shots/level1.png"             # a headless capture (absolute path!)
 build/tests/test_pn_<suite>.exe                           # one suite, once
+build/tests/test_pn_all.exe                               # every suite in one exe: launch it ONCE per build
+build/tests/test_pn_all.exe --suite boot                  # one suite, in-process, as test_pn_boot.exe runs it
+build/tests/test_pn_all.exe --list                        # the suites it holds; runs nothing
 ```
 
 The original runs from a scratch copy (never from `extracted/app`, which it would write into):

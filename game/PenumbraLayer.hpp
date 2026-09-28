@@ -21,6 +21,7 @@
 #include "render/LightRenderer.hpp"
 #include "render/Localization.hpp"
 #include "render/ParticleRenderer.hpp"
+#include "render/PauseMenu.hpp"
 #include "render/Settings.hpp"
 #include "render/ShadowRenderer.hpp"
 #include "render/SpriteRenderer.hpp"
@@ -78,6 +79,12 @@ public:
         std::filesystem::path dataDir = PENUMBRA_DATA_DIR;
         std::filesystem::path userDir;      // where saves and settings go; empty = none
         std::string startScene;             // "" = the menu, as the original boots
+        // --tour a,b,c@N: after the menu boots, start each scene in turn for N
+        // ticks (as --start starts one), for one headless launch that captures
+        // many screens - every launch of a fresh exe is a Smart App Control
+        // verdict, and every refusal a notification for Ivan.
+        std::vector<std::string> tour;
+        unsigned tourTicks = 0;
         glm::uvec2 windowPixels{1366, 768}; // what the window opens at; then kept current (for the logical width)
         std::vector<DevHold> holds;
         Render::Settings settings;          // as loaded from the user directory (main also sizes the window)
@@ -89,6 +96,9 @@ public:
         // E8 for this run (--smooth on|off; off under --fixed-step unless
         // --smooth on): never saved, like the two above.
         std::optional<bool> smoothMotionOverride;
+        // E13's pause on focus loss for this run (off under --fixed-step: a
+        // capture's window often never has the focus); never saved.
+        std::optional<bool> pauseOnFocusLossOverride;
         // --cursor x,y: the scripts' cursor pinned at a logical-screen point,
         // for headless captures of the mouse-driven menu (the live OS pointer
         // otherwise decides which panel a capture shows).
@@ -111,7 +121,7 @@ private:
     // 1024x768, or the widescreen view.
     Eth::vector2 LogicalScreenFor(const std::string& sceneFile) const;
     void ApplyDevHolds(Eth::InputFrame& frame) const;
-    void StartDevScene();
+    void StartDevScene(const std::string& scene);
     // The engine's window, or null (a host that publishes none).
     static Supersonic::WindowControl* WindowControlOf(entt::registry& registry);
     // What the scripts asked of the window this tick, handed to the engine.
@@ -124,6 +134,11 @@ private:
     bool Widescreen() const;
     bool Portuguese() const;
     bool SmoothMotion() const;
+    bool PauseOnFocusLoss() const;
+    // E13: a level or an arena being played, where the pause may open.
+    bool InPlayScene() const;
+    // The master volumes: the player's, the music ducked while paused (E13).
+    void ApplyVolumes();
     // Writes m_settings to the user directory and re-applies what it drives.
     void SaveSettings();
 
@@ -142,11 +157,16 @@ private:
     Render::HudRenderer m_hud;
     // E8: the world drawn between the last two ticks (render/Interpolation.hpp).
     Render::SnapshotInterpolator m_interp;
+    // E13: the pause, and its overlay for the HUD pass.
+    Render::PauseMenu m_pause;
+    std::vector<Eth::HudCmd> m_pauseOverlay;
     std::unique_ptr<Eth::Machine> m_machine;
     Render::View m_view;
     bool m_pillarbox = true;
     unsigned m_ticks = 0;
     bool m_devStarted = false;
+    std::size_t m_tourIndex = 0;
+    unsigned m_tourSince = 0;
     // The last windowed/fullscreen state asked of the engine. Not the Machine's
     // (SetWindowProperties overwrites it before the layer sees the request) and
     // not WindowControl::IsFullscreen (a frame late).

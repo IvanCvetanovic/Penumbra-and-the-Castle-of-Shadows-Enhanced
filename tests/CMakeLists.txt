@@ -39,3 +39,49 @@ foreach(_suite ${_pnSuites})
         add_pn_test(${_name} SKIPS_WITH_77)
     endif()
 endforeach()
+
+# test_pn_all: every suite above in ONE executable, beside the suites' own
+# executables (which stay, and which ctest keeps registering). Smart App
+# Control judges each freshly linked executable when it is first launched, and
+# a build that relinks every suite gives it a chance per suite to refuse one;
+# launching test_pn_all instead is one judgement per build.
+#
+# Each suite is compiled from a wrapper that all/WrapSuite.cmake writes at
+# BUILD time, whenever the suite changes (a wrapper written once at configure
+# time would go stale the moment a suite gained an #include): the suite's own
+# #includes at global scope, then the suite itself inside namespace
+# PnSuites::<name>, so its main() and helpers cannot meet another suite's. The
+# runner, all/RunAll.cpp, starts each suite in a child process of this same
+# executable (the ported script's globals outlive a Machine, so three suites
+# that boot the real game cannot share a process); `--suite <name>` runs one
+# in-process, exactly as its own executable does.
+#
+# Not registered with ctest: ctest already runs every suite through its own
+# executable, and a second registration would run each suite twice. A developer
+# launches build/tests/test_pn_all once per build instead of ctest.
+#
+# Not supersonic_add_test either, which builds exactly one <name>.cpp and calls
+# add_test; its other settings are repeated here: the harness, SupersonicCore
+# (through PenumbraGame, which the render suites need), /W4.
+set(_pnAllWrappers ${CMAKE_CURRENT_BINARY_DIR}/pn_all_wrappers)   # never "test_pn_all": the executable's name off Windows
+set(_pnAllSources ${CMAKE_CURRENT_SOURCE_DIR}/all/RunAll.cpp ${CMAKE_CURRENT_SOURCE_DIR}/all/SuiteRegistry.hpp)
+foreach(_suite ${_pnSuites})
+    get_filename_component(_name ${_suite} NAME_WE)
+    set(_wrapper ${_pnAllWrappers}/${_name}.cpp)
+    add_custom_command(
+        OUTPUT ${_wrapper}
+        COMMAND ${CMAKE_COMMAND} -DSUITE=${CMAKE_CURRENT_SOURCE_DIR}/${_suite} -DOUT=${_wrapper}
+                -P ${CMAKE_CURRENT_SOURCE_DIR}/all/WrapSuite.cmake
+        DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/${_suite} ${CMAKE_CURRENT_SOURCE_DIR}/all/WrapSuite.cmake
+        COMMENT "test_pn_all: wrapping ${_name}"
+        VERBATIM)
+    list(APPEND _pnAllSources ${_wrapper})
+endforeach()
+add_executable(test_pn_all ${_pnAllSources})
+penumbra_windows_resources(test_pn_all "Penumbra test suites, all in one")
+target_link_libraries(test_pn_all PRIVATE Supersonic::TestHarness SupersonicCore PenumbraGame)
+if (MSVC)
+    target_compile_options(test_pn_all PRIVATE /W4)
+else()
+    target_compile_options(test_pn_all PRIVATE -Wall -Wextra)
+endif()

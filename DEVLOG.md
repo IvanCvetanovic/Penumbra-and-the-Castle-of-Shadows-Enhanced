@@ -55,3 +55,32 @@ barrel 27.9 -> 3.9. Level 1 at 1024x768 byte-identical through the round. 13 of 
 **Broke.** Smart App Control keeps refusing test_pn_boot and test_pn_formats specifically (three
 links each), and test_materials in the engine's own build - whatever it keys on, relinking does not
 move them. Recorded as not run; their ground is covered by test_pn_scenarios.
+
+---
+
+## 2026-09-28 — session 2: a pause, pad menus, six more scenarios, one test executable
+
+**Built.** E13, a pause (render/PauseMenu): Esc or player 1's Back in a level or an arena freezes
+the Machine under Resume / Main menu, the music at 40%, and opens by itself on a focus loss; Main
+menu feeds the original's own Esc for one tick. E14: a pad's A and B confirm and cancel in the
+menu-like screens. The options screen gained a smooth-motion row (E8, E10). test_pn_scenarios gained
+scenarios 15-20. tests/all builds every suite into test_pn_all, which runs each in a child process
+of itself.
+
+**Numbers.** test_pn_all: 16 suites, 3716 checks, 0 failures (render_pause 312, scenarios 916).
+Paused capture run: every pixel outside the pause panel identical from frame 130 to 180 (paused
+from tick 120 to 190).
+
+**Broke.** The full build's Penumbra.exe was refused by Smart App Control (exit 126); one relink
+with a real change (--help lists --tour) was accepted. test_pn_all was accepted on its first launch,
+and with it test_pn_boot and test_pn_formats ran for the first time since Step 5.
+
+**Decisions.** Original bugs found by the new scenarios (the `play_sound.ent` horror markers that
+never play, the off-screen second summon, the 50-mana refusal) are pinned, not fixed, pending Ivan.
+
+**Session 2, later.** E15 (the misnamed horror markers play). The round's gates: test_pn_all once,
+16 suites, 3719 checks, 0 failures. Mistakes, owned: a capture loop launched a freshly relinked
+Penumbra.exe eight times after Smart App Control had refused it (eight notifications), and later a
+build-then-run chain relaunched a refused test_pn_all because the edit meant to relink it had not
+applied. Rule written down (memory + CLAUDE.md rule 5 practice): launch a new binary once, alone,
+and only after the build log shows it was relinked.

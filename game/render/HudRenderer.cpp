@@ -60,7 +60,8 @@ void HudRenderer::Detach() {
     m_gradients.clear();
 }
 
-void HudRenderer::Draw(entt::registry& registry, const Eth::RenderSnapshot& snapshot, const View& view) {
+void HudRenderer::Draw(entt::registry& registry, const Eth::RenderSnapshot& snapshot, const View& view,
+                       const std::vector<Eth::HudCmd>* extra) {
     auto* const* slot = registry.ctx().find<Supersonic::ScreenOverlay*>();
     if (slot == nullptr || *slot == nullptr) return;
     Supersonic::ScreenOverlay& overlay = **slot;
@@ -70,7 +71,7 @@ void HudRenderer::Draw(entt::registry& registry, const Eth::RenderSnapshot& snap
     if (m_fonts != nullptr) m_fonts->BeginFrame();
 
     m_quads.clear();
-    Build(snapshot, view, m_quads);
+    Build(snapshot, view, m_quads, extra);
     for (Quad& quad : m_quads) overlay.Add(std::move(quad));
 
     if (overlay.DroppedQuads() > 0 && !m_loggedDrops) {
@@ -80,17 +81,25 @@ void HudRenderer::Draw(entt::registry& registry, const Eth::RenderSnapshot& snap
     }
 }
 
-void HudRenderer::Build(const Eth::RenderSnapshot& snapshot, const View& view, std::vector<Quad>& out) {
+void HudRenderer::Build(const Eth::RenderSnapshot& snapshot, const View& view, std::vector<Quad>& out,
+                        const std::vector<Eth::HudCmd>* extra) {
     if (m_fonts != nullptr) m_fonts->SetRasterScale(view.scale);
-    for (const Eth::HudCmd& cmd : snapshot.hud) {
-        switch (cmd.kind) {
-            case Eth::HudCmd::Kind::Text: addText(cmd, view, out); break;
-            case Eth::HudCmd::Kind::Sprite: addSprite(cmd, view, false, out); break;
-            case Eth::HudCmd::Kind::ShapedSprite: addSprite(cmd, view, true, out); break;
-            case Eth::HudCmd::Kind::Rectangle: addRectangle(cmd, view, out); break;
-        }
+    for (const Eth::HudCmd& cmd : snapshot.hud) addCommand(cmd, view, out);
+    // The layer's own commands, over the scripts' and under the bars, which
+    // stay last.
+    if (extra != nullptr) {
+        for (const Eth::HudCmd& cmd : *extra) addCommand(cmd, view, out);
     }
     addBars(view, out);
+}
+
+void HudRenderer::addCommand(const Eth::HudCmd& cmd, const View& view, std::vector<Quad>& out) {
+    switch (cmd.kind) {
+        case Eth::HudCmd::Kind::Text: addText(cmd, view, out); break;
+        case Eth::HudCmd::Kind::Sprite: addSprite(cmd, view, false, out); break;
+        case Eth::HudCmd::Kind::ShapedSprite: addSprite(cmd, view, true, out); break;
+        case Eth::HudCmd::Kind::Rectangle: addRectangle(cmd, view, out); break;
+    }
 }
 
 void HudRenderer::addText(const Eth::HudCmd& cmd, const View& view, std::vector<Quad>& out) {

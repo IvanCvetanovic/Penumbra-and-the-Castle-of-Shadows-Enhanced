@@ -166,6 +166,12 @@ int expForLevel(int level);
 // so the wizard no longer turns airborne for a frame at a seam between two
 // floor tiles (controlCharacters.as:126, :192). false = the original.
 inline constexpr bool kFloorSeamFix = true;
+
+// ENHANCEMENT E15 (not in the original): setupScene also collects the ambient
+// sound markers the level designer named "play_sound.ent" instead of
+// "play_sound" (setupScene.as:175), so level 2's and 3's five extra
+// horror.mp3 cues play. false = the original, where they are silent.
+inline constexpr bool kPlaySoundEntFix = true;
 void addToHp(ETHEntity thisEntity, int value);        // util.as:420
 void addToMp(ETHEntity thisEntity, int value);        // util.as:435
 void shadowText(const vector2& pos, const string& text, const string& font, float size,
@@ -435,6 +441,7 @@ extern Switch g_widescreen;                           // E10: 0 = widescreen lev
 extern Switch g_language;                             // E10: 0 = Portuguese, 1 = English (E5)
 extern Stepper g_musicVolume;                         // E10: tenths of the music's master volume
 extern Stepper g_effectsVolume;                       // E10: tenths of the effects' master volume
+extern Switch g_smoothMotion;                         // E10: 0 = smooth motion on (E8), 1 = off
 
 string videoModeToString(const videoMode& vm);        // videoModes.as:47
 void screenModesPreLoop();                            // videoModes.as:52

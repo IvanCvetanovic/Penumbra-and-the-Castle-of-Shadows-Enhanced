@@ -174,6 +174,8 @@ const char* const kE10Labels[] = {
     "English",
     "Volume da m\xFAsica",
     "Volume dos efeitos",
+    "Ativa movimento suave",   // E8's row
+    "Desativa movimento suave",
 };
 
 void TestLocalization() {
@@ -200,6 +202,7 @@ void TestLocalization() {
     CHECK(loc.Translate("[ ] Portugu\xEAs") == "[ ] Portugu\xEAs");   // each language named in its own
     CHECK(loc.Translate("[\x95] English") == "[\x95] English");
     CHECK(loc.Translate("Volume da m\xFAsica") == "Music volume");
+    CHECK(loc.Translate("[ ] Desativa movimento suave") == "[ ] Disable smooth motion");
     CHECK(loc.HasTranslation("[<]"));
     CHECK(loc.HasTranslation("70%"));
     CHECK(loc.Translate("Carregando...\n") == "Loading...\n");   // the trailing break kept

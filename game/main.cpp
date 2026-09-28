@@ -2,6 +2,8 @@
 //
 // Game flags (taken out before the engine parses the rest):
 //   --start <scene>        skip the menu: start scenes/<scene>(.esc), e.g. level1 or pvp_lv2
+//                          (arena_select, gameover and videoModes start as the scripts start them)
+//   --tour <a,b,...>@<N>   after the menu, start each scene in turn for N ticks (one launch, many screens)
 //   --hold <KEY>@<a>-<b>   hold an Ethanon key from tick a to tick b (headless captures);
 //                          KEY is a K_ name without the prefix: RIGHT, UP, S, D, SPACE, CTRL...
 //   --lang pt|en           this run's language, over the settings
@@ -44,7 +46,9 @@ namespace {
 
 constexpr const char* kGameUsage =
     "Usage: Penumbra [options]\n"
-    "  --start <scene>        skip the menu and start scenes/<scene>.esc (level1..level3, pvp_lv1..pvp_lv6)\n"
+    "  --start <scene>        skip the menu and start scenes/<scene>.esc (level1..level3, pvp_lv1..pvp_lv6;\n"
+    "                         arena_select, gameover and videoModes start as the scripts start them)\n"
+    "  --tour <a,b,...>@<N>   after the menu, start each scene in turn for N ticks (many screens, one launch)\n"
     "  --lang pt|en           this run's language (not saved)\n"
     "  --widescreen on|off    this run's view (not saved)\n"
     "  --smooth on|off        this run's motion between ticks (not saved; off under --fixed-step)\n"
@@ -131,6 +135,28 @@ int main(int argc, char** argv) {
             std::string scene = argv[++i];
             if (scene.size() < 4 || scene.substr(scene.size() - 4) != ".esc") scene += ".esc";
             layerOptions.startScene = scene;
+        } else if (arg == "--tour" && hasValue) {
+            const std::string value = argv[++i];
+            const std::size_t at = value.rfind('@');
+            try {
+                if (at == std::string::npos) throw std::invalid_argument("no @");
+                layerOptions.tourTicks = static_cast<unsigned>(std::stoul(value.substr(at + 1)));
+                std::string list = value.substr(0, at);
+                for (std::size_t start = 0; start <= list.size();) {
+                    const std::size_t comma = list.find(',', start);
+                    std::string scene = list.substr(start, comma == std::string::npos ? std::string::npos : comma - start);
+                    if (!scene.empty()) {
+                        if (scene.size() < 4 || scene.substr(scene.size() - 4) != ".esc") scene += ".esc";
+                        layerOptions.tour.push_back(scene);
+                    }
+                    if (comma == std::string::npos) break;
+                    start = comma + 1;
+                }
+                if (layerOptions.tour.empty() || layerOptions.tourTicks == 0) throw std::invalid_argument("empty");
+            } catch (const std::exception&) {
+                std::cerr << "[Penumbra] --tour wants scene,scene,...@ticks (e.g. pvp_lv1,gameover@300), got " << value << std::endl;
+                return EXIT_FAILURE;
+            }
         } else if (arg == "--hold" && hasValue) {
             Penumbra::PenumbraLayer::DevHold hold;
             if (!ParseHold(argv[++i], hold)) {
@@ -244,6 +270,9 @@ int main(int argc, char** argv) {
     // (a capture of E8 itself: --fixed-step 0.0083333 --smooth on
     // --screenshot-every 1, about half a tick a frame).
     if (options.fixedDelta > 0.0f) layerOptions.smoothMotionOverride = false;
+    // E13: nor does it pause itself when its window has no focus - a capture's
+    // window often never has it.
+    if (options.fixedDelta > 0.0f) layerOptions.pauseOnFocusLossOverride = false;
     if (smoothOverride == "on") layerOptions.smoothMotionOverride = true;
     if (smoothOverride == "off") layerOptions.smoothMotionOverride = false;
     layerOptions.settings = settings;

@@ -12,6 +12,7 @@
 #include "render/Lighting.hpp"
 #include "render/Localization.hpp"
 #include "render/ParticleRenderer.hpp"
+#include "render/PauseMenu.hpp"
 #include "render/Settings.hpp"
 #include "render/ShadowRenderer.hpp"
 #include "render/SpriteRenderer.hpp"

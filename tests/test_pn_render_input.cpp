@@ -401,6 +401,119 @@ void testLatch() {
     mapper.EndFrame(typedC);
 }
 
+// E14: in the menus a pad's A also presses JK_10 (the scripts' confirm) and
+// B also JK_09 (their cancel); outside them nothing changes.
+void testMenuMode() {
+    using Penumbra::Render::MenuButtons;
+    const ControlSettings controls = WithoutKeyboardPlayer2();
+    const MenuButtons on{true, 0, 0};
+    const auto press = [&controls](int glfwButton, const MenuButtons& menu) {
+        RawDevices one;
+        one.pads.push_back(Gamepad());
+        one.pads[0].buttons[static_cast<std::size_t>(glfwButton)] = true;
+        return InputMapper::Map(one, controls, glm::vec2(0.0f), 0, menu).pads[0];
+    };
+
+    // Off (the default): unchanged.
+    InputFrame::Pad pad = press(Pad::A, MenuButtons{});
+    CHECK(pad.buttons[JK_03] && !pad.buttons[JK_10]);
+    CHECK_EQ(CountButtons(pad), 1);
+    pad = press(Pad::B, MenuButtons{});
+    CHECK(pad.buttons[JK_02] && !pad.buttons[JK_09]);
+    CHECK_EQ(CountButtons(pad), 1);
+
+    // On: A is jump AND confirm, B fire AND cancel.
+    pad = press(Pad::A, on);
+    CHECK(pad.buttons[JK_03] && pad.buttons[JK_10]);
+    CHECK_EQ(CountButtons(pad), 2);
+    pad = press(Pad::B, on);
+    CHECK(pad.buttons[JK_02] && pad.buttons[JK_09]);
+    CHECK_EQ(CountButtons(pad), 2);
+    // The rest as ever.
+    CHECK(press(Pad::Start, on).buttons[JK_10] && CountButtons(press(Pad::Start, on)) == 1);
+    CHECK(press(Pad::Back, on).buttons[JK_09] && CountButtons(press(Pad::Back, on)) == 1);
+    CHECK(press(Pad::X, on).buttons[JK_04] && CountButtons(press(Pad::X, on)) == 1);
+    CHECK(press(Pad::Y, on).buttons[JK_01] && CountButtons(press(Pad::Y, on)) == 1);
+
+    // Every real pad: the second one too.
+    RawDevices two;
+    two.pads.push_back(Gamepad());
+    two.pads.push_back(Gamepad());
+    two.pads[1].buttons[Pad::A] = true;
+    InputFrame frame = InputMapper::Map(two, controls, glm::vec2(0.0f), 0, on);
+    CHECK(frame.pads[1].buttons[JK_03] && frame.pads[1].buttons[JK_10]);
+    CHECK(!frame.pads[0].buttons[JK_10]);
+
+    // A bit set: that pad's A was held from before, and is not aliased.
+    frame = InputMapper::Map(two, controls, glm::vec2(0.0f), 0, MenuButtons{true, 0b10u, 0});
+    CHECK(frame.pads[1].buttons[JK_03] && !frame.pads[1].buttons[JK_10]);
+
+    // Not an unmapped joystick (its numbering is the device's)...
+    ControlSettings rawToo = controls;
+    rawToo.rawJoysticks = true;
+    RawDevices unmapped;
+    RawPad rawPad;
+    rawPad.gamepad = false;
+    rawPad.buttons[Pad::A] = true;   // what GLFW's layout would call A: not read for such a pad
+    rawPad.rawButtons[2] = true;
+    unmapped.pads.push_back(rawPad);
+    pad = InputMapper::Map(unmapped, rawToo, glm::vec2(0.0f), 0, on).pads[0];
+    CHECK(pad.buttons[JK_03] && !pad.buttons[JK_10]);
+    CHECK_EQ(CountButtons(pad), 1);
+
+    // ...nor the keyboard's player 2: his jump (I) stays JK_03 alone.
+    const ControlSettings withKeyboard = Defaults();
+    frame = InputMapper::Map(With({GLFW_KEY_I}), withKeyboard, glm::vec2(0.0f), 0, on);
+    CHECK(frame.pads[0].buttons[JK_03] && !frame.pads[0].buttons[JK_10]);
+    frame = InputMapper::Map(With({GLFW_KEY_O}), withKeyboard, glm::vec2(0.0f), 0, on);
+    CHECK(frame.pads[0].buttons[JK_02] && !frame.pads[0].buttons[JK_09]);
+
+    // The mapper: SetMenuMode, and an A held since before menu mode began
+    // (Main menu picked with A in the pause) is not a confirm until pressed anew.
+    View view;
+    InputMapper mapper;
+    mapper.SetControls(controls);
+    RawDevices idle;
+    idle.pads.push_back(Gamepad());
+    RawDevices padA = idle;
+    padA.pads[0].buttons[Pad::A] = true;
+    RawDevices padB = idle;
+    padB.pads[0].buttons[Pad::B] = true;
+    CHECK(!mapper.MenuMode());
+    CHECK(!mapper.BuildTick(padA, view).pads[0].buttons[JK_10]);   // a level: jump only
+    mapper.EndFrame(padA);
+    mapper.SetMenuMode(true);
+    CHECK(mapper.MenuMode());
+    frame = mapper.BuildTick(padA, view);                             // still the same press
+    CHECK(frame.pads[0].buttons[JK_03] && !frame.pads[0].buttons[JK_10]);
+    mapper.EndFrame(padA);
+    CHECK(!mapper.BuildTick(padA, view).pads[0].buttons[JK_10]);
+    mapper.EndFrame(padA);
+    CHECK(!mapper.BuildTick(idle, view).pads[0].buttons[JK_10]);     // released
+    mapper.EndFrame(idle);
+    frame = mapper.BuildTick(padA, view);                             // pressed anew
+    CHECK(frame.pads[0].buttons[JK_03] && frame.pads[0].buttons[JK_10]);
+    mapper.EndFrame(padA);
+    CHECK(mapper.BuildTick(padB, view).pads[0].buttons[JK_09]);       // B was never held: at once
+    mapper.EndFrame(padB);
+    // A press in a frame that ran no tick is latched with its alias.
+    mapper.BuildTick(idle, view);
+    mapper.EndFrame(idle);
+    mapper.EndFrame(padA);
+    CHECK(mapper.BuildTick(idle, view).pads[0].buttons[JK_10]);
+    mapper.EndFrame(idle);
+    // Off again: A is jump only.
+    mapper.SetMenuMode(false);
+    frame = mapper.BuildTick(padA, view);
+    CHECK(frame.pads[0].buttons[JK_03] && !frame.pads[0].buttons[JK_10]);
+    mapper.EndFrame(padA);
+    // On again with B held (a death into gameover.esc holding fire): not a cancel.
+    mapper.SetMenuMode(true);
+    frame = mapper.BuildTick(padB, view);
+    CHECK(frame.pads[0].buttons[JK_02] && !frame.pads[0].buttons[JK_09]);
+    mapper.EndFrame(padB);
+}
+
 void testKeyNames() {
     CHECK(KeyName(GLFW_KEY_LEFT_CONTROL) == "LeftCtrl");
     CHECK(KeyName(GLFW_KEY_A) == "A");
@@ -440,6 +553,7 @@ void testSettings() {
     CHECK_EQ(en.controls.joystickLayout, 0);
     CHECK_EQ(en.controls.Player2Pad(), 0);   // g_controls 0: player 2 reads joystick 0
     CHECK(en.pixelShaders);
+    CHECK(en.pauseOnFocusLoss);              // E13
     CHECK(en.controls.player1[ControlAction::Jump] ==
           (std::vector<int>{GLFW_KEY_LEFT_CONTROL, GLFW_KEY_RIGHT_CONTROL}));
     CHECK(en.controls.player2[ControlAction::Left] == std::vector<int>{GLFW_KEY_J});
@@ -463,6 +577,7 @@ void testSettings() {
     changed.musicVolume = 0.35f;
     changed.effectsVolume = 0.8f;
     changed.pixelShaders = false;
+    changed.pauseOnFocusLoss = false;        // E13
     changed.controls.joystickLayout = 1;
     changed.controls.keyboardPlayer2 = false;
     changed.controls.firstPadIsPlayer1 = true;
@@ -549,6 +664,7 @@ void runTests() {
     testKeyboardPlayer2();
     testCursorAndText();
     testLatch();
+    testMenuMode();
     testKeyNames();
     testSettings();
     testAudioWithoutEngine();

@@ -206,7 +206,7 @@ std::string InputMapper::ToCp1252(const std::vector<std::uint32_t>& codepoints) 
 }
 
 InputFrame InputMapper::Map(const RawDevices& raw, const ControlSettings& controls, const glm::vec2& cursor,
-                            int player2Pad) {
+                            int player2Pad, const MenuButtons& menu) {
     InputFrame frame;
     frame.hasFocus = raw.focused;
     // The scripts only compare the two (menu.as:239 moves the cursor by
@@ -257,10 +257,19 @@ InputFrame InputMapper::Map(const RawDevices& raw, const ControlSettings& contro
     // Real pads, in winmm's order unless the settings put player 1 first.
     const std::array<int, kMaxJoysticks> order = PadOrder(controls, player2Pad);
     std::size_t next = 0;
-    for (const RawPad& pad : raw.pads) {
+    for (std::size_t i = 0; i < raw.pads.size(); ++i) {
+        const RawPad& pad = raw.pads[i];
         if (!pad.gamepad && !controls.rawJoysticks) continue;
         if (next >= order.size()) break;
-        frame.pads[static_cast<std::size_t>(order[next++])] = MapRealPad(pad, controls.stickDeadzone);
+        InputFrame::Pad mapped = MapRealPad(pad, controls.stickDeadzone);
+        // E14: A and B keep their own buttons (jump, fire) and add the
+        // menus' confirm and cancel.
+        if (menu.on && pad.gamepad) {
+            const std::uint32_t bit = i < 32 ? (1u << i) : 0u;
+            if (pad.buttons[Pad::A] && (menu.heldA & bit) == 0) mapped.buttons[JK_10] = true;
+            if (pad.buttons[Pad::B] && (menu.heldB & bit) == 0) mapped.buttons[JK_09] = true;
+        }
+        frame.pads[static_cast<std::size_t>(order[next++])] = mapped;
     }
 
     // The keyboard second player, on the index player 2 reads. MERGED into a
@@ -337,6 +346,34 @@ RawDevices InputMapper::PollDevices() {
 
 void InputMapper::SetPlayer2Pad(int index) { m_player2Pad = std::clamp(index, 0, kMaxJoysticks - 1); }
 
+MenuButtons InputMapper::stepMenuButtons(const RawDevices& raw) {
+    if (!m_menuMode) {
+        m_menuWasOn = false;
+        m_menuHeldA = 0;
+        m_menuHeldB = 0;
+        return {};
+    }
+    std::uint32_t heldA = 0;
+    std::uint32_t heldB = 0;
+    for (std::size_t i = 0; i < raw.pads.size() && i < 32; ++i) {
+        if (!raw.pads[i].gamepad) continue;
+        const std::uint32_t bit = 1u << i;
+        if (raw.pads[i].buttons[Pad::A]) heldA |= bit;
+        if (raw.pads[i].buttons[Pad::B]) heldB |= bit;
+    }
+    if (!m_menuWasOn) {
+        // Menu mode has just begun: what is held now was pressed before it.
+        m_menuWasOn = true;
+        m_menuHeldA = heldA;
+        m_menuHeldB = heldB;
+    } else {
+        // Released since: aliased from its next press.
+        m_menuHeldA &= heldA;
+        m_menuHeldB &= heldB;
+    }
+    return MenuButtons{true, m_menuHeldA, m_menuHeldB};
+}
+
 InputFrame InputMapper::BuildTick(const View& view) { return BuildTick(PollDevices(), view); }
 
 InputFrame InputMapper::BuildTick(const RawDevices& raw, const View& view) {
@@ -360,7 +397,7 @@ InputFrame InputMapper::BuildTick(const RawDevices& raw, const View& view) {
     }
     m_pendingTyped.clear();
 
-    InputFrame frame = Map(adjusted, m_controls, m_cursor, m_player2Pad);
+    InputFrame frame = Map(adjusted, m_controls, m_cursor, m_player2Pad, stepMenuButtons(raw));
 
     // A press made in a frame that ran no tick is handed to this one, so it is
     // seen for at least one Ethanon frame (HIT, then RELEASE).
@@ -396,7 +433,7 @@ void InputMapper::EndFrame(const RawDevices& raw) {
         // No tick saw this frame. Only NEW presses are latched: a key already
         // down at the last tick is held, and the next tick sees it anyway if
         // it still is - latching it would stretch every release by a tick.
-        const InputFrame now = Map(raw, m_controls, m_cursor, m_player2Pad);
+        const InputFrame now = Map(raw, m_controls, m_cursor, m_player2Pad, stepMenuButtons(raw));
         for (std::size_t k = 0; k < now.keys.size(); ++k) {
             if (now.keys[k] && !m_lastTick.keys[k]) m_latchedKeys[k] = true;
         }

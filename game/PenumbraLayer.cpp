@@ -81,7 +81,8 @@ void PenumbraLayer::OnAttach(entt::registry& registry) {
     // every death and level change (the scripts reload the same few files).
     m_audio.SetKeepDecodedClips(true);
     m_machine->Samples().SetOutput(&m_audio);
-    m_machine->Samples().SetMasterVolumes(m_settings.musicVolume, m_settings.effectsVolume);
+    ApplyVolumes();
+    m_pause.SetAutoPause(PauseOnFocusLoss());   // E13
 
     // The original's option switches, remembered across launches (E6).
     Script::g_controls.setCurrent(static_cast<Eth::uint>(m_settings.controls.joystickLayout));
@@ -98,6 +99,7 @@ void PenumbraLayer::OnAttach(entt::registry& registry) {
     Script::g_keyboardP2.setCurrent(m_settings.controls.keyboardPlayer2 ? 0u : 1u);
     Script::g_musicVolume.setCurrent(Script::g_musicVolume.stepFor(m_settings.musicVolume));
     Script::g_effectsVolume.setCurrent(Script::g_effectsVolume.stepFor(m_settings.effectsVolume));
+    Script::g_smoothMotion.setCurrent(SmoothMotion() ? 0u : 1u);   // E8's row: as this run draws (--smooth, --fixed-step)
     m_input.SetControls(m_settings.controls);
     m_interp.SetEnabled(SmoothMotion());
 
@@ -170,9 +172,26 @@ bool PenumbraLayer::SmoothMotion() const {
     return m_options.smoothMotionOverride.value_or(m_settings.smoothMotion);
 }
 
+bool PenumbraLayer::PauseOnFocusLoss() const {
+    return m_options.pauseOnFocusLossOverride.value_or(m_settings.pauseOnFocusLoss);
+}
+
+// E13: the loops doLoop runs under (setupScene.as:226-240) - but not their end
+// screens (g_gameFinished), where Esc and Back already lead to the menu
+// (doLoop's waitForInputToMenu) and a pause would only stand in the way.
+bool PenumbraLayer::InPlayScene() const {
+    const std::string& loop = m_machine->LoopFunction();
+    return (loop == "levelLoop" || loop == "pvpLoop") && !Script::g_gameFinished;
+}
+
+void PenumbraLayer::ApplyVolumes() {
+    m_machine->Samples().SetMasterVolumes(m_settings.musicVolume * m_pause.MusicScale(), m_settings.effectsVolume);
+}
+
 void PenumbraLayer::SaveSettings() {
     ApplyLanguage();
     m_interp.SetEnabled(SmoothMotion());
+    m_pause.SetAutoPause(PauseOnFocusLoss());
     std::string error;
     if (!m_options.userDir.empty() && !m_settings.Save(m_options.userDir, &error)) {
         SUPERSONIC_LOG_WARN("Penumbra") << "settings not saved: " << error << std::endl;
@@ -239,12 +258,20 @@ void PenumbraLayer::ApplyDevHolds(Eth::InputFrame& frame) const {
 
 // --start: what the menu's New Game does once its fade is over (main.as:99-122),
 // without the menu - for captures and suites that want a level at once.
-void PenumbraLayer::StartDevScene() {
-    const std::string& scene = m_options.startScene;
+void PenumbraLayer::StartDevScene(const std::string& scene) {
     const bool pvp = scene.rfind("pvp_", 0) == 0;
     Script::resetData();
     Eth::UsePixelShaders(true);
-    Eth::LoadScene("scenes/" + scene, "setupScene", pvp ? "pvpLoop" : "levelLoop");
+    // The screens that are not levels start the way the scripts start them.
+    if (scene == "arena_select.esc") {
+        Script::goToPvp();   // setupScene.as:242: Versus
+    } else if (scene == "gameover.esc") {
+        Eth::LoadScene("scenes/gameover.esc", "gameOverPreLoop", "gameOverLoop");   // controlCharacters.as:449
+    } else if (scene == "videoModes.esc") {
+        Eth::LoadScene("scenes/videoModes.esc", "screenModesPreLoop", "screenModesLoop");   // menu.as
+    } else {
+        Eth::LoadScene("scenes/" + scene, "setupScene", pvp ? "pvpLoop" : "levelLoop");
+    }
     SUPERSONIC_LOG_INFO("Penumbra") << "dev start: scenes/" << scene << std::endl;
 }
 
@@ -254,18 +281,42 @@ void PenumbraLayer::OnFixedUpdate(entt::registry& registry, float fixedDelta) {
 
     // Which pad player 2 reads follows the live g_controls switch.
     m_input.SetPlayer2Pad(static_cast<int>(Script::getPlayerJoystick(1)));
+    // E14: in the screens laid out as menus a pad's A and B also confirm and
+    // cancel (the scripts read only Start and Back there).
+    m_input.SetMenuMode(IsFixedLayoutScene(m_machine->GetSceneFileName()));
     Eth::InputFrame frame = m_input.BuildTick(m_view);
     ApplyDevHolds(frame);
     if (m_options.devCursor) frame.cursor = frame.cursorAbsolute = *m_options.devCursor;
-    // E8: where the outgoing tick drew everything, before Frame rebuilds the
-    // snapshot in place - the pose the frames until the next tick blend from.
-    m_interp.BeginTick(m_machine->Snapshot());
-    m_machine->Frame(frame);   // steps the key and button state machines itself
-    ++m_ticks;
+
+    // E13: the pause reads the tick first. While it is open the Machine does
+    // not run, so GetTime(), and every fade, cooldown and the run's clock with
+    // it, stands still.
+    const Render::PauseStep pause = m_pause.Update(Render::PauseMenu::InputFrom(
+        frame, static_cast<int>(Script::getPlayerJoystick(0)), InPlayScene(), m_machine->GetScreenSize()));
+    if (pause.opened || pause.closed) ApplyVolumes();
+    if (pause.tick) {
+        // What was pressed in the pause stays out of the game until released.
+        m_pause.FilterForGame(frame);
+        // Main menu: the original's own cancel, for exactly this tick, which
+        // doLoop's escToGoToMenu turns into the menu (menu.as:393).
+        if (pause.sendCancel) frame.keys[Eth::K_ESC] = true;
+        // E8: where the outgoing tick drew everything, before Frame rebuilds the
+        // snapshot in place - the pose the frames until the next tick blend from.
+        m_interp.BeginTick(m_machine->Snapshot());
+        m_machine->Frame(frame);   // steps the key and button state machines itself
+    }
+    ++m_ticks;   // engine ticks, paused or not: --hold spans stay where they were put
 
     if (!m_options.startScene.empty() && !m_devStarted) {
         m_devStarted = true;
-        StartDevScene();
+        StartDevScene(m_options.startScene);
+    }
+    if (!m_options.tour.empty() && m_tourIndex < m_options.tour.size() && m_options.tourTicks > 0) {
+        if (m_tourSince == 0) StartDevScene(m_options.tour[m_tourIndex]);
+        if (++m_tourSince >= m_options.tourTicks) {
+            m_tourSince = 0;
+            ++m_tourIndex;
+        }
     }
 
     Eth::vector2 warp;
@@ -294,17 +345,20 @@ void PenumbraLayer::OnFixedUpdate(entt::registry& registry, float fixedDelta) {
         SaveSettings();
     }
 
-    // E10: the enhanced rows. A pick on the screen replaces this run's --lang
-    // or --widescreen flag, which would otherwise go on overriding it. Volumes
-    // are compared as steps, so a hand-edited 0.75 is left as it is until the
-    // player moves it. The language and the volumes apply at once; the view at
-    // the next scene load (LogicalScreenFor).
+    // E10: the enhanced rows. A pick on the screen replaces this run's --lang,
+    // --widescreen or --smooth flag, which would otherwise go on overriding it.
+    // Volumes are compared as steps, so a hand-edited 0.75 is left as it is
+    // until the player moves it. The language, the volumes and smooth motion
+    // apply at once (SaveSettings); the view at the next scene load
+    // (LogicalScreenFor).
     const bool portuguese = Script::g_language.getCurrent() == 0;
     const bool widescreen = Script::g_widescreen.getCurrent() == 0;
+    const bool smoothMotion = Script::g_smoothMotion.getCurrent() == 0;
     const bool musicMoved = Script::g_musicVolume.getCurrent() != Script::g_musicVolume.stepFor(m_settings.musicVolume);
     const bool effectsMoved =
         Script::g_effectsVolume.getCurrent() != Script::g_effectsVolume.stepFor(m_settings.effectsVolume);
-    if (portuguese != Portuguese() || widescreen != Widescreen() || musicMoved || effectsMoved) {
+    if (portuguese != Portuguese() || widescreen != Widescreen() || smoothMotion != SmoothMotion() || musicMoved ||
+        effectsMoved) {
         if (portuguese != Portuguese()) {
             m_options.languageOverride.reset();
             m_settings.language = portuguese ? "pt" : "en";
@@ -313,9 +367,13 @@ void PenumbraLayer::OnFixedUpdate(entt::registry& registry, float fixedDelta) {
             m_options.widescreenOverride.reset();
             m_settings.widescreen = widescreen;
         }
+        if (smoothMotion != SmoothMotion()) {
+            m_options.smoothMotionOverride.reset();
+            m_settings.smoothMotion = smoothMotion;
+        }
         if (musicMoved) m_settings.musicVolume = Script::g_musicVolume.getFraction();
         if (effectsMoved) m_settings.effectsVolume = Script::g_effectsVolume.getFraction();
-        m_machine->Samples().SetMasterVolumes(m_settings.musicVolume, m_settings.effectsVolume);
+        ApplyVolumes();
         SaveSettings();   // ApplyLanguage() first
     }
 
@@ -325,13 +383,15 @@ void PenumbraLayer::OnFixedUpdate(entt::registry& registry, float fixedDelta) {
 void PenumbraLayer::OnUpdate(entt::registry& registry, float deltaTime) {
     (void)deltaTime;
     const Eth::RenderSnapshot& snapshot = m_machine->Snapshot();
+    const bool paused = m_pause.Paused();   // E13
 
     if (Supersonic::WindowControl* window = WindowControlOf(registry)) {
         // 0.7.12 hid the system pointer while the scripts asked (main.as:133)
         // and drew cursor.ent in its place. Every frame is cheap: it does
         // nothing when the request already stands, and the focus and editor
         // vetoes stay Input's.
-        window->SetCursorVisible(!snapshot.cursorHidden);
+        // E13: the pointer shows over the pause's menu, which it can click.
+        window->SetCursorVisible(!snapshot.cursorHidden || paused);
         // The next scene is as wide as the window is by then (E1), after a
         // fullscreen switch or a picked mode. Zero while minimised: keep the last.
         const glm::uvec2 size = window->WindowSize();
@@ -344,8 +404,11 @@ void PenumbraLayer::OnUpdate(entt::registry& registry, float deltaTime) {
     // (the blend is index for index the same lists), the strips' shapes are
     // the tick's (a mesh rebuild waits on the GPU: once a tick, not a frame),
     // and the HUD and the pointer are the tick's own.
+    // While paused (E13) no tick moves the blend on: the last tick as it is,
+    // or a live alpha would rock the world between the last two.
     const auto* clock = registry.ctx().find<Supersonic::SimulationClock>();
-    const Eth::RenderSnapshot& world = m_interp.Frame(snapshot, clock != nullptr ? clock->alpha : 1.0f);
+    const float alpha = paused || clock == nullptr ? 1.0f : clock->alpha;
+    const Eth::RenderSnapshot& world = m_interp.Frame(snapshot, alpha);
     m_view = m_rig.Update(registry, world, m_pillarbox);
     // Where the gloss maps' highlights are seen from: 0.7.12's fake eye
     // (ETHShaderManager::SetFakeEyePosition), each light mirrored across the
@@ -359,7 +422,11 @@ void PenumbraLayer::OnUpdate(entt::registry& registry, float deltaTime) {
     m_shadows.Draw(registry, world, m_view, order, &snapshot);
     m_lights.Draw(registry, world, m_view, order);
     m_particles.Draw(registry, world, m_view, order);
-    m_hud.Draw(registry, snapshot, m_view);   // once a frame: it begins the font atlas's frame
+    // E13: the pause's overlay over the scripts' HUD, under the bars. Once a
+    // frame: it begins the font atlas's frame.
+    m_pauseOverlay.clear();
+    m_pause.AppendOverlay(m_pauseOverlay);
+    m_hud.Draw(registry, snapshot, m_view, m_pauseOverlay.empty() ? nullptr : &m_pauseOverlay);
     m_input.EndFrame();                       // once a frame, tick or not
 }
 

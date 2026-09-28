@@ -64,13 +64,17 @@ public:
     void Attach(entt::registry& registry, TextureCache& textures, FontAtlas& fonts, Localization& localization);
     void Detach();
 
-    // Adds snapshot.hud, then the pillarbox, to the registry's ScreenOverlay.
-    // Call on every frame, after the world renderers.
-    void Draw(entt::registry& registry, const Eth::RenderSnapshot& snapshot, const View& view);
+    // Adds snapshot.hud, then `extra` (may be null), then the pillarbox, to the
+    // registry's ScreenOverlay. Call on every frame, after the world renderers.
+    // `extra` is the layer's own top layer - the pause's overlay (E13,
+    // render/PauseMenu.hpp) - drawn over everything the scripts drew and
+    // translated and laid out exactly as their commands are.
+    void Draw(entt::registry& registry, const Eth::RenderSnapshot& snapshot, const View& view,
+              const std::vector<Eth::HudCmd>* extra = nullptr);
 
     // The quads Draw adds, appended to `out` in drawing order; no overlay needed.
     void Build(const Eth::RenderSnapshot& snapshot, const View& view,
-               std::vector<Supersonic::ScreenOverlay::Quad>& out);
+               std::vector<Supersonic::ScreenOverlay::Quad>& out, const std::vector<Eth::HudCmd>* extra = nullptr);
 
     // The scripts' ARGB as the overlay's rgba, 0..1.
     static glm::vec4 ToColor(Eth::uint argb);
@@ -78,6 +82,7 @@ public:
 private:
     using Quad = Supersonic::ScreenOverlay::Quad;
 
+    void addCommand(const Eth::HudCmd& cmd, const View& view, std::vector<Quad>& out);
     void addText(const Eth::HudCmd& cmd, const View& view, std::vector<Quad>& out);
     void addSprite(const Eth::HudCmd& cmd, const View& view, bool stretched, std::vector<Quad>& out);
     void addRectangle(const Eth::HudCmd& cmd, const View& view, std::vector<Quad>& out);

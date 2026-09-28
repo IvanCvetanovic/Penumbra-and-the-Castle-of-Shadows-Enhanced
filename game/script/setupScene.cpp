@@ -152,6 +152,11 @@ void setupScene()
 
     g_sounds.clear();
     GetEntityArray("play_sound", g_sounds);
+    // E15: five of the level designer's horror.mp3 markers (level2 469, 493,
+    // 548; level3 219, 427) are named "play_sound.ent", which the exact-name
+    // lookup above never finds, so they never played. kPlaySoundEntFix
+    // collects them too; they then play once on screen like the others.
+    if (kPlaySoundEntFix) GetEntityArray("play_sound.ent", g_sounds);
 
     g_levelStartTime = GetTime();
 

@@ -102,6 +102,10 @@ struct Settings {
     // (render/Interpolation.hpp). Off: every frame shows the last tick, as
     // 0.7.12 showed one tick per 60 Hz vsync.
     bool smoothMotion = true;
+    // E13: the pause (render/PauseMenu.hpp) opens by itself when the window
+    // loses focus during play. Off: only Esc/Back open it. The original had
+    // no pause, and played on behind another window.
+    bool pauseOnFocusLoss = true;
     ControlSettings controls;
 
     bool operator==(const Settings& other) const = default;

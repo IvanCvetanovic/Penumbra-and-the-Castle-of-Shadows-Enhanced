@@ -382,6 +382,7 @@ Settings Settings::FromJson(const std::string& text, const Settings& defaults, s
     ReadBool(root, "widescreen", settings.widescreen, warning);
     ReadBool(root, "pixelShaders", settings.pixelShaders, warning);
     ReadBool(root, "smoothMotion", settings.smoothMotion, warning);
+    ReadBool(root, "pauseOnFocusLoss", settings.pauseOnFocusLoss, warning);
 
     if (root.Has("volume")) {
         const Value& volume = root["volume"];
@@ -441,6 +442,7 @@ std::string Settings::ToJson() const {
         << FormatFloat(effectsVolume) << " },\n";
     out << "  \"pixelShaders\": " << FormatBool(pixelShaders) << ",\n";
     out << "  \"smoothMotion\": " << FormatBool(smoothMotion) << ",\n";
+    out << "  \"pauseOnFocusLoss\": " << FormatBool(pauseOnFocusLoss) << ",\n";
     out << "  \"controls\": {\n";
     out << "    \"joystickLayout\": " << controls.joystickLayout << ",\n";
     out << "    \"keyboardPlayer2\": " << FormatBool(controls.keyboardPlayer2) << ",\n";

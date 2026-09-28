@@ -43,7 +43,10 @@ in this repository, with the engine improved where the game needs it.
 | E11 | Standing on two floor tiles at once counts as standing (kFloorSeamFix) | the last tile decided; one airborne frame at each seam |
 | E8 | Smooth motion: the world (sprites, lights and halos, shadows, particles, camera) drawn between the last two ticks by SimulationClock::alpha, one tick behind; whole-pixel ends stay on whole pixels; never across a scene load, a frame gap or a jump over 64 px; settings.smoothMotion (on) and --smooth on\|off, off under --fixed-step | one tick per 60 Hz vsync |
 | E9 | Shadows drawn live, their visible end at the light's reach | static shadows baked into lightmaps at 8x the caster's height |
-| E10 | Enhanced settings on the original's options screen (videoModes.as): keyboard player 2, widescreen/4:3 levels, Português/English at once, music and effects volume in 10% steps (a new Stepper widget beside Switch), saved to settings.json | the screen offered only the video-mode list, pixel shaders, window/fullscreen and the joystick layout, all forgotten at exit |
+| E10 | Enhanced settings on the original's options screen (videoModes.as): keyboard player 2, widescreen/4:3 levels, Português/English at once, music and effects volume in 10% steps (a new Stepper widget beside Switch), smooth motion (E8; 'Ativa/Desativa movimento suave'), saved to settings.json | the screen offered only the video-mode list, pixel shaders, window/fullscreen and the joystick layout, all forgotten at exit |
+| E13 | A pause: in a level or an arena, Esc or player 1's Back freezes the game (the Machine does not tick: GetTime, fades, cooldowns and the run's clock stop, so best times exclude paused time) under 'Pausado'/'Paused' with Continuar/Resume and Menu principal/Main menu (arrows, stick/D-pad, Enter/A/Start, Esc/B/Back, mouse); Main menu feeds the original's own K_ESC for one tick; the music is ducked to 40%; it opens by itself when the window loses focus in play (settings.pauseOnFocusLoss, on; off under --fixed-step); not on the end screens, where Esc/Back still go to the menu | none: Esc in a level returned straight to the main menu and the run was lost (doLoop's escToGoToMenu) |
+| E14 | Gamepad menus: in the menu, the arena select, the options screen and game over, a pad's A also confirms (JK_10) and B also cancels (JK_09); a button already held when a menu opens counts from its next press | only Start confirmed and only Back cancelled (getConfirmButtonStatus/getCancelButtonStatus, playerInput.as:267-305) |
+| E15 | The five ambient horror.mp3 markers the level designer named "play_sound.ent" (level2 469, 493, 548; level3 219, 427) play once on screen like the correctly named ones (Script.hpp kPlaySoundEntFix) | setupScene.as:175 collected only "play_sound" by exact name: they never played |
 
 ## Steps
 
@@ -201,13 +204,84 @@ test_pn_formats were refused by Smart App Control on both launches of this build
 - LICENSE.md now states only what Ivan said (the permission is his to describe; his own code has no
   licence chosen yet).
 
+### Step 9 — a pause, gamepad menus, the smooth-motion row, six more scenarios, one test executable (2026-09-28)
+- **E13** render/PauseMenu, pure, fed held input each tick. The layer skips Machine::Frame while it
+  is open, feeds K_ESC for one tick on Main menu, ducks the music to 40%, shows the pointer and
+  draws the last tick without blending. It opens only under levelLoop/pvpLoop with g_gameFinished
+  false, only on K_ESC or JK_09 on getPlayerJoystick(0), and on a focus loss. After a pause,
+  FilterForGame keeps what was pressed in it out of the game until released. Clicks count again 15
+  ticks after the focus returns. The overlay goes to HudRenderer::Draw's new `extra` commands,
+  translated and laid out like the scripts' text. Eth::Machine gained LoopFunction() (read-only).
+- **E14** InputMapper::SetMenuMode in IsFixedLayoutScene's scenes (set each tick from the scene
+  file, before BuildTick). The stick cursor stays at the original's 5 px per frame.
+- **E10 follow-up: smooth motion on the options screen.** g_smoothMotion ('Ativa movimento suave' /
+  'Desativa movimento suave', worded as the original's own g_enablePS row) at x 255, y 694-744,
+  under the steppers and above the Alt+Enter line (y 753); seeded from what the run draws, read
+  back and saved like g_widescreen (a pick replaces --smooth), applied at once through SaveSettings.
+  Captured in English at 1024x768: no overlap, 'Disable smooth motion' ends near x 477 (the
+  Portuguese 'Desativa movimento suave' was not captured; it is about as long as the existing
+  'Jogador 2 só no joystick' row, which fits). Under --fixed-step
+  the 'Desativa' row is the selected one (the run's override), as the widescreen row shows --widescreen.
+- **Coverage (test_pn_scenarios).** Six new scenarios 15-20: the K_2 cheat and play_sound; level2
+  -> level3 through next_level 428; the paladin and the master knight (every data.enml stat
+  measured); the summon's price and refusals; arenas 2-6 with lv6 played to 3-0; a lone gamepad
+  from boot in a second runtime. No port bug found; 0 script aborts. ORIGINAL bugs pinned, not
+  fixed: five horror.mp3 markers are named `play_sound.ent`, so setupScene.as:175's
+  GetEntityArray("play_sound") never collects them and they never play (level2 469, 493, 548;
+  level3 219, 427); a princess alive but off screen does not block a second summon, which costs
+  another 50 mana and life (controlCharacters.as:688-697); exactly 50 mana is refused although the
+  message says 50 is needed (controlCharacters.as:681); a pad-only player had no way from a level
+  back to the menu (escToGoToMenu reads only K_ESC) - E13's pause now gives one (player 1's Back,
+  then Main menu), not yet covered by a scenario (they drive the scripts, not the layer).
+- **test_pn_all** (tests/all): every tests/test_pn_*.cpp compiled into one executable from a
+  wrapper per suite (WrapSuite.cmake, rewritten when the suite changes); each suite runs in a child
+  process of that same file (the ported script's globals outlive a Machine, so the three suites
+  that boot the real game cannot share a process); not registered with ctest. **Smart App Control
+  accepted it on its first launch**, and all 16 child starts of it: 16 suites, 3716 checks,
+  0 failures in 3.3 s - test_pn_audio 177, _boot 46, _formats 589, _particles 81, _paths 71,
+  _render_english 124, _render_hud 277, _render_input 203 (+testMenuMode), _render_interp 189,
+  _render_lights 171, _render_particles 137, _render_pause 312 (new), _render_textures 144,
+  _runtime 277, _scenarios 916 (914 + the smooth-motion row's two presence checks, added without a
+  tick so that no later scenario's timing moves), _smoke 2. test_pn_boot and test_pn_formats ran
+  for the first time since Step 5; their own exes had been refused on every build since.
+- **Captures** (Penumbra.exe; the full build's link was refused, exit 126; one relink with a real
+  change - --help now lists --tour and the screens --start can open - was accepted): level 1 paused
+  at 1366x768 in English (dim, panel, 'Paused', 'Resume' highlighted, no menu.esc load after the
+  Esc); the options screen with the new row; one batched navigation run (--hold RIGHT@40-260,
+  ESC@120, DOWN@150, UP@170, ENTER@190, ESC@230, DOWN@250, ENTER@270, a PNG every 10 frames): while
+  paused, every pixel outside the panel is identical (the timer, the HUD and the world frozen),
+  only the highlighted row moves; the walk goes on after Resume with RIGHT held through the pause;
+  Main menu reaches the menu within 10 frames. Validation clean in all three.
+Gates: build zero warnings (full build, then Penumbra alone); test_pn_all 16/16.
+
+- **E15** (the decision above) and the final run of this round: build zero warnings;
+  test_pn_all once - 16 suites, 3719 checks, 0 failures (test_pn_scenarios 919 with E15's
+  expectations). Smart App Control refused test_pn_all's first link of the round and, through an
+  orchestrator mistake, the same binary a second time; a relink with a real change (the runner's
+  summary now lists every suite with its time) was accepted.
+
 ### Open
-- **Engine push**: b999491 is only in this checkout. Build and run the touched engine suites
-  (test_light2d, test_materials, test_resourcesync) at b999491, `git -C engine pull --rebase`, tell
-  magic-portals-remake-93, push, then commit the pin separately.
-- **test_pn_boot and test_pn_formats** were not run on this build (Smart App Control).
 - **Not modelled in the light**: the light pass's alpha test (a texel at alpha <= 1/255 took no
   light, highlight included); the highlights 0.7.12 baked into static sprites' lightmaps with the
   first frame's eye (every light is live here, E9, so they follow the camera); per-pixel depth of
   vertical sprites, which leaned back in the z-buffer in 0.7.12 (docs/spec/21).
-- **smoothMotion** has no row on the options screen yet (room at x 255, y 694-740).
+- **pauseOnFocusLoss** has no row on the options screen (settings.json only); the column at x 255
+  is full down to the Alt+Enter line.
+- **Decided (orchestrator, 2026-09-28):** the misnamed horror markers play (E15, switchable). A solo
+  player counts as having a second controller while keyboard player 2 is on (E4): Versus opens and the
+  AI may look for a princess that is not there - intended, harmless. The original's off-screen second
+  summon and its refusal at exactly 50 mana are kept as the original (harmless quirks, not bugs that
+  break play). test_pn_all's child starts are one file's, so one Smart App Control verdict per build:
+  accepted as the way to run the suites.
+- **E13/E14 rulings to confirm:** no pause on the end screens (g_gameFinished); the post-pause input
+  filter; E14's fresh-press rule; the 15-tick click grace after refocus; the pause reads player 1's
+  keys and pad only; auto-pause off under --fixed-step.
+- **E13/E14 not yet exercised live**: Alt-Tab in a level (the pause, the music at 40%), the click
+  back in, a real pad's A/B in the menus, Start never pausing. No scenario drives the pause through
+  the layer (a pad-driven way out of a level for scenario 20).
+- **--tour under a pause**: the tour counts engine ticks (its block is outside the pause's `if
+  (pause.tick)`), so a tour with a held Esc would move on to its next scenes while the pause is
+  open. Dev-only; left as is (not measured).
+- **test_pn_all's child processes** (17 starts of one file per run) against rule 5's "once per
+  build": run once this build as instructed, every start accepted. A full build now compiles every
+  suite twice.
