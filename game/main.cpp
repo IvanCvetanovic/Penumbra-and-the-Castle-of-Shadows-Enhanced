@@ -124,9 +124,10 @@ bool ReportRoot(const char* what, const char* flag, const char* folder, const ch
 
 } // namespace
 
-// The whole of the game's start, callable from either entry: main() below on
-// desktop, SupersonicMain on Android (android/AndroidMain.cpp), which adds the
-// paths to the unpacked files and any development flags to argv first.
+// The whole of the game's start, callable from every entry: main() below on
+// Windows and Linux, SupersonicMain on Android (android/AndroidMain.cpp) and
+// iOS (ios/IOSMain.mm), which add the paths to the game's files and any
+// development flags to argv first, and main() in macos/MacMain.mm on a Mac.
 int PenumbraMain(int argc, char** argv);
 
 int PenumbraMain(int argc, char** argv) {
@@ -335,6 +336,6 @@ int PenumbraMain(int argc, char** argv) {
     return EXIT_SUCCESS;
 }
 
-#if !defined(__ANDROID__)
+#if !defined(__ANDROID__) && !defined(__APPLE__)
 int main(int argc, char** argv) { return PenumbraMain(argc, argv); }
 #endif

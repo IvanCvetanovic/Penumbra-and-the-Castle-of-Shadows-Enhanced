@@ -5,7 +5,8 @@
 
 #include <GLFW/glfw3.h>
 
-#if defined(__ANDROID__)
+#include "platform/WindowBackend.hpp"
+#if !SUPERSONIC_WINDOW_GLFW
 #include "platform/Gamepads.hpp"
 #endif
 
@@ -317,10 +318,10 @@ RawDevices InputMapper::PollDevices() {
 
     // Every joystick, not only the first gamepad the engine polls: two players
     // need two pads, and PvP needs both at once (docs/spec/90-synthesis.md).
-#if defined(__ANDROID__)
-    // No GLFW on Android: the engine's pads (platform/Gamepads.hpp), already in
-    // GLFW's standard layout, in the order they were first heard from. Android
-    // maps every pad it lists, so there is no unmapped (raw) case.
+#if !SUPERSONIC_WINDOW_GLFW
+    // No GLFW on Android or iOS: the engine's pads (platform/Gamepads.hpp),
+    // already in GLFW's standard layout, in the order they were first heard
+    // from. Both map every pad they list, so there is no unmapped (raw) case.
     for (int index = 0; index < Supersonic::Gamepads::Count(); ++index) {
         Supersonic::GamepadState state;
         if (!Supersonic::Gamepads::Get(index, state)) continue;
