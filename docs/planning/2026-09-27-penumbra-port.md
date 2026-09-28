@@ -260,6 +260,19 @@ Gates: build zero warnings (full build, then Penumbra alone); test_pn_all 16/16.
   orchestrator mistake, the same binary a second time; a relink with a real change (the runner's
   summary now lists every suite with its time) was accepted.
 
+### Step 10 — the pause, live (2026-09-28)
+- Driven with real input events (a desktop rig): Esc in level 1 opened the pause and froze the game (two
+  frames 1.5 s apart byte-identical), the selection moved, and Main menu reached the main menu. Two
+  anomalies (Main menu preselected on opening; an Enter that did not resume) traced to the test, not the
+  game: the rig moves the window under a resting mouse on its first screenshot, and the Magic Portals
+  session's game windows were opening on the same desktop, taking the focus (auto-pause) and some of the
+  rig's input. Live desktop tests stopped while another session drives windows here.
+- The pause's pointer now selects a row only when it moves at least 2 logical pixels between ticks (a
+  window nudged under a resting mouse or a rounding wobble no longer takes the selection from the keys).
+- Pause transitions (open, close, selection, with the inputs that caused them) are logged to
+  %APPDATA%\Penumbra\penumbra.log, for Ivan's own testing.
+Gates: test_pn_all once - 16 suites, 3719 checks, 0 failures.
+
 ### Open
 - **Not modelled in the light**: the light pass's alpha test (a texel at alpha <= 1/255 took no
   light, highlight included); the highlights 0.7.12 baked into static sprites' lightmaps with the
@@ -276,8 +289,9 @@ Gates: build zero warnings (full build, then Penumbra alone); test_pn_all 16/16.
 - **E13/E14 rulings to confirm:** no pause on the end screens (g_gameFinished); the post-pause input
   filter; E14's fresh-press rule; the 15-tick click grace after refocus; the pause reads player 1's
   keys and pad only; auto-pause off under --fixed-step.
-- **E13/E14 not yet exercised live**: Alt-Tab in a level (the pause, the music at 40%), the click
-  back in, a real pad's A/B in the menus, Start never pausing. No scenario drives the pause through
+- **E13/E14 to confirm by hand (Ivan):** Esc in a level, Resume/Main menu with keys and mouse, Alt-Tab
+  in a level (the pause, the music at 40%), the click back in, a real pad's A/B in the menus, Start never
+  pausing. No scenario drives the pause through
   the layer (a pad-driven way out of a level for scenario 20).
 - **--tour under a pause**: the tour counts engine ticks (its block is outside the pause's `if
   (pause.tick)`), so a tour with a held Esc would move on to its next scenes while the pause is

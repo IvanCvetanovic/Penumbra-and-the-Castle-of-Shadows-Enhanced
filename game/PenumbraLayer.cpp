@@ -291,9 +291,22 @@ void PenumbraLayer::OnFixedUpdate(entt::registry& registry, float fixedDelta) {
     // E13: the pause reads the tick first. While it is open the Machine does
     // not run, so GetTime(), and every fade, cooldown and the run's clock with
     // it, stands still.
-    const Render::PauseStep pause = m_pause.Update(Render::PauseMenu::InputFrom(
-        frame, static_cast<int>(Script::getPlayerJoystick(0)), InPlayScene(), m_machine->GetScreenSize()));
+    const Render::PauseInput pauseInput = Render::PauseMenu::InputFrom(
+        frame, static_cast<int>(Script::getPlayerJoystick(0)), InPlayScene(), m_machine->GetScreenSize());
+    const int selectedBefore = m_pause.Selected();
+    const Render::PauseStep pause = m_pause.Update(pauseInput);
     if (pause.opened || pause.closed) ApplyVolumes();
+    // What moved the pause, in the log: a pause is driven by keys, pads, the
+    // pointer and the window's focus at once, and only a live run shows which.
+    if (pause.opened || pause.closed || (m_pause.Paused() && m_pause.Selected() != selectedBefore)) {
+        SUPERSONIC_LOG_INFO("Penumbra")
+            << "pause " << (pause.opened ? "opened" : pause.closed ? "closed" : "selection") << " -> item "
+            << m_pause.Selected() << (pause.sendCancel ? " (main menu)" : "") << " | tick " << m_ticks
+            << " focused " << pauseInput.focused << " open " << pauseInput.open << " back " << pauseInput.back
+            << " up " << pauseInput.up << " down " << pauseInput.down << " confirm " << pauseInput.confirm
+            << " click " << pauseInput.click << " pointer " << pauseInput.pointer.x << "," << pauseInput.pointer.y
+            << std::endl;
+    }
     if (pause.tick) {
         // What was pressed in the pause stays out of the game until released.
         m_pause.FilterForGame(frame);

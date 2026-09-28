@@ -1,5 +1,7 @@
 #include "render/PauseMenu.hpp"
 
+#include <glm/glm.hpp>
+
 #include <cstddef>
 #include <utility>
 
@@ -17,6 +19,8 @@ constexpr glm::vec2 kPanelSize{340.0f, 210.0f};
 constexpr glm::vec2 kTitleOffset{20.0f, 16.0f};
 constexpr glm::vec2 kFirstRowOffset{12.0f, 84.0f};
 constexpr float kRowStep = 54.0f;
+// How far (logical pixels, one tick to the next) the pointer must move to select.
+constexpr float kPointerMovePixels = 2.0f;
 constexpr glm::vec2 kRowSize{316.0f, 44.0f};
 constexpr glm::vec2 kRowTextOffset{14.0f, 7.0f};
 
@@ -147,7 +151,10 @@ PauseStep PauseMenu::Update(const PauseInput& input) {
     const bool downPressed = input.down && !was.down;
     const bool confirmPressed = input.confirm && !was.confirm;
     const bool backPressed = input.back && !was.back;
-    const bool pointerMoved = input.pointer != was.pointer;
+    // Moved by the player's hand, not by a rounding wobble: a pointer that
+    // shifts by a pixel or less (a window nudged under a resting mouse, a
+    // DPI round trip) must not take the selection from the keys.
+    const bool pointerMoved = glm::length(input.pointer - was.pointer) >= kPointerMovePixels;
     const bool focusLost = was.focused && !input.focused;
     if (input.focused && !was.focused) m_focusGrace = kFocusGraceTicks;
     const bool clickPressed = input.click && !was.click && input.focused && m_focusGrace == 0;
