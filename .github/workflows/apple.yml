@@ -10,9 +10,9 @@ name: Apple
 #   ios    Penumbra for the iOS simulator (UIKit + MoltenVK), unsigned apart
 #          from the ad-hoc signature arm64 needs, assembled into Penumbra.app,
 #          installed on a simulator and run for 300 frames with a capture;
-#          if it ends without one, its crash report is printed and it is run
-#          again with MoltenVK's Metal argument buffers off, then under Metal
-#          validation.
+#          if it ends without one, its crash report is printed. Then Penumbra
+#          for devices (iphoneos, arm64), built and assembled only: installing
+#          on a device needs a real signature.
 #
 # MoltenVK is linked into the program (SUPERSONIC_MOLTENVK_LIBRARY), from the
 # KhronosGroup/MoltenVK release's static xcframework: no Vulkan loader, no SDK.
@@ -325,10 +325,27 @@ jobs:
             done
             return 1
           }
-          run_game default ||
-            run_game no-argument-buffers MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS=0 ||
-            run_game metal-validation MTL_DEBUG_LAYER=1 || true
+          run_game default || true
           ls -la "$DATA/Documents" out/shots
+
+      # The device build: the same sources against the iphoneos SDK and
+      # MoltenVK's ios-arm64 slice. Proves it compiles, links and assembles;
+      # it is not run (no signing identity, no device).
+      - name: Device build (iphoneos, not run)
+        if: ${{ !cancelled() }}
+        run: |
+          set -o pipefail
+          cmake -S . -B build-ios-device -G Ninja -DCMAKE_BUILD_TYPE=Release -DSUPERSONIC_ENABLE_VALIDATION=OFF \
+            -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_SYSROOT=iphoneos -DCMAKE_OSX_ARCHITECTURES=arm64 \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=16.3 -DPENUMBRA_BUILD_TESTS=OFF \
+            -DSUPERSONIC_MOLTENVK_LIBRARY="$HOME/moltenvk-ios/MoltenVK/MoltenVK/static/MoltenVK.xcframework/ios-arm64/libMoltenVK.a" \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_OBJCXX_COMPILER_LAUNCHER=ccache > out/logs/configure-ios-device.log
+          cmake --build build-ios-device --target Penumbra --parallel 5 -- -k 0 2>&1 | tee out/logs/build-ios-device.log | tail -5
+          echo "warnings: $(grep -c 'warning:' out/logs/build-ios-device.log || true)"
+          bash tools/apple/make_app.sh ios build-ios-device "$PWD/out/ios-device/Penumbra.app" iphoneos
+          lipo -info out/ios-device/Penumbra.app/Penumbra
+          otool -l out/ios-device/Penumbra.app/Penumbra | grep -A4 LC_BUILD_VERSION | head -5
 
       - name: Collect
         if: always()

@@ -26,6 +26,16 @@ project(Penumbra LANGUAGES C CXX)
 # for its own build).
 if (APPLE)
     enable_language(OBJC OBJCXX)
+
+    # Apple's linker (Xcode 15 and later) warns about every library named twice
+    # on a link line, which CMake writes whenever a target links SupersonicCore
+    # both itself and through PenumbraGame, as the suites do: eighteen warnings a
+    # build, about nothing. Silenced where the linker has the option.
+    include(CheckLinkerFlag)
+    check_linker_flag(CXX "LINKER:-no_warn_duplicate_libraries" PENUMBRA_LD_NO_WARN_DUPLICATES)
+    if (PENUMBRA_LD_NO_WARN_DUPLICATES)
+        add_link_options("LINKER:-no_warn_duplicate_libraries")
+    endif()
 endif()
 
 # The engine's headers are C++20, and SupersonicCore says so on its interface;
