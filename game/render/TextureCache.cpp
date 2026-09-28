@@ -14,6 +14,7 @@
 #include <stb_image.h>
 
 #include "core/Log.hpp"
+#include "eth/Paths.hpp"
 #include "render/TextureDecode.hpp"
 #include "renderer/TextureRegistry.hpp"
 
@@ -372,7 +373,8 @@ std::string Absolute(const std::string& gameRoot, const std::string& relativePat
     const std::string path = NormalisedPath(relativePath);
     // Already absolute (a drive or a root): taken as it is.
     if ((path.size() >= 2 && path[1] == ':') || (!path.empty() && path[0] == '/')) return path;
-    return gameRoot.empty() ? path : gameRoot + "/" + path;
+    // As the original spelled it, found as the disk spells it (eth/Paths.hpp).
+    return gameRoot.empty() ? path : Eth::ResolveUnder(gameRoot, path);
 }
 
 } // namespace

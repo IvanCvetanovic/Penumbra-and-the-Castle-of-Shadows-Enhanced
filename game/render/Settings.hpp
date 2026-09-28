@@ -61,7 +61,13 @@ struct ControlSettings {
     KeyBindings player1;
     // The keyboard second player (enhancement E4), presented to the scripts as
     // the joystick player 2 reads. Off: player 2 needs a real pad, as in 2010.
+    // Off by default on a phone, which has no keyboard: on, a Versus arena
+    // would open with a player 2 nobody can move.
+#ifdef PENUMBRA_MOBILE
+    bool keyboardPlayer2 = false;
+#else
     bool keyboardPlayer2 = true;
+#endif
     KeyBindings player2;
     // Per-axis stick dead zone, applied before the Eth layer's own 0.01: a
     // modern stick rests a few percent off centre, and getInputDirection walks
@@ -106,6 +112,10 @@ struct Settings {
     // loses focus during play. Off: only Esc/Back open it. The original had
     // no pause, and played on behind another window.
     bool pauseOnFocusLoss = true;
+    // E16: the on-screen touch controls (render/TouchControls.hpp). "auto" is
+    // on in a mobile build (PENUMBRA_MOBILE) and off on the desktop; "on" and
+    // "off" force them. The original was played with a keyboard and pads.
+    std::string touchControls = "auto";
     ControlSettings controls;
 
     bool operator==(const Settings& other) const = default;
@@ -113,9 +123,21 @@ struct Settings {
     // Everything at its default. The language follows the system's: Portuguese
     // for a Portuguese Windows UI, English otherwise.
     static Settings Defaults(bool systemIsPortuguese);
-    // Whether the Windows UI language is Portuguese (any region). False
-    // elsewhere and on other platforms.
+    // Whether the system's UI language is Portuguese (any region):
+    //   a locale supplied with SetSystemLocale, when one was - the hook for a
+    //     platform whose language is not in the environment: an Android
+    //     activity (AConfiguration_getLanguage), an iOS or macOS app bundle
+    //     (NSLocale.preferredLanguages), called before Defaults;
+    //   Windows: the user's UI language (GetUserDefaultUILanguage);
+    //   elsewhere: the POSIX message locale, the first of LC_ALL, LC_MESSAGES
+    //     and LANG that is set (a desktop session sets them).
     static bool SystemLanguageIsPortuguese();
+    // The hook above: a BCP 47 tag or a POSIX locale ("pt-BR", "pt_PT.UTF-8",
+    // "en"). An empty string forgets it.
+    static void SetSystemLocale(const std::string& locale);
+    // Whether a locale name is Portuguese: "pt", then the end or a separator
+    // ('_', '-', '.', '@'), any case. "C", "POSIX" and "" are not.
+    static bool LocaleIsPortuguese(const std::string& locale);
     static KeyBindings DefaultPlayer1Keys();
     static KeyBindings DefaultPlayer2Keys();
 

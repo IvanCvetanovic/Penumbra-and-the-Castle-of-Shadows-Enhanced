@@ -293,6 +293,12 @@ void CacheWithoutADevice() {
     CHECK(cache.Key("", TextureVariant::Sprite).empty());
     CHECK(cache.Size("entities/skull.png") == glm::ivec2(18, 20));
     CHECK(cache.Size("entities\\normalmaps\\nm_white_ground.jpg") == glm::ivec2(256, 256));
+    // Spelled as a Windows-only game could spell it, found on any filesystem
+    // (eth/Paths.hpp): the original's STONE03A.JPG, and a skull in capitals.
+    CHECK(cache.Size("ENTITIES\\Skull.PNG") == glm::ivec2(18, 20));
+    CHECK(cache.Key("Entities/SKULL.png", TextureVariant::Sprite) == "penumbra:sprite:Entities/SKULL.png");
+    CHECK(cache.Size("entities/stone03a.jpg") == cache.Size("entities/STONE03A.JPG"));
+    CHECK(cache.Size("entities/STONE03A.JPG").x > 0);
 }
 
 Eth::SpriteDraw Sprite(int id, Eth::ENTITY_TYPE type, float z, float depth) {

@@ -34,6 +34,7 @@
 #include <charconv>
 #include <chrono>
 #include <cstddef>
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <exception>
@@ -54,9 +55,16 @@
 #else
 #include <cerrno>
 #include <csignal>
+#include <thread>
+#include <spawn.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#if defined(__APPLE__)
+#include <mach-o/dyld.h>
+#include <TargetConditionals.h>
+#endif
+extern char** environ;   // POSIX: the environment a spawned child inherits
 #endif
 
 namespace {
@@ -70,6 +78,7 @@ struct Child {
     bool started = false;
     bool timedOut = false;
     unsigned long code = 0;
+    int signal = 0;      // POSIX: the signal that ended it (code is then 128 + it)
     std::string error;   // why it did not start
 };
 
@@ -92,14 +101,21 @@ const char* OutcomeText(const Outcome outcome) {
     return "?";
 }
 
-std::string ExitText(const unsigned long code) {
-    char text[48];
-    if (code <= 255) {
-        std::snprintf(text, sizeof text, "exit %lu", code);
+std::string ExitText(const Child& child) {
+    char text[96] = "";
+    if (child.signal != 0) {
+#ifndef _WIN32
+        // POSIX: ended by a signal (SIGSEGV, SIGABRT...) rather than returning.
+        const char* name = strsignal(child.signal);
+        std::snprintf(text, sizeof text, "killed by signal %d (%s), crashed", child.signal,
+                      name != nullptr ? name : "?");
+#endif
+    } else if (child.code <= 255) {
+        std::snprintf(text, sizeof text, "exit %lu", child.code);
     } else {
         // A Windows exception code (0xC0000005 is an access violation): the
         // child crashed rather than returning.
-        std::snprintf(text, sizeof text, "exit 0x%08lX, crashed", code);
+        std::snprintf(text, sizeof text, "exit 0x%08lX, crashed", child.code);
     }
     return text;
 }
@@ -212,38 +228,92 @@ Child Spawn(const PnAll::Suite& suite, const unsigned timeoutSeconds) {
 
 #else
 
-// fork() needs no path to this executable: the child is this process as it
-// stands before any suite has run, and it runs just the one.
+// This executable's own file, to start again with --suite: /proc/self/exe on
+// Linux and Android, _NSGetExecutablePath on macOS. Empty when unknown.
+std::string ThisExecutable() {
+#if defined(__APPLE__)
+    std::uint32_t size = 0;
+    _NSGetExecutablePath(nullptr, &size);
+    std::string path(size + 1, '\0');
+    if (_NSGetExecutablePath(path.data(), &size) != 0) return {};
+    path.resize(std::strlen(path.c_str()));
+    return path;
+#else
+    std::string path(256, '\0');
+    for (;;) {
+        const ssize_t length = readlink("/proc/self/exe", path.data(), path.size());
+        if (length <= 0) return {};
+        if (static_cast<std::size_t>(length) < path.size()) {
+            path.resize(static_cast<std::size_t>(length));
+            return path;
+        }
+        path.resize(path.size() * 2);
+    }
+#endif
+}
+
+// The same protocol as on Windows: this file started again as
+// `<self> --suite <name>`, a fresh process image that has run nothing, with
+// this one's stdout and stderr (posix_spawn passes the descriptors on). The
+// timeout is the parent's to enforce, as TerminateProcess enforces it there:
+// the child is polled and killed, never trusted to stop itself.
+//
+// iOS lets an app start no process at all; there the suites run one at a time
+// with --suite, or all in one process through each suite's own entry.
 Child Spawn(const PnAll::Suite& suite, const unsigned timeoutSeconds) {
     Child child;
-    const pid_t pid = fork();
-    if (pid < 0) {
-        child.error = std::strerror(errno);
+#if defined(__APPLE__) && TARGET_OS_IPHONE
+    (void)suite;
+    (void)timeoutSeconds;
+    child.error = "iOS does not let an app start a process; run one suite at a time with --suite";
+    return child;
+#else
+    std::string self = ThisExecutable();
+    if (self.empty()) {
+        child.error = "this executable's own path is unknown (" + std::string(std::strerror(errno)) + ")";
         return child;
     }
-    if (pid == 0) {
-        if (timeoutSeconds != 0) alarm(timeoutSeconds);
-        const int code = RunHere(suite);
-        std::fflush(nullptr);
-        _exit(code);
+    std::string flag = "--suite";
+    std::string name = suite.name;
+    char* const argv[] = {self.data(), flag.data(), name.data(), nullptr};
+    pid_t pid = 0;
+    const int spawned = posix_spawn(&pid, self.c_str(), nullptr, nullptr, argv, environ);
+    if (spawned != 0) {
+        child.error = self + ": " + std::strerror(spawned);
+        return child;
     }
     child.started = true;
+
+    using Clock = std::chrono::steady_clock;
+    const Clock::time_point deadline = Clock::now() + std::chrono::seconds(timeoutSeconds);
     int status = 0;
-    while (waitpid(pid, &status, 0) < 0) {
-        if (errno != EINTR) {
+    for (;;) {
+        const pid_t done = waitpid(pid, &status, timeoutSeconds == 0 ? 0 : WNOHANG);
+        if (done == pid) break;
+        if (done < 0) {
+            if (errno == EINTR) continue;
             child.code = 1;
             return child;
         }
+        if (Clock::now() >= deadline) {
+            child.timedOut = true;
+            kill(pid, SIGKILL);
+            while (waitpid(pid, &status, 0) < 0 && errno == EINTR) {
+            }
+            break;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(20));
     }
     if (WIFEXITED(status)) {
         child.code = static_cast<unsigned long>(WEXITSTATUS(status));
     } else if (WIFSIGNALED(status)) {
-        child.timedOut = timeoutSeconds != 0 && WTERMSIG(status) == SIGALRM;
-        child.code = 128ul + static_cast<unsigned long>(WTERMSIG(status));
+        child.signal = WTERMSIG(status);
+        child.code = 128ul + static_cast<unsigned long>(child.signal);
     } else {
         child.code = 1;
     }
     return child;
+#endif
 }
 
 #endif
@@ -288,7 +358,7 @@ int RunChildren(const std::vector<const PnAll::Suite*>& selected, const unsigned
         } else if (child.code == static_cast<unsigned long>(kSkipped)) {
             result.outcome = Outcome::Skipped;
         } else {
-            result.detail = ExitText(child.code);
+            result.detail = ExitText(child);
         }
         std::printf("-- %s: %s%s%s (%.1f s)\n", suite.name, OutcomeText(result.outcome),
                     result.detail.empty() ? "" : ", ", result.detail.c_str(), seconds);

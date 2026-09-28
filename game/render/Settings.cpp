@@ -4,6 +4,7 @@
 #include <cctype>
 #include <charconv>
 #include <cmath>
+#include <cstdlib>
 #include <fstream>
 #include <iterator>
 #include <sstream>
@@ -331,10 +332,36 @@ Settings Settings::Defaults(bool systemIsPortuguese) {
     return settings;
 }
 
+namespace {
+
+// SetSystemLocale's. Set once at startup, before any thread reads it.
+std::string& SuppliedLocale() {
+    static std::string locale;
+    return locale;
+}
+
+} // namespace
+
+void Settings::SetSystemLocale(const std::string& locale) { SuppliedLocale() = locale; }
+
+bool Settings::LocaleIsPortuguese(const std::string& locale) {
+    if (locale.size() < 2) return false;
+    const auto lower = [](char c) { return static_cast<char>(std::tolower(static_cast<unsigned char>(c))); };
+    if (lower(locale[0]) != 'p' || lower(locale[1]) != 't') return false;
+    return locale.size() == 2 || locale[2] == '_' || locale[2] == '-' || locale[2] == '.' || locale[2] == '@';
+}
+
 bool Settings::SystemLanguageIsPortuguese() {
+    if (!SuppliedLocale().empty()) return LocaleIsPortuguese(SuppliedLocale());
 #ifdef _WIN32
     return PRIMARYLANGID(GetUserDefaultUILanguage()) == LANG_PORTUGUESE;
 #else
+    // POSIX precedence for messages: LC_ALL overrides LC_MESSAGES, which
+    // overrides LANG; an empty variable counts as unset.
+    for (const char* name : {"LC_ALL", "LC_MESSAGES", "LANG"}) {
+        const char* value = std::getenv(name);
+        if (value != nullptr && *value != '\0') return LocaleIsPortuguese(value);
+    }
     return false;
 #endif
 }
@@ -383,6 +410,20 @@ Settings Settings::FromJson(const std::string& text, const Settings& defaults, s
     ReadBool(root, "pixelShaders", settings.pixelShaders, warning);
     ReadBool(root, "smoothMotion", settings.smoothMotion, warning);
     ReadBool(root, "pauseOnFocusLoss", settings.pauseOnFocusLoss, warning);
+
+    // E16. A hand-written true/false is taken as "on"/"off".
+    if (root.Has("touchControls")) {
+        const Value& touch = root["touchControls"];
+        const std::string mode = touch.AsString();
+        if (touch.IsBool()) {
+            settings.touchControls = touch.AsBool() ? "on" : "off";
+        } else if (EqualsIgnoreCase(mode, "auto") || EqualsIgnoreCase(mode, "on") || EqualsIgnoreCase(mode, "off")) {
+            settings.touchControls = mode;
+            for (char& c : settings.touchControls) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+        } else {
+            Warn(warning, "touchControls is not \"auto\", \"on\" or \"off\"");
+        }
+    }
 
     if (root.Has("volume")) {
         const Value& volume = root["volume"];
@@ -443,6 +484,7 @@ std::string Settings::ToJson() const {
     out << "  \"pixelShaders\": " << FormatBool(pixelShaders) << ",\n";
     out << "  \"smoothMotion\": " << FormatBool(smoothMotion) << ",\n";
     out << "  \"pauseOnFocusLoss\": " << FormatBool(pauseOnFocusLoss) << ",\n";
+    out << "  \"touchControls\": \"" << Supersonic::Json::Escape(touchControls) << "\",\n";   // E16
     out << "  \"controls\": {\n";
     out << "    \"joystickLayout\": " << controls.joystickLayout << ",\n";
     out << "    \"keyboardPlayer2\": " << FormatBool(controls.keyboardPlayer2) << ",\n";

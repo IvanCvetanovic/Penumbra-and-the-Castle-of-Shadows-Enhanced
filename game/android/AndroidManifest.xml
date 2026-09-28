@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Penumbra on Android: a NativeActivity with no Java of its own. The platform
+    loads libPenumbra.so (android.app.lib_name), whose android_main is the
+    engine's (engine/src/platform/android/AndroidApp.cpp).
+
+    minSdk 26 is where AAudio begins; the engine also needs a Vulkan 1.2 device,
+    which it checks at start (VulkanDevice::isDeviceSuitable). Landscape only,
+    and every configuration change handled in place, because a NativeActivity
+    that is recreated starts its native thread again over a running game.
+
+    tools/build_android.sh links this with aapt2 (debug mode, so run-as works)
+    and signs the APK with the debug keystore.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.ivancvetanovic.penumbra"
+    android:versionCode="1"
+    android:versionName="0.1">
+
+    <uses-feature android:name="android.hardware.vulkan.level" android:version="0" android:required="true" />
+    <uses-feature android:name="android.hardware.vulkan.version" android:version="0x402000" android:required="true" />
+    <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
+    <uses-feature android:name="android.hardware.gamepad" android:required="false" />
+
+    <application
+        android:label="Penumbra"
+        android:icon="@mipmap/ic_launcher"
+        android:hasCode="false"
+        android:allowBackup="false"
+        android:extractNativeLibs="true"
+        android:appCategory="game"
+        android:isGame="true"
+        android:theme="@android:style/Theme.NoTitleBar.Fullscreen">
+
+        <activity
+            android:name="android.app.NativeActivity"
+            android:label="Penumbra"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:screenOrientation="landscape"
+            android:resizeableActivity="false"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboard|keyboardHidden|navigation|uiMode|density|fontScale|layoutDirection|locale|touchscreen|colorMode">
+
+            <meta-data android:name="android.app.lib_name" android:value="Penumbra" />
+
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>

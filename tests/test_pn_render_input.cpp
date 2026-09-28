@@ -543,6 +543,23 @@ void testKeyNames() {
     CHECK(roundTrips > 100);
 }
 
+// The system's language on every platform: a POSIX or BCP 47 locale name, and
+// the hook a platform without one in the environment (Android, iOS) calls.
+void testSystemLocale() {
+    for (const char* yes : {"pt", "PT", "pt_BR", "pt_PT.UTF-8", "pt-BR", "pt@euro", "pt.ISO-8859-1"}) {
+        CHECK_MSG(Settings::LocaleIsPortuguese(yes), yes);
+    }
+    for (const char* no : {"", "p", "C", "POSIX", "C.UTF-8", "en_US.UTF-8", "es_ES", "ptx", "pta_XX", "de-pt"}) {
+        CHECK_MSG(!Settings::LocaleIsPortuguese(no), no);
+    }
+    Settings::SetSystemLocale("pt-BR");
+    CHECK(Settings::SystemLanguageIsPortuguese());
+    CHECK(Settings::Defaults(Settings::SystemLanguageIsPortuguese()).language == "pt");
+    Settings::SetSystemLocale("en-GB");
+    CHECK(!Settings::SystemLanguageIsPortuguese());
+    Settings::SetSystemLocale("");   // back to the system's own answer, whatever it is
+}
+
 void testSettings() {
     const Settings pt = Settings::Defaults(true);
     const Settings en = Settings::Defaults(false);
@@ -667,6 +684,7 @@ void runTests() {
     testMenuMode();
     testKeyNames();
     testSettings();
+    testSystemLocale();
     testAudioWithoutEngine();
 }
 

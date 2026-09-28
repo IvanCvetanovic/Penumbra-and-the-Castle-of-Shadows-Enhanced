@@ -17,6 +17,7 @@
 #include <filesystem>
 
 #include "core/Log.hpp"
+#include "eth/Paths.hpp"
 
 namespace Penumbra::Eth {
 
@@ -61,7 +62,7 @@ bool SampleBank::LoadMusic(const string& path) {
     const string key = Key(path);
     // Loading a basename already loaded is a no-op (ETHResourceManager.cpp:176-182).
     if (m_samples.count(key) != 0) return true;
-    const string absolutePath = m_gameRoot + "/" + path;
+    const string absolutePath = ResolveUnder(m_gameRoot, path);
     const bool loaded = m_out != nullptr ? m_out->Load(absolutePath, true)
                                          : std::filesystem::exists(std::filesystem::path(absolutePath));
     if (!loaded) {
@@ -78,7 +79,7 @@ bool SampleBank::LoadMusic(const string& path) {
 bool SampleBank::LoadSoundEffect(const string& path) {
     const string key = Key(path);
     if (m_samples.count(key) != 0) return true;
-    const string absolutePath = m_gameRoot + "/" + path;
+    const string absolutePath = ResolveUnder(m_gameRoot, path);
     const bool loaded = m_out != nullptr ? m_out->Load(absolutePath, false)
                                          : std::filesystem::exists(std::filesystem::path(absolutePath));
     if (!loaded) {

@@ -30,7 +30,8 @@ game/
   eth/               PenumbraEth: the Ethanon 0.7.12 runtime emulation (no renderer)
   script/            the .as files ported to C++, one .cpp per .as, on the Eth API
   render/            presentation on the engine: sprites, lights, shadows, particles, text, HUD
-  data/              the port's own JSON (translations, settings defaults), with provenance
+  data/              the port's own JSON (translations, settings defaults, touch layout), fonts, images
+  android/           AndroidMain.cpp (unpack, flags, locale) and the manifest
   PenumbraLayer.*    the EngineLayer that runs the Eth frame on the tick and draws it
   main.cpp
 tests/               test_pn_*.cpp suites (supersonic_add_test)
@@ -38,6 +39,8 @@ tests/all/           test_pn_all: RunAll.cpp (the runner), WrapSuite.cmake (writ
 tools/build.bat      configure + build with MSVC (Build Tools 18) and the Vulkan SDK's glslc
 tools/check.bat      lock-free compile check of single files (parallel agents)
 tools/package.bat    a playable folder in out/package/Penumbra (never committed)
+tools/build_linux.sh Linux (WSL Ubuntu-24.04) build in ~/pn-build-linux, --test runs test_pn_all
+tools/build_android.sh  debug APK without Gradle (android_package.py): out/android/Penumbra-debug.apk
 tools/art/           make_english_art.py: the English image variants in game/data/images/en
 docs/spec/           what the original is and does (read-only knowledge base, cited)
 docs/planning/       the port's step record
@@ -105,6 +108,22 @@ build/tests/test_pn_all.exe                               # every suite in one e
 build/tests/test_pn_all.exe --suite boot                  # one suite, in-process, as test_pn_boot.exe runs it
 build/tests/test_pn_all.exe --list                        # the suites it holds; runs nothing
 ```
+
+Linux (WSL) and Android, from Git Bash. No Smart App Control there: a Linux binary or an APK
+can be launched as often as needed. Put `MSYS_NO_PATHCONV=1` before any `wsl` call.
+
+```bash
+MSYS_NO_PATHCONV=1 wsl -d Ubuntu-24.04 -u root -- bash /mnt/c/Users/icvet/Desktop/Penumbra-and-the-Castle-of-Shadows-Enhanced/tools/build_linux.sh --test
+# headless capture on lavapipe (from the build's game/ folder; absolute --screenshot path):
+cd ~/pn-build-linux/game && VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/lvp_icd.json xvfb-run -a -s "-screen 0 1920x1080x24" \
+    ./Penumbra --start level1 --window 1280x720 --fixed-step --frames 300 --screenshot /mnt/c/.../out/shots/linux/level1.png
+bash tools/build_android.sh --abi all                     # APK in out/android/
+```
+
+The Android emulator is ours only as `Penumbra_API33_x86_64` on port 5560, headless
+(`emulator -avd Penumbra_API33_x86_64 -port 5560 -no-window -no-audio -gpu swiftshader_indirect
+-memory 2048 -cores 2`), always addressed with `adb -s emulator-5560`, input only through `adb shell
+input`. Never start or change `MP_Original_API30`: the Magic Portals session's parity rig.
 
 The original runs from a scratch copy (never from `extracted/app`, which it would write into):
 `reference/analysis/orig_rig.ps1` drives a copy of `machine.exe` (start / shot / keys / stop). An

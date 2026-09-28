@@ -1,0 +1,83 @@
+{
+  "_about": "ENHANCEMENT E16: the on-screen touch controls' look and layout, read by game/render/TouchControls (which has the same values built in, for when this file is missing or a field is). Replacing the art is a data-only change: put the new PNGs anywhere under game/data, point 'image' at them and adjust 'size' (what each is drawn at, stretched: the placeholders are twice it) and the placement. Keep straight alpha and no exact magenta #FF00FF (the HUD keys it out). Units are logical pixels: the logical screen is always 768 tall, 1024 wide in the menus and in 4:3 levels, wider in widescreen levels, so sizes here are already relative to the screen's height. 'anchor' is the corner of the safe area a control hangs from and 'offset' the distance from that corner to its nearest edges, inward. 'hitPadding' is how far past its edge a finger still lands on it; 'shape' (circle or rect) is its touch area. 'scale' multiplies every size, offset and padding. Alphas are 0..1: 'idleAlpha' at rest, 'pressedAlpha' while held.",
+  "_provenance": "Placeholder art drawn by tools/art/make_touch_art.py (shapes only, no fonts). The layout is the port's own: the direction control under the left thumb; the actions under the right as a pad's face buttons, placed as E3 maps them (A jump at the bottom, X sword left, B fire right, Y light top); pause and back in the top-right corner below the run's timer (setupScene.as:337 draws it at (W-50, 0)), clear of the player status frames at the top-left (interface.as). Keys starting with '_' are notes.",
+  "version": 1,
+  "idleAlpha": 0.45,
+  "pressedAlpha": 0.9,
+  "scale": 1.0,
+  "controls": {
+    "dpad": {
+      "_note": "Left, right and down (K_LEFT, K_RIGHT, K_DOWN); no up, which only jumps. The thumb slides without lifting; 'deadZone' is the fraction of the radius at the centre that means nothing. The arrows are drawn over the disc in the same box, each brightened while its direction is held; the knob follows the thumb.",
+      "image": "images/touch/dpad.png",
+      "anchor": "bottomLeft",
+      "offset": [40, 40],
+      "size": [260, 260],
+      "shape": "circle",
+      "hitPadding": 60,
+      "deadZone": 0.25,
+      "arrows": {
+        "left": "images/touch/dpad_left.png",
+        "right": "images/touch/dpad_right.png",
+        "down": "images/touch/dpad_down.png"
+      },
+      "knob": {
+        "image": "images/touch/dpad_knob.png",
+        "size": [104, 104]
+      }
+    },
+    "jump": {
+      "_note": "K_CTRL (getJumpButtonStatus, playerInput.as:176)",
+      "image": "images/touch/jump.png",
+      "anchor": "bottomRight",
+      "offset": [142, 24],
+      "size": [120, 120],
+      "shape": "circle",
+      "hitPadding": 16
+    },
+    "sword": {
+      "_note": "K_S (getAttack01ButtonStatus, playerInput.as:201)",
+      "image": "images/touch/sword.png",
+      "anchor": "bottomRight",
+      "offset": [260, 142],
+      "size": [120, 120],
+      "shape": "circle",
+      "hitPadding": 16
+    },
+    "fire": {
+      "_note": "K_D (getAttack02ButtonStatus, playerInput.as:221)",
+      "image": "images/touch/fire.png",
+      "anchor": "bottomRight",
+      "offset": [24, 142],
+      "size": [120, 120],
+      "shape": "circle",
+      "hitPadding": 16
+    },
+    "light": {
+      "_note": "K_SPACE (getAttack03ButtonStatus, playerInput.as:241)",
+      "image": "images/touch/light.png",
+      "anchor": "bottomRight",
+      "offset": [142, 260],
+      "size": [120, 120],
+      "shape": "circle",
+      "hitPadding": 16
+    },
+    "pause": {
+      "_note": "K_ESC in a level or an arena: E13's pause",
+      "image": "images/touch/pause.png",
+      "anchor": "topRight",
+      "offset": [20, 44],
+      "size": [84, 84],
+      "shape": "circle",
+      "hitPadding": 12
+    },
+    "back": {
+      "_note": "K_ESC in the arena select, the options, game over and the end screens: back to the menu (waitForInputToMenu, escToGoToMenu). Hidden in the main menu and in the pause.",
+      "image": "images/touch/back.png",
+      "anchor": "topRight",
+      "offset": [20, 44],
+      "size": [84, 84],
+      "shape": "circle",
+      "hitPadding": 12
+    }
+  }
+}

@@ -647,7 +647,7 @@ void RealGame() {
     Script::RegisterAll(machine);
     machine.Boot(Script::ScriptMain);
 
-    Run run{machine};
+    Run run{machine, {}};
     run.Step();
     const Eth::RenderSnapshot& snap = machine.Snapshot();
     CHECK(snap.sceneFile == "scenes/menu.esc");

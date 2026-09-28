@@ -5,8 +5,12 @@
 #include <cstdint>
 #include <filesystem>
 #include <system_error>
+#include <utility>
 
+#include "core/AudioClip.hpp"
 #include "core/AudioEngine.hpp"
+#include "core/Log.hpp"
+#include "eth/SoundDecode.hpp"
 
 namespace Penumbra::Render {
 
@@ -74,13 +78,34 @@ bool AudioOutEngine::Load(const Eth::string& absolutePath, bool music) {
     // Recorded even when the decode fails: UnloadClip also clears the engine's
     // cached failure, so the next scene load tries again.
     m_loaded.insert(absolutePath);
-    return m_engine->LoadClip(absolutePath) != nullptr;
+    return ensureClip(absolutePath);
+}
+
+bool AudioOutEngine::ensureClip(const std::string& absolutePath) {
+    if (m_engine->HasClip(absolutePath)) return true;
+    if (Eth::EngineDecodes(absolutePath)) {
+        if (m_engine->LoadClip(absolutePath) != nullptr) return true;
+        if (!Eth::IsMp3(absolutePath)) return false;   // the engine's verdict, logged by it
+    }
+    // An MP3 the engine cannot decode (off Windows) or would not (a Windows
+    // without Media Foundation): decoded here and handed over under the same
+    // name, which also replaces a failure the engine cached for it.
+    Supersonic::AudioClip clip;
+    std::string error;
+    if (!Eth::DecodeMp3(absolutePath, clip, error)) {
+        SUPERSONIC_LOG_ERROR("Penumbra") << error << std::endl;
+        return false;
+    }
+    return m_engine->AddClip(absolutePath, std::move(clip)) != nullptr;
 }
 
 Eth::VoiceId AudioOutEngine::Play(const Eth::string& absolutePath, bool loop, float volume, float pan) {
     if (!Available()) return 0;
-    // Play loads on demand; remember the path so UnloadAll releases it.
+    // Play loads on demand; remember the path so UnloadAll releases it. Loaded
+    // here first, because the engine's own on-demand load cannot decode what
+    // ensureClip decodes for it.
     m_loaded.insert(absolutePath);
+    ensureClip(absolutePath);
     const EngineVoice voice = m_engine->Play(absolutePath, loop, Volume(volume), kPitch);
     if (voice == Supersonic::AudioEngine::kInvalidVoice) return 0;
     m_engine->SetVoiceParameters(voice, Volume(volume), kPitch, Pan(pan));

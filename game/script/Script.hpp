@@ -233,8 +233,8 @@ private:
     void doEarthquake();                              // cameraManager.as:82
     void roundUpCameraPos();                          // cameraManager.as:143
 
-    uint m_accelerationTime = 20000;                  // cameraManager.as:57 (never read)
-    uint m_inBoundsLastTime = 0;                      // cameraManager.as:56 (never read)
+    [[maybe_unused]] uint m_accelerationTime = 20000; // cameraManager.as:57 (never read)
+    [[maybe_unused]] uint m_inBoundsLastTime = 0;     // cameraManager.as:56 (never read)
     vector2 m_mainCharPos0{0.0f, 0.0f};               // cameraManager.as:47
     vector2 m_mainCharPos1{0.0f, 0.0f};               // cameraManager.as:48
     vector2 m_screenLimit{0.4f, 0.3f};                // cameraManager.as:49

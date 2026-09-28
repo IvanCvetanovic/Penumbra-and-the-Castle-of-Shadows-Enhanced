@@ -33,7 +33,9 @@
 // suite links; the build's data path (a PenumbraGame definition) is therefore
 // a parameter, never read here.
 
+#include <cstddef>
 #include <filesystem>
+#include <string>
 
 namespace Penumbra::Eth {
 
@@ -76,5 +78,35 @@ FoundRoot FindDataRoot(const std::filesystem::path& flag, const std::filesystem:
 // "the command line", "beside the executable", "the build's path", "not
 // found": for the startup log.
 const char* DescribeRootSource(RootSource source);
+
+// --- A file named as the original named it ---------------------------------------------
+//
+// The original's scripts, scenes and entity files were only ever read on
+// Windows, whose filesystem ignores case and takes either slash. On a
+// case-sensitive one (Linux, Android, iOS, a case-sensitive APFS volume) a
+// name spelled differently from the file on disk, or written with a
+// backslash - an ordinary character in a POSIX name - would not be found.
+// Every loader therefore opens root + "/" + relative through this ONE
+// function, which answers:
+//
+//   1. root + "/" + relative exactly as the loaders always joined it, when
+//      that exists: every lookup on Windows (so there the answer is the old
+//      path, unchanged) and every correctly spelled one elsewhere;
+//   2. otherwise the file the case-folded index of `root` names: every file
+//      and folder under it, keyed by its path relative to `root` with '\'
+//      as '/' and A-Z as a-z, built on the first miss under that root and
+//      kept for the process. The roots are read-only (extracted/app is never
+//      written; game/data is the port's own), so an index cannot go stale -
+//      and a file spelled correctly is found by step 1 whatever the index
+//      holds;
+//   3. neither: the joined path of step 1, so the caller's "cannot open"
+//      names what was asked for.
+//
+// Thread-safe. A path that leaves `root` ("../x") is never looked up.
+std::string ResolveUnder(const std::string& root, const std::string& relative);
+
+// How many entries the index of `root` holds (building it if need be), for a
+// suite.
+std::size_t AssetIndexSize(const std::string& root);
 
 } // namespace Penumbra::Eth

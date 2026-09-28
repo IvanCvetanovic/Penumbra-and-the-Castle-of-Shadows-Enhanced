@@ -47,6 +47,10 @@ in this repository, with the engine improved where the game needs it.
 | E13 | A pause: in a level or an arena, Esc or player 1's Back freezes the game (the Machine does not tick: GetTime, fades, cooldowns and the run's clock stop, so best times exclude paused time) under 'Pausado'/'Paused' with Continuar/Resume and Menu principal/Main menu (arrows, stick/D-pad, Enter/A/Start, Esc/B/Back, mouse); Main menu feeds the original's own K_ESC for one tick; the music is ducked to 40%; it opens by itself when the window loses focus in play (settings.pauseOnFocusLoss, on; off under --fixed-step); not on the end screens, where Esc/Back still go to the menu | none: Esc in a level returned straight to the main menu and the run was lost (doLoop's escToGoToMenu) |
 | E14 | Gamepad menus: in the menu, the arena select, the options screen and game over, a pad's A also confirms (JK_10) and B also cancels (JK_09); a button already held when a menu opens counts from its next press | only Start confirmed and only Back cancelled (getConfirmButtonStatus/getCancelButtonStatus, playerInput.as:267-305) |
 | E15 | The five ambient horror.mp3 markers the level designer named "play_sound.ent" (level2 469, 493, 548; level3 219, 427) play once on screen like the correctly named ones (Script.hpp kPlaySoundEntFix) | setupScene.as:175 collected only "play_sound" by exact name: they never played |
+| E16 | On-screen touch controls (render/TouchControls, game/data/touch_controls.json): a direction disc (left/right/down, the thumb slides) and jump/sword/fire/light as a pad's face buttons press player 1's own keys (K_LEFT/K_RIGHT/K_DOWN, K_CTRL, K_S, K_D, K_SPACE); a corner button sends K_ESC (E13's pause in play, back elsewhere); in the menus, the options, game over and the pause the buttons hide and a tap is a click there; placeholder art (tools/art/make_touch_art.py), the look and layout data-only; settings.touchControls auto/on/off (auto = on under PENUMBRA_MOBILE), --touch on the desktop (the held mouse is the finger) | keyboard and joysticks only |
+| E17 | Stand-in fonts (game/data/fonts: Liberation Sans Bold 2.1.5, SIL OFL; DejaVu Sans Bold 2.37, Bitstream Vera licence): off Windows, and on a Windows machine missing a face, FontAtlas draws with them at the metrics of the Windows face they stand for (Arial Narrow = Liberation Sans Bold at 82% width, within 1/2048 em of Arial Narrow Bold on every cp1252 character the game draws). On Windows the system faces still come first | the Windows system faces (D3DXCreateFontA), nothing else |
+| E18 | MP3 without Media Foundation (eth/SoundDecode, dr_mp3 vendored at a pinned commit): where the engine cannot decode an MP3 (every platform but Windows) the port decodes it itself; on Windows the engine's Media Foundation path still decodes, dr_mp3 only if it refuses a file | Audiere on Windows |
+| E19 | The first language off Windows: Portuguese when LC_ALL, LC_MESSAGES or LANG starts with pt (Settings::SetSystemLocale is the hook Android and iOS feed the device locale into) | Portuguese only |
 
 ## Steps
 
@@ -291,7 +295,75 @@ additive, the desktop path unchanged.
 Gates: build zero warnings; test_pn_all once - 16 suites, 3731 checks, 0 failures (scenario 14 clicks
 the new row both ways; render_hud checks its English).
 
-### Open
+### Step 12 - touch controls, E16 (2026-09-28)
+- **What player 1 has** (playerInput.as, combo.as, main.as): walk left/right (held: getPlayerXYAxis),
+  down (held at the next_level door, main.as:208; first in the spell combo), jump (K_UP or K_CTRL,
+  KS_HIT; an air jump costs 4 MP), sword K_S, fire K_D, light K_SPACE (each on KS_HIT, none repeats
+  while held), the combos Left-Left-Sword and Down-Left/Right-Fire (one command a frame, 210 ms
+  apart), cancel K_ESC. Up only jumps and feeds an unused CMD_UP, so the direction control has none.
+  Menus are the cursor plus getConfirmButtonStatus (Enter, either mouse button, JK_10); the arena
+  select and game over leave only on cancel, which the corner button gives them.
+- **render/TouchControls** is pure, like PauseMenu: the layer hands it each tick's contacts (the
+  engine's, through InputMapper::WindowToLogical) before the pause reads the frame, and its HudCmds
+  go into the same extras as the pause's, under them. A contact belongs to what it first landed on
+  until it lifts; one whose control is hidden under it is dead. A tap between two ticks is latched
+  for the next, as InputMapper latches keys. While a finger is down the left mouse button is the
+  touch controls' alone: the engine's Android backend makes a gesture's first finger the mouse too
+  (as the desktop's held mouse is contact 0), and that finger on a button must not click under it.
+- **Not done here (engine, platform):** safe-area insets (TouchControls::WindowInsetsToLogical is
+  ready for them), telling a real touch from the synthesised mouse contact, the Android back key.
+
+### Step 13 - Linux (WSL Ubuntu 24.04), and what it takes off Windows (2026-09-28)
+- **Builds with GCC 13.3 and Clang 18.1.3**, the game at -Wall -Wextra -Wpedantic and the suites at
+  -Wall -Wextra with zero warnings in the port's code (the engine's own third-party warnings remain).
+  tools/build_linux.sh configures on the Linux filesystem (~/pn-build-linux), never under /mnt/c or
+  build/, and runs test_pn_all once with --test.
+- **One path resolver** (eth/Paths ResolveUnder): the path as the loaders joined it when it exists
+  (always, on Windows), else a case-folded index of the root with backslashes read as '/'. Scenes,
+  entities, image sizes, GetStringFromFile, the enml files, samples, textures, strings.json, the
+  English images and the fonts go through it. The original's 446 files have no case or separator
+  mismatch, so it is a guard for case-sensitive storage (Linux, Android), not a fix.
+- **E17-E19** (above): stand-in fonts, dr_mp3, the POSIX locale. Liberation Sans Narrow was not used:
+  it is GPLv2 with exceptions, and Liberation 2.x dropped it.
+- **tests/all/RunAll.cpp** starts each suite with posix_spawn off Windows (same --suite/--list
+  protocol, a timeout, a crash reported by its signal); iOS cannot spawn and reports it.
+Gates (Linux): test_pn_all, 17 suites (with E16's), 4917 checks, 0 failures, on both compilers.
+Headless captures under xvfb + lavapipe with validation on and no validation errors; level 1 at
+frame 300 against the Windows capture of 27 Sep: 99.3% of pixels within 8/255 (text edges, flame
+particles, one lit area). Silent without a sound device; ALSA's null device plays the MP3s.
+
+### Step 14 - Android (2026-09-28)
+- **The engine had no Android** (its README: no android_main, no ANativeWindow surface, no touch
+  source, no audio). Added, all behind `SUPERSONIC_WINDOW_GLFW` (platform/WindowBackend.hpp: 1 on
+  the desktop, 0 on Android) or `if (ANDROID)` in CMake, the desktop code unchanged:
+  platform/android (android_main over the NDK's native_app_glue, the looper and lifecycle, logcat,
+  touch as up to 8 contacts with the first finger also the mouse, keys with Back as Escape,
+  gamepads, a latch so a press shorter than a frame is still seen), a platform-neutral
+  platform/Gamepads, the surface from ANativeWindow and its release/restore when Android takes the
+  window away, an identity-transform swapchain in the window's orientation, AAudio over the same
+  AudioMixer as ALSA, user data in the app's private storage, VMA's Vulkan functions fetched at run
+  time (API 26's libvulkan.so lacks the 1.1 ones). The dead AndroidNativeApp stubs are gone.
+- **The game** is a SHARED library on Android (`PenumbraMain` is main.cpp's body; the desktop main
+  calls it), with PENUMBRA_MOBILE public on PenumbraGame (E16's controls on, keyboard player 2 off by
+  default); InputMapper reads pads from Supersonic::Gamepads on Android; AndroidMain.cpp unpacks
+  the files, feeds the device's language to E19's hook, and reads one-shot flags from
+  penumbra_args.txt. game/android/AndroidManifest.xml: NativeActivity, no code, landscape,
+  minSdk 26, targetSdk 35. tools/build_android.sh + tools/android_package.py: NDK CMake, aapt2,
+  zipalign, apksigner - no Gradle.
+- **Measured** on an emulator of our own (Penumbra_API33_x86_64, port 5560, SwiftShader Vulkan 1.2,
+  headless; never the Magic Portals session's AVD): the menu, a tap as a click, New Game to level 1,
+  the touch controls moving the wizard, Back opening the pause, Home and back (surface rebuilt,
+  pause open, 5 of 5), the pause's Main menu, Quit, a pad's Select and A. The emulator draws about
+  5 frames a second (SwiftShader), so its game clock runs slow. AAudio opens, pauses and closes
+  with the app (dumpsys), not heard (-no-audio). arm64-v8a is built, not run.
+- **Not done:** immersive mode (the navigation bar needs a call on the UI thread: a Java helper or
+  GameActivity), the soft keyboard for a high-score name, safe-area insets, two-finger touch on a
+  device, a real phone's GPU.
+Gates: engine suites, 57 of 57, on the desktop path under Linux (WSL; the engine's CI is dispatch
+only); the editor compiles on Windows with zero warnings (not launched); Penumbra on Windows:
+build zero warnings, test_pn_all once - 17 suites, 5006 checks, 0 failures; Android: both ABIs
+build, the APK packages.
+
 - **Not modelled in the light**: the light pass's alpha test (a texel at alpha <= 1/255 took no
   light, highlight included); the highlights 0.7.12 baked into static sprites' lightmaps with the
   first frame's eye (every light is live here, E9, so they follow the camera); per-pixel depth of

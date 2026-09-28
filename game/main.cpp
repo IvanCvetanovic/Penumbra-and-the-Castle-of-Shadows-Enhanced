@@ -11,6 +11,8 @@
 //   --smooth on|off        this run's motion between ticks (E8), over the settings;
 //                          off under --fixed-step unless given as on
 //   --cursor <x>,<y>       pin the scripts' cursor at a logical-screen point (menu captures)
+//   --touch [on|off]       this run's on-screen touch controls (E16); on by itself. On the
+//                          desktop the held left mouse button is the finger
 //   --original <dir>       the original game's files (the folder holding data.enml)
 //   --data <dir>           the port's own data (the folder holding strings.json)
 // --lang and --widescreen are never saved; --window implies a windowed run
@@ -55,7 +57,9 @@ constexpr const char* kGameUsage =
     "  --original <dir>       the original game's files: the folder holding data.enml\n"
     "  --data <dir>           the port's data: the folder holding strings.json\n"
     "  --hold <KEY>@<a>-<b>   hold a key from tick a to tick b (RIGHT, UP, CTRL, S, D, SPACE, ENTER...)\n"
-    "  --cursor <x>,<y>       pin the menu cursor at a point of the 1024x768 screen\n";
+    "  --cursor <x>,<y>       pin the menu cursor at a point of the 1024x768 screen\n"
+    "  --touch [on|off]       this run's on-screen touch controls (not saved; on by itself);\n"
+    "                         on a desktop the held left mouse button is the finger\n";
 
 // The Ethanon key names --hold accepts.
 const std::map<std::string, Penumbra::Eth::KEY>& KeyNames() {
@@ -120,7 +124,12 @@ bool ReportRoot(const char* what, const char* flag, const char* folder, const ch
 
 } // namespace
 
-int main(int argc, char** argv) {
+// The whole of the game's start, callable from either entry: main() below on
+// desktop, SupersonicMain on Android (android/AndroidMain.cpp), which adds the
+// paths to the unpacked files and any development flags to argv first.
+int PenumbraMain(int argc, char** argv);
+
+int PenumbraMain(int argc, char** argv) {
     Penumbra::PenumbraLayer::Options layerOptions;
     std::string languageOverride;
     std::string widescreenOverride;
@@ -170,6 +179,13 @@ int main(int argc, char** argv) {
             widescreenOverride = argv[++i];
         } else if (arg == "--smooth" && hasValue) {
             smoothOverride = argv[++i];
+        } else if (arg == "--touch") {
+            // E16. The value is optional: only "on" or "off" is taken as one,
+            // so `--touch --start level1` still starts level 1.
+            layerOptions.touchOverride = true;
+            if (hasValue && (std::string(argv[i + 1]) == "on" || std::string(argv[i + 1]) == "off")) {
+                layerOptions.touchOverride = std::string(argv[++i]) == "on";
+            }
         } else if (arg == "--cursor" && hasValue) {
             const std::string value = argv[++i];
             const std::size_t comma = value.find(',');
@@ -318,3 +334,7 @@ int main(int argc, char** argv) {
     }
     return EXIT_SUCCESS;
 }
+
+#if !defined(__ANDROID__)
+int main(int argc, char** argv) { return PenumbraMain(argc, argv); }
+#endif

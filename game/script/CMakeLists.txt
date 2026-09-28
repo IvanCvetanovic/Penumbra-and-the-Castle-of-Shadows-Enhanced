@@ -10,5 +10,6 @@ target_include_directories(PenumbraScript PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/..)
 if (MSVC)
     target_compile_options(PenumbraScript PRIVATE /W4)
 else()
-    target_compile_options(PenumbraScript PRIVATE -Wall -Wextra)
+    # The engine's own level for SupersonicCore (engine/CMakeLists.txt).
+    target_compile_options(PenumbraScript PRIVATE -Wall -Wextra -Wpedantic)
 endif()

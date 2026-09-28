@@ -8,6 +8,7 @@
 
 #include "core/Json.hpp"
 #include "core/Log.hpp"
+#include "eth/Paths.hpp"
 #include "eth/Text.hpp"
 
 // A compile definition on PenumbraGame (game/CMakeLists.txt); the fallback only
@@ -91,7 +92,11 @@ std::string Localization::Normalise(const std::string& cp1252) {
 
 bool Localization::Load(const std::string& path) {
     std::string text;
-    if (!ReadFile(path, text)) {
+    const std::filesystem::path named(path);
+    if (!ReadFile(named.has_parent_path() ? Eth::ResolveUnder(named.parent_path().generic_string(),
+                                                              named.filename().generic_string())
+                                          : path,
+                  text)) {
         SUPERSONIC_LOG_WARN("Penumbra") << "localization: cannot read " << path << "; text stays Portuguese";
         m_loaded = false;
         return false;
@@ -374,7 +379,8 @@ std::string Localization::ImageVariant(const std::string& relativePath, const La
 
     std::string resolved;
     if (const auto it = m_images.find(key); it != m_images.end() && !it->second.empty()) {
-        const std::filesystem::path candidate = std::filesystem::path(m_dataDir) / it->second;
+        // As strings.json spells it, found as the disk spells it (eth/Paths.hpp).
+        const std::filesystem::path candidate(Eth::ResolveUnder(m_dataDir, it->second));
         std::error_code ec;
         if (std::filesystem::is_regular_file(candidate, ec)) resolved = candidate.generic_string();
     }

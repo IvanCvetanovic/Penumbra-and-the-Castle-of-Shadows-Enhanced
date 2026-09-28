@@ -29,7 +29,21 @@ set(PENUMBRA_DATA_DIR "${CMAKE_CURRENT_SOURCE_DIR}/data"
     CACHE PATH "The port's own JSON data (game/data)")
 target_compile_definitions(PenumbraGame PUBLIC PENUMBRA_DATA_DIR="${PENUMBRA_DATA_DIR}")
 
-add_executable(Penumbra main.cpp)
+# A phone: a touchscreen and, usually, no keyboard, so touchControls "auto"
+# turns the on-screen controls on (render/TouchControls.hpp).
+if (ANDROID)
+    target_compile_definitions(PenumbraGame PUBLIC PENUMBRA_MOBILE=1)
+endif()
+
+if (ANDROID)
+    # A NativeActivity loads the game as libPenumbra.so (android/AndroidManifest.xml
+    # names it) and the engine's android_main, linked in with SupersonicCore,
+    # enters it through SupersonicMain (android/AndroidMain.cpp), which unpacks
+    # the files and calls main.cpp's PenumbraMain as main() does on desktop.
+    add_library(Penumbra SHARED main.cpp android/AndroidMain.cpp)
+else()
+    add_executable(Penumbra main.cpp)
+endif()
 # The icon (the original's, read in place), version information and the
 # manifest (per-monitor DPI aware); the top-level CMakeLists.txt says why.
 penumbra_windows_resources(Penumbra "Penumbra and the Castle of Shadows - Enhanced")
@@ -47,6 +61,13 @@ foreach(target PenumbraGame Penumbra)
     if (MSVC)
         target_compile_options(${target} PRIVATE /W4)
     else()
-        target_compile_options(${target} PRIVATE -Wall -Wextra)
+        # The engine's own level for SupersonicCore (engine/CMakeLists.txt).
+        target_compile_options(${target} PRIVATE -Wall -Wextra -Wpedantic)
+        # Clang's -Wpedantic flags every _Nullable/_Nonnull in VulkanMemoryAllocator's
+        # header (about 300 per file), which render/ reaches through the engine's
+        # TextureRegistry.hpp. The library's, not ours; GCC does not warn.
+        if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+            target_compile_options(${target} PRIVATE -Wno-nullability-extension)
+        endif()
     endif()
 endforeach()

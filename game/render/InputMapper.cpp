@@ -5,6 +5,10 @@
 
 #include <GLFW/glfw3.h>
 
+#if defined(__ANDROID__)
+#include "platform/Gamepads.hpp"
+#endif
+
 namespace Penumbra::Render {
 
 namespace {
@@ -313,6 +317,20 @@ RawDevices InputMapper::PollDevices() {
 
     // Every joystick, not only the first gamepad the engine polls: two players
     // need two pads, and PvP needs both at once (docs/spec/90-synthesis.md).
+#if defined(__ANDROID__)
+    // No GLFW on Android: the engine's pads (platform/Gamepads.hpp), already in
+    // GLFW's standard layout, in the order they were first heard from. Android
+    // maps every pad it lists, so there is no unmapped (raw) case.
+    for (int index = 0; index < Supersonic::Gamepads::Count(); ++index) {
+        Supersonic::GamepadState state;
+        if (!Supersonic::Gamepads::Get(index, state)) continue;
+        RawPad pad;
+        pad.gamepad = true;
+        for (int b = 0; b < Pad::ButtonCount; ++b) pad.buttons[static_cast<std::size_t>(b)] = state.buttons[b];
+        for (int a = 0; a < Pad::AxisCount; ++a) pad.axes[static_cast<std::size_t>(a)] = state.axes[a];
+        raw.pads.push_back(pad);
+    }
+#else
     for (int jid = GLFW_JOYSTICK_1; jid <= GLFW_JOYSTICK_LAST; ++jid) {
         if (glfwJoystickPresent(jid) != GLFW_TRUE) continue;
         RawPad pad;
@@ -341,6 +359,7 @@ RawDevices InputMapper::PollDevices() {
         }
         raw.pads.push_back(pad);
     }
+#endif
     return raw;
 }
 

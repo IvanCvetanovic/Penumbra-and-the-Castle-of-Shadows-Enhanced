@@ -23,3 +23,9 @@
 # scripts and scenes are LF in the repository and CRLF in a Windows checkout.
 # The port's readers accept both; they are Latin-1, not UTF-8.
 *       text=auto
+
+# After the catch-all, so these win over its text=auto. A shell script must be
+# LF on every checkout (bash in WSL reads a CR as part of the command), and a
+# font is bytes, never text.
+*.sh    text eol=lf
+*.ttf   binary

@@ -1,6 +1,9 @@
 # The CMake build tree (tools\build.bat configures build/ at the root).
 build/
 
+# The Android build trees (tools/build_android.sh configures one per ABI).
+build-android-*/
+
 # Decoding reference, kept on this machine only: the Ethanon 0.7.12 source the
 # original shipped on (SourceForge SVN tag v0-7-12), GS2D r485 as a stand-in
 # for the closed GameSpaceLib, disassembly listings and the analysis scripts

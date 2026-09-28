@@ -332,12 +332,64 @@ bool EndsWithNoCase(std::string text, std::string tail) {
     return text.size() >= tail.size() && text.compare(text.size() - tail.size(), tail.size(), tail) == 0;
 }
 
+// The bundled stand-ins (game/data/fonts, FontAtlas.hpp): there for every face
+// on every machine, and - where the Windows face is installed to measure them
+// against - laid out as that face lays out.
+void TestFontStandIns() {
+    Render::FontAtlas standIns;
+    standIns.SetSystemFontsEnabled(false);
+    const struct {
+        const char* face;
+        const char* file;
+        const char* windowsFile;
+        float tolerancePx;   // how far a line may drift from the Windows face's
+    } kFaces[] = {
+        {"Arial Narrow", "LiberationSans-Bold.ttf", "ARIALNB.TTF", 2.0f},   // advances x 0.82: 1/2048 em apart
+        {"Arial", "LiberationSans-Bold.ttf", "arialbd.ttf", 1.0f},          // metric-compatible
+        {"Arial Black", "DejaVuSans-Bold.ttf", "ariblk.ttf", -1.0f},        // close, not compatible: not measured
+        {"Verdana", "DejaVuSans-Bold.ttf", "verdanab.ttf", -1.0f},
+    };
+    Render::FontAtlas system;   // the system's faces first, where there are any
+    const char* const kLines[] = {"hp: 100", "Carregando...", "Op\xE7\xF5" "es de v\xED" "deo", "12:05",
+                                  "Pressione Alt+Enter para trocar entre fullscreen e modo janela"};
+    int measured = 0;
+    for (const auto& f : kFaces) {
+        CHECK_MSG(EndsWithNoCase(standIns.FaceFile(f.face), f.file), f.face);
+        CHECK_MSG(standIns.FaceIsStandIn(f.face), f.face);
+        CHECK_MSG(!system.FaceFile(f.face).empty(), f.face);   // a stand-in at worst
+        if (f.tolerancePx < 0.0f || !EndsWithNoCase(system.FaceFile(f.face), f.windowsFile)) continue;
+        ++measured;
+        CHECK(!system.FaceIsStandIn(f.face));
+        for (const float size : {16.0f, 30.0f, 40.0f}) {
+            for (const char* line : kLines) {
+                const Render::TextLayout ours = standIns.Layout(line, f.face, size, glm::vec2(0.0f));
+                const Render::TextLayout theirs = system.Layout(line, f.face, size, glm::vec2(0.0f));
+                // The same cell, so the same line height and baseline, exactly.
+                CHECK_NEAR(ours.lineHeight, theirs.lineHeight);
+                CHECK_NEAR(ours.ascent, theirs.ascent);
+                CHECK_MSG(std::fabs(ours.width - theirs.width) <= f.tolerancePx,
+                          std::string(f.face) + " " + std::to_string(size) + " \"" + line + "\": " +
+                              std::to_string(ours.width) + " vs " + std::to_string(theirs.width));
+            }
+        }
+    }
+    if (measured == 0) {
+        std::printf("  (the stand-ins are not measured: no Windows faces in \"%s\")\n",
+                    Render::FontAtlas::FontsDirectory().c_str());
+    }
+    // Two stand-ins from one file are two fonts: the narrow one is narrower.
+    const float narrowWidth = standIns.Layout("Carregando...", "Arial Narrow", 30.0f, glm::vec2(0.0f)).width;
+    const float arialWidth = standIns.Layout("Carregando...", "Arial", 30.0f, glm::vec2(0.0f)).width;
+    CHECK(narrowWidth > 0.7f * arialWidth && narrowWidth < 0.9f * arialWidth);
+}
+
 void TestFontAtlas() {
     Render::FontAtlas fonts;
+    // Arial Narrow Bold itself on Windows; the stand-in anywhere else.
     const std::string narrow = fonts.FaceFile("Arial Narrow");
-    if (!EndsWithNoCase(narrow, "ARIALNB.TTF")) {
-        std::printf("  (FontAtlas layout skipped: no Arial Narrow Bold in %s)\n",
-                    Render::FontAtlas::FontsDirectory().c_str());
+    if (narrow.empty()) {
+        std::printf("  (FontAtlas layout skipped: no Arial Narrow Bold in %s and no stand-in in %s)\n",
+                    Render::FontAtlas::FontsDirectory().c_str(), fonts.BundledFontsDirectory().c_str());
         return;
     }
     fonts.SetRasterScale(1.0f);
@@ -407,7 +459,7 @@ void TestFontAtlas() {
     CHECK_EQ(clock.glyphs.size(), std::size_t{5});
     CHECK(clock.lineHeight >= 250.0f && clock.lineHeight <= 262.0f);
 
-    // Every face the scripts name resolves to something on a stock Windows.
+    // Every face the scripts name resolves to something, on any machine.
     for (const char* face : {"Arial Black", "Arial", "Verdana"}) {
         CHECK_MSG(!fonts.FaceFile(face).empty(), face);
     }
@@ -478,7 +530,7 @@ void TestHudRenderer() {
 
     // Text: one quad per visible glyph, translated first ("Checkpoint..." is
     // the same in English: thirteen glyphs with pixels), then the two bars.
-    if (EndsWithNoCase(fonts.FaceFile("Arial"), "arialbd.ttf")) {
+    if (!fonts.FaceFile("Arial").empty()) {
         snapshot.hud.clear();
         Eth::HudCmd text;
         text.kind = Eth::HudCmd::Kind::Text;
@@ -503,6 +555,7 @@ int main() {
         return 77;
     }
     TestLocalization();
+    TestFontStandIns();
     TestFontAtlas();
     TestHudRenderer();
     return test::summary("test_pn_render_hud", 150);

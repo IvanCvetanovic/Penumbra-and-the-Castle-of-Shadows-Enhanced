@@ -17,6 +17,7 @@
 
 #include "core/Log.hpp"
 #include "eth/ImageInfo.hpp"
+#include "eth/Paths.hpp"
 
 namespace Penumbra::Eth {
 
@@ -836,7 +837,8 @@ string Machine::ReadPath(const string& relative) const {
         std::error_code ec;
         if (std::filesystem::is_regular_file(std::filesystem::path(user), ec)) return user;
     }
-    return m_config.gameRoot + "/" + rel;
+    // As the original spelled it, found as the disk spells it (eth/Paths.hpp).
+    return ResolveUnder(m_config.gameRoot, rel);
 }
 
 string Machine::WritePath(const string& relative) const {

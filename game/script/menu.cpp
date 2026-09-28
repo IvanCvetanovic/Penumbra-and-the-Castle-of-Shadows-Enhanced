@@ -126,7 +126,7 @@ void ETHCallback_cursor(ETHEntity thisEntity)
 {
     detectJoysticks();
 
-    const vector2 screenSize = GetScreenSize();
+    [[maybe_unused]] const vector2 screenSize = GetScreenSize();    // menu.as:236, never read
     InputState& input = GetInputHandle();                             // menu.as:237
     // Read BEFORE the move below, so the entity lags the OS cursor by a frame
     // (menu.as:238-240).

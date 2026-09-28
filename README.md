@@ -156,6 +156,27 @@ button means onto the button numbers the original read:
 
 The keyboard bindings of both players are in `settings.json` and can be changed there.
 
+### Touch controls (enhancement E16)
+
+On a phone or a tablet the game draws its own buttons (`touchControls` in `settings.json`: `auto`, on
+in the Android and iOS builds; `on`; `off`). On a desktop, `--touch` shows them and the mouse, held
+down, is the finger.
+
+| Action | Touch | The key it presses |
+|---|---|---|
+| Walk / down | The disc at the bottom left: slide the thumb | Left, Right, Down |
+| Jump | Bottom button of the four at the bottom right | Ctrl |
+| Sword | Left button | S |
+| Fireball | Right button | D |
+| Light spell | Top button | Space |
+| Pause (in a level) / back (arena select, options, game over) | The button at the top right | Esc |
+
+- Several fingers work at once: hold the disc and tap the buttons.
+- In the menus, the options, game over and the pause, the buttons are hidden and a tap clicks
+  where it lands.
+- The buttons are placeholders. Their images and layout are in `data/touch_controls.json` and
+  `data/images/touch/`, so new art is a data change.
+
 ## Enhancements
 
 Each enhancement is listed with what the original did. The full record is
@@ -177,6 +198,7 @@ Each enhancement is listed with what the original did. The full record is
 | E12 | One gamepad plays the wizard and drives the menu; a second plays the princess | The first pad was player 2's |
 | E13 | A pause: in a level or an arena, Esc or player 1's Back freezes the game (the clock too, so best times leave it out) under Resume / Main menu, with the music at 40%. It also opens when the window loses focus (`pauseOnFocusLoss`, a row on the options screen). Not on the end screens, where Esc and Back still go to the menu. | No pause: Esc in a level went straight to the main menu and the run was lost |
 | E14 | In the menus, the arena select, the options and game over, a pad's A also confirms and B also goes back | Only Start confirmed and only Back went back |
+| E16 | On-screen touch controls for phones and tablets: a direction disc, jump, sword, fireball, light and pause, pressing player 1's own keys; a tap clicks in the menus. Placeholder art, laid out by `data/touch_controls.json`. `touchControls` in `settings.json`, `--touch` on a desktop. | Keyboard and joysticks only |
 
 ## Settings and saves
 
@@ -185,11 +207,14 @@ into the original's folder.
 
 | File | What it is |
 |---|---|
-| `settings.json` | Language (`"en"`/`"pt"`), window size and fullscreen, widescreen, volumes, pixel shaders, `smoothMotion`, `pauseOnFocusLoss`, and the controls: `joystickLayout`, `keyboardPlayer2`, `firstPadIsPlayer1`, `rawJoysticks`, `stickDeadzone`, and the `player1`/`player2` key lists. A broken or missing field falls back to its default, field by field. |
+| `settings.json` | Language (`"en"`/`"pt"`), window size and fullscreen, widescreen, volumes, pixel shaders, `smoothMotion`, `pauseOnFocusLoss`, `touchControls` (`"auto"`, `"on"`, `"off"`), and the controls: `joystickLayout`, `keyboardPlayer2`, `firstPadIsPlayer1`, `rawJoysticks`, `stickDeadzone`, and the `player1`/`player2` key lists. A broken or missing field falls back to its default, field by field. |
 | `hs.enml` | The best times, written after a new record. Until then the original's `hs.enml` is read. |
 | `scenes\checkpoint.esc` | The level saved at the last checkpoint. |
 
-The first language follows Windows: Portuguese on a Portuguese Windows, English otherwise.
+The first language follows the system: Portuguese on a Portuguese Windows, or where the POSIX
+locale (`LC_ALL`, `LC_MESSAGES`, `LANG`) starts with `pt`. It is English otherwise. On Linux the
+files go to `$XDG_DATA_HOME/Penumbra`, else `~/.local/share/Penumbra`. On macOS they go to
+`~/Library/Application Support/Penumbra`.
 
 ## Command line
 
@@ -205,6 +230,7 @@ The game's own options:
 | `--original <dir>`, `--data <dir>` | Where the original's files and the remake's data are ([above](#where-the-files-are-found)) |
 | `--hold <KEY>@<a>-<b>` | Hold an Ethanon key from tick *a* to tick *b*, for scripted captures. KEY is one of `UP DOWN LEFT RIGHT CTRL ALT SHIFT SPACE ENTER ESC BACKSPACE PAGEUP PAGEDOWN J S D 1 2 3 LMOUSE RMOUSE`. |
 | `--cursor <x>,<y>` | Pin the scripts' cursor at a point of the 1024x768 menu screen, for menu captures |
+| `--touch [on\|off]` | This run's touch controls (E16); on by itself. On a desktop the held left mouse button is the finger. It is not saved. |
 
 The engine's options that matter here:
 
@@ -255,6 +281,51 @@ warnings at `/W4`.
 
 `tools\check.bat <files>` compiles single `.cpp` files with the build's flags without touching
 `build\`.
+
+### Linux
+
+On Ubuntu 24.04, including under WSL, install:
+
+```bash
+sudo apt-get install cmake ninja-build g++ pkg-config libvulkan-dev libx11-dev libxrandr-dev \
+    libxinerama-dev libxcursor-dev libxi-dev libxkbcommon-dev libasound2-dev \
+    xvfb mesa-vulkan-drivers vulkan-tools   # the last three only for a headless run
+bash tools/build_linux.sh --test         # configure ~/pn-build-linux, build, run test_pn_all once
+bash tools/build_linux.sh --clang        # the same with clang, in ~/pn-build-linux-clang
+```
+
+The build directory must be on the Linux filesystem. Under WSL it must not be under `/mnt/c`.
+`tools/build_linux.sh` configures the build as the engine's CI does: Ninja, Release, GLFW without
+Wayland. No `glslc` is needed, because the engine's committed SPIR-V is used. The script also
+copies the shaders beside the executable, so the game anchors its working directory there. The
+game builds without warnings at `-Wall -Wextra -Wpedantic`, the engine's level for its core. The
+suites build without warnings at `-Wall -Wextra`, the engine's level for its own suites.
+
+The Microsoft fonts are not used off Windows. The bundled stand-ins in `game/data/fonts` take
+their place, drawn with the same metrics. The original's MP3s are decoded by dr_mp3, because the
+engine decodes MP3 only through Windows' Media Foundation. With no sound device, as in WSL, the
+game runs silent.
+
+### Android
+
+A debug APK is built on Windows from Git Bash, without Gradle, with the Android SDK in
+`%LOCALAPPDATA%\Android\Sdk` (NDK 28.2.13676358, build-tools 35.0.0, platform 35), a JDK 17 and
+Python 3 with Pillow:
+
+```bash
+bash tools/build_android.sh               # x86_64 (the emulator's): configure, build, package
+bash tools/build_android.sh --abi all     # x86_64 + arm64-v8a (phones) in one APK
+bash tools/build_android.sh --install --serial <device>   # adb install -r
+```
+
+The APK is `out/android/Penumbra-debug.apk` (about 18 MB for both ABIs), debug-signed. It is a
+NativeActivity with no Java: the engine's `android_main` (engine/src/platform/android) runs the
+game, `game/android/AndroidMain.cpp` unpacks the original's files and the port's data from the
+APK into the app's private storage on the first launch (and again only when they change), and
+passes them with `--original`/`--data`. Landscape only; minimum Android 8.0 (API 26, for AAudio);
+Vulkan 1.2 is required. The touch controls (E16) are on by default, keyboard player 2 is off (a
+phone has no keyboard: Versus waits for a second pad), and the Back key is Esc. Development flags
+go in `penumbra_args.txt` in the app's files directory (`tools/build_android.sh --run "<flags>"`).
 
 ## Tests
 
@@ -307,6 +378,7 @@ every suite through its own executable, and a second registration would run each
 | `test_pn_render_input` | Keys, pads and the keyboard second player mapped onto the original's input; A and B in the menus (E14); the settings file |
 | `test_pn_render_interp` | Smooth motion (E8): the blend between two ticks, whole pixels kept whole, never across a scene load, a frame gap or a jump |
 | `test_pn_render_pause` | The pause (E13): when it opens, the frozen ticks, the menu, the one-tick cancel to the main menu, focus loss, the overlay, the input held back after it |
+| `test_pn_render_touch` | The touch controls (E16): the key each control presses, the direction disc, several fingers at once, the pause opened and tapped, a tap in a menu as a click, the layout on 4:3 and widescreen with a safe area, the manifest and its art, the setting |
 
 ## Repository layout
 
@@ -348,6 +420,9 @@ extracted/app/       the original game as installed; read, never written
   Public License, version 3 or (at your option) any later version, as their headers say. The C++
   ports in `game/script/` keep that notice.
 - TinyXML (`game/third_party/tinyxml`), from the Ethanon 0.7.12 tree, is under the zlib licence.
+- dr_mp3 (`game/third_party/dr_mp3`) is public domain or MIT No Attribution. The bundled
+  stand-in fonts (`game/data/fonts`) are Liberation Sans Bold (SIL OFL 1.1) and DejaVu Sans Bold
+  (Bitstream Vera licence). Their licence texts are in that folder.
 - The Supersonic engine is under the MIT licence (`engine/LICENSE`). Its third-party components
   are listed in `engine/THIRD_PARTY_LICENSES.md`.
 - The original's art, music and sound are the work of the people credited above.

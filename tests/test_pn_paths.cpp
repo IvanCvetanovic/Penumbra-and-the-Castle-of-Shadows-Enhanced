@@ -4,6 +4,9 @@
 // temp directory, never of the real layout, except to confirm that the build's
 // own path still holds the original and that package.bat still writes the
 // folder names the resolver looks for.
+//
+// And how a file named as the original named it is found (ResolveUnder): the
+// case and the slashes of a Windows-only game on a filesystem that minds them.
 
 #include <chrono>
 #include <cstddef>
@@ -15,6 +18,8 @@
 #include <system_error>
 
 #include "TestHarness.hpp"
+#include "eth/Audio.hpp"
+#include "eth/Machine.hpp"
 #include "eth/Paths.hpp"
 
 namespace {
@@ -240,6 +245,72 @@ void TestDescriptions() {
     CHECK(flag != beside && beside != build && build != missing && flag != missing);
 }
 
+// Whether this filesystem tells names apart by case (Linux, a case-sensitive
+// APFS volume) - asked of it, not assumed from the platform.
+bool CaseSensitive(const fs::path& directory) {
+    Touch(directory / "Probe.Case");
+    std::error_code ec;
+    const bool sensitive = !fs::exists(directory / "probe.case", ec);
+    fs::remove(directory / "Probe.Case", ec);
+    return sensitive;
+}
+
+bool IsFile(const std::string& path) {
+    std::error_code ec;
+    return fs::is_regular_file(fs::path(path), ec);
+}
+
+void TestAssetResolver(const Layout& l) {
+    using Penumbra::Eth::AssetIndexSize;
+    using Penumbra::Eth::ResolveUnder;
+    const fs::path base = l.root / "assets";
+    Touch(base / "Scenes" / "Level1.esc");
+    Touch(base / "entities" / "STONE03A.JPG");
+    Touch(base / "soundfx" / "Hit01.ogg");
+    Touch(l.root / "Outside.txt");
+    const bool sensitive = CaseSensitive(base);
+    std::printf("  (this filesystem is case-%s)\n", sensitive ? "sensitive" : "insensitive");
+    const std::string root = base.generic_string();
+
+    // Spelled as on disk: exactly the path the loaders always joined.
+    CHECK(ResolveUnder(root, "Scenes/Level1.esc") == root + "/Scenes/Level1.esc");
+    // Another case, a backslash, both: found, and off Windows spelled as the
+    // disk spells it. Where the filesystem ignores case the joined path already
+    // opens, and comes back unchanged.
+    const std::string lower = ResolveUnder(root, "scenes/level1.esc");
+    CHECK(IsFile(lower));
+    CHECK(lower == (sensitive ? root + "/Scenes/Level1.esc" : root + "/scenes/level1.esc"));
+    const std::string slashed = ResolveUnder(root, "entities\\STONE03A.JPG");
+    CHECK(IsFile(slashed));
+    const std::string both = ResolveUnder(root, "SOUNDFX\\hit01.OGG");
+    CHECK(IsFile(both));
+    const std::string dotted = ResolveUnder(root, "./Entities/../ENTITIES/stone03a.jpg");
+    CHECK(IsFile(dotted));
+    if (sensitive) {
+        CHECK(slashed == root + "/entities/STONE03A.JPG");
+        CHECK(both == root + "/soundfx/Hit01.ogg");
+        CHECK(dotted == root + "/entities/STONE03A.JPG");
+    }
+    // Nothing by that name, or not under the root at all: the joined path, so
+    // the caller's "cannot open" names what was asked for.
+    CHECK(ResolveUnder(root, "scenes/missing.esc") == root + "/scenes/missing.esc");
+    CHECK(ResolveUnder(root, "../OUTSIDE.TXT") == root + "/../OUTSIDE.TXT");
+    CHECK(ResolveUnder(root, "") == root + "/");
+    CHECK(ResolveUnder("", "Scenes/Level1.esc") == "/Scenes/Level1.esc");
+    // Three folders, three files: the probe was gone before the index was made.
+    CHECK_EQ(AssetIndexSize(root), std::size_t{6});
+
+    // The loaders go through it: a Machine's reads, a sample bank's loads.
+    Penumbra::Eth::MachineConfig config;
+    config.gameRoot = root;
+    Penumbra::Eth::Machine machine(config);
+    CHECK(IsFile(machine.ReadPath("SCENES\\level1.ESC")));
+    CHECK(IsFile(machine.ReadPath(root + "/scenes/LEVEL1.esc")));
+    Penumbra::Eth::SampleBank samples(root);
+    CHECK(samples.LoadSoundEffect("SoundFX/HIT01.ogg"));
+    CHECK(!samples.LoadSoundEffect("soundfx/none.ogg"));
+}
+
 // The real tree: the build's own original, and tools/package.bat writing the
 // folder names the resolver asks for (the engine checks its packager against
 // LooksLikeAPackagedFolder the same way, test_executable_path).
@@ -252,6 +323,10 @@ void TestRepository() {
     CHECK(HoldsOriginal(built));
     const FoundRoot r = FindOriginalRoot({}, fs::path(), built);
     CHECK(r.source == RootSource::Build);
+    // The original's own files, named as a Windows script might have named them.
+    CHECK(IsFile(Penumbra::Eth::ResolveUnder(PENUMBRA_ORIGINAL_DIR, "SCENES\\Menu.ESC")));
+    CHECK(IsFile(Penumbra::Eth::ResolveUnder(PENUMBRA_ORIGINAL_DIR, "soundfx/MENU.mp3")));
+    CHECK(IsFile(Penumbra::Eth::ResolveUnder(PENUMBRA_ORIGINAL_DIR, "entities/stone03a.jpg")));
 
     const fs::path script = built / ".." / ".." / "tools" / "package.bat";
     if (!fs::exists(script)) {
@@ -282,6 +357,7 @@ int main() {
     TestData(layout);
     TestWorkingDirectory(layout);
     TestDescriptions();
+    TestAssetResolver(layout);
     TestRepository();
     std::error_code ec;
     fs::remove_all(layout.root, ec);

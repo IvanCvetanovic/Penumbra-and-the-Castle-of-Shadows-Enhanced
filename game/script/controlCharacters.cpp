@@ -51,7 +51,7 @@ void doCharacterCollision(ETHEntity thisEntity, const bool useNpcInvisibleWalls)
     bool anyThinnerBoxHit = false;
     // controlCharacters.as:60: read nowhere - even the TESTING overlay's line that
     // named it (:215) is commented out inside that block's /* */.
-    uint collisionCount = 0;
+    [[maybe_unused]] uint collisionCount = 0;
     for (int t = 0; t < size; t++)
     {
         if (!collidableEntities[t]->Collidable())

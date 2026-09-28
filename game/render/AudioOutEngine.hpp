@@ -68,6 +68,11 @@ public:
     std::size_t LoadedCount() const { return m_loaded.size(); }
 
 private:
+    // Makes the engine hold `absolutePath` as a clip: its own LoadClip where it
+    // decodes the file, Eth::LoadSound + AddClip where it does not (an MP3
+    // off Windows, eth/SoundDecode.hpp). False when it will not decode.
+    bool ensureClip(const std::string& absolutePath);
+
     Supersonic::AudioEngine* m_engine = nullptr;
     std::set<std::string> m_loaded;   // every path handed to LoadClip, failures included
     bool m_keepDecoded = false;

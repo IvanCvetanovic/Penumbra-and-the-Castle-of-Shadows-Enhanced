@@ -20,6 +20,28 @@
 // The cell height is scaled against the OS/2 table's usWinAscent+usWinDescent,
 // which is what GDI maps a positive lfHeight onto.
 //
+// PORTABLE: those faces are Microsoft's and exist only on Windows. Everywhere
+// else - and on a Windows without the face, before any other system font -
+// an open-licence STAND-IN bundled in game/data/fonts (README.md there has
+// each file's source, version and licence) is drawn with the metrics of the
+// face it replaces, so every layout the scripts compute still fits:
+//   "Arial Narrow" -> LiberationSans-Bold.ttf, advances x 0.82
+//   "Arial"        -> LiberationSans-Bold.ttf
+//   "Arial Black"  -> DejaVuSans-Bold.ttf
+//   "Verdana"      -> DejaVuSans-Bold.ttf
+// Liberation Sans is metric-compatible with Arial, and Arial Narrow is Arial
+// condensed to 82%: LiberationSans-Bold's advances x 0.82 are ARIALNB.TTF's to
+// within 1/2048 em for every cp1252 character but six the game never draws
+// (no-break space, macron, degree, plus-minus, micro, division sign), and
+// FontAtlas's whole-pixel advances make the game's lines exactly as wide as
+// ARIALNB's at 16, 30 and 40 px (fontTools, Windows 11's files). The cell (usWinAscent,
+// usWinDescent) and the tab unit (xAvgCharWidth) are the Windows face's own,
+// measured from Windows 11's files, so a stand-in's text is as tall, sits on
+// the same baseline and tabs to the same stops. DejaVu Sans is not
+// metric-compatible with Arial Black or Verdana, only close (their advances
+// within a few percent on average); given their cells, its glyphs are drawn
+// at their size.
+//
 // ENHANCED: the glyphs are rasterised at the WINDOW's resolution (the logical
 // size times View::scale), not at the original's 1024x768, so text stays sharp
 // at 1080p and 4K; its layout is the original's, scaled. Glyph advances are
@@ -103,9 +125,22 @@ public:
     // The font file a face resolves to on this machine ("" when none of its
     // candidates exist, in which case Layout returns no glyphs).
     std::string FaceFile(const std::string& face);
+    // Whether that file is a bundled stand-in rather than the face itself.
+    bool FaceIsStandIn(const std::string& face);
 
-    // %WINDIR%\Fonts.
+    // %WINDIR%\Fonts on Windows; "" elsewhere, where no system face is looked
+    // for and the bundled stand-ins are the only candidates.
     static std::string FontsDirectory();
+
+    // Where the stand-ins are: <data>/fonts. PENUMBRA_DATA_DIR's until the
+    // layer names the data folder it found (a packaged game's is beside the
+    // executable).
+    void SetBundledFontsDirectory(const std::string& directory);
+    const std::string& BundledFontsDirectory() const { return m_bundledDir; }
+    static std::string DefaultBundledFontsDirectory();
+    // Off: the system's faces are never asked for, only the stand-ins - so a
+    // suite on Windows can measure a stand-in against the face it replaces.
+    void SetSystemFontsEnabled(bool enabled);
 
     std::size_t AtlasCount() const { return m_atlases.size(); }
 
@@ -113,6 +148,17 @@ private:
     struct Font;
     struct Atlas;
 
+    // What a face resolved to.
+    struct FaceChoice {
+        std::string file;            // "" = none found
+        std::string standIn;         // "" for a system file; the stand-in's name (its atlas key) otherwise
+        float widthScale = 1.0f;     // applied to every advance and glyph width
+        int winAscent = 0;           // the replaced face's, per 2048 em units; 0 = the file's own
+        int winDescent = 0;
+        int avgCharWidth = 0;
+    };
+
+    const FaceChoice& choiceFor(const std::string& face);
     Font* fontFor(const std::string& face);
     Atlas& atlasFor(Font& font, int rasterPx);
     void bake(Font& font, Atlas& atlas);
@@ -122,9 +168,11 @@ private:
     float m_scale = 1.0f;
     std::uint64_t m_frame = 0;
     std::uint64_t m_serial = 0;
-    std::map<std::string, std::string> m_faceFiles;             // lower-case face -> file ("" = none)
-    std::map<std::string, std::unique_ptr<Font>> m_fonts;       // by file
-    std::map<std::string, std::unique_ptr<Atlas>> m_atlases;    // by file + "|" + raster px
+    std::string m_bundledDir;
+    bool m_systemFonts = true;
+    std::map<std::string, FaceChoice> m_faceChoices;            // lower-case face -> what it resolved to
+    std::map<std::string, std::unique_ptr<Font>> m_fonts;       // by file + "#" + stand-in name
+    std::map<std::string, std::unique_ptr<Atlas>> m_atlases;    // by that + "|" + raster px
     std::vector<std::string> m_retired;                          // keys to free at the next BeginFrame
 };
 

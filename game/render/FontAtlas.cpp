@@ -18,8 +18,15 @@
 #include <string.h>
 
 #include "core/Log.hpp"
+#include "eth/Paths.hpp"
 #include "eth/Text.hpp"
 #include "renderer/TextureRegistry.hpp"
+
+// A compile definition on PenumbraGame (game/CMakeLists.txt); the fallback only
+// keeps a stray translation unit compiling, and finds nothing.
+#ifndef PENUMBRA_DATA_DIR
+#define PENUMBRA_DATA_DIR ""
+#endif
 
 // stb_truetype, the copy ImGui vendors (engine/third_party/imgui), compiled
 // here too. imgui_draw.cpp compiles its own with STBTT_STATIC, and so does this
@@ -29,6 +36,14 @@
 #ifdef _MSC_VER
 #pragma warning(push)
 #pragma warning(disable : 4100 4127 4189 4244 4245 4267 4305 4389 4456 4457 4505 4701 4703 4706)
+#elif defined(__GNUC__)
+// GCC and Clang both read these. STBTT_STATIC leaves every function this file
+// does not call defined and unused.
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-function"
+#pragma GCC diagnostic ignored "-Wunused-parameter"
+#pragma GCC diagnostic ignored "-Wsign-compare"
+#pragma GCC diagnostic ignored "-Wpedantic"
 #endif
 namespace Penumbra::Render::Stbtt {
 #define STBTT_STATIC
@@ -37,6 +52,8 @@ namespace Penumbra::Render::Stbtt {
 } // namespace Penumbra::Render::Stbtt
 #ifdef _MSC_VER
 #pragma warning(pop)
+#elif defined(__GNUC__)
+#pragma GCC diagnostic pop
 #endif
 
 namespace Penumbra::Render {
@@ -57,21 +74,55 @@ std::string Lower(std::string text) {
 
 int RoundToInt(const float value) { return static_cast<int>(std::lround(value)); }
 
-// Which files stand in for a face, best first. The bold file first, because
-// D3DXCreateFontA asked for weight 1000; for Arial Narrow the regular narrow cut
-// before a wider bold one, because its width is what the layouts were made with.
-const std::vector<const char*>& Candidates(const std::string& lowerFace) {
-    static const std::vector<const char*> kArialNarrow = {"ARIALNB.TTF", "ARIALN.TTF", "arialbd.ttf",
-                                                          "tahomabd.ttf", "segoeuib.ttf", "arial.ttf"};
-    static const std::vector<const char*> kArialBlack = {"ariblk.ttf", "arialbd.ttf", "segoeuib.ttf",
-                                                         "tahomabd.ttf", "arial.ttf"};
-    static const std::vector<const char*> kVerdana = {"verdanab.ttf", "verdana.ttf", "tahomabd.ttf",
-                                                      "arialbd.ttf", "arial.ttf"};
-    static const std::vector<const char*> kArial = {"arialbd.ttf", "segoeuib.ttf", "tahomabd.ttf", "arial.ttf"};
+// A bundled file standing in for a Windows face (FontAtlas.hpp), with that
+// face's GDI metrics: usWinAscent, usWinDescent and xAvgCharWidth of its
+// Windows 11 file (ARIALNB.TTF 2.40, arialbd.ttf 7.06, ariblk.ttf 5.23,
+// verdanab.ttf 5.33), per 2048 em units - which is what all four use.
+struct StandIn {
+    const char* name;        // for the atlas key
+    const char* file;        // in the bundled fonts folder
+    float widthScale;
+    int winAscent;
+    int winDescent;
+    int avgCharWidth;
+};
+
+constexpr StandIn kNarrowStandIn = {"arial-narrow", "LiberationSans-Bold.ttf", 0.82f, 1910, 431, 803};
+constexpr StandIn kArialStandIn = {"arial", "LiberationSans-Bold.ttf", 1.0f, 1854, 434, 980};
+constexpr StandIn kBlackStandIn = {"arial-black", "DejaVuSans-Bold.ttf", 1.0f, 2254, 634, 1131};
+constexpr StandIn kVerdanaStandIn = {"verdana", "DejaVuSans-Bold.ttf", 1.0f, 2059, 430, 1163};
+
+// Which files stand in for a face, best first: the face's own bold file
+// (D3DXCreateFontA asked for weight 1000), then the bundled stand-in, which
+// has the face's metrics, then other system faces, which do not - for Arial
+// Narrow the regular narrow cut before a wider bold one, because its width is
+// what the layouts were made with.
+struct Candidates {
+    std::vector<const char*> own;      // in the system's Fonts folder
+    StandIn standIn;
+    std::vector<const char*> others;   // in the system's Fonts folder
+};
+
+const Candidates& CandidatesFor(const std::string& lowerFace) {
+    static const Candidates kArialNarrow = {
+        {"ARIALNB.TTF"}, kNarrowStandIn, {"ARIALN.TTF", "arialbd.ttf", "tahomabd.ttf", "segoeuib.ttf", "arial.ttf"}};
+    static const Candidates kArialBlack = {
+        {"ariblk.ttf"}, kBlackStandIn, {"arialbd.ttf", "segoeuib.ttf", "tahomabd.ttf", "arial.ttf"}};
+    static const Candidates kVerdana = {
+        {"verdanab.ttf"}, kVerdanaStandIn, {"verdana.ttf", "tahomabd.ttf", "arialbd.ttf", "arial.ttf"}};
+    static const Candidates kArial = {{"arialbd.ttf"}, kArialStandIn, {"segoeuib.ttf", "tahomabd.ttf", "arial.ttf"}};
     if (lowerFace == "arial narrow") return kArialNarrow;
     if (lowerFace == "arial black") return kArialBlack;
     if (lowerFace == "verdana") return kVerdana;
     return kArial;
+}
+
+// `name` in `directory`, as the disk spells it; "" when it is not there.
+std::string FileIn(const std::string& directory, const char* name) {
+    if (directory.empty()) return {};
+    const std::filesystem::path candidate(Eth::ResolveUnder(directory, name));
+    std::error_code ec;
+    return std::filesystem::is_regular_file(candidate, ec) ? candidate.generic_string() : std::string();
 }
 
 bool ReadFile(const std::string& path, std::vector<unsigned char>& out) {
@@ -85,11 +136,14 @@ bool ReadFile(const std::string& path, std::vector<unsigned char>& out) {
 
 struct FontAtlas::Font {
     std::string file;
+    std::string id;                    // file, + "#" + the stand-in's name for a stand-in
+    std::string stem;                  // for the atlas key: the file's name, or the stand-in's
     std::vector<unsigned char> data;   // stbtt reads from it for the font's lifetime
     stbtt_fontinfo info{};
+    float widthScale = 1.0f;           // horizontal scale on top of the raster scale
     int winAscent = 0;                 // font units
     int winDescent = 0;
-    int avgCharWidth = 0;
+    int avgCharWidth = 0;              // font units, widthScale already applied
     std::array<int, 256> glyph{};      // glyph index per cp1252 byte
 };
 
@@ -107,6 +161,7 @@ struct FontAtlas::Atlas {
     std::string key;                   // "" until baked
     int rasterPx = 0;
     float scale = 0.0f;                // stbtt: raster px per font unit
+    float scaleX = 0.0f;               // the same, across: scale x the font's widthScale
     int ascent = 0;                    // raster px
     int lineHeight = 0;
     int tab = 8;
@@ -117,7 +172,7 @@ struct FontAtlas::Atlas {
     std::uint64_t lastUsed = 0;
 };
 
-FontAtlas::FontAtlas() = default;
+FontAtlas::FontAtlas() : m_bundledDir(DefaultBundledFontsDirectory()) {}
 FontAtlas::~FontAtlas() = default;
 
 void FontAtlas::Attach(entt::registry& registry) {
@@ -139,7 +194,7 @@ void FontAtlas::SetRasterScale(const float windowPixelsPerLogical) {
 }
 
 std::string FontAtlas::FontsDirectory() {
-#ifdef _MSC_VER
+#if defined(_MSC_VER)
     char* value = nullptr;
     std::size_t length = 0;
     if (_dupenv_s(&value, &length, "WINDIR") == 0 && value != nullptr) {
@@ -148,44 +203,90 @@ std::string FontAtlas::FontsDirectory() {
         return dir + "/Fonts";
     }
     std::free(value);
-#else
-    if (const char* value = std::getenv("WINDIR")) return std::string(value) + "/Fonts";
-#endif
     return "C:/Windows/Fonts";
+#elif defined(_WIN32)
+    if (const char* value = std::getenv("WINDIR")) return std::string(value) + "/Fonts";
+    return "C:/Windows/Fonts";
+#else
+    // No system face is asked for off Windows: Microsoft's faces are not
+    // there, and whatever a distribution substitutes under their names has
+    // other metrics. The bundled stand-ins give the same layout everywhere.
+    return {};
+#endif
 }
 
-std::string FontAtlas::FaceFile(const std::string& face) {
+std::string FontAtlas::DefaultBundledFontsDirectory() {
+    const std::string data = PENUMBRA_DATA_DIR;
+    return data.empty() ? std::string() : data + "/fonts";
+}
+
+void FontAtlas::SetBundledFontsDirectory(const std::string& directory) {
+    if (directory == m_bundledDir) return;
+    m_bundledDir = directory;
+    m_faceChoices.clear();   // fonts and atlases already made are keyed by file and stay valid
+}
+
+void FontAtlas::SetSystemFontsEnabled(const bool enabled) {
+    if (enabled == m_systemFonts) return;
+    m_systemFonts = enabled;
+    m_faceChoices.clear();
+}
+
+const FontAtlas::FaceChoice& FontAtlas::choiceFor(const std::string& face) {
     const std::string lower = Lower(face);
-    if (const auto it = m_faceFiles.find(lower); it != m_faceFiles.end()) return it->second;
-    const std::filesystem::path dir(FontsDirectory());
-    std::string found;
-    for (const char* name : Candidates(lower)) {
-        std::error_code ec;
-        const std::filesystem::path candidate = dir / name;
-        if (std::filesystem::is_regular_file(candidate, ec)) {
-            found = candidate.generic_string();
-            break;
+    if (const auto it = m_faceChoices.find(lower); it != m_faceChoices.end()) return it->second;
+
+    const Candidates& candidates = CandidatesFor(lower);
+    const std::string system = m_systemFonts ? FontsDirectory() : std::string();
+    FaceChoice choice;
+    for (const char* name : candidates.own) {
+        if (!(choice.file = FileIn(system, name)).empty()) break;
+    }
+    if (choice.file.empty()) {
+        const StandIn& standIn = candidates.standIn;
+        choice.file = FileIn(m_bundledDir, standIn.file);
+        if (!choice.file.empty()) {
+            choice.standIn = standIn.name;
+            choice.widthScale = standIn.widthScale;
+            choice.winAscent = standIn.winAscent;
+            choice.winDescent = standIn.winDescent;
+            choice.avgCharWidth = standIn.avgCharWidth;
         }
     }
-    if (found.empty()) {
-        SUPERSONIC_LOG_WARN("Penumbra") << "fonts: no file for \"" << face << "\" in " << dir.generic_string()
-                                        << "; its text is not drawn";
+    if (choice.file.empty()) {
+        for (const char* name : candidates.others) {
+            if (!(choice.file = FileIn(system, name)).empty()) break;
+        }
     }
-    m_faceFiles.emplace(lower, found);
-    return found;
+    if (choice.file.empty()) {
+        SUPERSONIC_LOG_WARN("Penumbra") << "fonts: no file for \"" << face << "\" (system fonts: "
+                                        << (system.empty() ? std::string("none") : system) << "; bundled: "
+                                        << (m_bundledDir.empty() ? std::string("none") : m_bundledDir)
+                                        << "); its text is not drawn";
+    }
+    return m_faceChoices.emplace(lower, std::move(choice)).first->second;
 }
 
+std::string FontAtlas::FaceFile(const std::string& face) { return choiceFor(face).file; }
+
+bool FontAtlas::FaceIsStandIn(const std::string& face) { return !choiceFor(face).standIn.empty(); }
+
 FontAtlas::Font* FontAtlas::fontFor(const std::string& face) {
-    const std::string file = FaceFile(face);
-    if (file.empty()) return nullptr;
-    if (const auto it = m_fonts.find(file); it != m_fonts.end()) return it->second.get();
+    const FaceChoice& choice = choiceFor(face);
+    if (choice.file.empty()) return nullptr;
+    const std::string id = choice.standIn.empty() ? choice.file : choice.file + "#" + choice.standIn;
+    if (const auto it = m_fonts.find(id); it != m_fonts.end()) return it->second.get();
 
     auto font = std::make_unique<Font>();
-    font->file = file;
-    const int offset = ReadFile(file, font->data) ? stbtt_GetFontOffsetForIndex(font->data.data(), 0) : -1;
+    font->file = choice.file;
+    font->id = id;
+    font->stem = choice.standIn.empty() ? std::filesystem::path(choice.file).stem().string()
+                                        : std::filesystem::path(choice.file).stem().string() + "-" + choice.standIn;
+    font->widthScale = choice.widthScale;
+    const int offset = ReadFile(choice.file, font->data) ? stbtt_GetFontOffsetForIndex(font->data.data(), 0) : -1;
     if (offset < 0 || stbtt_InitFont(&font->info, font->data.data(), offset) == 0) {
-        SUPERSONIC_LOG_WARN("Penumbra") << "fonts: cannot read " << file;
-        m_fonts.emplace(file, nullptr);
+        SUPERSONIC_LOG_WARN("Penumbra") << "fonts: cannot read " << choice.file;
+        m_fonts.emplace(id, nullptr);
         return nullptr;
     }
 
@@ -213,24 +314,38 @@ FontAtlas::Font* FontAtlas::fontFor(const std::string& face) {
         stbtt_GetGlyphHMetrics(&font->info, stbtt_FindGlyphIndex(&font->info, 'x'), &advance, &bearing);
         font->avgCharWidth = advance;
     }
+    font->avgCharWidth = RoundToInt(static_cast<float>(font->avgCharWidth) * font->widthScale);
+    // A stand-in takes the metrics of the face it replaces, from 2048ths of
+    // an em into this file's units (head.unitsPerEm).
+    if (choice.winAscent > 0) {
+        const stbtt_uint32 head = stbtt__find_table(font->data.data(), static_cast<stbtt_uint32>(font->info.fontstart), "head");
+        const int unitsPerEm = (head != 0 && head + 20 <= font->data.size()) ? ttUSHORT(font->data.data() + head + 18) : 0;
+        if (unitsPerEm > 0) {
+            const float toFile = static_cast<float>(unitsPerEm) / 2048.0f;
+            font->winAscent = RoundToInt(static_cast<float>(choice.winAscent) * toFile);
+            font->winDescent = RoundToInt(static_cast<float>(choice.winDescent) * toFile);
+            font->avgCharWidth = RoundToInt(static_cast<float>(choice.avgCharWidth) * toFile);
+        }
+    }
     for (int byte = 0; byte < 256; ++byte) {
         const auto codePoint = static_cast<int>(Eth::Cp1252CodePoint(static_cast<unsigned char>(byte)));
         font->glyph[static_cast<std::size_t>(byte)] = stbtt_FindGlyphIndex(&font->info, codePoint);
     }
 
     Font* raw = font.get();
-    m_fonts.emplace(file, std::move(font));
+    m_fonts.emplace(id, std::move(font));
     return raw;
 }
 
 FontAtlas::Atlas& FontAtlas::atlasFor(Font& font, const int rasterPx) {
-    const std::string id = font.file + "|" + std::to_string(rasterPx);
+    const std::string id = font.id + "|" + std::to_string(rasterPx);
     if (const auto it = m_atlases.find(id); it != m_atlases.end()) return *it->second;
 
     auto atlas = std::make_unique<Atlas>();
-    atlas->stem = std::filesystem::path(font.file).stem().string();
+    atlas->stem = font.stem;
     atlas->rasterPx = rasterPx;
     atlas->scale = static_cast<float>(rasterPx) / static_cast<float>(font.winAscent + font.winDescent);
+    atlas->scaleX = atlas->scale * font.widthScale;
     atlas->ascent = RoundToInt(static_cast<float>(font.winAscent) * atlas->scale);
     atlas->lineHeight = atlas->ascent + RoundToInt(static_cast<float>(font.winDescent) * atlas->scale);
     // DT_EXPANDTABS without DT_TABSTOP: a stop every 8 average character widths.
@@ -245,12 +360,12 @@ FontAtlas::Atlas& FontAtlas::atlasFor(Font& font, const int rasterPx) {
         int bearing = 0;
         stbtt_GetGlyphHMetrics(&font.info, glyph, &advance, &bearing);
         // Whole pixels, as GDI's advance widths were at the size it drew.
-        slot.advance = RoundToInt(static_cast<float>(advance) * atlas->scale);
+        slot.advance = RoundToInt(static_cast<float>(advance) * atlas->scaleX);
         int x0 = 0;
         int y0 = 0;
         int x1 = 0;
         int y1 = 0;
-        stbtt_GetGlyphBitmapBox(&font.info, glyph, atlas->scale, atlas->scale, &x0, &y0, &x1, &y1);
+        stbtt_GetGlyphBitmapBox(&font.info, glyph, atlas->scaleX, atlas->scale, &x0, &y0, &x1, &y1);
         slot.x0 = x0;
         slot.y0 = y0;
         slot.w = std::max(0, x1 - x0);
@@ -319,7 +434,7 @@ void FontAtlas::bake(Font& font, Atlas& atlas) {
         }
         unsigned char* target =
             coverage.data() + static_cast<std::size_t>(at[i].y) * static_cast<std::size_t>(width) + at[i].x;
-        stbtt_MakeGlyphBitmap(&font.info, target, slot.w, slot.h, width, atlas.scale, atlas.scale,
+        stbtt_MakeGlyphBitmap(&font.info, target, slot.w, slot.h, width, atlas.scaleX, atlas.scale,
                               font.glyph[static_cast<std::size_t>(order[i])]);
         slot.uvMin = glm::vec2(at[i]) / glm::vec2(static_cast<float>(width), static_cast<float>(height));
         slot.uvMax = glm::vec2(at[i] + glm::ivec2(slot.w, slot.h)) /

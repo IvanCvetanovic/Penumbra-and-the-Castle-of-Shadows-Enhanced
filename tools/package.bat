@@ -8,7 +8,8 @@ REM   Penumbra.exe          build\game\Penumbra.exe
 REM   assets\shaders\*.spv  the engine's compiled shaders. The engine anchors the working directory to the
 REM                         executable's folder when it holds assets\shaders (ChooseAssetRoot), so these
 REM                         are what make the folder a packaged game, launched from anywhere.
-REM   data\                 game\data: strings.json and the English images (eth/Paths.hpp: EXEDIR\data).
+REM   data\                 game\data: strings.json, the English images, the touch controls' manifest and
+REM                         art (E16) (eth/Paths.hpp: EXEDIR\data).
 REM   original\             extracted\app, the original's DATA only (eth/Paths.hpp: EXEDIR\original holding
 REM                         data.enml): no machine.exe, no DLLs, no .as scripts (ported to C++), no Cg
 REM                         shaders, no editor project or readmes - nothing the port reads.
@@ -85,7 +86,7 @@ copy /y "%REPO%\licenses\GPL-3.0.txt" "%PKG%\licenses\GPL-3.0.txt" >nul || exit 
 
 REM What the game needs is there, and nothing of the original that it does not.
 set "MISSING="
-for %%F in (Penumbra.exe assets\shaders\frag.spv assets\shaders\screen_overlay_frag.spv data\strings.json data\images\en\entities\menu_buttons.png original\data.enml original\hs.enml original\data\shadow.dds original\scenes\menu.esc original\scenes\level1.esc original\soundfx\chefao.mp3 original\entities\menu_buttons.png original\penumbra.ico) do (
+for %%F in (Penumbra.exe assets\shaders\frag.spv assets\shaders\screen_overlay_frag.spv data\strings.json data\images\en\entities\menu_buttons.png data\touch_controls.json data\images\touch\jump.png data\fonts\LiberationSans-Bold.ttf original\data.enml original\hs.enml original\data\shadow.dds original\scenes\menu.esc original\scenes\level1.esc original\soundfx\chefao.mp3 original\entities\menu_buttons.png original\penumbra.ico) do (
     if not exist "%PKG%\%%F" (
         echo MISSING %%F
         set "MISSING=1"

@@ -9,6 +9,7 @@
 #include <utility>
 
 #include "core/Application.hpp"
+#include "core/Input.hpp"
 #include "core/Light2D.hpp"
 #include "core/Log.hpp"
 #include "core/SimulationClock.hpp"
@@ -83,6 +84,18 @@ void PenumbraLayer::OnAttach(entt::registry& registry) {
     m_machine->Samples().SetOutput(&m_audio);
     ApplyVolumes();
     m_pause.SetAutoPause(PauseOnFocusLoss());   // E13
+    // E16: the touch controls - on a phone by default, on the desktop with
+    // --touch (or touchControls "on"), where the mouse is the finger.
+    m_touchEnabled =
+        m_options.touchOverride.value_or(Render::TouchControls::EnabledBySetting(m_settings.touchControls));
+    if (m_touchEnabled) {
+        std::string warning;
+        const std::filesystem::path manifest = m_options.dataDir / Render::TouchControls::kManifestFile;
+        m_touch.SetManifest(Render::TouchControls::LoadManifest(manifest, &warning));
+        m_touch.SetImageRoot(m_options.dataDir);
+        if (!warning.empty()) SUPERSONIC_LOG_WARN("Penumbra") << "touch controls: " << warning << std::endl;
+        SUPERSONIC_LOG_INFO("Penumbra") << "touch controls on" << std::endl;
+    }
 
     // The original's option switches, remembered across launches (E6).
     Script::g_controls.setCurrent(static_cast<Eth::uint>(m_settings.controls.joystickLayout));
@@ -108,6 +121,8 @@ void PenumbraLayer::OnAttach(entt::registry& registry) {
     // never uploaded, and the pools keep the first key they are given.
     m_textures.Attach(registry);
     m_rig.Attach(registry);
+    // The stand-ins for the Windows faces come with the data found (FontAtlas.hpp).
+    m_fonts.SetBundledFontsDirectory((m_options.dataDir / "fonts").generic_string());
     m_fonts.Attach(registry);
     m_sprites.Attach(registry, m_textures);
     m_sprites.SetLocalization(&m_localization);   // E5: the menu's worded images and their normal maps
@@ -183,6 +198,55 @@ bool PenumbraLayer::PauseOnFocusLoss() const {
 bool PenumbraLayer::InPlayScene() const {
     const std::string& loop = m_machine->LoopFunction();
     return (loop == "levelLoop" || loop == "pvpLoop") && !Script::g_gameFinished;
+}
+
+std::vector<Render::TouchContact> PenumbraLayer::TouchContacts() const {
+    std::vector<Render::TouchContact> contacts;
+    const int count = Supersonic::Input::ContactCount();
+    for (int i = 0; i < count; ++i) {
+        const Supersonic::Contact contact = Supersonic::Input::GetContact(i);
+        if (contact.id < 0) continue;
+        // The contacts are in Input::MousePosition()'s coordinates, so the
+        // pointer's own mapping takes them to the logical screen.
+        const glm::vec2 logical = Render::InputMapper::WindowToLogical(contact.position, m_view);
+        contacts.push_back(Render::TouchContact{contact.id, logical, contact.phase != Supersonic::ContactPhase::Ended});
+    }
+    return contacts;
+}
+
+void PenumbraLayer::ApplyTouch(Eth::InputFrame& frame) {
+    Render::TouchInput input;
+    input.contacts = TouchContacts();
+    input.screen = m_machine->GetScreenSize();
+    // No platform reports a safe area to the engine yet (a notch, a gesture
+    // bar); TouchControls::WindowInsetsToLogical is ready for one.
+    input.safeArea = Render::TouchInsets{};
+
+    // The controls are a level's or an arena's (the loops doLoop runs under,
+    // their end screens included: the wizard still walks there). Everything
+    // else - the menus, the options, game over - and the pause are clicked.
+    const std::string& loop = m_machine->LoopFunction();
+    const bool level = loop == "levelLoop" || loop == "pvpLoop";
+    const bool paused = m_pause.Paused();
+    const std::string& scene = m_machine->GetSceneFileName();
+    input.scene = level && !paused ? Render::TouchScene::Play : Render::TouchScene::Menu;
+    if (paused || scene.empty() || scene == "scenes/menu.esc") {
+        // The pause's rows are the way on; in the main menu cancel does
+        // nothing (goToMenu, menu.as:383).
+        input.corner = Render::TouchCorner::Hidden;
+    } else if (level && InPlayScene()) {
+        input.corner = Render::TouchCorner::Pause;
+    } else {
+        // The arena select and game over read only cancel (waitForInputToMenu,
+        // menu.as:374); the end screens and the options take it too.
+        input.corner = Render::TouchCorner::Back;
+    }
+
+    const Render::TouchStep step = m_touch.Update(input);
+    Render::TouchControls::ApplyToFrame(step, frame);
+    // The cursor stays where the finger lifted, as the mouse's would: the
+    // mapper keeps it until the scripts or the real mouse move it.
+    if (step.pointer) m_input.WarpCursor(step.pointerPos, m_view);
 }
 
 void PenumbraLayer::ApplyVolumes() {
@@ -288,6 +352,11 @@ void PenumbraLayer::OnFixedUpdate(entt::registry& registry, float fixedDelta) {
     Eth::InputFrame frame = m_input.BuildTick(m_view);
     ApplyDevHolds(frame);
     if (m_options.devCursor) frame.cursor = frame.cursorAbsolute = *m_options.devCursor;
+    ++m_ticksThisFrame;
+    // E16: the fingers press player 1's keys, or click in a menu, before
+    // anything reads the frame - the pause included, which a finger opens
+    // and whose rows a finger taps.
+    if (m_touchEnabled) ApplyTouch(frame);
 
     // E13: the pause reads the tick first. While it is open the Machine does
     // not run, so GetTime(), and every fade, cooldown and the run's clock with
@@ -444,10 +513,17 @@ void PenumbraLayer::OnUpdate(entt::registry& registry, float deltaTime) {
     m_particles.Draw(registry, world, m_view, order);
     // E13: the pause's overlay over the scripts' HUD, under the bars. Once a
     // frame: it begins the font atlas's frame.
-    m_pauseOverlay.clear();
-    m_pause.AppendOverlay(m_pauseOverlay);
-    m_hud.Draw(registry, snapshot, m_view, m_pauseOverlay.empty() ? nullptr : &m_pauseOverlay);
+    // E16: the touch controls under it, over the scripts' HUD. One Draw a
+    // frame, both in it.
+    m_overlay.clear();
+    if (m_touchEnabled) m_touch.AppendOverlay(m_overlay);
+    m_pause.AppendOverlay(m_overlay);
+    m_hud.Draw(registry, snapshot, m_view, m_overlay.empty() ? nullptr : &m_overlay);
     m_input.EndFrame();                       // once a frame, tick or not
+    // E16: a finger that came down in a frame no tick saw is handed to the
+    // next tick, as EndFrame hands on a key.
+    if (m_touchEnabled && m_ticksThisFrame == 0) m_touch.LatchFrame(TouchContacts());
+    m_ticksThisFrame = 0;
 }
 
 } // namespace Penumbra

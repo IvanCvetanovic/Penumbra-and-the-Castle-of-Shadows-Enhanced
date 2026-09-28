@@ -19,7 +19,18 @@ else()
     target_compile_options(PenumbraTinyXml PRIVATE -w)
 endif()
 
-target_link_libraries(PenumbraEth PUBLIC SupersonicCore PRIVATE PenumbraTinyXml)
+# dr_mp3 (public domain / MIT-0), for the original's MP3s where the engine has
+# no decoder: eth/SoundDecode.hpp says where that is. C, compiled once, its
+# warnings the library's, like TinyXML's.
+add_library(PenumbraDrMp3 STATIC ${CMAKE_CURRENT_SOURCE_DIR}/../third_party/dr_mp3/dr_mp3.c)
+target_compile_definitions(PenumbraDrMp3 PUBLIC DR_MP3_NO_STDIO)
+if (MSVC)
+    target_compile_options(PenumbraDrMp3 PRIVATE /W0)
+else()
+    target_compile_options(PenumbraDrMp3 PRIVATE -w)
+endif()
+
+target_link_libraries(PenumbraEth PUBLIC SupersonicCore PRIVATE PenumbraTinyXml PenumbraDrMp3)
 target_include_directories(PenumbraEth PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/..)
 
 # The original game, read in place and never written. Absolute, because a game
@@ -33,5 +44,6 @@ target_compile_definitions(PenumbraEth PUBLIC PENUMBRA_ORIGINAL_DIR="${PENUMBRA_
 if (MSVC)
     target_compile_options(PenumbraEth PRIVATE /W4)
 else()
-    target_compile_options(PenumbraEth PRIVATE -Wall -Wextra)
+    # The engine's own level for SupersonicCore (engine/CMakeLists.txt).
+    target_compile_options(PenumbraEth PRIVATE -Wall -Wextra -Wpedantic)
 endif()

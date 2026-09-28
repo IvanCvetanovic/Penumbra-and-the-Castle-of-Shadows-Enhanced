@@ -26,6 +26,7 @@
 #include "render/ShadowRenderer.hpp"
 #include "render/SpriteRenderer.hpp"
 #include "render/TextureCache.hpp"
+#include "render/TouchControls.hpp"
 #include "render/View.hpp"
 
 namespace Supersonic {
@@ -99,6 +100,9 @@ public:
         // E13's pause on focus loss for this run (off under --fixed-step: a
         // capture's window often never has the focus); never saved.
         std::optional<bool> pauseOnFocusLossOverride;
+        // E16's touch controls for this run (--touch: on, the mouse as the
+        // finger); never saved.
+        std::optional<bool> touchOverride;
         // --cursor x,y: the scripts' cursor pinned at a logical-screen point,
         // for headless captures of the mouse-driven menu (the live OS pointer
         // otherwise decides which panel a capture shows).
@@ -141,6 +145,12 @@ private:
     void ApplyVolumes();
     // Writes m_settings to the user directory and re-applies what it drives.
     void SaveSettings();
+    // E16: the fingers on the screen (the engine's contacts: real touches on
+    // a phone, the held left mouse button on a desktop) in logical pixels.
+    std::vector<Render::TouchContact> TouchContacts() const;
+    // E16: this tick's touches pressed into the frame, before the pause and
+    // the game read it.
+    void ApplyTouch(Eth::InputFrame& frame);
 
     Options m_options;
     Render::Settings m_settings;
@@ -157,9 +167,15 @@ private:
     Render::HudRenderer m_hud;
     // E8: the world drawn between the last two ticks (render/Interpolation.hpp).
     Render::SnapshotInterpolator m_interp;
-    // E13: the pause, and its overlay for the HUD pass.
+    // E13: the pause.
     Render::PauseMenu m_pause;
-    std::vector<Eth::HudCmd> m_pauseOverlay;
+    // E16: the touch controls, when this run has them.
+    Render::TouchControls m_touch;
+    bool m_touchEnabled = false;
+    unsigned m_ticksThisFrame = 0;   // the latch of a tap no tick saw
+    // The layer's own HUD commands for the HUD pass, in drawing order: the
+    // touch controls (E16), then the pause (E13).
+    std::vector<Eth::HudCmd> m_overlay;
     std::unique_ptr<Eth::Machine> m_machine;
     Render::View m_view;
     bool m_pillarbox = true;

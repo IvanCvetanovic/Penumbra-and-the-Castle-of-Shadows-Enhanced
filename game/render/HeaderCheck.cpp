@@ -17,4 +17,5 @@
 #include "render/ShadowRenderer.hpp"
 #include "render/SpriteRenderer.hpp"
 #include "render/TextureCache.hpp"
+#include "render/TouchControls.hpp"
 #include "render/View.hpp"
