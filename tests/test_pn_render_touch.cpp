@@ -5,16 +5,27 @@
 // one it landed on; the pause opened and tapped through E13's own pieces; a
 // tap in a menu as a click at that point; what is shown where; the layout on
 // 4:3 and widescreen screens with and without a safe area; the manifest and
-// its art; the touchControls setting.
-// Pure: no window, no Machine, no original files.
+// its art; the touchControls setting. Then the combo buttons: each macro's
+// keys tick by tick for both facings, the wait for the combo buffer to empty,
+// a double tap, the fingers held back under a combo, its cancelling - and the
+// combos firing through the ported Combo in a bare Machine, and through the
+// real game in level 1 (skipped without the original's files, the rest of the
+// suite is not).
+// No window. Only the combo checks run a Machine.
+
+#include "script/Script.hpp"
 
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <cstdio>
 #include <filesystem>
 #include <initializer_list>
 #include <iterator>
+#include <random>
+#include <set>
 #include <string>
+#include <system_error>
 #include <tuple>
 #include <utility>
 #include <vector>
@@ -24,6 +35,7 @@
 #include "TestHarness.hpp"
 
 #include "eth/Input.hpp"
+#include "eth/Machine.hpp"
 #include "eth/Snapshot.hpp"
 #include "render/FontAtlas.hpp"
 #include "render/HudRenderer.hpp"
@@ -38,6 +50,7 @@
 namespace {
 
 namespace fs = std::filesystem;
+namespace Script = Penumbra::Script;
 using namespace Penumbra::Eth;
 using Penumbra::Render::HudRenderer;
 using Penumbra::Render::PauseMenu;
@@ -45,10 +58,12 @@ using Penumbra::Render::PauseStep;
 using Penumbra::Render::Settings;
 using Penumbra::Render::TouchAction;
 using Penumbra::Render::TouchAnchor;
+using Penumbra::Render::TouchCombo;
 using Penumbra::Render::TouchContact;
 using Penumbra::Render::TouchControl;
 using Penumbra::Render::TouchControls;
 using Penumbra::Render::TouchCorner;
+using Penumbra::Render::TouchFacing;
 using Penumbra::Render::TouchInput;
 using Penumbra::Render::TouchInsets;
 using Penumbra::Render::TouchLayout;
@@ -94,7 +109,7 @@ glm::vec2 Centre(TouchControl control, glm::vec2 screen = kFourThree) { return D
 glm::vec2 Dpad(glm::vec2 offset) { return Centre(TouchControl::Dpad) + offset; }
 
 // Exactly these are held (and no pointer).
-bool Only(const TouchStep& step, std::initializer_list<TouchAction> actions) {
+bool Only(const TouchStep& step, const std::vector<TouchAction>& actions) {
     for (int i = 0; i < kTouchActionCount; ++i) {
         const TouchAction action = static_cast<TouchAction>(i);
         const bool wanted = std::find(actions.begin(), actions.end(), action) != actions.end();
@@ -625,7 +640,8 @@ void testShownWhere() {
     CHECK(!touch.Visible(TouchControl::Jump));
     if (!out.empty()) CHECK(out[0].sprite.find("back.png") != std::string::npos);
 
-    // In play: the disc, its three arrows, the knob, four buttons, pause.
+    // In play: the disc, its three arrows, the knob, four buttons, the two
+    // combo buttons, pause.
     const TouchManifest manifest = TouchControls::DefaultManifest();
     const std::uint8_t idle = static_cast<std::uint8_t>(std::lround(manifest.idleAlpha * 255.0f));
     const std::uint8_t pressed = static_cast<std::uint8_t>(std::lround(manifest.pressedAlpha * 255.0f));
@@ -633,7 +649,7 @@ void testShownWhere() {
     touch.Update(Play());
     out.clear();
     touch.AppendOverlay(out);
-    CHECK_EQ(out.size(), std::size_t{10});
+    CHECK_EQ(out.size(), std::size_t{12});
     for (const HudCmd& cmd : out) {
         CHECK(cmd.kind == HudCmd::Kind::ShapedSprite);   // every image found
         CHECK_EQ(static_cast<int>(Alpha(cmd.color)), static_cast<int>(idle));
@@ -652,7 +668,7 @@ void testShownWhere() {
     for (const HudCmd& cmd : out) {
         if (Alpha(cmd.color) != pressed) continue;
         ++bright;
-        const bool expected = cmd.sprite.find("sword.png") != std::string::npos ||
+        const bool expected = cmd.sprite.find("/sword.png") != std::string::npos ||
                               cmd.sprite.find("dpad_right.png") != std::string::npos ||
                               cmd.sprite.find("dpad_knob.png") != std::string::npos;
         CHECK_MSG(expected, cmd.sprite);
@@ -679,7 +695,7 @@ void testShownWhere() {
     bare.Update(Play());
     out.clear();
     bare.AppendOverlay(out);
-    CHECK_EQ(out.size(), std::size_t{6});   // the disc, four buttons, pause; no arrows or knob
+    CHECK_EQ(out.size(), std::size_t{8});   // the disc, six buttons, pause; no arrows or knob
     for (const HudCmd& cmd : out) CHECK(cmd.kind == HudCmd::Kind::Rectangle);
 }
 
@@ -776,8 +792,9 @@ void testLayout() {
     // gesture bar in landscape, a tablet's status bar.
     const glm::vec2 screens[] = {kFourThree, kWide, {1707.0f, 768.0f}};
     const TouchInsets insets[] = {{}, {88.0f, 0.0f, 88.0f, 24.0f}, {0.0f, 30.0f, 0.0f, 20.0f}};
-    const TouchControl play[] = {TouchControl::Dpad, TouchControl::Jump, TouchControl::Sword, TouchControl::Fire,
-                                 TouchControl::Light, TouchControl::Pause};
+    const TouchControl play[] = {TouchControl::Dpad,       TouchControl::Jump,       TouchControl::Sword,
+                                 TouchControl::Fire,       TouchControl::Light,      TouchControl::SwordCombo,
+                                 TouchControl::SpellCombo, TouchControl::Pause};
     for (const glm::vec2& screen : screens) {
         for (const TouchInsets& safe : insets) {
             const std::string where = std::to_string(static_cast<int>(screen.x)) + "x768, inset " +
@@ -803,6 +820,15 @@ void testLayout() {
             }
             CHECK(layout[TouchControl::Pause].min.x > screen.x * 0.5f);
             CHECK(layout[TouchControl::Pause].max.y < screen.y * 0.25f);
+            // The combo buttons: under the right thumb too, above the four and
+            // below the pause.
+            for (const TouchControl combo : {TouchControl::SwordCombo, TouchControl::SpellCombo}) {
+                CHECK_MSG(layout[combo].min.x > screen.x * 0.5f, where);
+                CHECK_MSG(layout[combo].max.y < layout[TouchControl::Light].min.y, where);
+                CHECK_MSG(layout[combo].min.y > layout[TouchControl::Pause].max.y, where);
+            }
+            // Each on its attack's side.
+            CHECK(layout[TouchControl::SwordCombo].Centre().x < layout[TouchControl::SpellCombo].Centre().x);
             CHECK(!Overlap(layout[TouchControl::Pause], {{screen.x - 50.0f, 0.0f}, {screen.x, 30.0f}}));
             CHECK(!Overlap(layout[TouchControl::Pause], {{0.0f, 0.0f}, {452.0f, 74.0f}}));
             CHECK(!Overlap(layout[TouchControl::Dpad], {{0.0f, 0.0f}, {452.0f, 74.0f}}));
@@ -883,6 +909,13 @@ void testManifest() {
     std::string warning;
     const TouchManifest manifest = TouchControls::LoadManifest(file, &warning);
     CHECK_MSG(warning.empty(), warning);
+
+    const char* const ids[] = {"dpad",       "jump",       "sword", "fire", "light",
+                               "swordCombo", "spellCombo", "pause", "back"};
+    CHECK_EQ(std::size(ids), static_cast<std::size_t>(kTouchControlCount));
+    for (int i = 0; i < kTouchControlCount; ++i) {
+        CHECK(std::string(TouchControls::ControlId(static_cast<TouchControl>(i))) == ids[i]);
+    }
 
     // Every image it names is there, decodes, fits its box undistorted, has
     // at least the pixels it is drawn at, and has no exact magenta (the HUD
@@ -1040,6 +1073,599 @@ void testSetting() {
     CHECK(!warning.empty());
 }
 
+// --- The combo buttons ----------------------------------------------------------------
+
+TouchInput Facing(std::vector<TouchContact> contacts, TouchFacing facing, glm::vec2 screen = kFourThree) {
+    TouchInput input = Play(std::move(contacts), screen);
+    input.facing = facing;
+    return input;
+}
+
+std::string TickName(const char* what, std::size_t tick) { return std::string(what) + ", tick " + std::to_string(tick); }
+
+// Each macro's keys, tick by tick from the tap, for both facings: one key a
+// tick, a release only between the two presses of the same side, each press
+// a fresh KS_HIT; then the fingers' own keys again.
+void testComboTimelines() {
+    const glm::vec2 swordButton = Centre(TouchControl::SwordCombo);
+    const glm::vec2 spellButton = Centre(TouchControl::SpellCombo);
+    struct Side {
+        TouchFacing facing;
+        TouchAction action;
+        KEY key;
+    };
+    for (const Side side : {Side{TouchFacing::Right, TouchAction::Right, K_RIGHT},
+                            Side{TouchFacing::Left, TouchAction::Left, K_LEFT}}) {
+        // The sword combo: -, side, -, side, sword (CMD side, side, SWORD).
+        const std::vector<std::vector<TouchAction>> sword = {
+            {}, {side.action}, {}, {side.action}, {TouchAction::Sword}, {}};
+        const KEY_STATE sideStates[] = {KS_UP, KS_HIT, KS_RELEASE, KS_HIT, KS_RELEASE, KS_UP};
+        const KEY_STATE swordStates[] = {KS_UP, KS_UP, KS_UP, KS_UP, KS_HIT, KS_RELEASE};
+        TouchControls touch;
+        InputState state;
+        for (std::size_t t = 0; t < sword.size(); ++t) {
+            // A tap: down on the first tick, up on the next.
+            std::vector<TouchContact> fingers;
+            if (t == 0) fingers.push_back(Finger(1, swordButton));
+            const TouchStep step = touch.Update(Facing(fingers, side.facing));
+            CHECK_MSG(Only(step, sword[t]), TickName("sword combo", t));
+            CHECK(step.combo == (t < 5 ? TouchCombo::Sword : TouchCombo::None));
+            state.Update(FrameOf(step));
+            CHECK_MSG(state.GetKeyState(side.key) == sideStates[t], TickName("sword combo's side", t));
+            CHECK_MSG(state.GetKeyState(K_S) == swordStates[t], TickName("sword combo's K_S", t));
+        }
+        CHECK(touch.RunningCombo() == TouchCombo::None);
+
+        // The spell combo: -, down, side, fire (CMD DOWN, side, SPELL).
+        const std::vector<std::vector<TouchAction>> spell = {
+            {}, {TouchAction::Down}, {side.action}, {TouchAction::Fire}, {}};
+        const KEY_STATE downStates[] = {KS_UP, KS_HIT, KS_RELEASE, KS_UP, KS_UP};
+        const KEY_STATE spellSide[] = {KS_UP, KS_UP, KS_HIT, KS_RELEASE, KS_UP};
+        const KEY_STATE fireStates[] = {KS_UP, KS_UP, KS_UP, KS_HIT, KS_RELEASE};
+        TouchControls cast;
+        InputState castState;
+        for (std::size_t t = 0; t < spell.size(); ++t) {
+            std::vector<TouchContact> fingers;
+            if (t == 0) fingers.push_back(Finger(1, spellButton));
+            const TouchStep step = cast.Update(Facing(fingers, side.facing));
+            CHECK_MSG(Only(step, spell[t]), TickName("spell combo", t));
+            CHECK(step.combo == (t < 4 ? TouchCombo::Spell : TouchCombo::None));
+            castState.Update(FrameOf(step));
+            CHECK_MSG(castState.GetKeyState(K_DOWN) == downStates[t], TickName("spell combo's K_DOWN", t));
+            CHECK_MSG(castState.GetKeyState(side.key) == spellSide[t], TickName("spell combo's side", t));
+            CHECK_MSG(castState.GetKeyState(K_D) == fireStates[t], TickName("spell combo's K_D", t));
+        }
+    }
+
+    // No wizard to ask: where the disc last pointed; never pushed, right (a
+    // currentDir never written reads RIGHT).
+    TouchControls unknown;
+    unknown.Update(Facing({Finger(1, swordButton)}, TouchFacing::Unknown));
+    CHECK(Only(unknown.Update(Facing({}, TouchFacing::Unknown)), {TouchAction::Right}));
+    for (int i = 0; i < 4; ++i) unknown.Update(Facing({}, TouchFacing::Unknown));
+    unknown.Update(Facing({Finger(2, Dpad({-100.0f, 0.0f}))}, TouchFacing::Unknown));
+    unknown.Update(Facing({}, TouchFacing::Unknown));
+    unknown.Update(Facing({Finger(3, spellButton)}, TouchFacing::Unknown));
+    unknown.Update(Facing({}, TouchFacing::Unknown));   // down
+    CHECK(Only(unknown.Update(Facing({}, TouchFacing::Unknown)), {TouchAction::Left}));
+    // His own facing wins over the disc's last push.
+    TouchControls own;
+    own.Update(Facing({Finger(1, Dpad({-100.0f, 0.0f}))}, TouchFacing::Right));
+    own.Update(Facing({Finger(2, swordButton)}, TouchFacing::Right));
+    CHECK(Only(own.Update(Facing({}, TouchFacing::Right)), {TouchAction::Right}));
+}
+
+// What the fingers do while a combo runs: the disc and the sword and fire
+// buttons are held back (their presses would land in the combo buffer), jump
+// and light are not; the disc steers again as soon as the combo is over, a
+// sword finger held through it only once lifted. (No ObserveFrame here: the
+// combo presses at once, as after a quiet spell.)
+void testComboFingers() {
+    const glm::vec2 right = Dpad({100.0f, 0.0f});
+    const glm::vec2 sword = Centre(TouchControl::Sword);
+    const glm::vec2 combo = Centre(TouchControl::SwordCombo);
+    const std::vector<std::vector<TouchContact>> ticks = {
+        {Finger(1, right)},                                                          // 0 walking
+        {Finger(1, right), Finger(2, sword)},                                        // 1 a swing
+        {Finger(1, right), Finger(2, sword)},                                        // 2
+        {Finger(1, right), Finger(2, sword), Finger(3, combo)},                      // 3 the combo tapped
+        {Finger(1, right), Finger(2, sword)},                                        // 4
+        {Finger(1, right), Finger(2, sword), Finger(4, Centre(TouchControl::Jump))},   // 5 a jump in it
+        {Finger(1, right), Finger(2, sword), Finger(5, Centre(TouchControl::Light))},  // 6 the light in it
+        {Finger(1, right), Finger(2, sword)},                                        // 7 the combo's sword
+        {Finger(1, right), Finger(2, sword)},                                        // 8 over
+        {Finger(1, right)},                                                          // 9 the sword finger lifts
+        {Finger(1, right), Finger(6, sword)},                                        // 10 a new swing
+    };
+    const std::vector<std::vector<TouchAction>> held = {
+        {TouchAction::Right},
+        {TouchAction::Right, TouchAction::Sword},
+        {TouchAction::Right, TouchAction::Sword},
+        {},
+        {TouchAction::Right},
+        {TouchAction::Jump},
+        {TouchAction::Right, TouchAction::Light},
+        {TouchAction::Sword},
+        {TouchAction::Right},
+        {TouchAction::Right},
+        {TouchAction::Right, TouchAction::Sword},
+    };
+    TouchControls touch;
+    InputState state;
+    for (std::size_t t = 0; t < ticks.size(); ++t) {
+        const TouchStep step = touch.Update(Facing(ticks[t], TouchFacing::Right));
+        CHECK_MSG(Only(step, held[t]), TickName("fingers under a combo", t));
+        state.Update(FrameOf(step));
+        if (t == 4 || t == 6) CHECK_MSG(state.GetKeyState(K_RIGHT) == KS_HIT, TickName("the combo's side", t));
+        if (t == 7) CHECK(state.GetKeyState(K_S) == KS_HIT);
+        if (t == 8) CHECK(state.GetKeyState(K_RIGHT) == KS_HIT);   // the disc again
+        if (t == 10) CHECK(state.GetKeyState(K_S) == KS_HIT);      // and the sword, from a new finger
+    }
+}
+
+// A second tap on either combo button while one runs is ignored, not queued;
+// a finger left on the button does nothing more; a tap after the end starts
+// the next.
+void testComboTaps() {
+    const glm::vec2 sword = Centre(TouchControl::SwordCombo);
+    const glm::vec2 spell = Centre(TouchControl::SpellCombo);
+    const std::vector<std::vector<TouchContact>> ticks = {
+        {Finger(1, sword)},
+        {},
+        {Finger(2, sword)},                    // again
+        {Finger(3, spell)},                    // the other one
+        {Finger(3, spell)},
+        {Finger(3, spell)},                    // still on it after the end
+        {},
+        {Finger(4, spell)},                    // a new tap
+        {},
+        {},
+        {},
+    };
+    const std::vector<std::vector<TouchAction>> held = {
+        {}, {TouchAction::Right}, {}, {TouchAction::Right}, {TouchAction::Sword}, {}, {},
+        {}, {TouchAction::Down}, {TouchAction::Right}, {TouchAction::Fire},
+    };
+    TouchControls touch;
+    for (std::size_t t = 0; t < ticks.size(); ++t) {
+        const TouchStep step = touch.Update(Facing(ticks[t], TouchFacing::Right));
+        CHECK_MSG(Only(step, held[t]), TickName("taps", t));
+    }
+    CHECK(touch.RunningCombo() == TouchCombo::None);
+}
+
+// Leaving play, a load or CancelCombo stops a combo: its keys are simply not
+// pressed any more, and none is left down.
+void testComboCancel() {
+    const glm::vec2 sword = Centre(TouchControl::SwordCombo, kWide);
+
+    // The pause: opened by the corner button during a combo, closed by Resume.
+    TouchControls touch;
+    PauseMenu pause;
+    InputState state;
+    const auto tick = [&](std::vector<TouchContact> contacts) {
+        TouchInput input = Facing(std::move(contacts), TouchFacing::Right, kWide);
+        if (pause.Paused()) {
+            input.scene = TouchScene::Menu;
+            input.corner = TouchCorner::Hidden;
+        }
+        const TouchStep step = touch.Update(input);
+        const InputFrame frame = FrameOf(step);
+        const PauseStep paused = pause.Update(PauseMenu::InputFrom(frame, 1, true, kWide));
+        if (paused.tick) state.Update(frame);   // the game reads only the ticks it runs
+        return step;
+    };
+    tick({});
+    tick({Finger(1, sword)});
+    TouchStep step = tick({});
+    CHECK(Only(step, {TouchAction::Right}));
+    CHECK(state.GetKeyState(K_RIGHT) == KS_HIT);
+    step = tick({Finger(2, Centre(TouchControl::Pause, kWide))});
+    CHECK(pause.Paused());
+    CHECK(step.Held(TouchAction::Cancel));
+    step = tick({});
+    CHECK(touch.RunningCombo() == TouchCombo::None);
+    CHECK(Only(step, {}));
+    const PauseMenu::Layout rows = PauseMenu::ComputeLayout(kWide);
+    const glm::vec2 resume = (rows.rowMin[PauseMenu::kResume] + rows.rowMax[PauseMenu::kResume]) * 0.5f;
+    tick({Finger(3, resume)});
+    CHECK(!pause.Paused());
+    for (int i = 0; i < 6; ++i) {
+        step = tick({});
+        CHECK(Only(step, {}));
+    }
+    for (const KEY key : {K_LEFT, K_RIGHT, K_DOWN, K_S, K_D}) CHECK(!state.KeyDown(key));
+
+    // A load (a death's reload, the next level): the serial moves on.
+    TouchControls load;
+    TouchInput input = Facing({Finger(1, Centre(TouchControl::SwordCombo))}, TouchFacing::Right);
+    input.sceneSerial = 7;
+    load.Update(input);
+    input.contacts.clear();
+    CHECK(Only(load.Update(input), {TouchAction::Right}));
+    input.sceneSerial = 8;
+    step = load.Update(input);
+    CHECK(Only(step, {}));
+    CHECK(step.combo == TouchCombo::None);
+    CHECK(load.RunningCombo() == TouchCombo::None);
+    CHECK(Only(load.Update(input), {}));
+
+    // A menu (a death into game over).
+    TouchControls menu;
+    menu.Update(Facing({Finger(1, Centre(TouchControl::SpellCombo))}, TouchFacing::Left));
+    CHECK(Only(menu.Update(Facing({}, TouchFacing::Left)), {TouchAction::Down}));
+    step = menu.Update(Menu({}, TouchCorner::Back));
+    CHECK(Only(step, {}));
+    CHECK(menu.RunningCombo() == TouchCombo::None);
+    CHECK(Only(menu.Update(Facing({}, TouchFacing::Left)), {}));
+
+    // CancelCombo: the layer's, when the touch controls are switched off.
+    TouchControls off;
+    off.Update(Facing({Finger(1, Centre(TouchControl::SwordCombo))}, TouchFacing::Right));
+    CHECK(off.RunningCombo() == TouchCombo::Sword);
+    off.CancelCombo();
+    CHECK(off.RunningCombo() == TouchCombo::None);
+    CHECK(Only(off.Update(Facing({}, TouchFacing::Right)), {}));
+}
+
+// "enabled": false takes a button out of the layout: not drawn, not touched,
+// the rest as before.
+void testComboManifest() {
+    std::string warning;
+    const TouchManifest noCombos = TouchControls::ManifestFromJson(
+        R"({"controls": {"swordCombo": {"enabled": false}, "spellCombo": {"enabled": false}}})", &warning);
+    CHECK(warning.empty());
+    CHECK(!noCombos[TouchControl::SwordCombo].enabled);
+    CHECK(!noCombos[TouchControl::SpellCombo].enabled);
+    CHECK(noCombos[TouchControl::Jump].enabled);
+    TouchControls touch;
+    touch.SetManifest(noCombos);
+    touch.SetImageRoot(PENUMBRA_DATA_DIR);
+    TouchStep step = touch.Update(Play({Finger(1, Centre(TouchControl::SwordCombo))}));
+    CHECK(Only(step, {}));
+    CHECK(touch.RunningCombo() == TouchCombo::None);
+    CHECK(!touch.Visible(TouchControl::SwordCombo));
+    CHECK(!touch.Visible(TouchControl::SpellCombo));
+    CHECK(touch.Visible(TouchControl::Jump));
+    std::vector<HudCmd> out;
+    touch.AppendOverlay(out);
+    CHECK_EQ(out.size(), std::size_t{10});
+    for (const HudCmd& cmd : out) CHECK(cmd.sprite.find("combo_") == std::string::npos);
+    step = touch.Update(Play({Finger(1, Centre(TouchControl::SwordCombo)), Finger(2, Centre(TouchControl::Jump))}));
+    CHECK(Only(step, {TouchAction::Jump}));
+
+    // One left in: it works alone.
+    const TouchManifest spellOnly =
+        TouchControls::ManifestFromJson(R"({"controls": {"swordCombo": {"enabled": false}}})", &warning);
+    TouchControls one;
+    one.SetManifest(spellOnly);
+    one.Update(Facing({Finger(1, Centre(TouchControl::SpellCombo))}, TouchFacing::Right));
+    CHECK(one.RunningCombo() == TouchCombo::Spell);
+    CHECK(Only(one.Update(Facing({}, TouchFacing::Right)), {TouchAction::Down}));
+
+    // Not true or false: a warning, and the button stays.
+    warning.clear();
+    const TouchManifest odd = TouchControls::ManifestFromJson(R"({"controls": {"spellCombo": {"enabled": 0}}})", &warning);
+    CHECK(odd[TouchControl::SpellCombo].enabled);
+    CHECK(warning.find("spellCombo.enabled") != std::string::npos);
+}
+
+// One game tick as the layer and the game run it - the touch controls, the
+// frame, the observer, the Ethanon frame - then the wizard's combo buffer as
+// controlCharacter reads it after the input (playerInput.as:358-381), in a
+// bare Machine: the ported Combo, the one g_comboManager holds.
+class ComboRig {
+public:
+    explicit ComboRig(Machine& machine) : m_machine(machine) {}
+
+    TouchStep Tap(const TouchInput& input, const InputFrame& devices = InputFrame{}) {
+        const TouchStep step = touch.Update(input);
+        InputFrame frame = devices;
+        TouchControls::ApplyToFrame(step, frame);
+        Run(frame);
+        return step;
+    }
+    // A frame made by hand, as the keyboard or a pad would.
+    void Run(const InputFrame& frame) {
+        touch.ObserveFrame(frame, 1);   // getPlayerJoystick(0) under the default g_controls
+        m_machine.Frame(frame);
+        combo.updateInput(0);
+        if (combo.checkSequence(Script::CMD_LEFT, Script::CMD_LEFT, Script::CMD_SWORD)) {
+            fired.push_back({tick, "sword left"});
+        } else if (combo.checkSequence(Script::CMD_RIGHT, Script::CMD_RIGHT, Script::CMD_SWORD)) {
+            fired.push_back({tick, "sword right"});
+        }
+        if (combo.checkSequence(Script::CMD_DOWN, Script::CMD_LEFT, Script::CMD_SPELL)) {
+            fired.push_back({tick, "spell left"});
+        } else if (combo.checkSequence(Script::CMD_DOWN, Script::CMD_RIGHT, Script::CMD_SPELL)) {
+            fired.push_back({tick, "spell right"});
+        }
+        ++tick;
+    }
+    void Idle(int ticks) {
+        for (int i = 0; i < ticks; ++i) Tap(Play());
+    }
+    // The one combo that fired since `from`, as "name@tick", or "".
+    std::string FiredSince(int from) const {
+        std::string out;
+        for (const Fired& f : fired) {
+            if (f.tick < from) continue;
+            if (!out.empty()) out += ", ";
+            out += f.name + "@" + std::to_string(f.tick - from);
+        }
+        return out;
+    }
+
+    struct Fired {
+        int tick;
+        std::string name;
+    };
+    TouchControls touch;
+    Script::Combo combo;
+    std::vector<Fired> fired;
+    int tick = 0;
+
+private:
+    Machine& m_machine;
+};
+
+void testComboBuffer() {
+    // The quiet the controls wait for is the buffer's own: the fewest ticks
+    // whose GetTime difference (frame * 1000 / 60) is always more than
+    // BUTTON_STRIDE (combo.as:44, :116).
+    unsigned fewest = 0;
+    for (unsigned n = 1; n < 60 && fewest == 0; ++n) {
+        bool always = true;
+        for (unsigned t = 0; t < 120; ++t) {
+            if ((t + n) * 1000u / 60u - t * 1000u / 60u <= Script::BUTTON_STRIDE) always = false;
+        }
+        if (always) fewest = n;
+    }
+    CHECK_EQ(fewest, TouchControls::kComboQuietTicks);
+
+    MachineConfig config;
+    config.userRoot.clear();   // nothing is written
+    Machine machine(config);
+    Machine::Scope scope(machine);
+    machine.Boot([] { LoadScene("", "", ""); });
+    machine.Frame(InputFrame{});
+    ComboRig rig(machine);
+    rig.Idle(20);
+
+    const glm::vec2 swordButton = Centre(TouchControl::SwordCombo);
+    const glm::vec2 spellButton = Centre(TouchControl::SpellCombo);
+    const auto tapAndRun = [&](glm::vec2 button, TouchFacing facing, int ticks) {
+        const int from = rig.tick;
+        rig.Tap(Facing({Finger(1, button)}, facing));
+        for (int i = 1; i < ticks; ++i) rig.Tap(Facing({}, facing));
+        return from;
+    };
+
+    // After a quiet spell each fires on its last press: the sword combo on its
+    // fifth tick, the spell combo on its fourth, toward the way he faces.
+    int from = tapAndRun(swordButton, TouchFacing::Right, 8);
+    CHECK_MSG(rig.FiredSince(from) == "sword right@4", rig.FiredSince(from));
+    rig.Idle(20);
+    from = tapAndRun(swordButton, TouchFacing::Left, 8);
+    CHECK_MSG(rig.FiredSince(from) == "sword left@4", rig.FiredSince(from));
+    rig.Idle(20);
+    from = tapAndRun(spellButton, TouchFacing::Right, 8);
+    CHECK_MSG(rig.FiredSince(from) == "spell right@3", rig.FiredSince(from));
+    rig.Idle(20);
+    from = tapAndRun(spellButton, TouchFacing::Left, 8);
+    CHECK_MSG(rig.FiredSince(from) == "spell left@3", rig.FiredSince(from));
+
+    // Back to back: the combo's own presses were presses, so the next one
+    // waits out the buffer's 13 ticks: the sword combo's last press is on
+    // tick 4, the spell combo's first on tick 4 + 14, its fire on 20.
+    rig.Idle(20);
+    from = rig.tick;
+    rig.Tap(Facing({Finger(1, swordButton)}, TouchFacing::Right));
+    for (int i = 0; i < 4; ++i) rig.Tap(Facing({}, TouchFacing::Right));
+    rig.Tap(Facing({Finger(2, spellButton)}, TouchFacing::Right));
+    for (int i = 0; i < 20; ++i) rig.Tap(Facing({}, TouchFacing::Right));
+    CHECK_MSG(rig.FiredSince(from) == "sword right@4, spell right@20", rig.FiredSince(from));
+
+    // RIGHT AFTER A STEP: the disc pressed right, the combo tapped on the next
+    // tick with the thumb still down. The buffer holds CMD_RIGHT: the first
+    // press waits 14 ticks from the step, and the combo fires.
+    rig.Idle(20);
+    const glm::vec2 right = Dpad({100.0f, 0.0f});
+    const int step = rig.tick;
+    rig.Tap(Facing({Finger(1, right)}, TouchFacing::Right));
+    rig.Tap(Facing({Finger(1, right), Finger(2, swordButton)}, TouchFacing::Right));
+    int firstPress = -1;
+    for (int i = 0; i < 20; ++i) {
+        const TouchStep held = rig.Tap(Facing({Finger(1, right)}, TouchFacing::Right));
+        if (firstPress < 0 && held.Held(TouchAction::Right)) firstPress = rig.tick - 1 - step;
+    }
+    CHECK_EQ(firstPress, 14);
+    CHECK_MSG(rig.FiredSince(step) == "sword right@17", rig.FiredSince(step));
+
+    // Why it waits - the same presses by hand, pressed at once after the step,
+    // fire nothing: the buffer reads RIGHT, RIGHT, RIGHT, SWORD.
+    rig.Idle(20);
+    const auto keys = [](std::initializer_list<KEY> down) {
+        InputFrame frame;
+        for (const KEY key : down) frame.keys[static_cast<std::size_t>(key)] = true;
+        return frame;
+    };
+    from = rig.tick;
+    for (const InputFrame& frame : {keys({K_RIGHT}), keys({}), keys({K_RIGHT}), keys({}), keys({K_RIGHT}),
+                                    keys({K_S}), keys({}), keys({})}) {
+        rig.Run(frame);
+    }
+    CHECK_MSG(rig.FiredSince(from).empty(), rig.FiredSince(from));
+
+    // Any device counts: the keyboard's Up and player 1's pad's sword button
+    // (JK_04) a tick before the tap put it off 14 ticks from them too.
+    rig.Idle(20);
+    from = rig.tick;
+    rig.Tap(Play(), keys({K_UP}));
+    rig.Tap(Facing({Finger(1, spellButton)}, TouchFacing::Left));
+    for (int i = 0; i < 20; ++i) rig.Tap(Facing({}, TouchFacing::Left));
+    CHECK_MSG(rig.FiredSince(from) == "spell left@16", rig.FiredSince(from));
+    rig.Idle(20);
+    InputFrame pad;
+    pad.pads[1].connected = true;
+    pad.pads[1].buttons[JK_04] = true;
+    InputFrame padIdle;
+    padIdle.pads[1].connected = true;
+    from = rig.tick;
+    rig.Tap(Play(), pad);
+    rig.Tap(Facing({Finger(1, swordButton)}, TouchFacing::Right), padIdle);
+    for (int i = 0; i < 20; ++i) rig.Tap(Facing({}, TouchFacing::Right), padIdle);
+    CHECK_MSG(rig.FiredSince(from) == "sword right@17", rig.FiredSince(from));
+    // Player 2's pad does not (under the default g_controls it is pad 0).
+    rig.Idle(20);
+    InputFrame other;
+    other.pads[0].connected = true;
+    other.pads[0].buttons[JK_04] = true;
+    from = rig.tick;
+    rig.Tap(Play(), other);
+    rig.Tap(Facing({Finger(1, swordButton)}, TouchFacing::Right));
+    for (int i = 0; i < 8; ++i) rig.Tap(Facing({}, TouchFacing::Right));
+    CHECK_MSG(rig.FiredSince(from) == "sword right@5", rig.FiredSince(from));
+
+    // Something that keeps pressing - the keyboard's Up, from the tap's own
+    // tick on, every other tick: the combo gives up after its longest wait,
+    // having pressed nothing, and nothing fires. (Pressing that starts only
+    // after a combo's first press lands in the buffer as any device's would.)
+    rig.Idle(20);
+    from = rig.tick;
+    rig.Tap(Facing({Finger(1, swordButton)}, TouchFacing::Right), keys({K_UP}));
+    int pressed = 0;
+    for (int i = 0; i < 40; ++i) {
+        const TouchStep held = rig.Tap(Facing({}, TouchFacing::Right), i % 2 == 1 ? keys({K_UP}) : keys({}));
+        for (int a = 0; a < kTouchActionCount; ++a) pressed += held.held[static_cast<std::size_t>(a)] ? 1 : 0;
+    }
+    CHECK_EQ(pressed, 0);
+    CHECK(rig.touch.RunningCombo() == TouchCombo::None);
+    CHECK_MSG(rig.FiredSince(from).empty(), rig.FiredSince(from));
+}
+
+TouchFacing FacingOf(const ETHEntity& wizard) {
+    if (wizard == nullptr) return TouchFacing::Unknown;
+    return wizard->GetUIntData("currentDir") == Script::LEFT ? TouchFacing::Left : TouchFacing::Right;
+}
+
+bool Standing(const ETHEntity& e) {
+    return e != nullptr && e->IsAlive() && e->GetIntData("hp") > 0 && e->CheckCustomData("deathTime") == DT_NODATA &&
+           e->GetUIntData("touchingGround") != 0;
+}
+
+// The combos through the real game: level 1, a fresh campaign, the combo
+// buttons tapped as the layer feeds them (facing from the wizard's own
+// currentDir). SHORTCUT: mana set to the maximum before each.
+void testComboInGame() {
+    if (!fs::exists(fs::path(PENUMBRA_ORIGINAL_DIR) / "scenes" / "level1.esc")) {
+        std::printf("  (the original is not at %s: the combos in the real game are skipped)\n", PENUMBRA_ORIGINAL_DIR);
+        return;
+    }
+    std::error_code ec;
+    const fs::path userRoot = fs::temp_directory_path(ec) / ("penumbra-touch-" + std::to_string(std::random_device{}()));
+    fs::remove_all(userRoot, ec);
+    fs::create_directories(userRoot, ec);
+    {
+        MachineConfig config;
+        config.userRoot = userRoot.generic_string();
+        Machine machine(config);
+        Machine::Scope scope(machine);
+        Script::RegisterAll(machine);
+        machine.Boot(Script::ScriptMain);
+        machine.Frame(InputFrame{});
+
+        TouchControls touch;
+        std::set<int> seen;
+        std::vector<ETHEntity> made;
+        const auto spot = [&](int since) {
+            for (const char* name : {"combo_sword.ent", "sword0.ent", "combo_fire_ball.ent", "fire_ball.ent"}) {
+                ETHEntityArray found;
+                GetEntityArray(name, found);
+                for (const ETHEntity& e : found) {
+                    if (e->GetID() >= since && seen.insert(e->GetID()).second) made.push_back(e);
+                }
+            }
+        };
+        const auto count = [&](const std::string& name) {
+            return static_cast<int>(std::count_if(made.begin(), made.end(),
+                                                  [&](const ETHEntity& e) { return e->GetEntityName() == name; }));
+        };
+        int since = 0;
+        const auto tick = [&](std::vector<TouchContact> contacts) {
+            TouchInput input = Play(std::move(contacts), machine.GetScreenSize());
+            input.facing = FacingOf(SeekEntity("bruxo.ent"));
+            input.sceneSerial = machine.Snapshot().sceneSerial;
+            const TouchStep step = touch.Update(input);
+            InputFrame frame;
+            TouchControls::ApplyToFrame(step, frame);
+            touch.ObserveFrame(frame, static_cast<int>(Script::getPlayerJoystick(0)));
+            machine.Frame(frame);
+            spot(since);
+            return step;
+        };
+
+        const uint setup = Script::g_levelStartTime;
+        Script::newGame("CAMPAIGN");
+        for (int i = 0; i < 5 && Script::g_levelStartTime == setup; ++i) machine.Frame(InputFrame{});
+        CHECK(GetSceneFileName() == "scenes/level1.esc");
+        ETHEntity wizard = SeekEntity("bruxo.ent");
+        for (int i = 0; i < 300 && !Standing(wizard); ++i) {
+            tick({});
+            wizard = SeekEntity("bruxo.ent");
+        }
+        if (!Standing(wizard)) {
+            CHECK_MSG(false, "no wizard standing in level 1");
+            return;
+        }
+        for (int i = 0; i < 20; ++i) tick({});
+        const glm::vec2 screen = machine.GetScreenSize();
+
+        // The sword combo, the way he stands.
+        wizard->AddIntData("mp", wizard->GetIntData("maxMp"));
+        int mp = wizard->GetIntData("mp");
+        const uint facing = wizard->GetUIntData("currentDir");
+        since = GetLastID();
+        tick({Finger(1, Centre(TouchControl::SwordCombo, screen))});
+        for (int i = 0; i < 8; ++i) tick({});
+        std::printf("  sword combo facing %s: combo_sword.ent %d, sword0.ent %d, mp %d -> %d\n",
+                    facing == Script::LEFT ? "left" : "right", count("combo_sword.ent"), count("sword0.ent"), mp,
+                    wizard->GetIntData("mp"));
+        CHECK_EQ(count("combo_sword.ent"), 1);
+        CHECK_EQ(count("sword0.ent"), 0);
+        CHECK(mp - wizard->GetIntData("mp") == 5 || mp - wizard->GetIntData("mp") == 4);
+        for (const ETHEntity& e : made) {
+            if (e->GetEntityName() == "combo_sword.ent") CHECK_EQ(e->GetUIntData("direction"), facing);
+        }
+
+        // The spell combo facing left, tapped the tick after a step left on
+        // the disc: it waits out the buffer, then casts toward the left.
+        for (int i = 0; i < 30; ++i) tick({});
+        wizard->AddIntData("mp", wizard->GetIntData("maxMp"));
+        mp = wizard->GetIntData("mp");
+        made.clear();
+        since = GetLastID();
+        tick({Finger(2, Centre(TouchControl::Dpad, screen) + glm::vec2(-100.0f, 0.0f))});
+        tick({});
+        CHECK_EQ(wizard->GetUIntData("currentDir"), Script::LEFT);
+        tick({Finger(3, Centre(TouchControl::SpellCombo, screen))});
+        int ticks = 0;
+        for (; ticks < 30 && count("combo_fire_ball.ent") == 0; ++ticks) tick({});
+        tick({});
+        std::printf("  spell combo facing left: combo_fire_ball.ent %d after %d ticks, fire_ball.ent %d, mp %d -> %d\n",
+                    count("combo_fire_ball.ent"), ticks, count("fire_ball.ent"), mp, wizard->GetIntData("mp"));
+        CHECK_EQ(count("combo_fire_ball.ent"), 1);
+        CHECK_EQ(count("fire_ball.ent"), 0);
+        CHECK(ticks >= 13);   // it waited for the buffer
+        CHECK(mp - wizard->GetIntData("mp") >= 24 && mp - wizard->GetIntData("mp") <= 25);
+        for (const ETHEntity& e : made) {
+            if (e->GetEntityName() == "combo_fire_ball.ent") CHECK_EQ(e->GetUIntData("direction"), Script::LEFT);
+        }
+        CHECK_EQ(machine.ScriptAborts(), 0u);
+    }
+    fs::remove_all(userRoot, ec);
+}
+
 void runTests() {
     testKeys();
     testEachButton();
@@ -1055,6 +1681,13 @@ void runTests() {
     testLayout();
     testManifest();
     testSetting();
+    testComboTimelines();
+    testComboFingers();
+    testComboTaps();
+    testComboCancel();
+    testComboManifest();
+    testComboBuffer();
+    testComboInGame();   // last: it boots the real game, whose globals outlive it
 }
 
 } // namespace

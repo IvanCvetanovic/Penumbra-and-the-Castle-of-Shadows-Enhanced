@@ -47,7 +47,7 @@ in this repository, with the engine improved where the game needs it.
 | E13 | A pause: in a level or an arena, Esc or player 1's Back freezes the game (the Machine does not tick: GetTime, fades, cooldowns and the run's clock stop, so best times exclude paused time) under 'Pausado'/'Paused' with Continuar/Resume and Menu principal/Main menu (arrows, stick/D-pad, Enter/A/Start, Esc/B/Back, mouse); Main menu feeds the original's own K_ESC for one tick; the music is ducked to 40%; it opens by itself when the window loses focus in play (settings.pauseOnFocusLoss, on; off under --fixed-step); not on the end screens, where Esc/Back still go to the menu | none: Esc in a level returned straight to the main menu and the run was lost (doLoop's escToGoToMenu) |
 | E14 | Gamepad menus: in the menu, the arena select, the options screen and game over, a pad's A also confirms (JK_10) and B also cancels (JK_09); a button already held when a menu opens counts from its next press | only Start confirmed and only Back cancelled (getConfirmButtonStatus/getCancelButtonStatus, playerInput.as:267-305) |
 | E15 | The five ambient horror.mp3 markers the level designer named "play_sound.ent" (level2 469, 493, 548; level3 219, 427) play once on screen like the correctly named ones (Script.hpp kPlaySoundEntFix) | setupScene.as:175 collected only "play_sound" by exact name: they never played |
-| E16 | On-screen touch controls (render/TouchControls, game/data/touch_controls.json): a direction disc (left/right/down, the thumb slides) and jump/sword/fire/light as a pad's face buttons press player 1's own keys (K_LEFT/K_RIGHT/K_DOWN, K_CTRL, K_S, K_D, K_SPACE); a corner button sends K_ESC (E13's pause in play, back elsewhere); in the menus, the options, game over and the pause the buttons hide and a tap is a click there; placeholder art (tools/art/make_touch_art.py), the look and layout data-only; settings.touchControls auto/on/off (auto = on under PENUMBRA_MOBILE), --touch on the desktop (the held mouse is the finger) | keyboard and joysticks only |
+| E16 | On-screen touch controls (render/TouchControls, game/data/touch_controls.json): a direction disc (left/right/down, the thumb slides) and jump/sword/fire/light as a pad's face buttons press player 1's own keys (K_LEFT/K_RIGHT/K_DOWN, K_CTRL, K_S, K_D, K_SPACE); a corner button sends K_ESC (E13's pause in play, back elsewhere); in the menus, the options, game over and the pause the buttons hide and a tap is a click there; placeholder art (tools/art/make_touch_art.py), the look and layout data-only; settings.touchControls auto/on/off (auto = on under PENUMBRA_MOBILE), --touch on the desktop (the held mouse is the finger); two combo buttons play the sword and spell combos as macros of the same keys, toward the way the wizard faces, after the combo buffer has emptied (Step 17) | keyboard and joysticks only |
 | E17 | Stand-in fonts (game/data/fonts: Liberation Sans Bold 2.1.5, SIL OFL; DejaVu Sans Bold 2.37, Bitstream Vera licence): off Windows, and on a Windows machine missing a face, FontAtlas draws with them at the metrics of the Windows face they stand for (Arial Narrow = Liberation Sans Bold at 82% width, within 1/2048 em of Arial Narrow Bold on every cp1252 character the game draws). On Windows the system faces still come first | the Windows system faces (D3DXCreateFontA), nothing else |
 | E18 | MP3 without Media Foundation (eth/SoundDecode, dr_mp3 vendored at a pinned commit): where the engine cannot decode an MP3 (every platform but Windows) the port decodes it itself; on Windows the engine's Media Foundation path still decodes, dr_mp3 only if it refuses a file | Audiere on Windows |
 | E19 | The first language off Windows: Portuguese when LC_ALL, LC_MESSAGES or LANG starts with pt (Settings::SetSystemLocale is the hook Android and iOS feed the device locale into) | Portuguese only |
@@ -407,6 +407,43 @@ Not measured: Android 15+ (edge-to-edge enforced; the emulator is API 33), a rea
 Gates: Linux test_pn_all 17 suites, 5008 checks, 0 failures (render_lights 193, render_textures
 184); engine suites on Linux (test_light2d 187, test_materials 395); Windows build zero warnings;
 Windows test_pn_all refused by Smart App Control this build (exit 126, one notification): not run.
+
+### Step 18 - the touch controls' combo buttons (E16 addendum, 2026-09-28)
+The two combos (playerInput.as:358-395) are hard with a thumb on a disc, so two buttons play them.
+- **The macro** is player 1's keys, one a tick, into the same frame: sword combo `-, side, -, side,
+  K_S` (CMD side, side, SWORD, fires on its 5th tick), spell combo `-, K_DOWN, side, K_D` (CMD
+  DOWN, side, SPELL, fires on its 4th). Tick 0 lets go of what the disc held, so the first press is
+  a fresh KS_HIT; the release between the two sides is the only one the buffer needs (it records
+  the first HIT of a frame, a different key's while the last is releasing).
+- **The side** is the wizard's own currentDir, read by the layer from bruxo.ent each tick: he turns
+  from the keyboard and pads too, and a level starts with it unwritten (RIGHT). Without a wizard,
+  the side the disc was last pushed; else right.
+- **The buffer must be empty.** checkSequence matches only the first three commands since it was
+  last emptied, and combo.as:116 empties it only on a frame without a command more than 210 ms
+  after the last: 13 ticks at GetTime = frame * 1000 / 60. TouchControls::ObserveFrame watches the
+  frames the game runs (touch on or off) for a new press of anything the buffer reads for player 1
+  - his six keys, his pad's stick past 0.8, JK_04, JK_02 - and the first press waits for 13 quiet
+  ticks: no wait after a quiet spell, 14 ticks from a step just before, 217 ms between two combos. A
+  macro that cannot get its quiet in 30 ticks (something keeps pressing) gives up.
+- **While it runs** the disc's directions and the sword and fire buttons are held back (their HITs
+  would land in the buffer); jump, light and pause are not. A sword or fire finger held through it
+  stays held back until it lifts; the disc steers again at once. A second tap on either combo button
+  is ignored; the pause, a menu, a load (the snapshot's sceneSerial) or switching the controls off
+  (E20's row) cancels it, and its keys are simply no longer pressed.
+- **Layout**: 100 px buttons in a row above the four (bottomRight offsets (216, 400) and (88, 400)),
+  the sword combo on the sword's side. Placeholder glyphs in make_touch_art.py: chevrons and a sword;
+  a down-then-forward arrow and a fire ball. A manifest control with `"enabled": false` is not there.
+- **Tests** (test_pn_render_touch): each timeline tick by tick for both facings, through
+  InputState; the fingers held back under a combo; taps; cancelling; the enabled flag; the layout at
+  1024/1366/1707 with and without a safe area; the ported Combo fed by the macros in a bare Machine
+  (fires on the expected tick, facing either way; waits exactly to tick 14 after a step; the same
+  presses without the wait fire nothing; the keyboard's and player 1's pad's presses count, player
+  2's pad's do not; back to back; the give-up); and level 1 of the real game: combo_sword.ent (no
+  sword0.ent) and, right after a step left, combo_fire_ball.ent with direction LEFT.
+Gates: Linux (WSL, GCC, -Wall -Wextra -Wpedantic) no warnings in the touched files; test_pn_all 17
+suites, 5596 checks, 0 failures (render_touch 1636; in level 1 the sword combo cost 100 -> 96 mana
+with a tick of regeneration, the spell combo fired 16 ticks after the step, 100 -> 75). Windows:
+check.bat clean on every touched file; not built or run this step.
 
 ### Open
 - **Light, still not modelled** (Step 16): the live shadows (E9) darken the ambient too, where

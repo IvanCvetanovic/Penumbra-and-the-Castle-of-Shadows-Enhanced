@@ -28,6 +28,8 @@ Y light, and the diamond is laid out as a pad's face buttons):
   sword.png         a sword                (K_S)
   fire.png          a flame                (K_D, the fire ball)
   light.png         a sun                  (K_SPACE, the light spell)
+  combo_sword.png   two chevrons and a sword    the sword combo: side, side, sword
+  combo_spell.png   a down-then-on arrow and a fire ball    the spell combo: down, side, fire
   pause.png         two bars               (K_ESC in play: E13's pause)
   back.png          a return arrow         (K_ESC elsewhere: back to the menu)
 """
@@ -48,6 +50,7 @@ BUTTON = 240       # jump, sword, fire, light: 120 logical
 CORNER = 168       # pause, back: 84 logical
 DPAD = 520         # 260 logical
 KNOB = 208         # 104 logical
+COMBO = 200        # swordCombo, spellCombo: 100 logical
 
 WHITE = (255, 255, 255, 255)
 DISC = (8, 8, 12, 150)          # the translucent dark under every icon
@@ -161,6 +164,43 @@ def light():
     c.save("light.png")
 
 
+def chevron(c, x, y, size, thickness):
+    """A '>' pointing right, its tip at (x + size/2, y)."""
+    c.polygon([(x - size / 2, y - size), (x - size / 2 + thickness, y - size), (x + size / 2 + thickness, y),
+               (x - size / 2 + thickness, y + size), (x - size / 2, y + size), (x + size / 2, y)], WHITE)
+
+
+def combo_sword():
+    c = button_base(COMBO)
+    # "Forward, forward, strike": two chevrons, then a smaller sword up and right.
+    chevron(c, -0.52, 0.32, 0.17, 0.12)
+    chevron(c, -0.28, 0.32, 0.17, 0.12)
+    parts = [
+        [(0.0, -0.66), (0.085, -0.50), (0.085, 0.20), (-0.085, 0.20), (-0.085, -0.50)],
+        [(-0.28, 0.20), (0.28, 0.20), (0.28, 0.29), (-0.28, 0.29)],
+        [(-0.05, 0.29), (0.05, 0.29), (0.05, 0.50), (-0.05, 0.50)],
+    ]
+    for part in parts:
+        c.polygon([(0.28 + 0.62 * x, -0.20 + 0.62 * y) for x, y in rotate(part, 45)], WHITE)
+    px, py = rotate([(0.0, 0.57)], 45)[0]
+    c.circle(0.28 + 0.62 * px, -0.20 + 0.62 * py, 0.055, fill=WHITE)
+    c.save("combo_sword.png")
+
+
+def combo_spell():
+    c = button_base(COMBO)
+    # "Down, then on, then fire": an arrow that goes down and turns forward,
+    # and a fire ball with its tail behind it.
+    c.rounded(-0.62, -0.52, -0.46, 0.30, 0.03, WHITE)
+    c.rounded(-0.62, 0.14, -0.02, 0.30, 0.03, WHITE)
+    c.polygon([(0.14, 0.22), (-0.08, 0.02), (-0.08, 0.42)], WHITE)
+    c.circle(0.30, -0.22, 0.20, fill=WHITE)
+    for dy, length in ((-0.12, 0.40), (0.0, 0.52), (0.12, 0.40)):
+        c.polygon([(0.26, -0.22 + dy - 0.07), (0.26 - length, -0.22 + dy * 1.6), (0.26, -0.22 + dy + 0.07)], WHITE)
+    c.circle(0.30, -0.22, 0.09, fill=DISC)
+    c.save("combo_spell.png")
+
+
 def pause():
     c = button_base(CORNER)
     c.rounded(-0.30, -0.40, -0.09, 0.40, 0.05, WHITE)
@@ -212,7 +252,7 @@ def check_no_magenta():
 
 def main():
     print(f"writing {OUT.relative_to(REPO)}")
-    for make in (dpad, knob, jump, sword, fire, light, pause, back):
+    for make in (dpad, knob, jump, sword, fire, light, combo_sword, combo_spell, pause, back):
         make()
     check_no_magenta()
 

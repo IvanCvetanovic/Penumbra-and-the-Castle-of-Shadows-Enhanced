@@ -4,6 +4,7 @@
 #include <cctype>
 #include <cmath>
 #include <fstream>
+#include <iterator>
 #include <limits>
 #include <sstream>
 #include <system_error>
@@ -17,7 +18,9 @@ namespace {
 
 using Supersonic::Json::Value;
 
-constexpr const char* kControlIds[kTouchControlCount] = {"dpad", "jump", "sword", "fire", "light", "pause", "back"};
+// In TouchControl's order.
+constexpr const char* kControlIds[kTouchControlCount] = {"dpad",       "jump",       "sword", "fire", "light",
+                                                         "swordCombo", "spellCombo", "pause", "back"};
 
 // What each action presses: what playerInput.as reads for player 0.
 constexpr Eth::KEY kActionKeys[kTouchActionCount] = {
@@ -30,6 +33,77 @@ constexpr Eth::KEY kActionKeys[kTouchActionCount] = {
     Eth::K_SPACE,   // getAttack03ButtonStatus, the light spell (playerInput.as:241)
     Eth::K_ESC,     // getCancelButtonStatus (playerInput.as:289), escToGoToMenu, E13's pause
 };
+
+// One tick of a combo's macro: the one key it presses, or none. Side is the
+// way the wizard faces. The timelines are the header's table.
+enum class ComboKey { None, Side, Down, Sword, Fire };
+constexpr ComboKey kSwordComboTicks[] = {ComboKey::None, ComboKey::Side, ComboKey::None, ComboKey::Side,
+                                         ComboKey::Sword};   // CMD side, side, SWORD (playerInput.as:361-362)
+constexpr ComboKey kSpellComboTicks[] = {ComboKey::None, ComboKey::Down, ComboKey::Side,
+                                         ComboKey::Fire};   // CMD DOWN, side, SPELL (playerInput.as:380-381)
+
+std::size_t ComboLength(TouchCombo combo) {
+    switch (combo) {
+        case TouchCombo::Sword: return std::size(kSwordComboTicks);
+        case TouchCombo::Spell: return std::size(kSpellComboTicks);
+        case TouchCombo::None: break;
+    }
+    return 0;
+}
+
+ComboKey ComboTick(TouchCombo combo, std::size_t tick) {
+    if (tick >= ComboLength(combo)) return ComboKey::None;
+    return combo == TouchCombo::Sword ? kSwordComboTicks[tick] : kSpellComboTicks[tick];
+}
+
+// What the combo buffer reads for player 1 (combo.as:63-112 through
+// playerInput.as:55-239), as bits: his keys - all up without the focus, as
+// InputState reads them - and his pad, stepped with or without it, its stick
+// past InputState's 0.8 as JK_LEFT/RIGHT/UP/DOWN.
+enum ComboInput : unsigned {
+    kComboLeft = 1u << 0,
+    kComboRight = 1u << 1,
+    kComboUp = 1u << 2,
+    kComboDown = 1u << 3,
+    kComboSword = 1u << 4,
+    kComboSpell = 1u << 5,
+};
+constexpr float kStickArrow = 0.8f;   // eth/Input.cpp kArrowThreshold
+
+unsigned ComboInputs(const Eth::InputFrame& frame, int player1Pad) {
+    unsigned bits = 0;
+    if (frame.hasFocus) {
+        if (frame.keys[Eth::K_LEFT]) bits |= kComboLeft;
+        if (frame.keys[Eth::K_RIGHT]) bits |= kComboRight;
+        if (frame.keys[Eth::K_UP]) bits |= kComboUp;
+        if (frame.keys[Eth::K_DOWN]) bits |= kComboDown;
+        if (frame.keys[Eth::K_S]) bits |= kComboSword;
+        if (frame.keys[Eth::K_D]) bits |= kComboSpell;
+    }
+    if (player1Pad >= 0 && player1Pad < Eth::kMaxJoysticks) {
+        const Eth::InputFrame::Pad& pad = frame.pads[static_cast<std::size_t>(player1Pad)];
+        if (pad.connected) {
+            if (pad.xy.x <= -kStickArrow) bits |= kComboLeft;
+            if (pad.xy.x >= kStickArrow) bits |= kComboRight;
+            if (pad.xy.y <= -kStickArrow) bits |= kComboUp;
+            if (pad.xy.y >= kStickArrow) bits |= kComboDown;
+            if (pad.buttons[Eth::JK_04]) bits |= kComboSword;
+            if (pad.buttons[Eth::JK_02]) bits |= kComboSpell;
+        }
+    }
+    return bits;
+}
+
+TouchControlSpec Spec(const char* image, TouchAnchor anchor, glm::vec2 offset, glm::vec2 size, float hitPadding) {
+    TouchControlSpec spec;
+    spec.image = image;
+    spec.anchor = anchor;
+    spec.offset = offset;
+    spec.size = size;
+    spec.shape = TouchShape::Circle;
+    spec.hitPadding = hitPadding;
+    return spec;
+}
 
 // tan(22.5 degrees): the edge between a direction and its diagonals.
 constexpr float kTan22 = 0.41421356f;
@@ -161,20 +235,19 @@ Eth::KEY TouchControls::KeyFor(TouchAction action) {
 TouchManifest TouchControls::DefaultManifest() {
     // game/data/touch_controls.json holds the same; see it for why each is where it is.
     TouchManifest m;
-    m[TouchControl::Dpad] = {"images/touch/dpad.png", TouchAnchor::BottomLeft, {40.0f, 40.0f}, {260.0f, 260.0f},
-                             TouchShape::Circle, 60.0f};
-    m[TouchControl::Jump] = {"images/touch/jump.png", TouchAnchor::BottomRight, {142.0f, 24.0f}, {120.0f, 120.0f},
-                             TouchShape::Circle, 16.0f};
-    m[TouchControl::Sword] = {"images/touch/sword.png", TouchAnchor::BottomRight, {260.0f, 142.0f}, {120.0f, 120.0f},
-                              TouchShape::Circle, 16.0f};
-    m[TouchControl::Fire] = {"images/touch/fire.png", TouchAnchor::BottomRight, {24.0f, 142.0f}, {120.0f, 120.0f},
-                             TouchShape::Circle, 16.0f};
-    m[TouchControl::Light] = {"images/touch/light.png", TouchAnchor::BottomRight, {142.0f, 260.0f}, {120.0f, 120.0f},
-                              TouchShape::Circle, 16.0f};
-    m[TouchControl::Pause] = {"images/touch/pause.png", TouchAnchor::TopRight, {20.0f, 44.0f}, {84.0f, 84.0f},
-                              TouchShape::Circle, 12.0f};
-    m[TouchControl::Back] = {"images/touch/back.png", TouchAnchor::TopRight, {20.0f, 44.0f}, {84.0f, 84.0f},
-                             TouchShape::Circle, 12.0f};
+    constexpr glm::vec2 kButton{120.0f, 120.0f};
+    m[TouchControl::Dpad] = Spec("images/touch/dpad.png", TouchAnchor::BottomLeft, {40.0f, 40.0f}, {260.0f, 260.0f}, 60.0f);
+    m[TouchControl::Jump] = Spec("images/touch/jump.png", TouchAnchor::BottomRight, {142.0f, 24.0f}, kButton, 16.0f);
+    m[TouchControl::Sword] = Spec("images/touch/sword.png", TouchAnchor::BottomRight, {260.0f, 142.0f}, kButton, 16.0f);
+    m[TouchControl::Fire] = Spec("images/touch/fire.png", TouchAnchor::BottomRight, {24.0f, 142.0f}, kButton, 16.0f);
+    m[TouchControl::Light] = Spec("images/touch/light.png", TouchAnchor::BottomRight, {142.0f, 260.0f}, kButton, 16.0f);
+    // E16 combos: a row above the four, each on its attack's side.
+    m[TouchControl::SwordCombo] =
+        Spec("images/touch/combo_sword.png", TouchAnchor::BottomRight, {216.0f, 400.0f}, {100.0f, 100.0f}, 12.0f);
+    m[TouchControl::SpellCombo] =
+        Spec("images/touch/combo_spell.png", TouchAnchor::BottomRight, {88.0f, 400.0f}, {100.0f, 100.0f}, 12.0f);
+    m[TouchControl::Pause] = Spec("images/touch/pause.png", TouchAnchor::TopRight, {20.0f, 44.0f}, {84.0f, 84.0f}, 12.0f);
+    m[TouchControl::Back] = Spec("images/touch/back.png", TouchAnchor::TopRight, {20.0f, 44.0f}, {84.0f, 84.0f}, 12.0f);
     m.dpadLeft = "images/touch/dpad_left.png";
     m.dpadRight = "images/touch/dpad_right.png";
     m.dpadDown = "images/touch/dpad_down.png";
@@ -233,6 +306,10 @@ TouchManifest TouchControls::ManifestFromJson(const std::string& text, std::stri
         ReadPair(entry, "size", where, 1.0f, spec.size, warning);
         ReadShape(entry, where, spec.shape, warning);
         ReadFloat(entry, "hitPadding", where, 0.0f, 1000.0f, spec.hitPadding, warning);
+        if (entry.Has("enabled")) {
+            if (entry["enabled"].IsBool()) spec.enabled = entry["enabled"].AsBool();
+            else Warn(warning, where + ".enabled is not true/false");
+        }
 
         if (static_cast<TouchControl>(i) != TouchControl::Dpad) continue;
         ReadFloat(entry, "deadZone", where, 0.0f, kMaxDeadZone, manifest.deadZone, warning);
@@ -350,6 +427,8 @@ bool TouchControls::ownerVisible(Owner owner) const {
         case Owner::Sword: return Visible(TouchControl::Sword);
         case Owner::Fire: return Visible(TouchControl::Fire);
         case Owner::Light: return Visible(TouchControl::Light);
+        case Owner::SwordCombo: return Visible(TouchControl::SwordCombo);
+        case Owner::SpellCombo: return Visible(TouchControl::SpellCombo);
         case Owner::Corner: return Visible(TouchControl::Pause) || Visible(TouchControl::Back);
         case Owner::Pointer: return m_scene == TouchScene::Menu;
     }
@@ -395,18 +474,48 @@ void TouchControls::LatchFrame(const std::vector<TouchContact>& contacts) {
     }
 }
 
+void TouchControls::ObserveFrame(const Eth::InputFrame& frame, int player1Pad) {
+    const unsigned now = ComboInputs(frame, player1Pad);
+    const bool pressed = (now & ~m_observed) != 0u;
+    m_observed = now;
+    if (pressed) m_quietTicks = 0;
+    else if (m_quietTicks < kComboQuietTicks) ++m_quietTicks;
+}
+
+void TouchControls::CancelCombo() { m_combo = Combo{}; }
+
+void TouchControls::startCombo(TouchCombo combo, TouchFacing facing) {
+    m_combo = Combo{};
+    m_combo.combo = combo;
+    // His currentDir; without a wizard, where the disc last pointed.
+    m_combo.side = facing == TouchFacing::Left    ? TouchAction::Left
+                   : facing == TouchFacing::Right ? TouchAction::Right
+                                                  : m_lastSide;
+}
+
 TouchStep TouchControls::Update(const TouchInput& input) {
     m_scene = input.scene;
     m_corner = input.corner;
     m_layout = ComputeLayout(m_manifest, input.screen, input.safeArea);
     const bool play = m_scene == TouchScene::Play;
-    m_visible.fill(false);
-    for (const TouchControl control :
-         {TouchControl::Dpad, TouchControl::Jump, TouchControl::Sword, TouchControl::Fire, TouchControl::Light}) {
-        m_visible[static_cast<std::size_t>(control)] = play;
+    const auto show = [this](TouchControl control, bool shown) {
+        m_visible[static_cast<std::size_t>(control)] = shown && m_manifest[control].enabled;
+    };
+    for (const TouchControl control : {TouchControl::Dpad, TouchControl::Jump, TouchControl::Sword, TouchControl::Fire,
+                                       TouchControl::Light, TouchControl::SwordCombo, TouchControl::SpellCombo}) {
+        show(control, play);
     }
-    m_visible[static_cast<std::size_t>(TouchControl::Pause)] = m_corner == TouchCorner::Pause;
-    m_visible[static_cast<std::size_t>(TouchControl::Back)] = m_corner == TouchCorner::Back;
+    show(TouchControl::Pause, m_corner == TouchCorner::Pause);
+    show(TouchControl::Back, m_corner == TouchCorner::Back);
+
+    // A combo ends with the play - the pause, a menu, a load (a death's
+    // reload too) - or with its button gone from the layout.
+    const TouchControl comboButton =
+        m_combo.combo == TouchCombo::Spell ? TouchControl::SpellCombo : TouchControl::SwordCombo;
+    if (m_combo.combo != TouchCombo::None && (!play || input.sceneSerial != m_sceneSerial || !Visible(comboButton))) {
+        CancelCombo();
+    }
+    m_sceneSerial = input.sceneSerial;
 
     // The fingers down this tick: the input's, and those a frame without a
     // tick saw come down - held for this one tick where they were last seen.
@@ -460,6 +569,15 @@ TouchStep TouchControls::Update(const TouchInput& input) {
             case TouchControl::Sword: held.owner = Owner::Sword; break;
             case TouchControl::Fire: held.owner = Owner::Fire; break;
             case TouchControl::Light: held.owner = Owner::Light; break;
+            // A tap starts its combo; one while a combo runs is ignored, not queued.
+            case TouchControl::SwordCombo:
+                held.owner = Owner::SwordCombo;
+                if (m_combo.combo == TouchCombo::None) startCombo(TouchCombo::Sword, input.facing);
+                break;
+            case TouchControl::SpellCombo:
+                held.owner = Owner::SpellCombo;
+                if (m_combo.combo == TouchCombo::None) startCombo(TouchCombo::Spell, input.facing);
+                break;
             case TouchControl::Pause:
             case TouchControl::Back: held.owner = Owner::Corner; break;
             case TouchControl::Count:
@@ -475,14 +593,16 @@ TouchStep TouchControls::Update(const TouchInput& input) {
 
     TouchStep step;
     step.touching = !down.empty();
+    // While a combo runs, its keys are the only ones of the buffer's it may see.
+    const bool comboRuns = m_combo.combo != TouchCombo::None;
     const TouchLayout::Box& dpad = m_layout[TouchControl::Dpad];
     const glm::vec2 dpadSize = dpad.Size();
     const float radius = 0.5f * std::min(dpadSize.x, dpadSize.y);
     m_knob = dpad.Centre();
     m_dpadHeld = false;
     const auto hold = [&step](TouchAction action) { step.held[static_cast<std::size_t>(action)] = true; };
-    for (const auto& entry : m_contacts) {
-        const Held& held = entry.second;
+    for (auto& entry : m_contacts) {
+        Held& held = entry.second;
         switch (held.owner) {
             case Owner::None: break;
             case Owner::Dpad: {
@@ -493,9 +613,15 @@ TouchStep TouchControls::Update(const TouchInput& input) {
                     const float across = std::fabs(d.x);
                     // Within 22.5 degrees of straight up or down: no side.
                     const bool nearVertical = across < std::fabs(d.y) * kTan22;
-                    if (!nearVertical) hold(d.x > 0.0f ? TouchAction::Right : TouchAction::Left);
                     // Down and both of its diagonals (y is down).
-                    if (d.y > 0.0f && d.y >= across * kTan22) hold(TouchAction::Down);
+                    const bool downward = d.y > 0.0f && d.y >= across * kTan22;
+                    if (!comboRuns) {
+                        if (!nearVertical) {
+                            m_lastSide = d.x > 0.0f ? TouchAction::Right : TouchAction::Left;
+                            hold(m_lastSide);
+                        }
+                        if (downward) hold(TouchAction::Down);
+                    }
                 }
                 // The knob follows the thumb, never past the disc's rim.
                 const float knobRadius = 0.5f * std::min(m_manifest.knobSize.x, m_manifest.knobSize.y) *
@@ -506,14 +632,43 @@ TouchStep TouchControls::Update(const TouchInput& input) {
                 break;
             }
             case Owner::Jump: hold(TouchAction::Jump); break;
-            case Owner::Sword: hold(TouchAction::Sword); break;
-            case Owner::Fire: hold(TouchAction::Fire); break;
+            case Owner::Sword:
+            case Owner::Fire:
+                // Held back under a combo, and after it until the finger lifts:
+                // held on, it would press again as the combo let go.
+                held.heldBack = held.heldBack || comboRuns;
+                if (!held.heldBack) hold(held.owner == Owner::Sword ? TouchAction::Sword : TouchAction::Fire);
+                break;
             case Owner::Light: hold(TouchAction::Light); break;
+            case Owner::SwordCombo:
+            case Owner::SpellCombo: break;   // the tap started it; held, it does nothing
             case Owner::Corner: hold(TouchAction::Cancel); break;
             case Owner::Pointer:
                 step.pointer = true;
                 step.pointerPos = held.position;
                 break;
+        }
+    }
+
+    // The combo's tick.
+    if (comboRuns) {
+        step.combo = m_combo.combo;
+        const ComboKey key = ComboTick(m_combo.combo, m_combo.next);
+        if (key != ComboKey::None && !m_combo.pressed && m_quietTicks < kComboQuietTicks) {
+            // The buffer may still hold a command, which checkSequence would
+            // read first: nothing until combo.as:116 has emptied it.
+            if (++m_combo.waited > kComboMaxWaitTicks) CancelCombo();
+        } else {
+            switch (key) {
+                case ComboKey::None: break;
+                case ComboKey::Side: hold(m_combo.side); break;
+                case ComboKey::Down: hold(TouchAction::Down); break;
+                case ComboKey::Sword: hold(TouchAction::Sword); break;
+                case ComboKey::Fire: hold(TouchAction::Fire); break;
+            }
+            m_combo.pressed = m_combo.pressed || key != ComboKey::None;
+            // Its last tick: from the next one the fingers have the keys again.
+            if (++m_combo.next >= ComboLength(m_combo.combo)) m_combo = Combo{};
         }
     }
     m_last = step;
@@ -576,6 +731,13 @@ void TouchControls::AppendOverlay(std::vector<Eth::HudCmd>& out) const {
                                            : control == TouchControl::Light ? TouchAction::Light
                                                                             : TouchAction::Cancel;
                 draw(spec.image, box.min, box.Size(), held(action) ? pressed : idle, true);
+                break;
+            }
+            case TouchControl::SwordCombo:
+            case TouchControl::SpellCombo: {
+                // Lit while its combo runs.
+                const TouchCombo mine = control == TouchControl::SwordCombo ? TouchCombo::Sword : TouchCombo::Spell;
+                draw(spec.image, box.min, box.Size(), m_last.combo == mine ? pressed : idle, true);
                 break;
             }
             case TouchControl::Count: break;

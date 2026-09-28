@@ -244,6 +244,17 @@ void PenumbraLayer::ApplyTouch(Eth::InputFrame& frame) {
         // menu.as:374); the end screens and the options take it too.
         input.corner = Render::TouchCorner::Back;
     }
+    // E16's combo buttons press toward the way the wizard faces: his own
+    // currentDir (controlCharacter writes it from every device, a level's
+    // start leaves it unwritten, which reads as RIGHT), from the last tick.
+    if (level) {
+        const Eth::ETHEntity wizard = Eth::SeekEntity(Script::MAIN_CHARACTER_ENTITY0);
+        if (wizard != nullptr) {
+            input.facing = wizard->GetUIntData("currentDir") == Script::LEFT ? Render::TouchFacing::Left
+                                                                            : Render::TouchFacing::Right;
+        }
+    }
+    input.sceneSerial = m_machine->Snapshot().sceneSerial;
 
     const Render::TouchStep step = m_touch.Update(input);
     Render::TouchControls::ApplyToFrame(step, frame);
@@ -270,6 +281,8 @@ void PenumbraLayer::SetTouchEnabled(bool enabled) {
     if (enabled || m_touchEnabled) {
         SUPERSONIC_LOG_INFO("Penumbra") << "touch controls " << (enabled ? "on" : "off") << std::endl;
     }
+    // A combo does not wait for them to come back on.
+    if (!enabled) m_touch.CancelCombo();
     m_touchEnabled = enabled;
 }
 
@@ -403,6 +416,10 @@ void PenumbraLayer::OnFixedUpdate(entt::registry& registry, float fixedDelta) {
         // Main menu: the original's own cancel, for exactly this tick, which
         // doLoop's escToGoToMenu turns into the menu (menu.as:393).
         if (pause.sendCancel) frame.keys[Eth::K_ESC] = true;
+        // E16: what the game is about to read, for the combo buttons, which
+        // must know when its combo buffer is empty - touch on or off, since a
+        // combo tapped later counts from presses made before.
+        m_touch.ObserveFrame(frame, static_cast<int>(Script::getPlayerJoystick(0)));
         // E8: where the outgoing tick drew everything, before Frame rebuilds the
         // snapshot in place - the pose the frames until the next tick blend from.
         m_interp.BeginTick(m_machine->Snapshot());

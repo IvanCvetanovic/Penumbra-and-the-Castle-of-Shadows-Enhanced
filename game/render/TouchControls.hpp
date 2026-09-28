@@ -26,7 +26,7 @@
 // either (JK_03 does). There is no up on the direction control: nothing in
 // play needs it (up only jumps, and the jump has its own button). Down is
 // needed: held at the next_level door (main.as:208) and first in the spell
-// combo (playerInput.as:376). Every action fires on its KS_HIT and none repeats
+// combo (playerInput.as:380). Every action fires on its KS_HIT and none repeats
 // while held, so a button is simply held while a finger is on it.
 //
 // THE DIRECTION CONTROL is a disc the thumb slides on without lifting: left and
@@ -57,6 +57,34 @@
 // resting on the direction control does not hold the button down through a
 // second finger's tap. With no finger down the real mouse is left as it is.
 //
+// COMBOS. Two buttons play the original's combos (playerInput.as:358-395),
+// which a thumb on a disc can hardly make: a tap runs a short macro of player
+// 1's keys, one press a tick, the side being the way the wizard faces
+// (TouchInput::facing, his currentDir; else the side the disc was last pushed;
+// else right, as a currentDir never written reads):
+//
+//   sword combo   tick 0 -, 1 side, 2 -, 3 side, 4 K_S    CMD side, side, SWORD
+//   spell combo   tick 0 -, 1 K_DOWN, 2 side, 3 K_D       CMD DOWN, side, SPELL
+//
+// Tick 0 lets go of every key the combos read, so the first press is a fresh
+// KS_HIT whatever the disc held. The two presses of the same side need the
+// release between them; a different key's KS_HIT is recorded while the last
+// one is still releasing (combo.as records the first HIT of a frame). THE
+// BUFFER MUST BE EMPTY for checkSequence, which matches only the first three
+// commands since it was last emptied, and combo.as:116 empties it only on a
+// frame without a new command more than BUTTON_STRIDE (210 ms) after the last
+// one: 13 ticks at GetTime's 1000/60 ms (216-217 ms; 12 are 200). So the first
+// press waits until the game has run kComboQuietTicks ticks in a row in which
+// nothing the combos read was newly pressed, by any device (ObserveFrame): at
+// once when nothing was pressed for a while, 14 ticks after a step. While a combo
+// runs, the disc's directions and the sword and fire buttons are held back
+// (their presses would land in the buffer), jump, light and pause are not; a
+// sword or fire finger held through a combo stays held back until it lifts
+// (it would swing again), the disc steers again at once. A second tap on
+// either combo button is ignored until the combo ends; leaving play (the
+// pause, a menu) or a scene load (TouchInput::sceneSerial) cancels it, and
+// its keys are simply not pressed any more.
+//
 // THE CORNER BUTTON sends K_ESC; its picture says what that does. Hidden in
 // the main menu (cancel does nothing there) and in the pause (its rows are the
 // way on); the only way out of the arena select and game over, whose screens
@@ -68,11 +96,12 @@
 // logical screen it hangs from, its distance from that corner, its size, in
 // logical pixels (the logical screen is always 768 tall, so these are already
 // relative to the screen). Replacing the art is replacing the PNGs and editing
-// the manifest. Images go through the HUD's TextureCache as the scripts' HUD
-// images do, magenta (#FF00FF) keyed out.
+// the manifest; a control the manifest marks "enabled": false is not there at
+// all (a layout without the combo buttons, say). Images go through the HUD's
+// TextureCache as the scripts' HUD images do, magenta (#FF00FF) keyed out.
 //
-// Pure, like PauseMenu: fed this tick's contacts, it answers what is held. No
-// window, no Machine.
+// Pure, like PauseMenu: fed this tick's contacts (and, for the combos, the
+// frames the game ran), it answers what is held. No window, no Machine.
 
 #include <array>
 #include <cstddef>
@@ -127,12 +156,21 @@ enum class TouchCorner {
     Back,     // the arena select, the options, game over, the end screens: K_ESC leaves
 };
 
+// Which way the wizard faces (his currentDir), when there is a wizard.
+enum class TouchFacing { Unknown, Left, Right };
+
+// A combo button's macro.
+enum class TouchCombo { None, Sword, Spell };
+
 struct TouchInput {
     std::vector<TouchContact> contacts;
     glm::vec2 screen{1024.0f, 768.0f};   // the logical screen (GetScreenSize)
     TouchInsets safeArea;
     TouchScene scene = TouchScene::Play;
     TouchCorner corner = TouchCorner::Hidden;
+    TouchFacing facing = TouchFacing::Unknown;
+    // RenderSnapshot::sceneSerial: a change (a load, a death's reload) cancels a combo.
+    unsigned sceneSerial = 0;
 };
 
 // What the controls hold down, by what it does; each is one of player 1's keys
@@ -150,12 +188,14 @@ struct TouchStep {
     // A finger is on the screen. The left mouse button is then the touch
     // controls' alone (ApplyToFrame).
     bool touching = false;
+    // The combo that ran this tick (waiting or pressing), or None.
+    TouchCombo combo = TouchCombo::None;
 
     bool Held(TouchAction action) const { return held[static_cast<std::size_t>(action)]; }
 };
 
 // What is drawn and touched; the manifest's ids, in drawing order.
-enum class TouchControl : int { Dpad = 0, Jump, Sword, Fire, Light, Pause, Back, Count };
+enum class TouchControl : int { Dpad = 0, Jump, Sword, Fire, Light, SwordCombo, SpellCombo, Pause, Back, Count };
 inline constexpr int kTouchControlCount = static_cast<int>(TouchControl::Count);
 
 enum class TouchAnchor { TopLeft, TopRight, BottomLeft, BottomRight };
@@ -169,6 +209,7 @@ struct TouchControlSpec {
     glm::vec2 size{100.0f};
     TouchShape shape = TouchShape::Circle;
     float hitPadding = 0.0f;        // how far past its edge a finger still lands on it
+    bool enabled = true;            // false: the layout has no such control
     bool operator==(const TouchControlSpec& other) const = default;
 };
 
@@ -213,8 +254,16 @@ public:
     // The manifest, in the data folder (eth/Paths.hpp's data root).
     static constexpr const char* kManifestFile = "touch_controls.json";
 
-    // "dpad", "jump", "sword", "fire", "light", "pause", "back".
+    // "dpad", "jump", "sword", "fire", "light", "swordCombo", "spellCombo",
+    // "pause", "back".
     static const char* ControlId(TouchControl control);
+    // How many ticks in a row with nothing newly pressed that the combos read
+    // empty the combo buffer: the first whose GetTime (frame * 1000 / 60) is
+    // more than BUTTON_STRIDE, 210 ms (combo.as:44, :116), after the last press.
+    static constexpr unsigned kComboQuietTicks = 13;
+    // A combo that has waited this long for the quiet gives up: something else
+    // keeps pressing.
+    static constexpr unsigned kComboMaxWaitTicks = 30;
     // The key an action presses (the table at the top of this file).
     static Eth::KEY KeyFor(TouchAction action);
 
@@ -251,6 +300,16 @@ public:
     // Once a tick, before the frame is read.
     TouchStep Update(const TouchInput& input);
 
+    // Once for every tick the game runs, with the frame it runs (after the
+    // pause's filter): whether anything the combo buffer reads for player 1
+    // was newly pressed - his six keys, and his pad (`player1Pad`,
+    // getPlayerJoystick(0)): the stick past 0.8, JK_04, JK_02
+    // (playerInput.as:55-239). Touch or not: a combo tapped later must know.
+    void ObserveFrame(const Eth::InputFrame& frame, int player1Pad);
+    // Stops a running combo; its keys are not pressed from the next Update.
+    void CancelCombo();
+    TouchCombo RunningCombo() const { return m_combo.combo; }
+
     // Presses the step's keys in `frame` (never releases one the keyboard
     // holds) and, for a pointer, moves the cursor and holds the left button.
     // While a finger is down the left button is the pointer's and nothing
@@ -268,12 +327,23 @@ public:
     const TouchLayout& Layout() const { return m_layout; }
 
 private:
-    enum class Owner { None, Dpad, Jump, Sword, Fire, Light, Corner, Pointer };
+    enum class Owner { None, Dpad, Jump, Sword, Fire, Light, SwordCombo, SpellCombo, Corner, Pointer };
 
     struct Held {
         Owner owner = Owner::None;
         glm::vec2 position{0.0f};
+        bool heldBack = false;   // a sword or fire finger a combo ran under: nothing until it lifts
     };
+
+    struct Combo {
+        TouchCombo combo = TouchCombo::None;
+        TouchAction side = TouchAction::Right;
+        std::size_t next = 0;    // the next tick of its timeline
+        bool pressed = false;    // its first press is made
+        unsigned waited = 0;     // ticks held back for the buffer to empty
+    };
+
+    void startCombo(TouchCombo combo, TouchFacing facing);
 
     // The visible control a new finger at `point` lands on, or Count.
     TouchControl hit(const glm::vec2& point) const;
@@ -295,6 +365,14 @@ private:
     TouchStep m_last;
     glm::vec2 m_knob{0.0f};                  // where the knob is drawn (the thumb, within the disc)
     bool m_dpadHeld = false;
+
+    Combo m_combo;
+    TouchAction m_lastSide = TouchAction::Right;   // the disc's last left or right
+    unsigned m_sceneSerial = 0;
+    // ObserveFrame: what the combos read that was down, and for how many run
+    // ticks in a row nothing of it was newly pressed. Quiet until told.
+    unsigned m_observed = 0;
+    unsigned m_quietTicks = kComboQuietTicks;
 };
 
 } // namespace Penumbra::Render
