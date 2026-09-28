@@ -153,11 +153,31 @@ jobs:
             --fixed-step --frames 300 --screenshot "$GITHUB_WORKSPACE/out/shots/level1-macos.png" \
             2>&1 | tee "$GITHUB_WORKSPACE/out/logs/capture-macos.log"
 
+      # The language a Finder-started app gets from the Mac (MacMain.mm feeds
+      # NSLocale into E19's hook): the user's language list set to Portuguese,
+      # no settings.json yet, and the same capture - its text should be
+      # Portuguese. The list is put back afterwards.
+      - name: Capture (level 1, a Portuguese Mac)
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        run: |
+          mkdir -p out/shots
+          cp "$HOME/Library/Application Support/Penumbra/penumbra.log" out/logs/penumbra-macos.log 2>/dev/null || true
+          rm -rf "$HOME/Library/Application Support/Penumbra"
+          defaults write -g AppleLanguages -array pt-BR
+          cd "$RUNNER_TEMP"
+          perl -e 'alarm shift; exec @ARGV' 300 \
+            "$GITHUB_WORKSPACE/out/Penumbra.app/Contents/MacOS/Penumbra" --start level1 --window 1024x768 \
+            --fixed-step --frames 300 --screenshot "$GITHUB_WORKSPACE/out/shots/level1-macos-pt.png" \
+            > "$GITHUB_WORKSPACE/out/logs/capture-macos-pt.log" 2>&1 || echo "capture ended with $?"
+          defaults delete -g AppleLanguages || true
+          grep -i "language\|locale\|idioma" "$GITHUB_WORKSPACE/out/logs/capture-macos-pt.log" | head -5 || true
+
       - name: Collect
         if: always()
         run: |
           mkdir -p out/logs
-          cp "$HOME/Library/Application Support/Penumbra/penumbra.log" out/logs/penumbra-macos.log 2>/dev/null || true
+          cp "$HOME/Library/Application Support/Penumbra/penumbra.log" out/logs/penumbra-macos-last.log 2>/dev/null || true
           for report in "$HOME"/Library/Logs/DiagnosticReports/Penumbra* "$HOME"/Library/Logs/DiagnosticReports/test_pn*; do
             if [ -f "$report" ]; then cp "$report" out/logs/; python3 tools/apple/ips_summary.py "$report" 40 || true; fi
           done
