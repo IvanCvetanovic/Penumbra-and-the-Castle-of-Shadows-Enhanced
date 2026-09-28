@@ -20,10 +20,12 @@ project(Penumbra LANGUAGES C CXX)
 
 # Objective-C++ on Apple platforms: the entries in game/macos and game/ios ask
 # the system for its language and the bundle's folders, and the engine's iOS
-# backend is UIKit. Enabled here, the directory above everything that compiles
-# or links it (the engine enables it too, for its own build).
+# backend is UIKit. Objective-C as well, for GLFW's Cocoa backend (.m), which
+# would otherwise be compiled as Objective-C++. Enabled here, the directory
+# above everything that compiles or links them (the engine enables them too,
+# for its own build).
 if (APPLE)
-    enable_language(OBJCXX)
+    enable_language(OBJC OBJCXX)
 endif()
 
 # The engine's headers are C++20, and SupersonicCore says so on its interface;
