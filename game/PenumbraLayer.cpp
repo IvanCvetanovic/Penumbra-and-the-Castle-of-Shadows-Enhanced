@@ -16,6 +16,7 @@
 #include "core/WindowControl.hpp"
 #include "eth/Machine.hpp"
 #include "eth/Paths.hpp"
+#include "platform/SafeArea.hpp"
 #include "render/DrawOrder.hpp"
 
 namespace Penumbra {
@@ -86,16 +87,11 @@ void PenumbraLayer::OnAttach(entt::registry& registry) {
     m_pause.SetAutoPause(PauseOnFocusLoss());   // E13
     // E16: the touch controls - on a phone by default, on the desktop with
     // --touch (or touchControls "on"), where the mouse is the finger.
-    m_touchEnabled =
-        m_options.touchOverride.value_or(Render::TouchControls::EnabledBySetting(m_settings.touchControls));
-    if (m_touchEnabled) {
-        std::string warning;
-        const std::filesystem::path manifest = m_options.dataDir / Render::TouchControls::kManifestFile;
-        m_touch.SetManifest(Render::TouchControls::LoadManifest(manifest, &warning));
-        m_touch.SetImageRoot(m_options.dataDir);
-        if (!warning.empty()) SUPERSONIC_LOG_WARN("Penumbra") << "touch controls: " << warning << std::endl;
-        SUPERSONIC_LOG_INFO("Penumbra") << "touch controls on" << std::endl;
-    }
+    SetTouchEnabled(
+        m_options.touchOverride.value_or(Render::TouchControls::EnabledBySetting(m_settings.touchControls)));
+    // E20: a phone's options screen (Script.hpp). From the build, not from the
+    // controls: a desktop run with --touch still has a window to switch.
+    Script::g_mobileLayout = Render::kMobileBuild;
 
     // The original's option switches, remembered across launches (E6).
     Script::g_controls.setCurrent(static_cast<Eth::uint>(m_settings.controls.joystickLayout));
@@ -114,6 +110,7 @@ void PenumbraLayer::OnAttach(entt::registry& registry) {
     Script::g_effectsVolume.setCurrent(Script::g_effectsVolume.stepFor(m_settings.effectsVolume));
     Script::g_smoothMotion.setCurrent(SmoothMotion() ? 0u : 1u);   // E8's row: as this run draws (--smooth, --fixed-step)
     Script::g_pauseOnFocusLoss.setCurrent(PauseOnFocusLoss() ? 0u : 1u);   // E13's, likewise
+    Script::g_touchControls.setCurrent(m_touchEnabled ? 0u : 1u);   // E20's: as this run has them (--touch)
     m_input.SetControls(m_settings.controls);
     m_interp.SetEnabled(SmoothMotion());
 
@@ -218,9 +215,15 @@ void PenumbraLayer::ApplyTouch(Eth::InputFrame& frame) {
     Render::TouchInput input;
     input.contacts = TouchContacts();
     input.screen = m_machine->GetScreenSize();
-    // No platform reports a safe area to the engine yet (a notch, a gesture
-    // bar); TouchControls::WindowInsetsToLogical is ready for one.
+    // The window's safe area (a notch, rounded corners, a bar that shows), in
+    // window pixels from the platform - zero on the desktop - brought into the
+    // logical screen the controls are laid out in.
     input.safeArea = Render::TouchInsets{};
+    const Supersonic::SafeAreaInsets safe = Supersonic::SafeArea::Get();
+    if (!safe.IsZero()) {
+        input.safeArea = Render::TouchControls::WindowInsetsToLogical(
+            Render::TouchInsets{safe.left, safe.top, safe.right, safe.bottom}, m_view);
+    }
 
     // The controls are a level's or an arena's (the loops doLoop runs under,
     // their end screens included: the wizard still walks there). Everything
@@ -251,6 +254,23 @@ void PenumbraLayer::ApplyTouch(Eth::InputFrame& frame) {
 
 void PenumbraLayer::ApplyVolumes() {
     m_machine->Samples().SetMasterVolumes(m_settings.musicVolume * m_pause.MusicScale(), m_settings.effectsVolume);
+}
+
+void PenumbraLayer::SetTouchEnabled(bool enabled) {
+    if (enabled && !m_touchManifestLoaded) {
+        std::string warning;
+        const std::filesystem::path manifest = m_options.dataDir / Render::TouchControls::kManifestFile;
+        m_touch.SetManifest(Render::TouchControls::LoadManifest(manifest, &warning));
+        m_touch.SetImageRoot(m_options.dataDir);
+        m_touchManifestLoaded = true;
+        if (!warning.empty()) SUPERSONIC_LOG_WARN("Penumbra") << "touch controls: " << warning << std::endl;
+    }
+    // Said when they come on, and when they go off - not for a run that never
+    // had them, as before E20.
+    if (enabled || m_touchEnabled) {
+        SUPERSONIC_LOG_INFO("Penumbra") << "touch controls " << (enabled ? "on" : "off") << std::endl;
+    }
+    m_touchEnabled = enabled;
 }
 
 void PenumbraLayer::SaveSettings() {
@@ -464,6 +484,17 @@ void PenumbraLayer::OnFixedUpdate(entt::registry& registry, float fixedDelta) {
         if (effectsMoved) m_settings.effectsVolume = Script::g_effectsVolume.getFraction();
         ApplyVolumes();
         SaveSettings();   // ApplyLanguage() first
+    }
+
+    // E20: the touch controls' row (drawn on a phone's options screen only).
+    // A pick replaces --touch, is saved as "on" or "off" - no longer "auto" -
+    // and applies from the next tick.
+    const bool touchControls = Script::g_touchControls.getCurrent() == 0;
+    if (touchControls != m_touchEnabled) {
+        m_options.touchOverride.reset();
+        m_settings.touchControls = touchControls ? "on" : "off";
+        SetTouchEnabled(touchControls);
+        SaveSettings();
     }
 
     if (m_machine->QuitRequested()) Supersonic::Application::RequestQuit();

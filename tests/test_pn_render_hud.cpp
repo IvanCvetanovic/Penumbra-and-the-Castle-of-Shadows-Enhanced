@@ -178,6 +178,8 @@ const char* const kE10Labels[] = {
     "Desativa movimento suave",
     "Pausa ao perder o foco",   // E13's row
     "Continua sem o foco",
+    "Ativa controles de toque",   // E20's row, on a phone
+    "Desativa controles de toque",
 };
 
 void TestLocalization() {
@@ -206,6 +208,7 @@ void TestLocalization() {
     CHECK(loc.Translate("Volume da m\xFAsica") == "Music volume");
     CHECK(loc.Translate("[ ] Desativa movimento suave") == "[ ] Disable smooth motion");
     CHECK(loc.Translate("[\x95] Pausa ao perder o foco") == "[\x95] Pause on focus loss");
+    CHECK(loc.Translate("[ ] Desativa controles de toque") == "[ ] Disable touch controls");   // E20
     CHECK(loc.HasTranslation("[<]"));
     CHECK(loc.HasTranslation("70%"));
     CHECK(loc.Translate("Carregando...\n") == "Loading...\n");   // the trailing break kept

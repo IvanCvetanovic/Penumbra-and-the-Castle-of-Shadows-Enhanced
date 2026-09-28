@@ -30,6 +30,10 @@ Stepper g_effectsVolume("Volume dos efeitos", 10, 10);                          
 Switch g_smoothMotion("Ativa movimento suave", "Desativa movimento suave");     // E10
 // E13's automatic pause (settings.pauseOnFocusLoss), beside E8's.             // E13
 Switch g_pauseOnFocusLoss("Pausa ao perder o foco", "Continua sem o foco");      // E13
+// E20 (Script.hpp): the phone's layout, and E16's touch controls on or off,    // E20
+// worded as the original's own on/off row (g_enablePS).                         // E20
+bool g_mobileLayout = false;                                                     // E20
+Switch g_touchControls("Ativa controles de toque", "Desativa controles de toque");   // E20
 
 // videoModes.as:47
 string videoModeToString(const videoMode& vm)
@@ -90,7 +94,9 @@ void screenModesLoop()
     vector2 cursor = cursorOrigin;
     const float fontSize = 25;
     const float textWidth = 200.0f;
-    for (uint t=0; t<GetVideoModeCount(); t++)
+    // E20: a phone's screen has one mode, the one it is in.                     // E20
+    const uint videoModeCount = g_mobileLayout ? 0u : GetVideoModeCount();       // E20
+    for (uint t=0; t<videoModeCount; t++)                                        // E20: GetVideoModeCount() (videoModes.as:97)
     {
         // Only 32-bit modes of at least 800x600 are offered; every refresh rate
         // of one size is listed again (videoModes.as:99-101).
@@ -125,7 +131,12 @@ void screenModesLoop()
     g_enablePS.put(vector2(255, origin.y), "Arial Narrow", fontSize, 256);   // videoModes.as:125
     UsePixelShaders(g_enablePS.getCurrent() == 0);
 
-    g_windowed.put(vector2(255, origin.y+70), "Arial Narrow", fontSize, 256);
+    // E20: on a phone, E16's touch controls in the window switch's place:      // E20
+    // there is no window to switch, and the rows are the same two 25 px lines.  // E20
+    if (g_mobileLayout)                                                          // E20
+        g_touchControls.put(vector2(255, origin.y+70), "Arial Narrow", fontSize, 256);   // E20: y 170-220
+    else                                                                         // E20
+        g_windowed.put(vector2(255, origin.y+70), "Arial Narrow", fontSize, 256);
     g_controls.put(vector2(255, origin.y+160), "Arial Narrow", fontSize, 256);
 
     // ENHANCEMENT E10: the enhanced settings, in the same column below          // E10

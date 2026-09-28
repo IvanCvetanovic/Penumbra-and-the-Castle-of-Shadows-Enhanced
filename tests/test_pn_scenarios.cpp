@@ -8,7 +8,8 @@
 // those leave out - level2 by the K_2 cheat and its play_sound markers,
 // level2's own exit into level3, the paladin and the master knight, the
 // summon's price and refusals, arenas 2 to 6 - and the menu's Quit. Last, a
-// second runtime booted for a player with one gamepad and nothing else (E12).
+// second runtime booted for a player with one gamepad and nothing else (E12),
+// and a third for the options screen as a phone lays it out (E20).
 //
 // The harness is test_pn_boot's: one Machine (the script module's globals live
 // for the whole program, as they lived for the whole of machine.exe),
@@ -3173,6 +3174,76 @@ void ScenarioGamepadOnly(Game& g) {
                 "    gameover.esc        cancel JK_09 -> menu\n");
 }
 
+// === 21. The options screen on a phone (E20) ===============================================
+//
+// Script::g_mobileLayout is the layer's to raise, on a PENUMBRA_MOBILE build; here
+// it is raised by hand, in a runtime of its own, so no scenario above ever sees
+// it. With it down the screen is scenario 14's, and this checks that too: the
+// video-mode list, the window switch and the Alt+Enter line are there, then gone,
+// then back, and the touch controls' row stands where the window switch was.
+void ScenarioMobileOptions(Game& g) {
+    const char* const altEnter = "Pressione Alt+Enter para trocar entre fullscreen e modo janela";
+    // One mode, so that the list's absence is a fact rather than an empty list.
+    g.m.SetVideoModes({videoMode{1280, 720, PF32BIT}});
+    CHECK(!Script::g_mobileLayout);
+    CHECK(EnsureMenu(g));
+    CHECK(WaitForHud(g, altEnter, 3));   // the menu's footer, down
+
+    Script::g_mobileLayout = true;
+    g.Steps(2);
+    CHECK(!HudHas(g.m, altEnter));   // and up
+    std::printf("  menu footer with the phone's layout: %s\n", HudHas(g.m, altEnter) ? "SHOWN" : "gone");
+
+    g.base.cursor = kOptionsButton;
+    g.Steps(3);
+    CHECK(LastButton() == "opcoes_de_video");
+    g.Step(g.With({K_RETURN}));
+    CHECK(WaitFor(g, 3, [] { return GetSceneFileName() == "scenes/videoModes.esc"; }) >= 0);
+    g.Steps(3);
+
+    CHECK(WaitForHud(g, "[\x95] Ativa controles de toque", 3));
+    CHECK(HudHas(g.m, "[ ] Desativa controles de toque"));
+    CHECK(!HudHas(g.m, "Janela"));
+    CHECK(!HudHas(g.m, "Tela-cheia"));
+    CHECK(!HudHas(g.m, "1280x720x32"));
+    CHECK(!HudHas(g.m, altEnter));
+    // Everything else is where it was.
+    CHECK(HudHas(g.m, "[\x95] Ativa pixel shaders"));
+    CHECK(HudHas(g.m, "Teclado para o jogador 2"));
+    CHECK(HudHas(g.m, "Pausa ao perder o foco"));
+
+    const auto click = [&g](const vector2& at) {
+        g.base.cursor = at;
+        g.Steps(2);
+        g.Step(g.With({K_RETURN}));
+        g.Steps(2);
+    };
+    // Two 25 px rows 256 wide from (255, 170), where g_windowed's are.
+    const unsigned windowedBefore = Script::g_windowed.getCurrent();
+    CHECK_EQ(Script::g_touchControls.getCurrent(), 0u);
+    click(vector2(300.0f, 207.0f));
+    std::printf("  touch controls' second row clicked: switch %u\n", Script::g_touchControls.getCurrent());
+    CHECK_EQ(Script::g_touchControls.getCurrent(), 1u);
+    CHECK(WaitForHud(g, "[\x95] Desativa controles de toque", 3));
+    CHECK(HudHas(g.m, "[ ] Ativa controles de toque"));
+    click(vector2(300.0f, 182.0f));
+    CHECK_EQ(Script::g_touchControls.getCurrent(), 0u);
+    CHECK(WaitForHud(g, "[\x95] Ativa controles de toque", 3));
+    CHECK_EQ(Script::g_windowed.getCurrent(), windowedBefore);   // the hidden switch did not move
+
+    // Down again: the desktop's screen, from the next frame.
+    Script::g_mobileLayout = false;
+    g.Steps(2);
+    CHECK(HudHas(g.m, "Janela"));
+    CHECK(HudHas(g.m, "1280x720x32"));
+    CHECK(HudHas(g.m, altEnter));
+    CHECK(!HudHas(g.m, "controles de toque"));
+
+    g.Step(g.With({K_ESC}));
+    CHECK(WaitFor(g, 3, [] { return GetSceneFileName() == "scenes/menu.esc"; }) >= 0);
+    g.Steps(5);
+}
+
 } // namespace
 
 int main() {
@@ -3278,6 +3349,33 @@ int main() {
                     r.failures, r.aborts, r.threw ? ", threw" : "");
         for (const string& site : machine.AbortSites()) std::printf("    ABORT %s\n", Utf8(site).c_str());
         for (const string& f : sound.failedLoads) std::printf("    failed to load %s\n", f.c_str());
+        CHECK(sound.failedLoads.empty());
+        CHECK_EQ(machine.ScriptAborts(), 0u);
+    }
+
+    // 21: a third runtime, for the phone's options screen (E20), so that the
+    // flag it raises reaches none of the scenarios above.
+    {
+        const std::filesystem::path phoneRoot = userRoot / "phone";
+        std::filesystem::create_directories(phoneRoot, ec);
+        SoundLog sound;
+        MachineConfig config;
+        config.userRoot = phoneRoot.generic_string();
+        Machine machine(config);
+        Machine::Scope scope(machine);
+        machine.Samples().SetOutput(&sound);
+        Script::RegisterAll(machine);
+        machine.Boot(Script::ScriptMain);
+
+        Game g{machine, sound, phoneRoot.generic_string(), InputFrame{}};
+        g.Step();
+        RunScenario(g, "21. the options screen on a phone (E20)", ScenarioMobileOptions);
+        Script::g_mobileLayout = false;   // whatever the scenario reached
+        const Result& r = g_results.back();
+        std::printf("\n=== third runtime (frame %u)\n  %-50s %s  %d failed checks, %u aborts%s\n",
+                    machine.FrameIndex(), r.name.c_str(), (r.failures == 0 && r.aborts == 0 && !r.threw) ? "PASS" : "FAIL",
+                    r.failures, r.aborts, r.threw ? ", threw" : "");
+        for (const string& site : machine.AbortSites()) std::printf("    ABORT %s\n", Utf8(site).c_str());
         CHECK(sound.failedLoads.empty());
         CHECK_EQ(machine.ScriptAborts(), 0u);
     }

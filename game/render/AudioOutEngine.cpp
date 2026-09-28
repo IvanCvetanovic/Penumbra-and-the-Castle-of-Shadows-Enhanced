@@ -96,6 +96,10 @@ bool AudioOutEngine::ensureClip(const std::string& absolutePath) {
         SUPERSONIC_LOG_ERROR("Penumbra") << error << std::endl;
         return false;
     }
+    // Said as the engine's LoadClip says it, since AddClip itself is silent:
+    // without this line a decoded MP3 and one never asked for look the same.
+    SUPERSONIC_LOG_INFO("Penumbra") << "Decoded " << absolutePath << " (MP3, " << clip.channels << "ch, "
+                                    << clip.sampleRate << " Hz, " << clip.durationSeconds() << "s)." << std::endl;
     return m_engine->AddClip(absolutePath, std::move(clip)) != nullptr;
 }
 
