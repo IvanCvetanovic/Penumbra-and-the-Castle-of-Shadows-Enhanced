@@ -96,21 +96,42 @@ struct ControlSettings {
 };
 
 struct Settings {
-    static constexpr int kVersion = 1;
+    // 2: E23's automatic window (window.width/height 0 x 0) and
+    // window.fullscreenRefresh. Nothing reads the number: a version-1 file is
+    // read as it always was, and a field it lacks is automatic.
+    static constexpr int kVersion = 2;
 
     std::string language = "en";        // "pt" or "en"
-    int windowWidth = 1366;
-    int windowHeight = 768;
-    bool fullscreen = false;
+    // The windowed size: a line of the options screen's mode list picked in a
+    // window. 0 x 0 is automatic (E23, the default): the window fitted to the
+    // monitor it opens on - the largest of the monitor's own shape within
+    // kAutoWindowFraction of its work area, centred (render/WindowMode.hpp) -
+    // and fitted again each time the game leaves fullscreen. Half a size is
+    // automatic too; any other value is clamped to the window's range.
+    int windowWidth = 0;
+    int windowHeight = 0;
+    // E23: a first launch covers the monitor, at the automatic mode below. A
+    // file that says false keeps its window.
+    bool fullscreen = true;
     // The display mode fullscreen runs at: a line of the options screen's mode
     // list picked while fullscreen, which switches the monitor to it as 0.7.12
-    // did (Step 23). 0 x 0 is the desktop's own mode, which switches nothing -
-    // the default, and what picking the desktop's size saves, so a desktop that
-    // changes resolution later is followed. Alt+Enter, the options' switch and
-    // a fullscreen launch all use it; a monitor that does not offer it gets the
-    // desktop's mode instead, and the setting is kept for one that does.
+    // did (Step 23). 0 x 0 is automatic: the desktop's own size - the monitor's
+    // native one as the system runs it, which switches nothing but the rate
+    // (E23: "Autom\xE1tico (melhor)", the list's first line, and the default,
+    // so a desktop that changes resolution later is followed). Alt+Enter, the
+    // options' switch and a fullscreen launch all use it; a monitor that does
+    // not offer it gets the desktop's size instead, and the setting is kept for
+    // one that does.
     int fullscreenWidth = 0;
     int fullscreenHeight = 0;
+    // E23: the refresh rate fullscreen runs at, in Hz. 0 is automatic (the
+    // default): the highest the monitor offers at the fullscreen size. A rate
+    // the monitor does not offer at that size runs at the highest and is kept
+    // for one that does. In a window the rate is the compositor's; this waits
+    // for the next fullscreen. On a phone it is the display's own rate
+    // (WindowControl::SetPreferredRefreshRate): 0 the highest, 60 to save the
+    // battery.
+    int fullscreenRefresh = 0;
     bool widescreen = true;             // E1: the logical view widens with the window
     float musicVolume = 1.0f;           // master volumes, 0..1, on top of the scripts' own
     float effectsVolume = 1.0f;

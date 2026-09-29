@@ -4,6 +4,7 @@
 // software under the GNU Lesser General Public License, version 3 or (at your
 // option) any later version.
 // Enhancement E10 adds the enhanced settings' rows; each of its lines is marked.   // E10
+// Enhancement E23 adds the automatic display mode and the refresh rate; marked.  // E23
 
 #include "script/Script.hpp"
 
@@ -34,12 +35,38 @@ Switch g_pauseOnFocusLoss("Pausa ao perder o foco", "Continua sem o foco");     
 // worded as the original's own on/off row (g_enablePS).                         // E20
 bool g_mobileLayout = false;                                                     // E20
 Switch g_touchControls("Ativa controles de toque", "Desativa controles de toque");   // E20
+// E23 (Script.hpp): what the mode list marks, and the refresh rate's row, all   // E23
+// the layer's to set. Left as they are here (no layer: the suites), the list   // E23
+// marks its automatic line and nothing as native, and the row has no options.  // E23
+videoMode g_chosenVideoMode{0, 0, PF32BIT};                                      // E23
+videoMode g_nativeVideoMode{0, 0, PF32BIT};                                      // E23
+Chooser g_refreshRate("Taxa de atualiza\xE7\xE3o");                               // E23
+bool g_refreshRateRow = true;                                                    // E23: the layer lowers it where no rate can be set
+
+namespace {                                                                      // E23
+// The refresh rate's row: at x 540, beside the window switch (x 255, y 170-220), // E23
+// in the room between the back arrow (to y 132) and the input images (from y    // E23
+// 260); the value box holds "Autom\xE1tica (m\xE1xima)" and "Automatic (165 Hz)"   // E23
+// with room to spare (test_pn_render_hud measures them).                         // E23
+constexpr float kRefreshRateX = 540.0f;                                          // E23
+constexpr float kRefreshRateValueWidth = 200.0f;                                 // E23
+} // namespace                                                                   // E23
 
 // videoModes.as:47
 string videoModeToString(const videoMode& vm)
 {
     return ""+Str(vm.width)+"x"+Str(vm.height)+"x"+Str(vm.format == PF32BIT ? 32 : 16);
 }
+
+// E23 (Script.hpp): a line of the mode list without videoModeToString's bit
+// depth, and the monitor's native size named as such.
+string videoModeLabel(const videoMode& vm)                            // E23
+{                                                                     // E23
+    string label = Str(vm.width)+"x"+Str(vm.height);                  // E23
+    if (vm.width == g_nativeVideoMode.width && vm.height == g_nativeVideoMode.height)   // E23
+        label += " (nativa)";                                         // E23
+    return label;                                                     // E23
+}                                                                     // E23
 
 // videoModes.as:52
 void screenModesPreLoop()
@@ -96,6 +123,29 @@ void screenModesLoop()
     const float textWidth = 200.0f;
     // E20: a phone's screen has one mode, the one it is in.                     // E20
     const uint videoModeCount = g_mobileLayout ? 0u : GetVideoModeCount();       // E20
+
+    // E23: the list's first line, the automatic mode, hit and drawn as the      // E23
+    // lines below it are; 0 x 0 asks the layer for "automatic" in whichever of   // E23
+    // window and fullscreen the game is in. The current choice is marked on     // E23
+    // every line as a Switch row marks its own (switch.as:76) and drawn at 255.  // E23
+    if (!g_mobileLayout)                                                         // E23
+    {                                                                            // E23
+        const bool current = g_chosenVideoMode.width == 0 && g_chosenVideoMode.height == 0;   // E23
+        uint8 alpha = static_cast<uint8>(current ? 255 : 100);                   // E23
+        if (mousePos.x > cursor.x && mousePos.x < cursor.x+textWidth             // E23
+            && mousePos.y > cursor.y && mousePos.y < cursor.y+fontSize)          // E23
+        {                                                                        // E23
+            alpha = 255;                                                         // E23
+            if (getConfirmButtonStatus(0) == KS_HIT)                             // E23
+            {                                                                    // E23
+                SetWindowProperties(APPLICATION_TITLE, 0, 0, Windowed(), true, PF32BIT);   // E23
+            }                                                                    // E23
+        }                                                                        // E23
+        const string mark = string("[") + (current ? "\x95" : " ") + "] ";        // E23
+        shadowText(cursor, mark+"Autom\xE1tico (melhor)", "Arial Narrow", fontSize, alpha, 203,203,228);   // E23
+        cursor.y += fontSize;                                                    // E23
+    }                                                                            // E23
+
     for (uint t=0; t<videoModeCount; t++)                                        // E20: GetVideoModeCount() (videoModes.as:97)
     {
         // Only 32-bit modes of at least 800x600 are offered; every refresh rate
@@ -104,7 +154,9 @@ void screenModesLoop()
         if (mode.format != PF32BIT || mode.width < 800 || mode.height < 600)
             continue;
 
-        uint8 alpha = 100;
+        // E23: the current choice drawn at 255, as a Switch's current row is.   // E23
+        const bool current = mode.width == g_chosenVideoMode.width && mode.height == g_chosenVideoMode.height;   // E23
+        uint8 alpha = static_cast<uint8>(current ? 255 : 100);                  // E23: 100 (videoModes.as:104)
         if (mousePos.x > cursor.x && mousePos.x < cursor.x+textWidth
             && mousePos.y > cursor.y && mousePos.y < cursor.y+fontSize)
         {
@@ -115,7 +167,9 @@ void screenModesLoop()
             }
         }
 
-        shadowText(cursor, videoModeToString(mode), "Arial Narrow", fontSize, alpha, 203,203,228);
+        // E23: "[x] WxH" rather than videoModeToString's "WxHx32".            // E23
+        const string mark = string("[") + (current ? "\x95" : " ") + "] ";        // E23
+        shadowText(cursor, mark+videoModeLabel(mode), "Arial Narrow", fontSize, alpha, 203,203,228);   // E23: videoModeToString(mode)
 
         // Past the bottom of the screen the list continues in a new column
         // (videoModes.as:116-121).
@@ -138,6 +192,15 @@ void screenModesLoop()
     else                                                                         // E20
         g_windowed.put(vector2(255, origin.y+70), "Arial Narrow", fontSize, 256);
     g_controls.put(vector2(255, origin.y+160), "Arial Narrow", fontSize, 256);
+
+    // E23: the refresh rate, beside the window switch on the desktop and the    // E23
+    // touch controls' row on a phone: the label at y 170, "[<] value [>]" at    // E23
+    // 195-220. In a window the rate is the compositor's, and a pick waits for   // E23
+    // the next fullscreen; the hint says so, as E10's widescreen hint does.     // E23
+    if (g_refreshRateRow)                                                        // E23
+        g_refreshRate.put(vector2(kRefreshRateX, origin.y+70), "Arial Narrow", fontSize, kRefreshRateValueWidth);   // E23: y 170-220
+    if (g_refreshRateRow && !g_mobileLayout && Windowed())                       // E23
+        shadowText(vector2(kRefreshRateX, origin.y+122), "Vale para a tela cheia", "Arial Narrow", 15.0f, 150, 203,203,228);   // E23: y 222-237
 
     // ENHANCEMENT E10: the enhanced settings, in the same column below          // E10
     // g_controls, whose two 72 px images end at y 404: switches 20 px apart as  // E10

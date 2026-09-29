@@ -378,6 +378,29 @@ private:                                              // E10
     uint m_current = 10;                              // E10
 };                                                    // E10
 
+// ENHANCEMENT E23 (not in the original): one value out of a list the layer       // E23
+// gives it, on the options screen in the Stepper's font, colour and alphas: the    // E23
+// label on its own line, and under it "[<] value [>]" - the arrows in boxes as    // E23
+// the Stepper's, the value in a box of the width put() is given. Hovering an     // E23
+// arrow and confirming moves one option; it stops at either end, as the Stepper  // E23
+// does. Constructor and methods defined in switch.cpp.                           // E23
+class Chooser {                                       // E23
+public:                                               // E23
+    explicit Chooser(const string& label);            // E23
+    // The options, drawn as they are (cp1252, translated at the draw boundary), // E23
+    // and which is current (clamped).                                         // E23
+    void setOptions(const array<string>& options, uint current);   // E23
+    void put(const vector2& pos, const string& font, float size, float valueWidth);   // E23: two lines from pos
+    uint getCurrent() const;                          // E23
+    void setCurrent(uint newCurrent);                 // E23: clamped to the options
+    uint getCount() const;                            // E23
+
+private:                                              // E23
+    string m_label;                                   // E23
+    array<string> m_options;                          // E23
+    uint m_current = 0;                               // E23
+};                                                    // E23
+
 // === scores.as (defined in scores.cpp) ===========================================
 
 inline constexpr uint MAX_SCORES = 5;                 // scores.as:43
@@ -453,6 +476,20 @@ extern Switch g_pauseOnFocusLoss;                     // E13: 0 = pause on focus
 // phone's screen; left down, every screen is drawn exactly as before.           // E20
 extern bool g_mobileLayout;                           // E20
 extern Switch g_touchControls;                        // E20: 0 = touch controls on (E16), 1 = off
+
+// ENHANCEMENT E23 (not in the original): the display mode, chosen for the      // E23
+// player or by them. The mode list's first line is "Autom\xE1tico (melhor)",     // E23
+// which sends SetWindowProperties 0 x 0 (automatic, in a window or in           // E23
+// fullscreen, render/WindowMode.hpp); the lines are "WxH" (videoModeToString's  // E23
+// "WxHx32" named a bit depth nothing chooses any more), the monitor's native    // E23
+// size marked " (nativa)", and the current choice marked with the Switch rows'  // E23
+// "[\x95]". g_refreshRate is the rate fullscreen runs at (on a phone, the       // E23
+// display's). The layer sets all four: the scripts never choose a mode.         // E23
+extern videoMode g_chosenVideoMode;                   // E23: the list's marked size; 0 x 0 = the automatic line
+extern videoMode g_nativeVideoMode;                   // E23: the size marked " (nativa)"; 0 x 0 = none
+extern Chooser g_refreshRate;                         // E23: the layer's options, 0 = automatic
+extern bool g_refreshRateRow;                         // E23: false leaves the row out (iOS: nothing sets a rate there)
+string videoModeLabel(const videoMode& vm);           // E23: "WxH", and " (nativa)" for the native size
 
 string videoModeToString(const videoMode& vm);        // videoModes.as:47
 void screenModesPreLoop();                            // videoModes.as:52

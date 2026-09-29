@@ -33,7 +33,7 @@ in this repository, with the engine improved where the game needs it.
 | # | Enhancement | Original |
 |---|---|---|
 | E1 | Widescreen: logical view 768 px tall, width by aspect; the menus keep their 1024x768 layout, centred, and in a window wider than 4:3 their scene goes on past the sides instead of bars (Step 25: the scenes' own tiles continued, edge rectangles to the window's edge, up to 4:1); off = the original's 4:3 with bars everywhere | 1024x768 only |
-| E2 | Any window size / fullscreen, rendered at native resolution; fullscreen at the desktop's mode, or at a mode picked from the list while fullscreen (switched as 0.7.12 did, saved as window.fullscreenWidth/Height, Step 23) | 1024x768 or listed video modes |
+| E2 | Any window size / fullscreen, rendered at native resolution; fullscreen at the desktop's mode, or at a mode picked from the list while fullscreen (switched as 0.7.12 did, saved as window.fullscreenWidth/Height, Step 23); which mode by default, and the refresh rate, are E23's | 1024x768 or listed video modes |
 | E3 | Modern gamepads (XInput via GLFW) mapped by meaning, for both players | winmm button numbers |
 | E4 | Keyboard second player (presented to the scripts as joystick 1) | P2 needs a joystick |
 | E5 | English text alongside Portuguese, switchable | Portuguese only |
@@ -53,6 +53,7 @@ in this repository, with the engine improved where the game needs it.
 | E19 | The first language off Windows: Portuguese when LC_ALL, LC_MESSAGES or LANG starts with pt (Settings::SetSystemLocale is the hook Android and iOS feed the device locale into) | Portuguese only |
 | E20 | The options screen on a phone (Script::g_mobileLayout, raised by the layer on PENUMBRA_MOBILE builds; a runtime flag, so test_pn_scenarios 21 runs it on the desktop): no video-mode list, no windowed/fullscreen switch and no "Pressione Alt+Enter" line (menu footer and options screen); in the switch's place E16's touch controls on/off ("Ativa/Desativa controles de toque", saved as settings.touchControls "on"/"off", applied at once) | the video modes, the window switch and the Alt+Enter line, on every machine |
 | E21 | The enhanced edition's credit (Ivan, Step 26): the Credits panel draws the original team's credits untouched, then one blank line, "Ivan Cvetanović" and one role, " -Edição aprimorada (Supersonic Engine)" / " -Enhanced edition (Supersonic Engine)" (Script.hpp creditosEnhanced after menu.as's creditos; the English by a strings.json pattern). One role, not three: the panel has three lines left below the original's (the last ends at y 745 of 768) and 381 px across. The c with acute: cp1252 has none, so 0x8D, a byte cp1252 leaves undefined and none of the original's 261 text files (.as .enml .esc .ent .par .txt .cg .ethproj) holds, is the port's byte for U+0107 (eth/Text: logs, strings.json; FontAtlas: every face and both stand-ins have the glyph). Not switchable: it changes no play | the panel credited the 2010 team only |
+| E23 | The display mode chosen for the player, and by hand (Step 27). Automatic: fullscreen at the desktop's size - the monitor's native size as the system runs it, not the largest listed mode (NVIDIA DSR and AMD VSR list virtual modes above the panel's; a virtual X server lists one oversized mode) - at the highest refresh rate the monitor offers at that size, which switches the display only when the desktop does not run that rate already (engine: SetFullscreenMode's kHighestRefreshRate); a window fitted to its monitor, the largest of the monitor's own shape within 85% of its work area each way, centred (engine: FitWindowToMonitor; 1566x979 on a 1920x1200 panel over a 48 px taskbar), fitted before the first swapchain at launch (GameManifest::fitWindowToMonitor) and again on each way out of fullscreen; a first launch (no settings.json) is fullscreen. By hand, on the options screen: the mode list's first line "Automático (melhor)" / "Automatic (best)" (automatic in the window or in fullscreen, whichever the game is in), the sizes as "WxH" with the monitor's native one marked "(nativa)" / "(native)", the current choice marked "[•]" and drawn at full alpha as a Switch row's is; a window picked from the list is centred on its monitor; a refresh-rate row at x 540 beside the window switch, "Taxa de atualização" / "Refresh rate", "[<] Automática (165 Hz) [>]" and every rate the monitor offers at the fullscreen size, applied at once in fullscreen and at the next fullscreen from a window ("Vale para a tela cheia" / "Applies in fullscreen"). Saved as window.width/height and fullscreenWidth/Height (0 x 0 automatic) and fullscreenRefresh (0 automatic; a rate the size lacks runs at the highest and is kept); --refresh auto\|Hz for one run. On Android the row, beside the touch controls' (E20), asks the display for "Automática (máxima)" / "Automatic (highest)" or "60 Hz" (engine: SetPreferredRefreshRate - the activity's preferredDisplayModeId, and ANativeWindow_setFrameRate from API 30). Not switchable as a whole: automatic is a line of the list and of the row | fullscreen at the mode picked, at whatever rate the driver gave it, a window at 1024x768 or the size picked; the list's lines "WxHx32", each size once per refresh rate; no refresh rate to choose |
 | E22 | The touch controls are player 1 (Step 26; InputMapper::PadOrder, set with them by the layer's SetTouchEnabled): while they are on, real pads start at player 2's index and never take player 1's, so on a phone one Bluetooth gamepad plays player 2 - Versus opens, the co-op princess comes with its Start - and a second pad changes nothing for player 1 (it goes to an index no player reads); off (E20's row, or a desktop without --touch), E12 as before. Versus without a pad says so in touch wording, "Conecte um gamepad para o jogador 2." / "Connect a gamepad for player 2." (strings.json "touch") | winmm's order made a lone pad player 2's; E12 made it player 1's, which on a phone (touch on, keyboard player 2 off) left Versus closed and the princess never summoned |
 
 ## Steps
@@ -1006,7 +1007,166 @@ suites, 9781 checks, 0 failures (formats 598, render_hud 1720, render_input 858,
 3660, scenarios 959); Android x86_64 builds with no warning in game code. No engine change.
 Windows not built or run by this step.
 
+### Step 27 - the display mode chosen for the player, and by hand (E23, 2026-09-30)
+Ivan: "could you also make the game choose the best resolution and refresh rate automatically? Then
+also offer an option to edit this manually."
+- **What "best" is on this laptop** (read-only, no display touched: WMI `Win32_VideoController`
+  and `root\wmi WmiMonitorListedSupportedSourceModes`): an AMD Radeon 780M driving the 1920x1200
+  panel at 60 Hz, and the panel's EDID lists one source mode, 1920x1200 at 60. So on Ivan's panel
+  the automatic mode is the desktop's own and switches nothing; a faster external monitor is where
+  the rate part shows. The game's last log on this machine: "Present Mode: FIFO (V-Sync Fallback)".
+- **Native = the desktop's current size, not the largest listed mode.** Windows sets the panel's
+  native size by default and a player who changed it chose to; the largest mode can be a virtual one
+  above the panel's (NVIDIA DSR, AMD VSR: 2880x1800 or 3840x2400 on a 1920x1200 panel, rendered at
+  four times the cost and scaled down), and a virtual X server lists a single 3000x1600 mode (the
+  earlier captures' list). GLFW has no "preferred mode" to ask for.
+- **Engine** (opt-in, additive; every existing call and a zeroed `Requests` behave as before):
+  - `WindowControl::kDesktopRefreshRate` (0, Step 23's rule and every default) and
+    `kHighestRefreshRate`. `SetFullscreenMode(w, h, refreshRate = kDesktopRefreshRate)` and
+    `ChooseFullscreenMode(..., refreshRate = kDesktopRefreshRate)`: the highest among the size's
+    listed modes and, at the desktop's size, the desktop's own mode as a candidate (never an early
+    answer, or the highest at the desktop's size would be whatever the desktop runs); a number is
+    that rate exactly or a refusal, as an unlisted size is. `Requests::fullscreenRate` carries it to
+    `NativeWindowControl::enterFullscreenMode`, which chooses again with the same policy when it
+    applies it. The refusal's warning names the rate only when one was named (the old text for the
+    old call).
+  - `RefreshRatesAt(modes, desktop, w, h)`: the rates a size is offered at, lowest first, once each,
+    the desktop's own at its size; a rate of 0 (unknown) is none.
+  - `SetWindowedSize(w, h, centre = false)`, and `FitWindowToMonitor(fraction)`: one request, the
+    later wins. Centred on the monitor's work area (`glfwGetMonitorWorkarea`) with the frame
+    (`glfwGetWindowFrameSize`, remembered while windowed, since a fullscreen window has none),
+    never above or left of it; while fullscreen, the whole rectangle to come back at. While
+    `SetFullscreenMode` has the monitor at another mode, the work area is the desktop's, taken
+    before the switch (`glfwGetMonitorWorkarea` answers the switched mode's: an automatic window
+    asked for on the way out of 800x600 would otherwise be fitted to 800x600 and land in the
+    desktop's top-left corner), as `DesktopMode()` already answers the desktop's mode. The pure
+    halves: `FitWindowedSize(workArea, desktop, fraction)` and `CentredWindowPosition`.
+  - `GameManifest::fitWindowToMonitor` (0 by default; not in game.manifest's text):
+    `SupersonicApp` fits a windowed start before the first swapchain, as it enters a fullscreen
+    start, so an automatic window does not open at the default and jump after the scene loads;
+    `--window` and a fullscreen start win over it.
+  - `SetPreferredRefreshRate(rate)`: the desktop takes it and does nothing; Android calls
+    `SupersonicActivity.requestRefreshRate(hz)` through JNI (the activity by the glue's object, not
+    `FindClass`; `GetEnv`, attached and detached only if it was not; a plain NativeActivity has no
+    such method, the exception is cleared and logged), which picks the mode of that rate at the
+    current physical resolution (0 the highest, else the nearest; `Display.getSupportedModes`, API
+    23) and sets the window's `preferredDisplayModeId` on the UI thread, then
+    `ANativeWindow_setFrameRate` (looked up with `dlsym` in libandroid.so, API 30, so the minSdk 26
+    library links) with the mode's rate, and again on every `INIT_WINDOW`. iOS untouched: its
+    `ApplyPending` takes and drops every request, the new ones too.
+  - test_gameruntime 172 -> 262 checks (the highest from the list and the desktop alike, a named
+    rate or nothing, the request carrying its rate and a plain request dropping it, the rates of a
+    size, the fitted size on four work areas, the centred position with a frame, the fit and the
+    size as one request, the preferred rate, the manifest's field outside its text).
+- **Game**:
+  - `Settings` (version 2): `window.width/height` 0 x 0 is automatic, and the default; half a size
+    is automatic with a warning; any other value is clamped as before. `window.fullscreen` true by
+    default (a first launch). `window.fullscreenRefresh` 0 (automatic) or 1..1000 Hz, anything else
+    automatic with a warning. A version-1 file keeps what it says (its windowed size, its
+    fullscreen flag); the rate it lacks is automatic.
+  - `render/WindowMode`: `ChooseFullscreen(modes, desktop, savedSize, savedRate)` - the saved size
+    where the monitor has it, else the desktop's; the saved rate where the size has it, else the
+    highest - and `ChooseRates` for the row (automatic first, then the size's rates; a saved rate
+    the size lacks shows as automatic, which is what runs). `kAutoWindowFraction` 0.85.
+  - The layer: a fullscreen launch, Alt+Enter, the switch, a size or the automatic line picked, a
+    rate picked - each goes through `RequestFullscreen`, logged as `E23 fullscreen (<why>): 1920x1200
+    (automatic: the desktop's) @ 165 Hz (automatic: the highest); rates at this size: 60, 165`
+    (SetFullscreen(true) when no monitor answers or the engine refuses). Leaving fullscreen with an
+    automatic window asks for the fit first. A pick in a window: the automatic line fits the window,
+    a size is centred (Step 23 kept the top-left, so a large pick could hang off the screen). The
+    row's offer is logged when it changes (`E23 refresh-rate row: automatic, 60 Hz, 165 Hz; current
+    automatic`), a pick as `E23 refresh rate picked: 60 Hz (the next time fullscreen)`. On a phone,
+    `SetPreferredRefreshRate` at attach and on each pick.
+  - **Picking the native size saves it** (1920x1200, not 0 x 0 as Step 23's FullscreenModeToSave
+    did): the list now has an automatic line, and the mark must be on the line the player clicked.
+    Automatic is how to follow a desktop that changes resolution.
+  - The script (videoModes.cpp, switch.cpp): the automatic line first, hit and drawn as the lines are,
+    sending `SetWindowProperties(..., 0, 0, Windowed(), ...)`; `videoModeLabel` "WxH" and " (nativa)"
+    (videoModeToString kept, unused, as the port of videoModes.as:47); the "[\x95] " / "[ ] " mark
+    from the layer's `g_chosenVideoMode`; `Chooser`, the E23 widget: its label, then "[<] value [>]"
+    with the Stepper's boxes, hit test, confirm and alphas, stopping at the ends. At (540, 170-220),
+    between the back arrow (to y 132) and the input images (from y 260), right of the window switch
+    (to x 511); the hint at y 222 in a window only.
+  - strings.json: the five labels, and the patterns "{int}x{int} (nativa)", "{int}x{int}",
+    "Automática ({int} Hz)", "{int} Hz" (the old "{int}x{int}x{int}" kept).
+  - `--refresh auto|<Hz>` (this run's rate, never saved; a pick on the row replaces it) and
+    `--modes W1xH1@R1,...` (dev: the list and the row from given modes, '*' marking the desktop's;
+    a pick still goes to the real monitor).
+- **Nothing assumes a 60 Hz presentation.** SupersonicApp's loop is variable-step with an
+  accumulator (a frame's delta clamped at 0.1 s, up to 5 ticks a frame); E8 blends by
+  SimulationClock::alpha, so a 120/144/165 Hz display gets a blended frame at its rate; `GetFPSRate()
+  = 60` and the tick are the scripts' clock, not the display's. The swapchain was left alone: it takes
+  MAILBOX where offered (vsynced, no tearing, frames not capped at the refresh) and FIFO otherwise,
+  as on this laptop.
+- **Measured on Linux** (lavapipe under xvfb at 1920x1200; each run its own XDG_DATA_HOME;
+  out/shots/displaymode/, logs/ beside them; out/e23_captures.sh):
+  - The options screen at 1024x768 and 1920x1200 in both languages with a 1920x1200 panel's list
+    (`--modes`, 60 Hz desktop, 165 Hz listed at its size): "[•] Automático (melhor)" first,
+    eleven sizes "WxH", "1920x1200 (nativa)"; the row "Taxa de atualização / [<]
+    Automática (165 Hz) [>]" beside the window switch and the hint under it; nothing overlaps
+    (options_*). A 1280x800 window and 165 Hz from settings.json: that line marked, the row at
+    "165 Hz" (manual_*). A click on the row's [>] at its window pixel (1024x768 and 1920x1200):
+    "60 Hz", saved as fullscreenRefresh 60 (click_rate_*). A click on 1280x800 in a window: "Window
+    resized to 1280x800, centred at 320,200", the line marked, saved (click_mode_1024x768_en).
+  - The engine's paths on the virtual screen (no `--window`): a first launch goes fullscreen at
+    1920x1200 and logs `E23 fullscreen (launch): 1920x1200 (automatic: the desktop's) @ 0 Hz
+    (automatic: the highest); rates at this size: none known` (Xvfb reports no rate; the row says
+    "Automatic" alone); Alt+Enter from there: "Window fitted to screen: 1632x1020 ... within 0.85 of
+    the work area 1920x1200", "Windowed size set to 1632x1020, centred at 144,90; applies on leaving
+    fullscreen", "Windowed at 1632x1020" (a 1632x1020 capture); a windowed automatic launch is
+    1632x1020 from the first frame, centred (launch_window_auto); Alt+Enter from it: fullscreen at
+    the desktop's mode; `--refresh 144`: "144 Hz is not offered at this size: the highest", and no
+    settings written.
+  - Widths (test_pn_render_hud, the Windows faces where present and the stand-ins): the widest list
+    line ends at x 229 (pt, "[•] Automático (melhor)"; the switches start at 255), the widest
+    rate value at x 766 (pt "Automática (1000 Hz)"; the [>] box starts at 780).
+- **Measured on Android** (Penumbra_API33_x86_64, headless, port 5560; out/shots/displaymode/android/,
+  logcat.txt): at attach, "Display: refresh rate asked for the highest at 720x1280 (now 60.000004
+  Hz, mode 1); offered 60.000004 Hz (mode 1); preferred mode 1 at 60.000004 Hz", "Refresh rate: asked
+  for the highest; the display mode chosen runs at 60 Hz", "Frame rate: 60 Hz set on the window
+  (ANativeWindow_setFrameRate returned 0)". The phone's options screen: "Refresh rate [<] Automatic
+  (highest) [>]" beside the touch controls' row (01); a tap on [>]: "60 Hz", saved, asked of the
+  display (02); Home and back: TERM_WINDOW, INIT_WINDOW, the rate set on the new surface again; a
+  tap on [<]: automatic again (03). The emulator's display has one 60 Hz mode, so this is "asked for
+  and logged", not a rate seen to change; the emulator's old version-1 settings.json kept its
+  1366x768 and gained fullscreenRefresh.
+- **Tests**: test_pn_render_input (the defaults, the automatic and half sizes, the rate's reading and
+  its refusals, a version-1 file as Ivan's reads, the round trip; ChooseFullscreen and ChooseRates on
+  a 60/165 Hz panel, a monitor without the saved size, Xvfb's unknown rate, no monitor; the automatic
+  line through DecideWindowAction), test_pn_scenarios (scenario 10's list as "[x] WxH" under the
+  automatic line; 21: the row stays on a phone; the new 22 in the third runtime: the marks, the
+  automatic line's 0 x 0 request, a size's request, the row's arrows, ends, dead zones and the
+  window switch beside it, the hint with the window, the phone's two choices), test_pn_render_hud
+  (the English of every E23 text as drawn; the widths above), test_gameruntime (above).
+Gates: check.bat clean at /W4 on every touched C++ file (the engine's WindowControl,
+NativeWindowControl and SupersonicApp; the game's WindowMode, Settings, PenumbraLayer, main.cpp,
+script/videoModes and switch; the three suites); the Android and iOS WindowControl files
+syntax-checked with GCC (-Wall -Wextra -Wpedantic, the native-surface backend by define); the
+engine alone on Linux, 57 of 57 suites (test_gameruntime 262), no new warning; Linux (WSL, GCC, no
+warning in game code) test_pn_all 17 suites, 9964 checks, 0 failures (render_hud 1770,
+render_input 940, scenarios 1010); Android x86_64 builds (only entt's warnings, as before).
+Windows not built or run by this step (the display could not be touched): the live plan is in the
+Open list below. Not measured anywhere: a switched mode's way out to an automatic window (Xvfb has
+one mode), the title bar's frame and DPI scaling on Windows, a work area with a real taskbar (Xvfb
+has none: the fit used the whole screen), a display faster than 60 Hz, and a phone with more than
+one rate.
+
+- **After review:** an older settings.json with fullscreen on now runs at the HIGHEST rate its size
+  offers, not the desktop's: on a faster monitor whose desktop runs below its maximum (60 on a
+  144 Hz panel), launch and Alt+Enter switch the display's rate, and leaving switches it back
+  (Ivan's panel has one 60 Hz mode: nothing switches). The phone row is Android's only:
+  Script::g_refreshRateRow leaves it out on iOS, whose backend sets no rate (scenario 22 checks
+  the row goes and comes back with the flag). A list line must end inside its 200 px hit column.
+
 ### Open
+- **E23 on Windows, live (not run: the desktop was not to be touched).** Flags and the log lines to
+  expect are in Step 27's report; on Ivan's panel (one 60 Hz mode) automatic switches nothing.
+  From E23 on, a run without `--window` or `--windowed` covers the screen on a first launch (and on
+  a faster monitor may switch its rate): any script or package check that launches the game bare.
+- **E23, for Ivan:** his own settings.json holds a windowed size of 1920x1200 (explicit, from a
+  Step 23 pick), larger than his work area: kept as the file says, so Alt+Enter gives that window
+  until "Automático (melhor)" is picked in a window once. Every version-1 file holds a windowed
+  size (1366x768 was the default written into all of them); kept too, not guessed to be automatic.
 - **iOS: builds, untested** (Ivan, 2026-09-28: "leave it alone, we only need it to build"). No frame
   in the simulator (base-instance drawing); no signed device run. Not to be worked on unless asked.
 - **Light, still not modelled** (Step 16; the baked shadows are Step 21's, which lists what they

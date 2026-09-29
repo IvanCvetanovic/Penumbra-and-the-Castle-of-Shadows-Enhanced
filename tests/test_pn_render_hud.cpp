@@ -198,6 +198,17 @@ const char* const kE10Labels[] = {
     "Desativa controles de toque",
 };
 
+// ENHANCEMENT E23: the display mode's lines and the refresh rate's row
+// (game/script/videoModes.cpp, the layer's rate labels), the port's own
+// Portuguese.
+const char* const kE23Labels[] = {
+    "Autom\xE1tico (melhor)",
+    "Taxa de atualiza\xE7\xE3o",
+    "Autom\xE1tica",
+    "Autom\xE1tica (m\xE1xima)",
+    "Vale para a tela cheia",
+};
+
 void TestLocalization() {
     Render::Localization loc;
     CHECK(loc.Load());
@@ -227,6 +238,20 @@ void TestLocalization() {
     CHECK(loc.Translate("[ ] Desativa controles de toque") == "[ ] Disable touch controls");   // E20
     CHECK(loc.HasTranslation("[<]"));
     CHECK(loc.HasTranslation("70%"));
+    // E23: the display mode's lines and the refresh rate's values, as drawn.
+    for (const char* label : kE23Labels) CheckTranslated(loc, label, "videoModes.cpp (E23)");
+    CHECK(loc.Translate("[\x95] Autom\xE1tico (melhor)") == "[\x95] Automatic (best)");
+    CHECK(loc.Translate("[ ] 1280x800") == "[ ] 1280x800");
+    CHECK(loc.Translate("[\x95] 1920x1200 (nativa)") == "[\x95] 1920x1200 (native)");
+    CHECK(loc.HasTranslation("[ ] 1280x800"));
+    CHECK(loc.HasTranslation("[ ] 1920x1200 (nativa)"));
+    CHECK(loc.Translate("Autom\xE1tica (165 Hz)") == "Automatic (165 Hz)");
+    CHECK(loc.Translate("Autom\xE1tica (m\xE1xima)") == "Automatic (highest)");
+    CHECK(loc.Translate("Autom\xE1tica") == "Automatic");
+    CHECK(loc.Translate("60 Hz") == "60 Hz");
+    CHECK(loc.HasTranslation("144 Hz"));
+    CHECK(loc.Translate("Taxa de atualiza\xE7\xE3o") == "Refresh rate");
+    CHECK(loc.Translate("Vale para a tela cheia") == "Applies in fullscreen");
     CHECK(loc.Translate("Carregando...\n") == "Loading...\n");   // the trailing break kept
     CHECK(loc.Translate("Configura\xE7\xF5"
                         "es") == "Settings");
@@ -817,6 +842,45 @@ void TestEnhancedCredits() {
     }
 }
 
+// E23: the display mode's lines fit the list's column and the rate's values
+// fit their box, in both languages, with the Windows faces where this machine
+// has them and with the stand-ins (videoModes.cpp: the list from x 30, where
+// the switches begin at x 255; the rate's value from x 584 in a 200 px box
+// whose "[>]" starts at x 780; Arial Narrow 25).
+void TestDisplayModeRowsFit() {
+    Render::Localization loc;
+    CHECK(loc.Load());
+    const std::vector<std::string> lines = {
+        "[\x95] Autom\xE1tico (melhor)", "[ ] 3840x2400 (nativa)", "[ ] 15360x8640", "[\x95] 1920x1200 (nativa)"};
+    const std::vector<std::string> values = {"Autom\xE1tica (m\xE1xima)", "Autom\xE1tica (1000 Hz)", "Autom\xE1tica",
+                                             "1000 Hz"};
+    for (const bool system : {true, false}) {
+        Render::FontAtlas fonts;
+        fonts.SetSystemFontsEnabled(system);
+        if (fonts.FaceFile("Arial Narrow").empty()) continue;
+        for (const Language language : {Language::Portuguese, Language::English}) {
+            float widestLine = 0.0f;
+            for (const std::string& line : lines) {
+                const std::string text = loc.Translate(line, language);
+                const float width = fonts.Layout(text, "Arial Narrow", 25.0f, glm::vec2(0.0f)).width;
+                widestLine = std::max(widestLine, width);
+                CHECK_MSG(width > 0.0f && 30.0f + width <= 230.0f, text + ": " + std::to_string(width));
+            }
+            float widestValue = 0.0f;
+            for (const std::string& value : values) {
+                const std::string text = loc.Translate(value, language);
+                const float width = fonts.Layout(text, "Arial Narrow", 25.0f, glm::vec2(0.0f)).width;
+                widestValue = std::max(widestValue, width);
+                CHECK_MSG(width > 0.0f && 4.0f + width < 200.0f, text + ": " + std::to_string(width));
+            }
+            std::printf("  E23 (%s, %s): widest list line %.0f px (ends at x %.0f, the switches at 255); "
+                        "widest rate %.0f px (ends at x %.0f, the [>] box at 780)\n",
+                        system ? "system faces" : "stand-ins", language == Language::English ? "en" : "pt",
+                        widestLine, 30.0f + widestLine, widestValue, 584.0f + widestValue);
+        }
+    }
+}
+
 void TestHudRenderer() {
     entt::registry registry;
     Render::TextureCache textures(kApp);
@@ -1178,6 +1242,7 @@ int main() {
     TestFontStandIns();
     TestFontAtlas();
     TestEnhancedCredits();
+    TestDisplayModeRowsFit();
     TestHudRenderer();
     TestWideMenuHud();
     TestWideMenuBackdrop();

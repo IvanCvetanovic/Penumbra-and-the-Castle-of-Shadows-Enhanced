@@ -76,6 +76,12 @@
         "_videoModes.cpp ENHANCEMENT E20: the phone's row, in the window switch's place (the port's own Portuguese, worded as the original's pixel shader row)": "",
         "Ativa controles de toque": "Enable touch controls",
         "Desativa controles de toque": "Disable touch controls",
+        "_videoModes.cpp ENHANCEMENT E23: the automatic display mode (the mode list's first line, Arial Narrow 25 in the list's 200 px column, after a Switch row's '[x] ') and the refresh rate's row (its label, then values in a 200 px box, at x 540 beside the window switch; the hint at 15 px under it while windowed). The Portuguese is the port's own; the rates and sizes are patterns below": "",
+        "Automático (melhor)": "Automatic (best)",
+        "Taxa de atualização": "Refresh rate",
+        "Automática": "Automatic",
+        "Automática (máxima)": "Automatic (highest)",
+        "Vale para a tela cheia": "Applies in fullscreen",
 
         "_render/PauseMenu.cpp ENHANCEMENT E13: the pause (not in the original, which had none; the Portuguese is the port's own, Arial Narrow 40 and 30 in a 316 px row)": "",
         "Pausado": "Paused",
@@ -204,6 +210,24 @@
             "_note": "videoModes.as:47 videoModeToString: numbers only, listed so it is not reported as untranslated",
             "pt": "{int}x{int}x{int}",
             "en": "{1}x{2}x{3}"
+        },
+        {
+            "_note": "ENHANCEMENT E23 videoModeLabel: a line of the mode list without the bit depth, and the monitor's native size marked",
+            "pt": "{int}x{int} (nativa)",
+            "en": "{1}x{2} (native)"
+        },
+        {
+            "pt": "{int}x{int}",
+            "en": "{1}x{2}"
+        },
+        {
+            "_note": "ENHANCEMENT E23: the refresh rate's row, the automatic value with the rate it comes to, and a rate",
+            "pt": "Automática ({int} Hz)",
+            "en": "Automatic ({1} Hz)"
+        },
+        {
+            "pt": "{int} Hz",
+            "en": "{1} Hz"
         }
     ],
 

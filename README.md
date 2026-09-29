@@ -50,6 +50,11 @@ The game writes its own files into its folder: the engine's shader pipeline cach
 still runs, but it logs that it could not write them. Saves go elsewhere (see
 [Settings and saves](#settings-and-saves)).
 
+The first launch covers the screen at the monitor's own resolution and its highest refresh rate
+(E23); Alt+Enter gives a window sized to the monitor. Both can be chosen by hand on the options
+screen (Settings): the resolution list, whose first line "Automatic (best)" goes back to the
+automatic choice, and the "Refresh rate" row beside the Windowed/Fullscreen switch.
+
 Text is drawn with the Windows fonts in `%WINDIR%\Fonts`. The original used Arial Narrow, which
 comes with Microsoft Office rather than Windows. When it is missing, Arial Bold is used instead
 (`game/render/FontAtlas.cpp`).
@@ -214,7 +219,7 @@ Each enhancement is listed with what the original did. The full record is
 | # | Enhancement | The original |
 |---|---|---|
 | E1 | Widescreen: the view is 768 logical pixels tall and as wide as the window. The menus, the options, the arena select and game over keep the original's 1024x768 layout, centred; in a wider window (a 16:10 or 16:9 monitor, a 20:9 or 21:9 phone, up to 4:1) their scene goes on past the sides instead of black bars - the floor and walls continued with the scenes' own tiles, a fade or the menu's panel against the edge reaching the window's edge - and the pointer and a tap reach it. Off, everything is the original's 4:3 with bars; over the bars the system pointer shows, since the game's own cursor cannot be seen there. | 1024x768 only |
-| E2 | Any window size, and a real fullscreen at the monitor's resolution, drawn at native resolution. Alt+Enter and the options screen switch between them. On the options screen a video mode picked in a window sizes the window; picked in fullscreen it switches the display to that mode, as the original did, and is remembered (`fullscreenWidth`/`fullscreenHeight`) for Alt+Enter and the next launch. The desktop's own size is always in the list and switches back. | 1024x768 or one of the listed video modes |
+| E2 | Any window size, and a real fullscreen at the monitor's resolution, drawn at native resolution. Alt+Enter and the options screen switch between them. On the options screen a video mode picked in a window sizes the window; picked in fullscreen it switches the display to that mode, as the original did, and is remembered (`fullscreenWidth`/`fullscreenHeight`) for Alt+Enter and the next launch. The desktop's own size is always in the list and switches back. Which mode by default, and the refresh rate: E23. | 1024x768 or one of the listed video modes |
 | E3 | Modern gamepads, mapped by meaning, for both players | Button numbers of the pad's own winmm driver |
 | E4 | A keyboard second player | Player 2 needed a joystick |
 | E5 | English alongside Portuguese, including the words baked into the menu art | Portuguese only |
@@ -229,6 +234,7 @@ Each enhancement is listed with what the original did. The full record is
 | E14 | In the menus, the arena select, the options and game over, a pad's A also confirms and B also goes back | Only Start confirmed and only Back went back |
 | E16 | On-screen touch controls for phones and tablets: a direction disc, jump, sword, fireball, light, the two combos and pause, pressing player 1's own keys; a tap clicks in the menus. Magic Rampage's buttons, laid out by `data/touch_controls.json`. While they are on, the control hints name the buttons, not the keys (`touch` in `data/strings.json`). `touchControls` in `settings.json`, `--touch` on a desktop. | Keyboard and joysticks only; hints name the keys |
 | E21 | The Credits panel also credits the enhanced edition, after the original team: "Ivan Cvetanović", Enhanced edition (Supersonic Engine). The c with acute, which the original's Windows-1252 text cannot hold, is drawn from byte 0x8D, which that code page leaves unused. | The 2010 team only |
+| E23 | The display mode is chosen for the player, and can be chosen by hand. Automatic: fullscreen at the desktop's resolution (the monitor's native one as Windows runs it) at the highest refresh rate the monitor offers there, and a window of the monitor's shape at 85% of the screen above the taskbar, centred; a first launch is fullscreen. On the options screen the resolution list starts with "Automatic (best)", shows each size as "WxH", marks the monitor's native one "(native)" and the current choice "[•]"; a size picked in a window is centred. The "Refresh rate" row beside the Windowed/Fullscreen switch offers "Automatic (165 Hz)" and every rate the monitor has at the fullscreen resolution: at once in fullscreen, at the next fullscreen from a window. On Android the row asks the display for its highest rate or 60 Hz, to save the battery (iOS: no row, untested). Saved as `width`/`height`, `fullscreenWidth`/`fullscreenHeight` and `fullscreenRefresh` (`0` is automatic). | Fullscreen at the mode picked, at whatever rate the driver chose; the list's lines "WxHx32", a size once per refresh rate; no refresh rate to choose |
 | E22 | While the touch controls are on they are player 1, and the first gamepad plays player 2: Versus and the co-op princess on a phone with one Bluetooth pad. Without a pad, Versus says to connect one. | A lone pad was player 2's (E12 made it player 1's) |
 
 ## Settings and saves
@@ -238,7 +244,7 @@ into the original's folder.
 
 | File | What it is |
 |---|---|
-| `settings.json` | Language (`"en"`/`"pt"`), window size and fullscreen, the fullscreen mode (`fullscreenWidth`/`fullscreenHeight` in `window`; `0` is the desktop's), widescreen, volumes, pixel shaders, `smoothMotion`, `pauseOnFocusLoss`, `touchControls` (`"auto"`, `"on"`, `"off"`), and the controls: `joystickLayout`, `keyboardPlayer2`, `firstPadIsPlayer1`, `rawJoysticks`, `stickDeadzone`, and the `player1`/`player2` key lists. A broken or missing field falls back to its default, field by field. |
+| `settings.json` | Language (`"en"`/`"pt"`), the window (`window`: `width`/`height`, `0` for a window fitted to the monitor; `fullscreen`, true on a first launch; the fullscreen mode, `fullscreenWidth`/`fullscreenHeight`, `0` for the desktop's resolution; `fullscreenRefresh` in Hz, `0` for the highest the monitor offers at that resolution), widescreen, volumes, pixel shaders, `smoothMotion`, `pauseOnFocusLoss`, `touchControls` (`"auto"`, `"on"`, `"off"`), and the controls: `joystickLayout`, `keyboardPlayer2`, `firstPadIsPlayer1`, `rawJoysticks`, `stickDeadzone`, and the `player1`/`player2` key lists. A broken or missing field falls back to its default, field by field. |
 | `hs.enml` | The best times, written after a new record. Until then the original's `hs.enml` is read. |
 | `scenes\checkpoint.esc` | The level saved at the last checkpoint. |
 
@@ -262,13 +268,15 @@ The game's own options:
 | `--hold <KEY>@<a>-<b>` | Hold an Ethanon key from tick *a* to tick *b*, for scripted captures. KEY is one of `UP DOWN LEFT RIGHT CTRL ALT SHIFT SPACE ENTER ESC BACKSPACE PAGEUP PAGEDOWN J S D 1 2 3 LMOUSE RMOUSE`. |
 | `--cursor <x>,<y>` | Pin the scripts' cursor at a point of the 1024x768 menu screen, for menu captures |
 | `--touch [on\|off]` | This run's touch controls (E16); on by itself. On a desktop the held left mouse button is the finger. It is not saved. |
+| `--refresh auto\|<Hz>` | This run's fullscreen refresh rate (E23). It is not saved; a pick on the options screen replaces it. A rate the monitor does not offer at the fullscreen resolution runs at the highest. |
+| `--modes <W>x<H>@<Hz>,...` | List these display modes on the options screen instead of the monitor's, a `*` after one marking the desktop's (captures). A pick still goes to the real monitor. |
 
 The engine's options that matter here:
 
 | Option | What it does |
 |---|---|
 | `--window <W>x<H>` | Open a window of this size. This implies a windowed run unless `--fullscreen` is also given. |
-| `--fullscreen`, `--windowed` | This run only; not saved. `--fullscreen` runs at the saved fullscreen mode, or the desktop's. |
+| `--fullscreen`, `--windowed` | This run only; not saved. `--fullscreen` runs at the saved fullscreen mode, or the automatic one (E23). |
 | `--frames <n>` | Run *n* frames, then exit |
 | `--fixed-step` | Simulate at exactly 1/60 s per frame, so a run reproduces |
 | `--screenshot <path>` | Write a PNG of the last frame and exit. Give an **absolute** path: the engine changes the working directory at startup. |
@@ -417,14 +425,14 @@ every suite through its own executable, and a second registration would run each
 | `test_pn_runtime` | The emulated Ethanon runtime: buckets, custom data, callbacks, frame order, input, samples |
 | `test_pn_particles` | The Ethanon particle manager |
 | `test_pn_boot` | The real game boots headless: the menu, level 1, the wizard walks, jumps and swings |
-| `test_pn_scenarios` | The real game played headless: combat, spells and both combos, potions, hazards, checkpoints, game over, level changes, the king, Versus, the co-op creature |
+| `test_pn_scenarios` | The real game played headless: combat, spells and both combos, potions, hazards, checkpoints, game over, level changes, the king, Versus, the co-op creature; the options screen, its resolution list and refresh-rate row (E23) |
 | `test_pn_audio` | Every sound the original ships decodes (19 Ogg Vorbis, 16 MP3) |
 | `test_pn_render_textures` | Colour keys, DDS, normal maps, blend variants |
 | `test_pn_render_lights` | Lights, halos and projected shadows |
 | `test_pn_render_particles` | Particles drawn as pooled quads |
 | `test_pn_render_hud` | `strings.json` against every string the scripts draw, the control hints' touch wording (every hint has it, it fits, touch off changes nothing), the font layout, the Credits panel with the enhanced edition's credit and its c with acute in every face (E21), the HUD's quads |
 | `test_pn_render_english` | The English images: each variant exists at the original's size, and the renderers swap them with the language |
-| `test_pn_render_input` | Keys, pads and the keyboard second player mapped onto the original's input; A and B in the menus (E14); the pads' order with the touch controls on (E22); the settings file |
+| `test_pn_render_input` | Keys, pads and the keyboard second player mapped onto the original's input; A and B in the menus (E14); the pads' order with the touch controls on (E22); the settings file; the automatic display mode and the refresh rates offered (E23) |
 | `test_pn_render_interp` | Smooth motion (E8): the blend between two ticks, whole pixels kept whole, never across a scene load, a frame gap or a jump |
 | `test_pn_render_pause` | The pause (E13): when it opens, the frozen ticks, the menu, the one-tick cancel to the main menu, focus loss, the overlay, the input held back after it |
 | `test_pn_render_touch` | The touch controls (E16): the key each control presses, the direction disc, several fingers at once, the pause opened and tapped, a tap in a menu as a click, the knob only while a direction is held, the corner button screen by screen, the layout on 4:3 and widescreen with a safe area, the manifest and its art, the setting; the combo buttons' key timelines, and the combos firing through the ported combo buffer and in level 1, where the first help sign is drawn in touch wording; a phone's Versus with one gamepad through the real game (the touchscreen moves the wizard only, the pad the princess only) and the co-op princess summoned with its Start (E22) |

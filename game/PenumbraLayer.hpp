@@ -10,6 +10,7 @@
 #include <glm/glm.hpp>
 
 #include "core/EngineLayer.hpp"
+#include "core/WindowControl.hpp"
 
 #include "eth/EthTypes.hpp"
 #include "render/AudioOutEngine.hpp"
@@ -28,10 +29,7 @@
 #include "render/TextureCache.hpp"
 #include "render/TouchControls.hpp"
 #include "render/View.hpp"
-
-namespace Supersonic {
-class WindowControl;
-}
+#include "render/WindowMode.hpp"
 
 namespace Penumbra {
 
@@ -62,6 +60,10 @@ struct InputFrame;
 //    display to it, as 0.7.12 did (render/WindowMode.hpp) - and HideCursor
 //    hides the system pointer, as 0.7.12 did while cursor.ent was drawn in
 //    its place, except over the bars, where cursor.ent cannot be seen.
+//  - The display mode is automatic unless the player picks one (E23):
+//    fullscreen at the desktop's size and the monitor's highest rate there, a
+//    window fitted to the monitor; the options screen's mode list and its
+//    refresh-rate row pick either by hand.
 class PenumbraLayer final : public Supersonic::EngineLayer {
 public:
     static constexpr float kTick = 1.0f / 60.0f;
@@ -122,6 +124,17 @@ public:
         // first tick he exists, for captures of places far from a level's
         // start (Step 24's pit edges). Dev-only, never saved.
         std::optional<glm::vec2> devSpawn;
+        // E23 for this run (--refresh auto|<Hz>): the fullscreen refresh rate
+        // over the settings' (0 = automatic); never saved, and a pick on the
+        // options screen's row replaces it, as a pick replaces --lang.
+        std::optional<uint32_t> refreshOverride;
+        // --modes: the display modes the options screen lists and its
+        // refresh-rate row offers, and the desktop's among them, instead of
+        // the monitor's - for captures of a list the capture machine does not
+        // have (a virtual X server lists one mode). Dev-only, never saved; a
+        // pick still goes to the real monitor, which refuses a mode it lacks.
+        std::vector<Supersonic::DisplayMode> devModes;
+        Supersonic::DisplayMode devDesktop;
     };
 
     explicit PenumbraLayer(Options options);
@@ -145,10 +158,28 @@ private:
     static Supersonic::WindowControl* WindowControlOf(entt::registry& registry);
     // What the scripts asked of the window this tick, handed to the engine.
     void ApplyWindowRequest(entt::registry& registry);
-    // The settings' fullscreen display mode; 0 x 0 is the desktop's.
+    // The settings' fullscreen display mode; 0 x 0 is automatic (the desktop's size).
     glm::uvec2 SavedFullscreenMode() const;
-    // GetVideoMode's list, from the monitor the window is on.
+    // E23: the settings' windowed size; 0 x 0 is automatic (fitted to the monitor).
+    glm::uvec2 SavedWindowedSize() const;
+    // E23: the fullscreen refresh rate this run uses (--refresh, else the
+    // settings'); 0 is automatic.
+    uint32_t FullscreenRefresh() const;
+    // E23: that rate as a phone's display is asked for it.
+    uint32_t PreferredRefreshRate() const;
+    // E23: the monitor's modes and its desktop mode, or --modes'.
+    std::vector<Supersonic::DisplayMode> DisplayModesOf(const Supersonic::WindowControl& window) const;
+    Supersonic::DisplayMode DesktopModeOf(const Supersonic::WindowControl& window) const;
+    // E23: where fullscreen goes on this monitor (render/WindowMode.hpp).
+    Render::FullscreenChoice FullscreenChoiceFor(const Supersonic::WindowControl& window) const;
+    // E23: fullscreen at that choice - Alt+Enter, the options' switch, a pick,
+    // a launch - logged with `why`; the desktop's mode when nothing else is left.
+    void RequestFullscreen(Supersonic::WindowControl& window, const char* why);
+    // GetVideoMode's list, from the monitor the window is on, and E23's marks.
     void RefreshVideoModes(entt::registry& registry);
+    // E23: the refresh-rate row's options, from the fullscreen choice (the
+    // desktop) or the phone's two.
+    void RefreshRateChoices(entt::registry& registry);
     // The HUD's and the sprites' language, from m_settings (or --lang).
     void ApplyLanguage();
     // What this run shows: the settings unless a flag overrides them.
@@ -211,6 +242,10 @@ private:
     // not WindowControl::IsFullscreen (a frame late).
     bool m_windowFullscreen = false;
     const Eth::Scene* m_modesScene = nullptr;   // the scene the mode list was read for
+    // E23: the refresh-rate row's rates (0 = automatic), as last given to
+    // Script::g_refreshRate, and the index it was given.
+    std::vector<uint32_t> m_rateChoices;
+    uint32_t m_rateChoiceSeeded = 0;
 };
 
 } // namespace Penumbra

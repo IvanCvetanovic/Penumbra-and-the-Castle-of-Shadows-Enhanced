@@ -15,6 +15,9 @@
 //   --spawn <x>,<y>        put the wizard at a scene point once he exists (captures far from a start)
 //   --touch [on|off]       this run's on-screen touch controls (E16); on by itself. On the
 //                          desktop the held left mouse button is the finger
+//   --refresh auto|<Hz>    this run's fullscreen refresh rate (E23), over the settings
+//   --modes <WxH@R,...>    the display modes the options screen lists, instead of the monitor's
+//                          (captures); a '*' after one makes it the desktop's
 //   --original <dir>       the original game's files (the folder holding data.enml)
 //   --data <dir>           the port's own data (the folder holding strings.json)
 // --lang and --widescreen are never saved; --window implies a windowed run
@@ -23,9 +26,10 @@
 // (eth/Paths.hpp).
 //
 // Engine flags that matter here: --window WxH (the windowed size, over the
-// settings), --fullscreen / --windowed (this run only, over the settings; never
-// saved; --fullscreen runs at the saved fullscreen mode, as Alt+Enter would),
-// --frames N and --screenshot <absolute path> for headless captures.
+// settings, and over E23's automatic window), --fullscreen / --windowed (this
+// run only, over the settings; never saved; --fullscreen runs at the saved
+// fullscreen mode, or E23's automatic one, as Alt+Enter would), --frames N and
+// --screenshot <absolute path> for headless captures.
 
 #include <cstdlib>
 #include <exception>
@@ -39,6 +43,7 @@
 
 #include "PenumbraLayer.hpp"
 #include "eth/Paths.hpp"
+#include "render/WindowMode.hpp"
 
 #include "core/GameRuntime.hpp"
 #include "core/LaunchOptions.hpp"
@@ -64,7 +69,10 @@ constexpr const char* kGameUsage =
     "  --pointer <x>,<y>      pin the menu cursor at a pixel of the window (mapped as the real mouse)\n"
     "  --spawn <x>,<y>        put the wizard at a point of the scene (its pixels) once he appears\n"
     "  --touch [on|off]       this run's on-screen touch controls (not saved; on by itself);\n"
-    "                         on a desktop the held left mouse button is the finger\n";
+    "                         on a desktop the held left mouse button is the finger\n"
+    "  --refresh auto|<Hz>    this run's fullscreen refresh rate (not saved)\n"
+    "  --modes <WxH@R,...>    the display modes the options screen lists (captures; not saved);\n"
+    "                         a '*' after one makes it the desktop's mode, else the largest is\n";
 
 // The Ethanon key names --hold accepts.
 const std::map<std::string, Penumbra::Eth::KEY>& KeyNames() {
@@ -77,6 +85,44 @@ const std::map<std::string, Penumbra::Eth::KEY>& KeyNames() {
         {"1", K_1}, {"2", K_2}, {"3", K_3}, {"LMOUSE", K_LMOUSE}, {"RMOUSE", K_RMOUSE},
     };
     return names;
+}
+
+// --modes: "1920x1200@60*,1920x1200@165,1280x800@60" - each size and rate, the
+// desktop's marked with '*' (else the largest), listed and sorted as the
+// engine lists a monitor's (WindowControl::SelectDisplayModes).
+bool ParseModes(const std::string& text, std::vector<Supersonic::DisplayMode>& modes,
+                Supersonic::DisplayMode& desktop) {
+    std::vector<Supersonic::WindowControl::VideoMode> reported;
+    bool haveDesktop = false;
+    for (std::size_t start = 0; start <= text.size();) {
+        const std::size_t comma = text.find(',', start);
+        std::string item = text.substr(start, comma == std::string::npos ? std::string::npos : comma - start);
+        const bool isDesktop = !item.empty() && item.back() == '*';
+        if (isDesktop) item.pop_back();
+        const std::size_t x = item.find('x');
+        const std::size_t at = item.find('@');
+        if (x == std::string::npos || at == std::string::npos || at < x) return false;
+        try {
+            const int width = std::stoi(item.substr(0, x));
+            const int height = std::stoi(item.substr(x + 1, at - x - 1));
+            const int rate = std::stoi(item.substr(at + 1));
+            if (width <= 0 || height <= 0 || rate < 0) return false;
+            reported.push_back({width, height, 8, 8, 8, rate});
+            if (isDesktop) {
+                desktop = Supersonic::DisplayMode{static_cast<uint32_t>(width), static_cast<uint32_t>(height),
+                                                  static_cast<uint32_t>(rate)};
+                haveDesktop = true;
+            }
+        } catch (const std::exception&) {
+            return false;
+        }
+        if (comma == std::string::npos) break;
+        start = comma + 1;
+    }
+    modes = Supersonic::WindowControl::SelectDisplayModes(reported);
+    if (modes.empty()) return false;
+    if (!haveDesktop) desktop = modes.back();
+    return true;
 }
 
 bool ParseHold(const std::string& text, Penumbra::PenumbraLayer::DevHold& hold) {
@@ -222,6 +268,26 @@ int PenumbraMain(int argc, char** argv) {
                 std::cerr << "[Penumbra] --spawn wants x,y in the scene's pixels, got " << value << std::endl;
                 return EXIT_FAILURE;
             }
+        } else if (arg == "--refresh" && hasValue) {
+            // E23: "auto" or a whole number of Hz, as window.fullscreenRefresh.
+            const std::string value = argv[++i];
+            try {
+                const unsigned long rate = value == "auto" ? 0ul : std::stoul(value);
+                if (rate > 1000ul || (value != "auto" && value.find_first_not_of("0123456789") != std::string::npos)) {
+                    throw std::invalid_argument("not a rate");
+                }
+                layerOptions.refreshOverride = static_cast<uint32_t>(rate);
+            } catch (const std::exception&) {
+                std::cerr << "[Penumbra] --refresh wants auto or a rate in Hz (e.g. 144), got " << value << std::endl;
+                return EXIT_FAILURE;
+            }
+        } else if (arg == "--modes" && hasValue) {
+            const std::string value = argv[++i];
+            if (!ParseModes(value, layerOptions.devModes, layerOptions.devDesktop)) {
+                std::cerr << "[Penumbra] --modes wants WxH@R,... with an optional '*' for the desktop's "
+                             "(e.g. 1920x1200@60*,1920x1200@165), got " << value << std::endl;
+                return EXIT_FAILURE;
+            }
         } else if (arg == "--original" && hasValue) {
             originalFlag = argv[++i];
         } else if (arg == "--data" && hasValue) {
@@ -324,8 +390,14 @@ int PenumbraMain(int argc, char** argv) {
     // headless capture into a 1920x1200 one.
     if (options.windowWidth > 0 && !options.fullscreen) options.windowed = true;
 
-    manifest.width = static_cast<uint32_t>(settings.windowWidth);
-    manifest.height = static_cast<uint32_t>(settings.windowHeight);
+    // E23: an automatic windowed size (0 x 0) states none, and asks the engine
+    // to fit the window to the monitor before the first swapchain - so it does
+    // not open at the engine's default and jump. --window and a fullscreen
+    // start win over it (SupersonicApp).
+    const bool automaticWindow = settings.windowWidth <= 0 || settings.windowHeight <= 0;
+    manifest.width = automaticWindow ? 0u : static_cast<uint32_t>(settings.windowWidth);
+    manifest.height = automaticWindow ? 0u : static_cast<uint32_t>(settings.windowHeight);
+    if (automaticWindow) manifest.fitWindowToMonitor = Penumbra::Render::kAutoWindowFraction;
     manifest.fullscreen = settings.fullscreen;
     uint32_t width = 0;
     uint32_t height = 0;

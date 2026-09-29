@@ -566,11 +566,15 @@ void ScenarioMenu(Game& g) {
     CHECK(WaitForHud(g, "Op\xE7\xF5" "es de v\xED" "deo", 4));
     CHECK(SeekEntity("picker") != nullptr);
     g.Steps(3);
-    CHECK(HudHas(g.m, "800x600x32"));
-    CHECK(HudHas(g.m, "1024x768x32"));
-    CHECK(HudHas(g.m, "1280x1024x32"));
+    // E23: "[x] WxH" lines under the automatic one, marked as no layer marks
+    // them (the automatic line), with no bit depth.
+    CHECK(HudHas(g.m, "[\x95] Autom\xE1tico (melhor)"));
+    CHECK(HudHas(g.m, "[ ] 800x600"));
+    CHECK(HudHas(g.m, "[ ] 1024x768"));
+    CHECK(HudHas(g.m, "[ ] 1280x1024"));
     CHECK(!HudHas(g.m, "640x480"));
     CHECK(!HudHas(g.m, "x16"));
+    CHECK(!HudHas(g.m, "x32"));
     // Each option is a click: the cursor over it, then a fresh Enter.
     const auto click = [&g](const vector2& at) {
         g.base.cursor = at;
@@ -578,9 +582,10 @@ void ScenarioMenu(Game& g) {
         g.Step(g.With({K_RETURN}));
         g.Steps(2);
     };
-    // 800x600 at (30,100), 1024x768 at (30,125), 1280x1024 at (30,150), 25 px tall.
-    click(vector2(60.0f, 162.0f));
-    std::printf("  clicked 1280x1024x32: window request %ux%u\n", g.m.Window().width, g.m.Window().height);
+    // E23's automatic line at (30,100), then 800x600 at (30,125), 1024x768 at
+    // (30,150), 1280x1024 at (30,175), 25 px tall.
+    click(vector2(60.0f, 187.0f));
+    std::printf("  clicked 1280x1024: window request %ux%u\n", g.m.Window().width, g.m.Window().height);
     CHECK_EQ(g.m.Window().width, 1280u);
     CHECK_EQ(g.m.Window().height, 1024u);
     // g_enablePS at (255,100), g_windowed at (255,170): 25 px lines.
@@ -3207,8 +3212,11 @@ void ScenarioMobileOptions(Game& g) {
     CHECK(HudHas(g.m, "[ ] Desativa controles de toque"));
     CHECK(!HudHas(g.m, "Janela"));
     CHECK(!HudHas(g.m, "Tela-cheia"));
-    CHECK(!HudHas(g.m, "1280x720x32"));
+    CHECK(!HudHas(g.m, "1280x720"));
+    CHECK(!HudHas(g.m, "Autom\xE1tico (melhor)"));
     CHECK(!HudHas(g.m, altEnter));
+    // E23: the refresh rate's row stays, beside where the window switch was.
+    CHECK(HudHas(g.m, "Taxa de atualiza\xE7\xE3o"));
     // Everything else is where it was.
     CHECK(HudHas(g.m, "[\x95] Ativa pixel shaders"));
     CHECK(HudHas(g.m, "Teclado para o jogador 2"));
@@ -3237,10 +3245,154 @@ void ScenarioMobileOptions(Game& g) {
     Script::g_mobileLayout = false;
     g.Steps(2);
     CHECK(HudHas(g.m, "Janela"));
-    CHECK(HudHas(g.m, "1280x720x32"));
+    CHECK(HudHas(g.m, "1280x720"));
     CHECK(HudHas(g.m, altEnter));
     CHECK(!HudHas(g.m, "controles de toque"));
 
+    g.Step(g.With({K_ESC}));
+    CHECK(WaitFor(g, 3, [] { return GetSceneFileName() == "scenes/menu.esc"; }) >= 0);
+    g.Steps(5);
+}
+
+// === 22. The display mode, automatic and by hand (E23) =====================================
+//
+// ENHANCEMENT E23 (game/script/videoModes.cpp, switch.cpp's Chooser): the mode
+// list's automatic first line and its marks, and the refresh rate's row. No
+// layer here, so the test gives the list its modes, marks and rates as the
+// layer would, and reads back what a click asks for (the Machine's
+// SetWindowProperties request) and where the row's index moved. Run in the
+// third runtime after 21, so no scenario before it sees a frame of it.
+void ScenarioDisplayModeE23(Game& g) {
+    g.m.SetVideoModes({videoMode{800, 600, PF32BIT}, videoMode{1280, 800, PF32BIT}, videoMode{1920, 1200, PF32BIT}});
+    Script::g_nativeVideoMode = videoMode{1920, 1200, PF32BIT};
+    Script::g_chosenVideoMode = videoMode{0, 0, PF32BIT};
+    array<string> rates;
+    rates.insertLast("Autom\xE1tica (165 Hz)");
+    rates.insertLast("60 Hz");
+    rates.insertLast("165 Hz");
+    Script::g_refreshRate.setOptions(rates, 0);
+
+    CHECK(EnsureMenu(g));
+    g.base.cursor = kOptionsButton;
+    g.Steps(3);
+    CHECK(LastButton() == "opcoes_de_video");
+    g.Step(g.With({K_RETURN}));
+    CHECK(WaitFor(g, 3, [] { return GetSceneFileName() == "scenes/videoModes.esc"; }) >= 0);
+    g.Steps(3);
+
+    // The list: the automatic line first and marked, the sizes without a bit
+    // depth, the native one named.
+    CHECK(WaitForHud(g, "[\x95] Autom\xE1tico (melhor)", 3));
+    CHECK(HudHas(g.m, "[ ] 800x600"));
+    CHECK(HudHas(g.m, "[ ] 1280x800"));
+    CHECK(HudHas(g.m, "[ ] 1920x1200 (nativa)"));
+    CHECK(!HudHas(g.m, "x32"));
+    // A size chosen: its line marked, the automatic one not.
+    Script::g_chosenVideoMode = videoMode{1280, 800, PF32BIT};
+    g.Steps(2);
+    CHECK(HudHas(g.m, "[\x95] 1280x800"));
+    CHECK(HudHas(g.m, "[ ] Autom\xE1tico (melhor)"));
+
+    const auto click = [&g](const vector2& at) {
+        g.base.cursor = at;
+        g.Steps(2);
+        g.Step(g.With({K_RETURN}));
+        g.Steps(2);
+    };
+    // The automatic line (30,100)-(230,125): 0 x 0, the windowed flag as it
+    // was; then the native size's line at (30,175).
+    const bool windowed = g.m.Window().windowed;
+    click(vector2(60.0f, 112.0f));
+    std::printf("  'Autom\xC3\xA1tico (melhor)' clicked: window request %ux%u, windowed %s\n", g.m.Window().width,
+                g.m.Window().height, g.m.Window().windowed ? "yes" : "no");
+    CHECK_EQ(g.m.Window().width, 0u);
+    CHECK_EQ(g.m.Window().height, 0u);
+    CHECK(g.m.Window().windowed == windowed);
+    click(vector2(60.0f, 187.0f));
+    CHECK_EQ(g.m.Window().width, 1920u);
+    CHECK_EQ(g.m.Window().height, 1200u);
+
+    // The refresh rate's row at (540,170): its label, then "[<]" in x 540-580
+    // and "[>]" in x 780-820 at y 195-220, the value between them. In a window
+    // a hint says the rate waits for fullscreen.
+    CHECK(HudHas(g.m, "Taxa de atualiza\xE7\xE3o"));
+    CHECK(HudHas(g.m, "Autom\xE1tica (165 Hz)"));
+    CHECK(HudHas(g.m, "Vale para a tela cheia"));
+    // Where no rate can be set (iOS), the layer lowers g_refreshRateRow and the
+    // row and its hint are left out; raised again, they are back.
+    Script::g_refreshRateRow = false;
+    g.Steps(2);
+    CHECK(!HudHas(g.m, "Taxa de atualiza\xE7\xE3o"));
+    CHECK(!HudHas(g.m, "Vale para a tela cheia"));
+    Script::g_refreshRateRow = true;
+    g.Steps(2);
+    CHECK(HudHas(g.m, "Taxa de atualiza\xE7\xE3o"));
+    const vector2 less(560.0f, 207.0f);
+    const vector2 more(800.0f, 207.0f);
+    CHECK_EQ(Script::g_refreshRate.getCount(), 3u);
+    CHECK_EQ(Script::g_refreshRate.getCurrent(), 0u);
+    click(more);
+    CHECK_EQ(Script::g_refreshRate.getCurrent(), 1u);
+    CHECK(WaitForHud(g, "60 Hz", 3));
+    click(more);
+    CHECK_EQ(Script::g_refreshRate.getCurrent(), 2u);
+    CHECK(WaitForHud(g, "165 Hz", 3));
+    click(more);
+    std::printf("  [>] at the last rate leaves %u\n", Script::g_refreshRate.getCurrent());
+    CHECK_EQ(Script::g_refreshRate.getCurrent(), 2u);
+    click(less);
+    click(less);
+    CHECK_EQ(Script::g_refreshRate.getCurrent(), 0u);
+    click(less);
+    CHECK_EQ(Script::g_refreshRate.getCurrent(), 0u);
+    // The label and the value are not buttons; nor is the space between the
+    // row and the window switch's (x 511-540).
+    click(vector2(640.0f, 182.0f));
+    click(vector2(680.0f, 207.0f));
+    click(vector2(525.0f, 207.0f));
+    CHECK_EQ(Script::g_refreshRate.getCurrent(), 0u);
+    CHECK_EQ(Script::g_windowed.getCurrent(), 0u);
+    // The window switch beside it still works, and the hint goes with the window.
+    click(vector2(300.0f, 207.0f));
+    CHECK_EQ(Script::g_windowed.getCurrent(), 1u);
+    CHECK(!g.m.Window().windowed);
+    g.Steps(2);
+    CHECK(!HudHas(g.m, "Vale para a tela cheia"));
+    CHECK_EQ(Script::g_refreshRate.getCurrent(), 0u);
+    click(vector2(300.0f, 182.0f));
+    CHECK_EQ(Script::g_windowed.getCurrent(), 0u);
+    g.Steps(2);
+    CHECK(HudHas(g.m, "Vale para a tela cheia"));
+
+    // The options set again (the layer after a pick) clamp the index.
+    Script::g_refreshRate.setOptions(rates, 9);
+    CHECK_EQ(Script::g_refreshRate.getCurrent(), 2u);
+    Script::g_refreshRate.setOptions(array<string>(), 0);
+    CHECK_EQ(Script::g_refreshRate.getCount(), 0u);
+    CHECK_EQ(Script::g_refreshRate.getCurrent(), 0u);
+    g.Steps(2);   // an empty row draws its label and faint arrows, and no value
+
+    // A phone: no list, the row stays with its two choices, no hint.
+    array<string> phone;
+    phone.insertLast("Autom\xE1tica (m\xE1xima)");
+    phone.insertLast("60 Hz");
+    Script::g_refreshRate.setOptions(phone, 0);
+    Script::g_mobileLayout = true;
+    g.Steps(2);
+    CHECK(!HudHas(g.m, "Autom\xE1tico (melhor)"));
+    CHECK(!HudHas(g.m, "1920x1200"));
+    CHECK(HudHas(g.m, "Autom\xE1tica (m\xE1xima)"));
+    CHECK(!HudHas(g.m, "Vale para a tela cheia"));
+    click(more);
+    CHECK_EQ(Script::g_refreshRate.getCurrent(), 1u);
+    CHECK(WaitForHud(g, "60 Hz", 3));
+    click(less);
+    CHECK_EQ(Script::g_refreshRate.getCurrent(), 0u);
+    Script::g_mobileLayout = false;
+
+    Script::g_chosenVideoMode = videoMode{0, 0, PF32BIT};
+    Script::g_nativeVideoMode = videoMode{0, 0, PF32BIT};
+    Script::g_refreshRate.setOptions(array<string>(), 0);
     g.Step(g.With({K_ESC}));
     CHECK(WaitFor(g, 3, [] { return GetSceneFileName() == "scenes/menu.esc"; }) >= 0);
     g.Steps(5);
@@ -3373,10 +3525,15 @@ int main() {
         g.Step();
         RunScenario(g, "21. the options screen on a phone (E20)", ScenarioMobileOptions);
         Script::g_mobileLayout = false;   // whatever the scenario reached
-        const Result& r = g_results.back();
-        std::printf("\n=== third runtime (frame %u)\n  %-50s %s  %d failed checks, %u aborts%s\n",
-                    machine.FrameIndex(), r.name.c_str(), (r.failures == 0 && r.aborts == 0 && !r.threw) ? "PASS" : "FAIL",
-                    r.failures, r.aborts, r.threw ? ", threw" : "");
+        RunScenario(g, "22. the display mode, automatic and by hand (E23)", ScenarioDisplayModeE23);
+        Script::g_mobileLayout = false;
+        std::printf("\n=== third runtime (frame %u)\n", machine.FrameIndex());
+        for (std::size_t i = g_results.size() - 2; i < g_results.size(); ++i) {
+            const Result& r = g_results[i];
+            std::printf("  %-50s %s  %d failed checks, %u aborts%s\n", r.name.c_str(),
+                        (r.failures == 0 && r.aborts == 0 && !r.threw) ? "PASS" : "FAIL", r.failures, r.aborts,
+                        r.threw ? ", threw" : "");
+        }
         for (const string& site : machine.AbortSites()) std::printf("    ABORT %s\n", Utf8(site).c_str());
         CHECK(sound.failedLoads.empty());
         CHECK_EQ(machine.ScriptAborts(), 0u);

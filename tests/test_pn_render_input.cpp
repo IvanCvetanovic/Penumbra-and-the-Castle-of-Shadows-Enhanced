@@ -754,6 +754,12 @@ void testSettings() {
     CHECK(en.pauseOnFocusLoss);              // E13
     CHECK_EQ(en.fullscreenWidth, 0);         // Step 23: the desktop's mode
     CHECK_EQ(en.fullscreenHeight, 0);
+    // E23: a first launch is fullscreen, automatic in all three.
+    CHECK(en.fullscreen);
+    CHECK_EQ(en.fullscreenRefresh, 0);
+    CHECK_EQ(en.windowWidth, 0);
+    CHECK_EQ(en.windowHeight, 0);
+    CHECK_EQ(Settings::kVersion, 2);
     CHECK(en.controls.player1[ControlAction::Jump] ==
           (std::vector<int>{GLFW_KEY_LEFT_CONTROL, GLFW_KEY_RIGHT_CONTROL}));
     CHECK(en.controls.player2[ControlAction::Left] == std::vector<int>{GLFW_KEY_J});
@@ -775,6 +781,7 @@ void testSettings() {
     changed.fullscreen = true;
     changed.fullscreenWidth = 1280;          // Step 23
     changed.fullscreenHeight = 720;
+    changed.fullscreenRefresh = 144;         // E23
     changed.widescreen = false;
     changed.musicVolume = 0.35f;
     changed.effectsVolume = 0.8f;
@@ -813,14 +820,14 @@ void testSettings() {
     // A partial file: what it says, clamped, and the defaults for the rest.
     warning.clear();
     const Settings partial = Settings::FromJson(
-        R"({"language": "PT", "volume": {"music": 2.5}, "window": {"width": 10},
+        R"({"language": "PT", "volume": {"music": 2.5}, "window": {"width": 10, "height": 10},
             "controls": {"player1": {"sword": ["A", "bogus"]}}})",
         en, &warning);
     CHECK(partial.language == "pt");
     CHECK(partial.musicVolume == 1.0f);
     CHECK(partial.effectsVolume == en.effectsVolume);
     CHECK_EQ(partial.windowWidth, 640);
-    CHECK_EQ(partial.windowHeight, en.windowHeight);
+    CHECK_EQ(partial.windowHeight, 480);
     CHECK(partial.controls.player1[ControlAction::Sword] == std::vector<int>{GLFW_KEY_A});
     CHECK(partial.controls.player1[ControlAction::Fire] == en.controls.player1[ControlAction::Fire]);
     CHECK(partial.controls.player2 == en.controls.player2);
@@ -864,6 +871,72 @@ void testSettings() {
     CHECK(brokenMode.fullscreen);
     CHECK_EQ(brokenMode.fullscreenWidth, 0);
 
+    // E23: the windowed size. 0 x 0 is automatic; so is half a size, which a
+    // file can only hold by a typo, and a warning says so; any other value is
+    // clamped to the window's range, as it always was.
+    const auto windowedSize = [&en](const std::string& window, std::string* warn) {
+        const Settings read = Settings::FromJson("{\"window\": {" + window + "}}", en, warn);
+        return glm::ivec2(read.windowWidth, read.windowHeight);
+    };
+    warning.clear();
+    CHECK(windowedSize(R"("width": 0, "height": 0)", &warning) == glm::ivec2(0, 0));
+    CHECK(windowedSize(R"("width": 1280, "height": 720)", &warning) == glm::ivec2(1280, 720));
+    CHECK(windowedSize(R"("width": 99999, "height": 100)", &warning) == glm::ivec2(15360, 480));   // clamped
+    CHECK(windowedSize(R"("fullscreen": false)", &warning) == glm::ivec2(0, 0));   // no size: the default
+    CHECK(warning.empty());
+    for (const char* half : {R"("width": 1280)", R"("height": 720)", R"("width": 0, "height": 720)",
+                             R"("width": 1280, "height": 0)"}) {
+        warning.clear();
+        CHECK_MSG(windowedSize(half, &warning) == glm::ivec2(0, 0), half);
+        CHECK_MSG(!warning.empty(), half);
+    }
+    // Over explicit defaults, one extent alone is read against the other.
+    Settings sized = en;
+    sized.windowWidth = 1366;
+    sized.windowHeight = 768;
+    CHECK(Settings::FromJson(R"({"window": {"width": 1280}})", sized).windowWidth == 1280);
+    CHECK(Settings::FromJson(R"({"window": {"width": 1280}})", sized).windowHeight == 768);
+
+    // E23: the refresh rate. 0 (automatic) or a whole number of Hz; an older
+    // file without it is automatic and says nothing; anything else is
+    // automatic with a warning.
+    const auto refresh = [&en](const std::string& window, std::string* warn) {
+        return Settings::FromJson("{\"window\": {" + window + "}}", en, warn).fullscreenRefresh;
+    };
+    warning.clear();
+    CHECK_EQ(refresh(R"("fullscreenRefresh": 165)", &warning), 165);
+    CHECK_EQ(refresh(R"("fullscreenRefresh": 0)", &warning), 0);
+    CHECK_EQ(refresh(R"("fullscreenWidth": 0, "fullscreenHeight": 0)", &warning), 0);   // a Step 23 file
+    CHECK(warning.empty());
+    for (const char* broken : {R"("fullscreenRefresh": -60)", R"("fullscreenRefresh": 59.94)",
+                               R"("fullscreenRefresh": 5000)", R"("fullscreenRefresh": "144")",
+                               R"("fullscreenRefresh": true)"}) {
+        warning.clear();
+        CHECK_MSG(refresh(broken, &warning) == 0, broken);
+        CHECK_MSG(!warning.empty(), broken);
+    }
+    // A file written before E23 (version 1) keeps what it says, and the new
+    // field is automatic: Ivan's own, as it was on 2026-09-29.
+    warning.clear();
+    const Settings version1 = Settings::FromJson(
+        R"({"version": 1, "language": "en", "window": { "width": 1920, "height": 1200, "fullscreen": true,
+            "fullscreenWidth": 0, "fullscreenHeight": 0 }})", en, &warning);
+    CHECK(warning.empty());
+    CHECK(version1.fullscreen);
+    CHECK_EQ(version1.windowWidth, 1920);
+    CHECK_EQ(version1.windowHeight, 1200);
+    CHECK_EQ(version1.fullscreenWidth, 0);
+    CHECK_EQ(version1.fullscreenRefresh, 0);
+    const Settings version1Windowed = Settings::FromJson(
+        R"({"version": 1, "window": { "width": 1366, "height": 768, "fullscreen": false }})", en);
+    CHECK(!version1Windowed.fullscreen);
+    CHECK_EQ(version1Windowed.windowWidth, 1366);
+    // The file written back says it all, E23's field included.
+    CHECK(changed.ToJson().find("\"fullscreenRefresh\": 144") != std::string::npos);
+    CHECK(en.ToJson().find("\"version\": 2") != std::string::npos);
+    CHECK(en.ToJson().find("\"width\": 0, \"height\": 0, \"fullscreen\": true") != std::string::npos);
+    CHECK(Settings::FromJson(en.ToJson(), Settings::Defaults(true)) == en);
+
     // Nowhere to save.
     CHECK(!en.Save(fs::path(), &error));
     CHECK(!error.empty());
@@ -905,13 +978,103 @@ void testWindowActions() {
     CHECK(action.kind == Kind::ResizeWindow);
     CHECK(action.size == glm::uvec2(800u, 600u));
 
-    // What a pick in fullscreen saves: the desktop's own size is 0 x 0, so a
-    // desktop that changes resolution later is followed.
-    using Penumbra::Render::FullscreenModeToSave;
-    const glm::uvec2 desktop(1920u, 1080u);
-    CHECK(FullscreenModeToSave(glm::uvec2(1920u, 1080u), desktop) == none);
-    CHECK(FullscreenModeToSave(glm::uvec2(800u, 600u), desktop) == glm::uvec2(800u, 600u));
-    CHECK(FullscreenModeToSave(glm::uvec2(1920u, 1200u), desktop) == glm::uvec2(1920u, 1200u));
+    // E23: the list's automatic line sends 0 x 0, passed on in either.
+    action = DecideWindowAction(false, none, true, saved);
+    CHECK(action.kind == Kind::SwitchFullscreenMode);
+    CHECK(action.size == none);
+    action = DecideWindowAction(true, none, false, saved);
+    CHECK(action.kind == Kind::ResizeWindow);
+    CHECK(action.size == none);
+}
+
+// E23: where fullscreen goes, and what the refresh-rate row offers.
+void testAutomaticDisplayMode() {
+    using Penumbra::Render::ChooseFullscreen;
+    using Penumbra::Render::ChooseRates;
+    using Penumbra::Render::FullscreenChoice;
+    using Penumbra::Render::RateChoices;
+    using Supersonic::DisplayMode;
+    using Supersonic::WindowControl;
+    constexpr uint32_t kHighest = WindowControl::kHighestRefreshRate;
+    // A 1920x1200 panel at 60 Hz on the desktop that also runs 165 at its
+    // size (listed; the desktop's own 60 is not), 1280x800 at 60 and 120,
+    // 800x600 at 60.
+    const std::vector<DisplayMode> modes = {{800, 600, 60}, {1280, 800, 60}, {1280, 800, 120}, {1920, 1200, 165}};
+    const DisplayMode desktop{1920, 1200, 60};
+
+    // Automatic: the desktop's size at the highest rate there.
+    FullscreenChoice choice = ChooseFullscreen(modes, desktop, glm::uvec2(0u), 0);
+    CHECK(choice.size == glm::uvec2(1920u, 1200u));
+    CHECK_EQ(choice.rate, kHighest);
+    CHECK(choice.mode == (DisplayMode{1920, 1200, 165}));
+    CHECK(choice.sizeAutomatic && choice.rateAutomatic);
+    CHECK(!choice.sizeFellBack && !choice.rateFellBack);
+    // A desktop already at its highest: that mode, which switches nothing.
+    choice = ChooseFullscreen({{1920, 1200, 60}}, desktop, glm::uvec2(0u), 0);
+    CHECK(choice.mode == desktop);
+    // Ivan's panel as Windows reports it (one source mode, 1920x1200 at 60).
+    choice = ChooseFullscreen({{1920, 1200, 60}}, desktop, glm::uvec2(0u), 0);
+    CHECK(choice.mode == desktop);
+
+    // A picked size, automatic rate: that size's highest.
+    choice = ChooseFullscreen(modes, desktop, glm::uvec2(1280u, 800u), 0);
+    CHECK(choice.size == glm::uvec2(1280u, 800u));
+    CHECK(choice.mode == (DisplayMode{1280, 800, 120}));
+    CHECK(!choice.sizeAutomatic);
+    // A picked rate where the size has it; the highest where it does not.
+    choice = ChooseFullscreen(modes, desktop, glm::uvec2(1280u, 800u), 60);
+    CHECK_EQ(choice.rate, 60u);
+    CHECK(choice.mode == (DisplayMode{1280, 800, 60}));
+    CHECK(!choice.rateFellBack && !choice.rateAutomatic);
+    choice = ChooseFullscreen(modes, desktop, glm::uvec2(800u, 600u), 165);
+    CHECK_EQ(choice.rate, kHighest);
+    CHECK(choice.mode == (DisplayMode{800, 600, 60}));
+    CHECK(choice.rateFellBack);
+    // The desktop's own rate at its size, unlisted: offered.
+    choice = ChooseFullscreen(modes, desktop, glm::uvec2(0u), 60);
+    CHECK(choice.mode == desktop);
+    CHECK(!choice.rateFellBack);
+    // A saved size this monitor lacks (a file from another monitor): the
+    // desktop's, at the highest, and the choice says so.
+    choice = ChooseFullscreen(modes, desktop, glm::uvec2(2560u, 1440u), 0);
+    CHECK(choice.size == glm::uvec2(1920u, 1200u));
+    CHECK(choice.sizeFellBack);
+    CHECK(choice.mode == (DisplayMode{1920, 1200, 165}));
+    // No monitor at all: nothing to ask for but plain fullscreen.
+    choice = ChooseFullscreen({}, DisplayMode{}, glm::uvec2(0u), 0);
+    CHECK(choice.size == glm::uvec2(0u));
+    // A virtual X server: one mode, its rate unknown.
+    const std::vector<DisplayMode> xvfb = {{3000, 1600, 0}};
+    choice = ChooseFullscreen(xvfb, DisplayMode{3000, 1600, 0}, glm::uvec2(0u), 0);
+    CHECK(choice.size == glm::uvec2(3000u, 1600u));
+    CHECK_EQ(choice.mode.refreshRate, 0u);
+
+    // The row: automatic first, then the size's rates, lowest first.
+    choice = ChooseFullscreen(modes, desktop, glm::uvec2(0u), 0);
+    RateChoices rates = ChooseRates(modes, desktop, choice, 0);
+    CHECK(rates.rates == (std::vector<uint32_t>{0, 60, 165}));
+    CHECK_EQ(rates.current, 0u);
+    CHECK_EQ(rates.automaticRate, 165u);
+    choice = ChooseFullscreen(modes, desktop, glm::uvec2(0u), 165);
+    rates = ChooseRates(modes, desktop, choice, 165);
+    CHECK_EQ(rates.current, 2u);
+    // A saved rate the size lacks shows as automatic, which is what runs.
+    choice = ChooseFullscreen(modes, desktop, glm::uvec2(1280u, 800u), 165);
+    rates = ChooseRates(modes, desktop, choice, 165);
+    CHECK(rates.rates == (std::vector<uint32_t>{0, 60, 120}));
+    CHECK_EQ(rates.current, 0u);
+    CHECK_EQ(rates.automaticRate, 120u);
+    // No rate known: the automatic line alone, with no number to show.
+    choice = ChooseFullscreen(xvfb, DisplayMode{3000, 1600, 0}, glm::uvec2(0u), 0);
+    rates = ChooseRates(xvfb, DisplayMode{3000, 1600, 0}, choice, 0);
+    CHECK(rates.rates == (std::vector<uint32_t>{0}));
+    CHECK_EQ(rates.automaticRate, 0u);
+
+    // The automatic window's share, and what it comes to on Ivan's panel over
+    // a 48-pixel taskbar (the engine's FitWindowedSize).
+    CHECK(Penumbra::Render::kAutoWindowFraction == 0.85f);
+    CHECK(WindowControl::FitWindowedSize(WindowControl::ScreenRect{0, 0, 1920, 1152}, desktop,
+                                         Penumbra::Render::kAutoWindowFraction) == glm::uvec2(1566u, 979u));
 }
 
 void testAudioWithoutEngine() {
@@ -1155,6 +1318,7 @@ void runTests() {
     testKeyNames();
     testSettings();
     testWindowActions();
+    testAutomaticDisplayMode();
     testSystemLocale();
     testAudioWithoutEngine();
 }

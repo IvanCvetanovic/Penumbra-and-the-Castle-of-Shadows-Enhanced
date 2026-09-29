@@ -100,6 +100,9 @@ constexpr int kMaxWindowWidth = 15360;
 constexpr int kMinWindowHeight = 480;
 constexpr int kMaxWindowHeight = 8640;
 constexpr float kMaxStickDeadzone = 0.9f;
+// E23: window.fullscreenRefresh, in Hz. Wider than any display's rate, and
+// never a guess: anything outside is automatic.
+constexpr int kMaxRefreshRate = 1000;
 
 bool EqualsIgnoreCase(const std::string& a, const std::string& b) {
     if (a.size() != b.size()) return false;
@@ -191,6 +194,49 @@ void ReadFullscreenMode(const Value& window, int& width, int& height, std::strin
     }
     width = readWidth;
     height = readHeight;
+}
+
+// window.width/height (E23): 0 x 0 is automatic, and so is a zero in either,
+// which only half a size or a typo leaves; any other value is read and clamped
+// to the window's range, as it always was. One extent alone is read against
+// the other's current value, and an automatic other makes it half a size.
+void ReadWindowedSize(const Value& window, int& width, int& height, std::string* warning) {
+    if (!window.Has("width") && !window.Has("height")) return;
+    const auto zero = [&window](const char* key) {
+        return window.Has(key) && window[key].IsNumber() && window[key].AsNumber(1.0) == 0.0;
+    };
+    if (zero("width") && zero("height")) {
+        width = 0;
+        height = 0;
+        return;
+    }
+    int readWidth = width;
+    int readHeight = height;
+    if (!zero("width")) ReadInt(window, "width", kMinWindowWidth, kMaxWindowWidth, readWidth, warning);
+    if (!zero("height")) ReadInt(window, "height", kMinWindowHeight, kMaxWindowHeight, readHeight, warning);
+    if (zero("width") || zero("height") || (readWidth == 0) != (readHeight == 0)) {
+        Warn(warning, "window.width/height is half a size; the window is automatic");
+        width = 0;
+        height = 0;
+        return;
+    }
+    width = readWidth;
+    height = readHeight;
+}
+
+// window.fullscreenRefresh (E23): 0, or a whole number of Hz up to
+// kMaxRefreshRate. Anything else is automatic, with a warning.
+void ReadRefreshRate(const Value& window, int& out, std::string* warning) {
+    if (!window.Has("fullscreenRefresh")) return;
+    const Value& value = window["fullscreenRefresh"];
+    const double number = value.AsNumber(std::nan(""));
+    if (!value.IsNumber() || !std::isfinite(number) || number != std::floor(number) || number < 0.0 ||
+        number > kMaxRefreshRate) {
+        Warn(warning, "window.fullscreenRefresh is not a refresh rate; using the automatic one");
+        out = 0;
+        return;
+    }
+    out = static_cast<int>(number);
 }
 
 void ReadFloat(const Value& object, const char* key, float minimum, float maximum, float& out,
@@ -425,10 +471,10 @@ Settings Settings::FromJson(const std::string& text, const Settings& defaults, s
     if (root.Has("window")) {
         const Value& window = root["window"];
         if (window.IsObject()) {
-            ReadInt(window, "width", kMinWindowWidth, kMaxWindowWidth, settings.windowWidth, warning);
-            ReadInt(window, "height", kMinWindowHeight, kMaxWindowHeight, settings.windowHeight, warning);
+            ReadWindowedSize(window, settings.windowWidth, settings.windowHeight, warning);
             ReadBool(window, "fullscreen", settings.fullscreen, warning);
             ReadFullscreenMode(window, settings.fullscreenWidth, settings.fullscreenHeight, warning);
+            ReadRefreshRate(window, settings.fullscreenRefresh, warning);   // E23
         } else {
             Warn(warning, "window is not an object");
         }
@@ -506,7 +552,8 @@ std::string Settings::ToJson() const {
     out << "  \"language\": \"" << Supersonic::Json::Escape(language) << "\",\n";
     out << "  \"window\": { \"width\": " << windowWidth << ", \"height\": " << windowHeight
         << ", \"fullscreen\": " << FormatBool(fullscreen) << ", \"fullscreenWidth\": " << fullscreenWidth
-        << ", \"fullscreenHeight\": " << fullscreenHeight << " },\n";
+        << ", \"fullscreenHeight\": " << fullscreenHeight << ", \"fullscreenRefresh\": " << fullscreenRefresh
+        << " },\n";
     out << "  \"widescreen\": " << FormatBool(widescreen) << ",\n";
     out << "  \"volume\": { \"music\": " << FormatFloat(musicVolume) << ", \"effects\": "
         << FormatFloat(effectsVolume) << " },\n";

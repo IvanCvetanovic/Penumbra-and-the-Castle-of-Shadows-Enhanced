@@ -6,6 +6,8 @@
 
 #include <algorithm>
 #include <cmath>
+#include <sstream>
+#include <string>
 #include <utility>
 
 #include "core/Application.hpp"
@@ -24,6 +26,17 @@
 namespace Penumbra {
 
 namespace {
+// E23: on a phone only Android sets the display's refresh rate (its activity's
+// display mode and ANativeWindow_setFrameRate); the iOS backend drops the
+// request, so there the rate row is left out rather than offer nothing.
+#if defined(__ANDROID__)
+constexpr bool kPhoneRefreshRate = true;
+#else
+constexpr bool kPhoneRefreshRate = false;
+#endif
+} // namespace
+
+namespace {
 
 // The scenes laid out for the original's 1024x768: their buttons, panels and
 // thumbnails sit at fixed pixels (menu.as, videoModes.as, gameover.as), so
@@ -34,12 +47,28 @@ using Render::IsFixedLayoutScene;
 // ETHShaderManager's m_fakeEyeHeight (ETHShaderManager.cpp:55).
 constexpr float kFakeEyeHeight = 768.0f;
 
-// Fullscreen at the player's mode, or at the desktop's when there is none or
-// this monitor does not offer it (SetFullscreenMode logs which). The setting
-// is kept either way, for the monitor that does.
-void RequestFullscreen(Supersonic::WindowControl& window, glm::uvec2 mode) {
-    if (mode.x > 0 && mode.y > 0 && window.SetFullscreenMode(mode.x, mode.y)) return;
-    window.SetFullscreen(true);
+// E23: what a fullscreen choice comes to, in one line of the log - for the
+// player's log file and the live checks, which cannot see the display.
+// `size` and `rate` are what was asked for: the settings', or --refresh's.
+std::string DescribeFullscreenChoice(const Render::FullscreenChoice& choice, const std::vector<uint32_t>& rates,
+                                     glm::uvec2 size, uint32_t rate) {
+    std::ostringstream out;
+    out << choice.size.x << "x" << choice.size.y << " (";
+    if (choice.sizeFellBack) {
+        out << size.x << "x" << size.y << " is not offered: the desktop's";
+    } else {
+        out << (choice.sizeAutomatic ? "automatic: the desktop's" : "picked");
+    }
+    out << ") @ " << choice.mode.refreshRate << " Hz (";
+    if (choice.rateFellBack) {
+        out << rate << " Hz is not offered at this size: the highest";
+    } else {
+        out << (choice.rateAutomatic ? "automatic: the highest" : "picked");
+    }
+    out << "); rates at this size:";
+    if (rates.empty()) out << " none known";
+    for (std::size_t i = 0; i < rates.size(); ++i) out << (i == 0 ? " " : ", ") << rates[i];
+    return out.str();
 }
 
 } // namespace
@@ -71,16 +100,26 @@ void PenumbraLayer::OnAttach(entt::registry& registry) {
     ApplyLanguage();
 
     // Fullscreen from the first frame is the monitor's size, not the one main()
-    // asked for: the first scene's widescreen width follows what is shown.
-    if (Supersonic::WindowControl* window = WindowControlOf(registry); window != nullptr && window->IsFullscreen()) {
+    // asked for, and an automatic window is the one the engine fitted to the
+    // monitor (E23): the first scene's widescreen width follows what is shown.
+    if (Supersonic::WindowControl* window = WindowControlOf(registry); window != nullptr) {
         const glm::uvec2 size = window->WindowSize();
         if (size.x > 0 && size.y > 0) m_options.windowPixels = size;
-        // The engine went fullscreen at the desktop's mode before any layer
-        // could name one. A saved mode (Step 23) switches to it at the top of
-        // the first frame, so the first scene is as wide as that mode is.
-        const glm::uvec2 mode = SavedFullscreenMode();
-        if (m_options.startFullscreen && mode.x > 0 && mode.y > 0 && window->SetFullscreenMode(mode.x, mode.y)) {
-            m_options.windowPixels = mode;
+        if constexpr (Render::kMobileBuild) {
+            // E23: a phone's display at the rate the settings ask for - the
+            // highest by default - from the first frame. Android only: the
+            // iOS backend sets no rate (and the row is left out there).
+            if constexpr (kPhoneRefreshRate) window->SetPreferredRefreshRate(PreferredRefreshRate());
+        } else if (window->IsFullscreen() && m_options.startFullscreen) {
+            // The engine went fullscreen at the desktop's mode before any
+            // layer could name one. The saved mode (Step 23), or E23's
+            // automatic one - the desktop's size at the highest rate there -
+            // switches to it at the top of the first frame (nothing at all
+            // when the desktop runs that already), so the first scene is as
+            // wide as that mode is.
+            const Render::FullscreenChoice choice = FullscreenChoiceFor(*window);
+            RequestFullscreen(*window, "launch");
+            if (choice.size.x > 0 && choice.size.y > 0) m_options.windowPixels = choice.size;
         }
     }
 
@@ -109,6 +148,7 @@ void PenumbraLayer::OnAttach(entt::registry& registry) {
     // E20: a phone's options screen (Script.hpp). From the build, not from the
     // controls: a desktop run with --touch still has a window to switch.
     Script::g_mobileLayout = Render::kMobileBuild;
+    Script::g_refreshRateRow = !Render::kMobileBuild || kPhoneRefreshRate;   // E23: not on iOS
 
     // The original's option switches, remembered across launches (E6).
     Script::g_controls.setCurrent(static_cast<Eth::uint>(m_settings.controls.joystickLayout));
@@ -324,13 +364,15 @@ void PenumbraLayer::RefreshVideoModes(entt::registry& registry) {
         return std::any_of(modes.begin(), modes.end(),
                            [&](const Eth::videoMode& m) { return m.width == width && m.height == height; });
     };
-    for (const Supersonic::DisplayMode& mode : window->DisplayModes()) {
+    for (const Supersonic::DisplayMode& mode : DisplayModesOf(*window)) {
         if (!listed(mode.width, mode.height)) modes.push_back(Eth::videoMode{mode.width, mode.height, Eth::PF32BIT});
     }
     // The desktop's own size is the line that switches nothing, and the way
     // back from another mode; a platform can leave it out of its list. In the
     // list's own order: by area, then width (WindowControl::SelectDisplayModes).
-    const Supersonic::DisplayMode desktop = window->DesktopMode();
+    const Supersonic::DisplayMode desktop = DesktopModeOf(*window);
+    // E23: the monitor's native size, as the list marks it.
+    Script::g_nativeVideoMode = Eth::videoMode{desktop.width, desktop.height, Eth::PF32BIT};
     if (desktop.width > 0 && desktop.height > 0 && !listed(desktop.width, desktop.height)) {
         const Eth::videoMode native{desktop.width, desktop.height, Eth::PF32BIT};
         const auto before = [](const Eth::videoMode& a, const Eth::videoMode& b) {
@@ -341,11 +383,109 @@ void PenumbraLayer::RefreshVideoModes(entt::registry& registry) {
         modes.insert(std::upper_bound(modes.begin(), modes.end(), native, before), native);
     }
     m_machine->SetVideoModes(std::move(modes));
+    RefreshRateChoices(registry);   // E23: the rates of the size fullscreen would take on this monitor
 }
 
 glm::uvec2 PenumbraLayer::SavedFullscreenMode() const {
     return glm::uvec2(static_cast<unsigned>(std::max(m_settings.fullscreenWidth, 0)),
                       static_cast<unsigned>(std::max(m_settings.fullscreenHeight, 0)));
+}
+
+glm::uvec2 PenumbraLayer::SavedWindowedSize() const {
+    if (m_settings.windowWidth <= 0 || m_settings.windowHeight <= 0) return glm::uvec2(0u);
+    return glm::uvec2(static_cast<unsigned>(m_settings.windowWidth), static_cast<unsigned>(m_settings.windowHeight));
+}
+
+uint32_t PenumbraLayer::FullscreenRefresh() const {
+    return m_options.refreshOverride.value_or(static_cast<uint32_t>(std::max(m_settings.fullscreenRefresh, 0)));
+}
+
+uint32_t PenumbraLayer::PreferredRefreshRate() const {
+    const uint32_t rate = FullscreenRefresh();
+    return rate == 0 ? Supersonic::WindowControl::kHighestRefreshRate : rate;
+}
+
+std::vector<Supersonic::DisplayMode> PenumbraLayer::DisplayModesOf(const Supersonic::WindowControl& window) const {
+    return m_options.devModes.empty() ? window.DisplayModes() : m_options.devModes;
+}
+
+Supersonic::DisplayMode PenumbraLayer::DesktopModeOf(const Supersonic::WindowControl& window) const {
+    return m_options.devModes.empty() ? window.DesktopMode() : m_options.devDesktop;
+}
+
+Render::FullscreenChoice PenumbraLayer::FullscreenChoiceFor(const Supersonic::WindowControl& window) const {
+    return Render::ChooseFullscreen(DisplayModesOf(window), DesktopModeOf(window), SavedFullscreenMode(),
+                                    FullscreenRefresh());
+}
+
+// Fullscreen at the player's mode, or E23's automatic one; the desktop's size
+// where this monitor does not offer the saved one, and the highest rate where
+// it does not offer the saved rate there (the settings kept either way, for
+// the monitor that does). SetFullscreen(true), the desktop's mode as it is,
+// when no monitor reports a mode or the engine refuses the request.
+void PenumbraLayer::RequestFullscreen(Supersonic::WindowControl& window, const char* why) {
+    const Render::FullscreenChoice choice = FullscreenChoiceFor(window);
+    const std::vector<uint32_t> rates = Supersonic::WindowControl::RefreshRatesAt(
+        DisplayModesOf(window), DesktopModeOf(window), choice.size.x, choice.size.y);
+    SUPERSONIC_LOG_INFO("Penumbra") << "E23 fullscreen (" << why << "): "
+                                    << DescribeFullscreenChoice(choice, rates, SavedFullscreenMode(), FullscreenRefresh())
+                                    << std::endl;
+    if (choice.size.x > 0 && choice.size.y > 0 && window.SetFullscreenMode(choice.size.x, choice.size.y, choice.rate)) {
+        return;
+    }
+    window.SetFullscreen(true);
+}
+
+void PenumbraLayer::RefreshRateChoices(entt::registry& registry) {
+    // E23: the row's options, labelled in the script's Portuguese (strings.json
+    // has the English patterns). The layer keeps the rates; the script only
+    // moves the index.
+    Eth::array<Eth::string> labels;
+    uint32_t current = 0;
+    const std::vector<uint32_t> previous = m_rateChoices;
+    if constexpr (Render::kMobileBuild) {
+        // A phone: the display's highest, or 60 Hz to save the battery (and a
+        // hand-edited rate, shown as it is).
+        m_rateChoices = {0u, 60u};
+        const uint32_t saved = FullscreenRefresh();
+        if (saved != 0 && saved != 60) m_rateChoices.push_back(saved);
+        for (std::size_t i = 0; i < m_rateChoices.size(); ++i) {
+            if (m_rateChoices[i] == saved) current = static_cast<uint32_t>(i);
+        }
+        labels.insertLast("Autom\xE1tica (m\xE1xima)");
+        for (std::size_t i = 1; i < m_rateChoices.size(); ++i) labels.insertLast(std::to_string(m_rateChoices[i]) + " Hz");
+    } else {
+        Supersonic::WindowControl* window = WindowControlOf(registry);
+        const std::vector<Supersonic::DisplayMode> modes = window != nullptr ? DisplayModesOf(*window)
+                                                                             : m_options.devModes;
+        const Supersonic::DisplayMode desktop = window != nullptr ? DesktopModeOf(*window) : m_options.devDesktop;
+        const Render::FullscreenChoice choice =
+            Render::ChooseFullscreen(modes, desktop, SavedFullscreenMode(), FullscreenRefresh());
+        const Render::RateChoices choices = Render::ChooseRates(modes, desktop, choice, FullscreenRefresh());
+        m_rateChoices = choices.rates;
+        current = choices.current;
+        labels.insertLast(choices.automaticRate > 0
+                              ? "Autom\xE1tica (" + std::to_string(choices.automaticRate) + " Hz)"
+                              : std::string("Autom\xE1tica"));
+        for (std::size_t i = 1; i < m_rateChoices.size(); ++i) labels.insertLast(std::to_string(m_rateChoices[i]) + " Hz");
+    }
+    // Logged when the offer changes (a new monitor, another fullscreen size),
+    // not at every scene: what the row offers is otherwise invisible to a
+    // live check that cannot open the options screen.
+    if (m_rateChoices != previous) {
+        std::ostringstream offered;
+        for (std::size_t i = 0; i < m_rateChoices.size(); ++i) {
+            offered << (i == 0 ? "" : ", ") << (m_rateChoices[i] == 0 ? std::string("automatic")
+                                                                      : std::to_string(m_rateChoices[i]) + " Hz");
+        }
+        SUPERSONIC_LOG_INFO("Penumbra") << "E23 refresh-rate row: " << offered.str() << "; current "
+                                        << (current < m_rateChoices.size() && m_rateChoices[current] != 0
+                                                ? std::to_string(m_rateChoices[current]) + " Hz"
+                                                : std::string("automatic"))
+                                        << std::endl;
+    }
+    Script::g_refreshRate.setOptions(labels, current);
+    m_rateChoiceSeeded = Script::g_refreshRate.getCurrent();
 }
 
 // SetWindowProperties as the scripts use it: the windowed flag flipped
@@ -368,8 +508,12 @@ void PenumbraLayer::ApplyWindowRequest(entt::registry& registry) {
         m_windowFullscreen = fullscreen;
         if (window != nullptr) {
             if (fullscreen) {
-                RequestFullscreen(*window, action.size);
+                RequestFullscreen(*window, "entered");
             } else {
+                // E23: an automatic window is fitted to the monitor again on
+                // the way out, wherever that monitor's work area is now (the
+                // engine applies the size before it leaves fullscreen).
+                if (SavedWindowedSize() == glm::uvec2(0u)) window->FitWindowToMonitor(Render::kAutoWindowFraction);
                 window->SetFullscreen(false);
             }
         }
@@ -386,19 +530,33 @@ void PenumbraLayer::ApplyWindowRequest(entt::registry& registry) {
         // the port now (it used to set only the size to come back at, so a
         // pick in fullscreen showed nothing). The windowed size is left alone:
         // the list sizes a window only when picked in one.
-        if (!window->SetFullscreenMode(action.size.x, action.size.y)) return;
-        const Supersonic::DisplayMode desktop = window->DesktopMode();
-        const glm::uvec2 saved = Render::FullscreenModeToSave(action.size, glm::uvec2(desktop.width, desktop.height));
-        if (saved != SavedFullscreenMode()) {
-            m_settings.fullscreenWidth = static_cast<int>(saved.x);
-            m_settings.fullscreenHeight = static_cast<int>(saved.y);
+        // E23: 0 x 0 is the automatic line. A size is saved as the size picked,
+        // the native one included (Step 23 saved that as 0 x 0; the automatic
+        // line is now how to follow the desktop), at the saved rate where it
+        // has it and the highest where not - the rate kept for a size that has
+        // it. Nothing is saved for a size this monitor does not offer.
+        const Render::FullscreenChoice choice = Render::ChooseFullscreen(
+            DisplayModesOf(*window), DesktopModeOf(*window), action.size, FullscreenRefresh());
+        if (choice.sizeFellBack || choice.size.x == 0 || choice.size.y == 0) return;
+        if (action.size != SavedFullscreenMode()) {
+            m_settings.fullscreenWidth = static_cast<int>(action.size.x);
+            m_settings.fullscreenHeight = static_cast<int>(action.size.y);
             SaveSettings();
         }
+        RequestFullscreen(*window, action.size.x == 0 ? "automatic picked" : "size picked");
+        RefreshRateChoices(registry);
         return;
     }
 
-    // Picked in a window: the window takes that size and renders at it.
-    if (!window->SetWindowedSize(action.size.x, action.size.y)) return;
+    // Picked in a window: the window takes that size and renders at it. E23:
+    // centred on its monitor (Step 23 kept its top-left, which could leave a
+    // larger window hanging off the screen); the automatic line fits it to the
+    // monitor.
+    if (action.size == glm::uvec2(0u)) {
+        if (!window->FitWindowToMonitor(Render::kAutoWindowFraction)) return;
+    } else if (!window->SetWindowedSize(action.size.x, action.size.y, true)) {
+        return;
+    }
     const int width = static_cast<int>(action.size.x);
     const int height = static_cast<int>(action.size.y);
     if (width != m_settings.windowWidth || height != m_settings.windowHeight) {
@@ -490,6 +648,9 @@ void PenumbraLayer::OnFixedUpdate(entt::registry& registry, float fixedDelta) {
         // E1: a menu's world past its sides is collected while the window is
         // wider than the 1024x768 it is laid out on (none for a level).
         m_machine->SetSidesShown(Render::WiderThan(m_options.windowPixels, Render::kFixedLayoutScreen));
+        // E23: the mode list marks the choice of whichever the window is in.
+        const glm::uvec2 chosen = m_windowFullscreen ? SavedFullscreenMode() : SavedWindowedSize();
+        Script::g_chosenVideoMode = Eth::videoMode{chosen.x, chosen.y, Eth::PF32BIT};
         m_machine->Frame(frame);   // steps the key and button state machines itself
         // --spawn: once, the first tick the wizard exists in a level or arena;
         // the camera follows him on the next tick as it follows any move.
@@ -589,6 +750,33 @@ void PenumbraLayer::OnFixedUpdate(entt::registry& registry, float fixedDelta) {
         m_settings.touchControls = touchControls ? "on" : "off";
         SetTouchEnabled(touchControls);
         SaveSettings();
+    }
+
+    // E23: the refresh rate's row. A pick replaces --refresh and is saved; in
+    // fullscreen the display switches to it at once, at the size it is at; on
+    // a phone the display's preferred mode follows; in a window it waits for
+    // the next fullscreen (the row's hint says so).
+    const uint32_t rateIndex = Script::g_refreshRate.getCurrent();
+    if (rateIndex != m_rateChoiceSeeded && rateIndex < m_rateChoices.size()) {
+        m_options.refreshOverride.reset();
+        m_settings.fullscreenRefresh = static_cast<int>(m_rateChoices[rateIndex]);
+        SaveSettings();
+        SUPERSONIC_LOG_INFO("Penumbra") << "E23 refresh rate picked: "
+                                        << (m_settings.fullscreenRefresh == 0
+                                                ? std::string("automatic")
+                                                : std::to_string(m_settings.fullscreenRefresh) + " Hz")
+                                        << (Render::kMobileBuild ? " (the display's)"
+                                            : m_windowFullscreen ? " (now)"
+                                                                 : " (the next time fullscreen)")
+                                        << std::endl;
+        if (Supersonic::WindowControl* window = WindowControlOf(registry)) {
+            if constexpr (Render::kMobileBuild) {
+                if constexpr (kPhoneRefreshRate) window->SetPreferredRefreshRate(PreferredRefreshRate());
+            } else if (m_windowFullscreen) {
+                RequestFullscreen(*window, "refresh rate picked");
+            }
+        }
+        RefreshRateChoices(registry);
     }
 
     if (m_machine->QuitRequested()) Supersonic::Application::RequestQuit();

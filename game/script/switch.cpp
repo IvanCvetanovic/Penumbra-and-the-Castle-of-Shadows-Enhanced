@@ -3,6 +3,7 @@
 // (Andre Santee, 2010), free software under the GNU Lesser General Public
 // License, version 3 or (at your option) any later version.
 // Enhancement E10 adds the Stepper after the port; each of its lines is marked.   // E10
+// Enhancement E23 adds the Chooser after it; each of its lines is marked.          // E23
 
 #include "script/Script.hpp"
 
@@ -179,5 +180,74 @@ uint Stepper::stepFor(const float fraction) const                     // E10
         return m_steps;                                               // E10
     return min(static_cast<uint>(fraction*static_cast<float>(m_steps)+0.5f), m_steps);   // E10
 }                                                                     // E10
+
+// E23 (Script.hpp): the Chooser, in the Stepper's boxes and alphas.           // E23
+Chooser::Chooser(const string& label)                                 // E23
+{                                                                     // E23
+    m_label = label;                                                  // E23
+}                                                                     // E23
+
+// E23 (Script.hpp)
+void Chooser::setOptions(const array<string>& options, const uint current)   // E23
+{                                                                     // E23
+    m_options = options;                                              // E23
+    setCurrent(current);                                              // E23
+}                                                                     // E23
+
+// E23. The label at `pos`, the row one line below it; hovering an arrow that   // E23
+// can still move and confirming moves one option, with the Stepper's hit test  // E23
+// (strictly inside the arrow's box), confirm and alphas (100 idle, 200         // E23
+// hovered, 40 at an end, 255 for the label and the value).                     // E23
+void Chooser::put(const vector2& pos, const string& font, const float size, const float valueWidth)   // E23
+{                                                                     // E23
+    InputState& input = GetInputHandle();                             // E23
+    const vector2 cursor = input.GetCursorPos();                      // E23
+
+    shadowText(pos, m_label, font, size, 255, 203, 203, 228);         // E23
+
+    const uint count = m_options.length();                            // E23
+    const vector2 lessPos(pos.x, pos.y+size);                         // E23
+    const vector2 valuePos(lessPos.x+kStepperArrowWidth, lessPos.y);  // E23
+    const vector2 morePos(valuePos.x+valueWidth, lessPos.y);          // E23
+    for (uint t=0; t<2; t++)                                          // E23: 0 = "[<]", 1 = "[>]"
+    {                                                                 // E23
+        const vector2 arrowPos = (t == 0) ? lessPos : morePos;        // E23
+        const bool canMove = (t == 0) ? (m_current > 0) : (m_current+1 < count);   // E23
+        uint8 alpha = static_cast<uint8>(canMove ? 100 : 40);         // E23
+        if (canMove && cursor.x > arrowPos.x && cursor.y > arrowPos.y     // E23
+            && cursor.x < arrowPos.x+kStepperArrowWidth && cursor.y < arrowPos.y+size)   // E23
+        {                                                             // E23
+            alpha = 200;                                              // E23
+            if (getConfirmButtonStatus(0) == KS_HIT)                  // E23
+            {                                                         // E23
+                m_current = (t == 0) ? m_current-1 : m_current+1;     // E23
+            }                                                         // E23
+        }                                                             // E23
+        shadowText(arrowPos+vector2(kStepperArrowInset, 0), (t == 0) ? "[<]" : "[>]", font, size, alpha, 203, 203, 228);   // E23
+    }                                                                 // E23
+
+    // After the arrows, so a move made this frame shows this frame.          // E23
+    if (m_current < count)                                            // E23
+        shadowText(valuePos+vector2(kStepperValueInset, 0), m_options[m_current], font, size, 255, 203, 203, 228);   // E23
+}                                                                     // E23
+
+// E23 (Script.hpp)
+uint Chooser::getCurrent() const                                      // E23
+{                                                                     // E23
+    return m_current;                                                 // E23
+}                                                                     // E23
+
+// E23 (Script.hpp)
+void Chooser::setCurrent(const uint newCurrent)                       // E23
+{                                                                     // E23
+    const uint count = m_options.length();                            // E23
+    m_current = count == 0 ? 0 : min(newCurrent, count-1);            // E23
+}                                                                     // E23
+
+// E23 (Script.hpp)
+uint Chooser::getCount() const                                        // E23
+{                                                                     // E23
+    return m_options.length();                                        // E23
+}                                                                     // E23
 
 } // namespace Penumbra::Script
