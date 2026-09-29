@@ -22,7 +22,8 @@
 //
 // Engine flags that matter here: --window WxH (the windowed size, over the
 // settings), --fullscreen / --windowed (this run only, over the settings; never
-// saved), --frames N and --screenshot <absolute path> for headless captures.
+// saved; --fullscreen runs at the saved fullscreen mode, as Alt+Enter would),
+// --frames N and --screenshot <absolute path> for headless captures.
 
 #include <cstdlib>
 #include <exception>

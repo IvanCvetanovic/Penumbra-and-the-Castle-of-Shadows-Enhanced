@@ -101,6 +101,15 @@ public:
     // (window - imageOrigin - viewportMin) / scale (render/View.hpp, POINTER).
     static glm::vec2 WindowToLogical(const glm::vec2& window, const View& view);
 
+    // Whether a pointer at `window` (Input::MousePosition() coordinates) is on
+    // the image but outside the logical screen's box in it: over the bars of a
+    // pillarboxed or letterboxed frame (CameraRig::Bars), where the scripts'
+    // cursor sprite is drawn under a bar and the player would have no pointer
+    // at all. Both boxes are half-open - viewportMin is the screen's first
+    // pixel, viewportMax the bar's - and a pointer off the image (an editor's
+    // panels) is not over the bars.
+    static bool PointerOverBars(const glm::vec2& window, const View& view);
+
     // Typed codepoints as the WM_CHAR bytes GetLastCharInput read: cp1252,
     // '?' for what cp1252 lacks, Tab kept (InputState::Update expands it to
     // four spaces), Backspace/Esc/Enter and other controls dropped

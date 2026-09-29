@@ -57,8 +57,10 @@ struct InputFrame;
 //    original's own options switches are seeded from them.
 //  - The window follows the scripts (E2): SetWindowProperties's windowed flag
 //    (Alt+Enter, the options screen's switch) and its mode list go to the
-//    engine's WindowControl, and HideCursor hides the system pointer, as
-//    0.7.12 did while cursor.ent was drawn in its place.
+//    engine's WindowControl - a mode picked while fullscreen switches the
+//    display to it, as 0.7.12 did (render/WindowMode.hpp) - and HideCursor
+//    hides the system pointer, as 0.7.12 did while cursor.ent was drawn in
+//    its place, except over the bars, where cursor.ent cannot be seen.
 class PenumbraLayer final : public Supersonic::EngineLayer {
 public:
     static constexpr float kTick = 1.0f / 60.0f;
@@ -130,6 +132,8 @@ private:
     static Supersonic::WindowControl* WindowControlOf(entt::registry& registry);
     // What the scripts asked of the window this tick, handed to the engine.
     void ApplyWindowRequest(entt::registry& registry);
+    // The settings' fullscreen display mode; 0 x 0 is the desktop's.
+    glm::uvec2 SavedFullscreenMode() const;
     // GetVideoMode's list, from the monitor the window is on.
     void RefreshVideoModes(entt::registry& registry);
     // The HUD's and the sprites' language, from m_settings (or --lang).

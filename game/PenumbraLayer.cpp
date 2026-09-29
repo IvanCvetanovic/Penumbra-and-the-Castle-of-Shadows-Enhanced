@@ -18,6 +18,7 @@
 #include "eth/Paths.hpp"
 #include "platform/SafeArea.hpp"
 #include "render/DrawOrder.hpp"
+#include "render/WindowMode.hpp"
 
 namespace Penumbra {
 
@@ -35,6 +36,14 @@ bool IsFixedLayoutScene(const std::string& sceneFile) {
 
 // ETHShaderManager's m_fakeEyeHeight (ETHShaderManager.cpp:55).
 constexpr float kFakeEyeHeight = 768.0f;
+
+// Fullscreen at the player's mode, or at the desktop's when there is none or
+// this monitor does not offer it (SetFullscreenMode logs which). The setting
+// is kept either way, for the monitor that does.
+void RequestFullscreen(Supersonic::WindowControl& window, glm::uvec2 mode) {
+    if (mode.x > 0 && mode.y > 0 && window.SetFullscreenMode(mode.x, mode.y)) return;
+    window.SetFullscreen(true);
+}
 
 } // namespace
 
@@ -69,6 +78,13 @@ void PenumbraLayer::OnAttach(entt::registry& registry) {
     if (Supersonic::WindowControl* window = WindowControlOf(registry); window != nullptr && window->IsFullscreen()) {
         const glm::uvec2 size = window->WindowSize();
         if (size.x > 0 && size.y > 0) m_options.windowPixels = size;
+        // The engine went fullscreen at the desktop's mode before any layer
+        // could name one. A saved mode (Step 23) switches to it at the top of
+        // the first frame, so the first scene is as wide as that mode is.
+        const glm::uvec2 mode = SavedFullscreenMode();
+        if (m_options.startFullscreen && mode.x > 0 && mode.y > 0 && window->SetFullscreenMode(mode.x, mode.y)) {
+            m_options.windowPixels = mode;
+        }
     }
 
     Eth::MachineConfig config;
@@ -291,47 +307,91 @@ void PenumbraLayer::RefreshVideoModes(entt::registry& registry) {
     Supersonic::WindowControl* window = WindowControlOf(registry);
     if (window == nullptr) return;
     // E2: each size once. 0.7.12 listed every refresh rate of a size again, as
-    // identical "WxHx32" lines (videoModes.as:99-101); the port opens a window
-    // or covers the monitor at its current rate, so a rate is nothing to pick.
+    // identical "WxHx32" lines (videoModes.as:99-101); the port picks the rate
+    // itself - the desktop's where the monitor offers the size at it, else the
+    // highest (WindowControl::ChooseFullscreenMode) - so a rate is nothing to pick.
     std::vector<Eth::videoMode> modes;
+    const auto listed = [&modes](uint32_t width, uint32_t height) {
+        return std::any_of(modes.begin(), modes.end(),
+                           [&](const Eth::videoMode& m) { return m.width == width && m.height == height; });
+    };
     for (const Supersonic::DisplayMode& mode : window->DisplayModes()) {
-        const bool listed = std::any_of(modes.begin(), modes.end(), [&](const Eth::videoMode& m) {
-            return m.width == mode.width && m.height == mode.height;
-        });
-        if (!listed) modes.push_back(Eth::videoMode{mode.width, mode.height, Eth::PF32BIT});
+        if (!listed(mode.width, mode.height)) modes.push_back(Eth::videoMode{mode.width, mode.height, Eth::PF32BIT});
+    }
+    // The desktop's own size is the line that switches nothing, and the way
+    // back from another mode; a platform can leave it out of its list. In the
+    // list's own order: by area, then width (WindowControl::SelectDisplayModes).
+    const Supersonic::DisplayMode desktop = window->DesktopMode();
+    if (desktop.width > 0 && desktop.height > 0 && !listed(desktop.width, desktop.height)) {
+        const Eth::videoMode native{desktop.width, desktop.height, Eth::PF32BIT};
+        const auto before = [](const Eth::videoMode& a, const Eth::videoMode& b) {
+            const uint64_t areaA = uint64_t{a.width} * a.height;
+            const uint64_t areaB = uint64_t{b.width} * b.height;
+            return areaA != areaB ? areaA < areaB : a.width < b.width;
+        };
+        modes.insert(std::upper_bound(modes.begin(), modes.end(), native, before), native);
     }
     m_machine->SetVideoModes(std::move(modes));
 }
 
+glm::uvec2 PenumbraLayer::SavedFullscreenMode() const {
+    return glm::uvec2(static_cast<unsigned>(std::max(m_settings.fullscreenWidth, 0)),
+                      static_cast<unsigned>(std::max(m_settings.fullscreenHeight, 0)));
+}
+
 // SetWindowProperties as the scripts use it: the windowed flag flipped
 // (Alt+Enter or the options screen's switch, menu.as:108-119), or a line of the
-// mode list with the flag as it was (videoModes.as:110).
+// mode list with the flag as it was (videoModes.as:110). render/WindowMode.hpp
+// decides which.
 void PenumbraLayer::ApplyWindowRequest(entt::registry& registry) {
     Eth::WindowRequest& request = m_machine->Window();
     if (!request.changed) return;
     request.changed = false;
     Supersonic::WindowControl* window = WindowControlOf(registry);
 
-    const bool fullscreen = !request.windowed;
-    if (fullscreen != m_windowFullscreen) {
-        // Only the flag: the size that comes with it is the logical screen's
-        // (menu.as:111), which is not the window's here. The window keeps its
-        // windowed size to come back to.
+    using Kind = Render::WindowAction::Kind;
+    const Render::WindowAction action = Render::DecideWindowAction(
+        request.windowed, glm::uvec2(request.width, request.height), m_windowFullscreen, SavedFullscreenMode());
+
+    if (action.kind == Kind::EnterFullscreen || action.kind == Kind::LeaveFullscreen) {
+        // The window keeps its windowed size to come back to.
+        const bool fullscreen = action.kind == Kind::EnterFullscreen;
         m_windowFullscreen = fullscreen;
-        if (window != nullptr) window->SetFullscreen(fullscreen);
+        if (window != nullptr) {
+            if (fullscreen) {
+                RequestFullscreen(*window, action.size);
+            } else {
+                window->SetFullscreen(false);
+            }
+        }
         if (fullscreen != m_settings.fullscreen) {
             m_settings.fullscreen = fullscreen;
             SaveSettings();
         }
         return;
     }
+    if (window == nullptr) return;
 
-    // A mode picked from the list. 0.7.12 switched the display to it; the port
-    // sizes the window to it (the size to return to, while fullscreen) and
-    // renders at that size.
-    if (window == nullptr || !window->SetWindowedSize(request.width, request.height)) return;
-    const int width = static_cast<int>(request.width);
-    const int height = static_cast<int>(request.height);
+    if (action.kind == Kind::SwitchFullscreenMode) {
+        // Step 23: 0.7.12 switched the display to the mode picked, and so does
+        // the port now (it used to set only the size to come back at, so a
+        // pick in fullscreen showed nothing). The windowed size is left alone:
+        // the list sizes a window only when picked in one.
+        if (!window->SetFullscreenMode(action.size.x, action.size.y)) return;
+        const Supersonic::DisplayMode desktop = window->DesktopMode();
+        const glm::uvec2 saved = Render::FullscreenModeToSave(action.size, glm::uvec2(desktop.width, desktop.height));
+        if (saved != SavedFullscreenMode()) {
+            m_settings.fullscreenWidth = static_cast<int>(saved.x);
+            m_settings.fullscreenHeight = static_cast<int>(saved.y);
+            SaveSettings();
+        }
+        return;
+    }
+
+    // Picked in a window: the window takes that size and renders at it.
+    if (!window->SetWindowedSize(action.size.x, action.size.y)) return;
+    const int width = static_cast<int>(action.size.x);
+    const int height = static_cast<int>(action.size.y);
     if (width != m_settings.windowWidth || height != m_settings.windowHeight) {
         m_settings.windowWidth = width;
         m_settings.windowHeight = height;
@@ -513,13 +573,8 @@ void PenumbraLayer::OnUpdate(entt::registry& registry, float deltaTime) {
     const Eth::RenderSnapshot& snapshot = m_machine->Snapshot();
     const bool paused = m_pause.Paused();   // E13
 
-    if (Supersonic::WindowControl* window = WindowControlOf(registry)) {
-        // 0.7.12 hid the system pointer while the scripts asked (main.as:133)
-        // and drew cursor.ent in its place. Every frame is cheap: it does
-        // nothing when the request already stands, and the focus and editor
-        // vetoes stay Input's.
-        // E13: the pointer shows over the pause's menu, which it can click.
-        window->SetCursorVisible(!snapshot.cursorHidden || paused);
+    Supersonic::WindowControl* window = WindowControlOf(registry);
+    if (window != nullptr) {
         // The next scene is as wide as the window is by then (E1), after a
         // fullscreen switch or a picked mode. Zero while minimised: keep the last.
         const glm::uvec2 size = window->WindowSize();
@@ -538,6 +593,19 @@ void PenumbraLayer::OnUpdate(entt::registry& registry, float deltaTime) {
     const float alpha = paused || clock == nullptr ? 1.0f : clock->alpha;
     const Eth::RenderSnapshot& world = m_interp.Frame(snapshot, alpha);
     m_view = m_rig.Update(registry, world, m_pillarbox);
+    if (window != nullptr) {
+        // 0.7.12 hid the system pointer while the scripts asked (main.as:133)
+        // and drew cursor.ent in its place. Every frame is cheap: it does
+        // nothing when the request already stands, and the focus and editor
+        // vetoes stay Input's.
+        // E13: the pointer shows over the pause's menu, which it can click.
+        // Step 23: and over the bars of a pillarboxed or letterboxed frame,
+        // where cursor.ent is drawn under a bar (the scripts' cursor follows
+        // the mouse there, unclamped) and the player had no pointer at all.
+        // Measured against this frame's view, after the rig has placed it.
+        const bool overBars = Render::InputMapper::PointerOverBars(Supersonic::Input::MousePosition(), m_view);
+        window->SetCursorVisible(!snapshot.cursorHidden || paused || overBars);
+    }
     // Where the gloss maps' highlights are seen from: 0.7.12's fake eye
     // (ETHShaderManager::SetFakeEyePosition), each light mirrored across the
     // line 3/4 of the way down the screen, at height 768 (m_fakeEyeHeight's

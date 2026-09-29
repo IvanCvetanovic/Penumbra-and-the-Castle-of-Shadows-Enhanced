@@ -166,6 +166,33 @@ void ReadInt(const Value& object, const char* key, int minimum, int maximum, int
     out = static_cast<int>(clamped);
 }
 
+// window.fullscreenWidth/Height: 0 x 0, or a whole size in the window's range.
+// Anything else - a typo, a fraction, half a size - leaves the default (the
+// desktop's mode) rather than being clamped: a clamped width is a guess at a
+// mode no monitor may have, where the desktop's is always there.
+void ReadFullscreenMode(const Value& window, int& width, int& height, std::string* warning) {
+    if (!window.Has("fullscreenWidth") && !window.Has("fullscreenHeight")) return;
+    const auto read = [&window](const char* key, int minimum, int maximum, int& out) {
+        if (!window.Has(key)) return false;
+        const Value& value = window[key];
+        const double number = value.AsNumber(std::nan(""));
+        if (!value.IsNumber() || !std::isfinite(number) || number != std::floor(number)) return false;
+        if (number != 0.0 && (number < minimum || number > maximum)) return false;
+        out = static_cast<int>(number);
+        return true;
+    };
+    int readWidth = 0;
+    int readHeight = 0;
+    if (!read("fullscreenWidth", kMinWindowWidth, kMaxWindowWidth, readWidth) ||
+        !read("fullscreenHeight", kMinWindowHeight, kMaxWindowHeight, readHeight) ||
+        (readWidth == 0) != (readHeight == 0)) {
+        Warn(warning, "window.fullscreenWidth/fullscreenHeight is not a display mode; using the desktop's");
+        return;
+    }
+    width = readWidth;
+    height = readHeight;
+}
+
 void ReadFloat(const Value& object, const char* key, float minimum, float maximum, float& out,
                std::string* warning) {
     if (!object.Has(key)) return;
@@ -401,6 +428,7 @@ Settings Settings::FromJson(const std::string& text, const Settings& defaults, s
             ReadInt(window, "width", kMinWindowWidth, kMaxWindowWidth, settings.windowWidth, warning);
             ReadInt(window, "height", kMinWindowHeight, kMaxWindowHeight, settings.windowHeight, warning);
             ReadBool(window, "fullscreen", settings.fullscreen, warning);
+            ReadFullscreenMode(window, settings.fullscreenWidth, settings.fullscreenHeight, warning);
         } else {
             Warn(warning, "window is not an object");
         }
@@ -477,7 +505,8 @@ std::string Settings::ToJson() const {
     out << "  \"version\": " << kVersion << ",\n";
     out << "  \"language\": \"" << Supersonic::Json::Escape(language) << "\",\n";
     out << "  \"window\": { \"width\": " << windowWidth << ", \"height\": " << windowHeight
-        << ", \"fullscreen\": " << FormatBool(fullscreen) << " },\n";
+        << ", \"fullscreen\": " << FormatBool(fullscreen) << ", \"fullscreenWidth\": " << fullscreenWidth
+        << ", \"fullscreenHeight\": " << fullscreenHeight << " },\n";
     out << "  \"widescreen\": " << FormatBool(widescreen) << ",\n";
     out << "  \"volume\": { \"music\": " << FormatFloat(musicVolume) << ", \"effects\": "
         << FormatFloat(effectsVolume) << " },\n";

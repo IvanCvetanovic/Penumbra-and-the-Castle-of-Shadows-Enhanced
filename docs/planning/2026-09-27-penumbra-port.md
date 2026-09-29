@@ -33,7 +33,7 @@ in this repository, with the engine improved where the game needs it.
 | # | Enhancement | Original |
 |---|---|---|
 | E1 | Widescreen: logical view 768 px tall, width by aspect; menus pillarboxed at 1024x768 | 1024x768 only |
-| E2 | Any window size / fullscreen, rendered at native resolution | 1024x768 or listed video modes |
+| E2 | Any window size / fullscreen, rendered at native resolution; fullscreen at the desktop's mode, or at a mode picked from the list while fullscreen (switched as 0.7.12 did, saved as window.fullscreenWidth/Height, Step 23) | 1024x768 or listed video modes |
 | E3 | Modern gamepads (XInput via GLFW) mapped by meaning, for both players | winmm button numbers |
 | E4 | Keyboard second player (presented to the scripts as joystick 1) | P2 needs a joystick |
 | E5 | English text alongside Portuguese, switchable | Portuguese only |
@@ -668,6 +668,71 @@ by scan code (a test-side mistake; real arrows were checked live in session 2 an
 Step 19). A freshly linked build/game/Penumbra.exe was refused by Smart App Control first (one
 notification); the accepted packaged binary was used instead, never the refused one again. Still
 unmeasured: a real gamepad, and the music's 40% while paused, by ear.
+
+### Step 23 - fullscreen modes, and the pointer over the bars (2026-09-29)
+Ivan, playtesting on Windows: "I cannot change the resolution after going into fullscreen. Nothing
+changes when I press on different resolutions at all", and "there are black bars on the sides of the
+screen and I cannot reach in them with my cursor".
+- **A mode picked in fullscreen.** 0.7.12: a line of the options screen's list calls
+  SetWindowProperties(title, w, h, Windowed(), ...) (videoModes.as:110), which reset the D3D9
+  device at that back buffer size (E:ETHEngine.cpp:144-166, G:Video/Direct3D9/gs2dD3D9.cpp:886-960):
+  in fullscreen, a display mode change. The port turned the pick into WindowControl::SetWindowedSize,
+  which while fullscreen is only the size to come back at, and the engine's fullscreen covers the
+  monitor at its current mode, never switching: nothing visible happened.
+  - **Engine** (opt-in; SetFullscreen(true) and every existing path unchanged):
+    `WindowControl::SetFullscreenMode(w, h)`, latched as a fullscreen request carrying its size
+    (Requests::fullscreenMode, zeroes for SetFullscreen; the last request wins either way).
+    `ChooseFullscreenMode` (pure) picks the mode: the desktop's own for the desktop's size (no
+    switch, and the way back from another mode), else the size at the desktop's rate where the
+    monitor offers it there, else at its highest. A size neither listed nor the desktop's is refused
+    (false, nothing latched, a warning). NativeWindowControl applies it with glfwSetWindowMonitor,
+    entering fullscreen (remembering the windowed rectangle, as SetFullscreen does) or changing mode
+    in place; GLFW puts the desktop's mode back on leaving and on focus loss (auto-iconify). While
+    switched, DesktopMode() answers the desktop's mode, which glfwGetVideoMode no longer does.
+    Logged as "Fullscreen on <monitor> at WxH @ R Hz, switched from the desktop's WxH @ R Hz."
+    Android and iOS take the request and drop it (their ApplyPending, unchanged). test_gameruntime:
+    the latch, the orderings, the refusal, the desktop's size accepted unlisted, the rate choice.
+    ARCHITECTURE.md's "no exclusive mode at another resolution" is now the opt-in call.
+  - **Game** (render/WindowMode, pure, test_pn_render_input): a line picked while fullscreen
+    switches the display to it and is saved as `window.fullscreenWidth/fullscreenHeight` in
+    settings.json (0 x 0, the default, is the desktop's; picking the desktop's size saves 0 x 0 so a
+    later desktop resolution is followed); picked in a window it sizes the window as before and the
+    fullscreen mode is left alone. Alt+Enter, the options' switch, a launch with fullscreen saved
+    and `--fullscreen` all enter at the saved mode, or the desktop's; a monitor that does not offer
+    the saved mode gets the desktop's and the setting is kept. A broken value (half a size, out of
+    640..15360 x 480..8640, a fraction, a string) is the desktop's, with a warning - never clamped
+    into a mode no monitor has. The list always holds the desktop's own size (inserted in the list's
+    order when the platform leaves it out). 0.7.12's Alt+Enter went fullscreen at the logical
+    screen's 1024x768 (menu.as:111); the port's goes at the saved mode or the desktop's (E2).
+- **The pointer over the bars.** The menus are laid out for 1024x768 and pillarboxed (E1); the
+  scripts hide the system pointer (HideCursor, main.as:133) and draw cursor.ent, which follows the
+  mouse into a bar and is drawn under it - so over a bar the player had no pointer at all. Now the
+  system pointer shows while the mouse is on the image but outside the logical screen's box
+  (InputMapper::PointerOverBars, half-open: viewportMin is the screen's pixel, viewportMax the
+  bar's; the letterbox's top and bottom bars too; nothing when the view fills the window) and hides
+  again over the image, as the scripts asked. The scripts' request stays the source of truth
+  (SetCursorVisible(!cursorHidden || paused || overBars)); the logical cursor they read is
+  unchanged. Not visible in a capture (the system pointer is not in the image): by hand.
+Gates: check.bat clean at /W4 on every touched C++ file (the game's, the engine's WindowControl,
+NativeWindowControl and test_gameruntime); Linux (WSL, GCC) test_pn_all 17 suites, 7998 checks, 0
+failures (render_input 286); the engine alone on Linux, 57 of 57 suites (test_gameruntime 172), no
+new warning. The Android and iOS NativeWindowControl files were syntax-checked with GCC
+(-Wall -Wextra -Wpedantic, the native-surface window backend by define), not built with the NDK
+or Xcode: they see only new private declarations of plain types in the shared header, and drop a
+mode request as they drop any fullscreen request. Windows not built or run by this step's author; a mode switch needs
+a real monitor, so the switch itself is measured only by a live run.
+- **Measured live** (Ivan's laptop, 1920x1200 panel; one run of the new Penumbra.exe, the game's
+  own --hold input, settings.json backed up and restored): fullscreen at the desktop's 1920x1200;
+  the list's first line picked -> "at 800x600 @ 60 Hz, switched from the desktop's 1920x1200"
+  (swapchain 800x600); Alt+Enter -> "Windowed at 1920x1170" (the saved window, a 1914x1153 client
+  area, not rescaled); Alt+Enter -> fullscreen at the saved 800x600 again; exit -> the desktop's
+  mode back. The final capture is 800x600 with the options screen filling it (a 4:3 mode, no
+  bars); settings.json held fullscreenWidth/Height 800x600. After the review, DesktopMode()
+  answers with the remembered desktop mode only while the window still covers the monitor it
+  switched (a monitor unplugged while switched would otherwise leave a stale pointer). The pointer
+  over the bars is covered by its pure tests and is Ivan's to see by hand.
+Gates: Windows build zero warnings, test_pn_all once - 17 suites, 8087 checks, 0 failures; Linux
+7998; engine ctest 57 of 57 (Linux); Android both ABIs build.
 
 ### Open
 - **iOS: builds, untested** (Ivan, 2026-09-28: "leave it alone, we only need it to build"). No frame

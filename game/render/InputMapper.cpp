@@ -184,6 +184,16 @@ glm::vec2 InputMapper::WindowToLogical(const glm::vec2& window, const View& view
     return (window - view.imageOrigin - view.viewportMin) / view.scale;
 }
 
+bool InputMapper::PointerOverBars(const glm::vec2& window, const View& view) {
+    const glm::vec2 image = window - view.imageOrigin;
+    const glm::vec2 size(view.windowPixels);
+    const bool onImage = image.x >= 0.0f && image.y >= 0.0f && image.x < size.x && image.y < size.y;
+    if (!onImage) return false;
+    const bool onScreen = image.x >= view.viewportMin.x && image.y >= view.viewportMin.y &&
+                          image.x < view.viewportMax.x && image.y < view.viewportMax.y;
+    return !onScreen;
+}
+
 std::string InputMapper::ToCp1252(const std::vector<std::uint32_t>& codepoints) {
     std::string out;
     for (const std::uint32_t c : codepoints) {

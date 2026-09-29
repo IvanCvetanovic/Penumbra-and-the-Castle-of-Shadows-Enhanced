@@ -206,8 +206,8 @@ Each enhancement is listed with what the original did. The full record is
 
 | # | Enhancement | The original |
 |---|---|---|
-| E1 | Widescreen: the view is 768 logical pixels tall and as wide as the window. The menus stay 1024x768, pillarboxed. | 1024x768 only |
-| E2 | Any window size, and a real fullscreen at the monitor's resolution, drawn at native resolution. Alt+Enter and the options screen switch between them. | 1024x768 or one of the listed video modes |
+| E1 | Widescreen: the view is 768 logical pixels tall and as wide as the window. The menus stay 1024x768, pillarboxed; over the bars the system pointer shows, since the game's own cursor cannot be seen there. | 1024x768 only |
+| E2 | Any window size, and a real fullscreen at the monitor's resolution, drawn at native resolution. Alt+Enter and the options screen switch between them. On the options screen a video mode picked in a window sizes the window; picked in fullscreen it switches the display to that mode, as the original did, and is remembered (`fullscreenWidth`/`fullscreenHeight`) for Alt+Enter and the next launch. The desktop's own size is always in the list and switches back. | 1024x768 or one of the listed video modes |
 | E3 | Modern gamepads, mapped by meaning, for both players | Button numbers of the pad's own winmm driver |
 | E4 | A keyboard second player | Player 2 needed a joystick |
 | E5 | English alongside Portuguese, including the words baked into the menu art | Portuguese only |
@@ -229,7 +229,7 @@ into the original's folder.
 
 | File | What it is |
 |---|---|
-| `settings.json` | Language (`"en"`/`"pt"`), window size and fullscreen, widescreen, volumes, pixel shaders, `smoothMotion`, `pauseOnFocusLoss`, `touchControls` (`"auto"`, `"on"`, `"off"`), and the controls: `joystickLayout`, `keyboardPlayer2`, `firstPadIsPlayer1`, `rawJoysticks`, `stickDeadzone`, and the `player1`/`player2` key lists. A broken or missing field falls back to its default, field by field. |
+| `settings.json` | Language (`"en"`/`"pt"`), window size and fullscreen, the fullscreen mode (`fullscreenWidth`/`fullscreenHeight` in `window`; `0` is the desktop's), widescreen, volumes, pixel shaders, `smoothMotion`, `pauseOnFocusLoss`, `touchControls` (`"auto"`, `"on"`, `"off"`), and the controls: `joystickLayout`, `keyboardPlayer2`, `firstPadIsPlayer1`, `rawJoysticks`, `stickDeadzone`, and the `player1`/`player2` key lists. A broken or missing field falls back to its default, field by field. |
 | `hs.enml` | The best times, written after a new record. Until then the original's `hs.enml` is read. |
 | `scenes\checkpoint.esc` | The level saved at the last checkpoint. |
 
@@ -259,7 +259,7 @@ The engine's options that matter here:
 | Option | What it does |
 |---|---|
 | `--window <W>x<H>` | Open a window of this size. This implies a windowed run unless `--fullscreen` is also given. |
-| `--fullscreen`, `--windowed` | This run only; not saved |
+| `--fullscreen`, `--windowed` | This run only; not saved. `--fullscreen` runs at the saved fullscreen mode, or the desktop's. |
 | `--frames <n>` | Run *n* frames, then exit |
 | `--fixed-step` | Simulate at exactly 1/60 s per frame, so a run reproduces |
 | `--screenshot <path>` | Write a PNG of the last frame and exit. Give an **absolute** path: the engine changes the working directory at startup. |

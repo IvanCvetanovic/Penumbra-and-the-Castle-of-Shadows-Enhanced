@@ -15,6 +15,7 @@
 #include "render/AudioOutEngine.hpp"
 #include "render/InputMapper.hpp"
 #include "render/Settings.hpp"
+#include "render/WindowMode.hpp"
 
 namespace {
 
@@ -29,6 +30,7 @@ using Penumbra::Render::RawDevices;
 using Penumbra::Render::RawPad;
 using Penumbra::Render::Settings;
 using Penumbra::Render::View;
+using Penumbra::Render::WindowAction;
 namespace Pad = Supersonic::Pad;
 namespace fs = std::filesystem;
 
@@ -349,6 +351,72 @@ void testCursorAndText() {
     CHECK(InputMapper::ToCp1252({0x4E2D}) == "?");
 }
 
+// Step 23: the system pointer shows over the bars, where the scripts' cursor
+// sprite is drawn under a bar. Pixels at the edge belong to one box or the
+// other, never both: viewportMin is the screen's, viewportMax the bar's.
+void testPointerOverBars() {
+    // Pillarboxed: the 1024x768 menu in a 1366x768 window, 171 px bars.
+    View pillarbox;
+    pillarbox.logicalScreen = {1024.0f, 768.0f};
+    pillarbox.windowPixels = {1366, 768};
+    pillarbox.scale = 1.0f;
+    pillarbox.viewportMin = {171.0f, 0.0f};
+    pillarbox.viewportMax = {1195.0f, 768.0f};
+    CHECK_MSG(!InputMapper::PointerOverBars({683.0f, 384.0f}, pillarbox), "the middle of the menu");
+    CHECK_MSG(InputMapper::PointerOverBars({10.0f, 384.0f}, pillarbox), "the left bar");
+    CHECK_MSG(InputMapper::PointerOverBars({1300.0f, 384.0f}, pillarbox), "the right bar");
+    CHECK_MSG(InputMapper::PointerOverBars({0.0f, 0.0f}, pillarbox), "the window's first pixel is a bar's");
+    CHECK_MSG(InputMapper::PointerOverBars({170.0f, 384.0f}, pillarbox), "the left bar's last column");
+    CHECK_MSG(!InputMapper::PointerOverBars({171.0f, 384.0f}, pillarbox), "viewportMin is the screen's");
+    CHECK_MSG(!InputMapper::PointerOverBars({1194.5f, 384.0f}, pillarbox), "the screen's last column");
+    CHECK_MSG(InputMapper::PointerOverBars({1195.0f, 384.0f}, pillarbox), "viewportMax is the bar's");
+    CHECK_MSG(InputMapper::PointerOverBars({1365.0f, 767.0f}, pillarbox), "the window's last pixel");
+    // Off the window: not over a bar, whatever the last position said.
+    CHECK(!InputMapper::PointerOverBars({-1.0f, 384.0f}, pillarbox));
+    CHECK(!InputMapper::PointerOverBars({1366.0f, 384.0f}, pillarbox));
+    CHECK(!InputMapper::PointerOverBars({683.0f, 768.0f}, pillarbox));
+
+    // Letterboxed: 4:3 in a 1024x1000 window, bars of 116 px above and below.
+    View letterbox;
+    letterbox.logicalScreen = {1024.0f, 768.0f};
+    letterbox.windowPixels = {1024, 1000};
+    letterbox.scale = 1.0f;
+    letterbox.viewportMin = {0.0f, 116.0f};
+    letterbox.viewportMax = {1024.0f, 884.0f};
+    CHECK_MSG(InputMapper::PointerOverBars({512.0f, 50.0f}, letterbox), "the top bar");
+    CHECK_MSG(InputMapper::PointerOverBars({512.0f, 950.0f}, letterbox), "the bottom bar");
+    CHECK_MSG(InputMapper::PointerOverBars({512.0f, 115.0f}, letterbox), "the top bar's last row");
+    CHECK_MSG(!InputMapper::PointerOverBars({512.0f, 116.0f}, letterbox), "the screen's first row");
+    CHECK_MSG(!InputMapper::PointerOverBars({512.0f, 883.0f}, letterbox), "the screen's last row");
+    CHECK_MSG(InputMapper::PointerOverBars({512.0f, 884.0f}, letterbox), "the bottom bar's first row");
+    CHECK_MSG(!InputMapper::PointerOverBars({0.0f, 500.0f}, letterbox), "no bar at the sides");
+
+    // The widescreen view fills the window: no bar anywhere on it.
+    View filled;
+    filled.logicalScreen = {1366.0f, 768.0f};
+    filled.windowPixels = {1366, 768};
+    filled.scale = 1.0f;
+    filled.viewportMin = {0.0f, 0.0f};
+    filled.viewportMax = {1366.0f, 768.0f};
+    for (const glm::vec2 point : {glm::vec2(0.0f, 0.0f), glm::vec2(683.0f, 384.0f), glm::vec2(1365.0f, 767.0f),
+                                  glm::vec2(0.0f, 767.0f)}) {
+        CHECK(!InputMapper::PointerOverBars(point, filled));
+    }
+    // A logical screen a hair wider than the window (1365.3334 x 1.40625 =
+    // 1920.0001, CameraRig::ComputeView) leaves no bar at its right edge.
+    filled.windowPixels = {1920, 1080};
+    filled.viewportMax = {1920.0001f, 1080.0f};
+    CHECK(!InputMapper::PointerOverBars({1919.0f, 540.0f}, filled));
+
+    // In the editor the image starts at imageOrigin: the bars move with it,
+    // and the editor's own panels beside the image are not bars.
+    View inEditor = pillarbox;
+    inEditor.imageOrigin = {300.0f, 40.0f};
+    CHECK(InputMapper::PointerOverBars({310.0f, 424.0f}, inEditor));
+    CHECK(!InputMapper::PointerOverBars({983.0f, 424.0f}, inEditor));
+    CHECK_MSG(!InputMapper::PointerOverBars({100.0f, 424.0f}, inEditor), "a panel left of the image");
+}
+
 void testLatch() {
     View view;
     InputMapper mapper;
@@ -571,6 +639,8 @@ void testSettings() {
     CHECK_EQ(en.controls.Player2Pad(), 0);   // g_controls 0: player 2 reads joystick 0
     CHECK(en.pixelShaders);
     CHECK(en.pauseOnFocusLoss);              // E13
+    CHECK_EQ(en.fullscreenWidth, 0);         // Step 23: the desktop's mode
+    CHECK_EQ(en.fullscreenHeight, 0);
     CHECK(en.controls.player1[ControlAction::Jump] ==
           (std::vector<int>{GLFW_KEY_LEFT_CONTROL, GLFW_KEY_RIGHT_CONTROL}));
     CHECK(en.controls.player2[ControlAction::Left] == std::vector<int>{GLFW_KEY_J});
@@ -590,6 +660,8 @@ void testSettings() {
     changed.windowWidth = 1920;
     changed.windowHeight = 1080;
     changed.fullscreen = true;
+    changed.fullscreenWidth = 1280;          // Step 23
+    changed.fullscreenHeight = 720;
     changed.widescreen = false;
     changed.musicVolume = 0.35f;
     changed.effectsVolume = 0.8f;
@@ -642,11 +714,91 @@ void testSettings() {
     CHECK(!warning.empty());   // "bogus"
     CHECK(Settings::FromJson("[1, 2]", en) == en);
 
+    // Step 23: the fullscreen mode. A size, or 0 x 0 for the desktop's; an
+    // older file without it is the desktop's, and says nothing.
+    const auto fullscreenMode = [&en](const std::string& window, std::string* warn) {
+        const Settings read = Settings::FromJson("{\"window\": {" + window + "}}", en, warn);
+        return glm::ivec2(read.fullscreenWidth, read.fullscreenHeight);
+    };
+    warning.clear();
+    const glm::ivec2 picked = fullscreenMode(R"("fullscreenWidth": 800, "fullscreenHeight": 600)", &warning);
+    const glm::ivec2 desktop = fullscreenMode(R"("fullscreenWidth": 0, "fullscreenHeight": 0)", &warning);
+    const glm::ivec2 older = fullscreenMode(R"("width": 1280, "height": 720)", &warning);
+    CHECK(picked == glm::ivec2(800, 600));
+    CHECK(desktop == glm::ivec2(0, 0));
+    CHECK(older == glm::ivec2(0, 0));
+    CHECK(warning.empty());
+    // Broken: the default (the desktop's), never a clamped guess at a mode,
+    // and a warning for each.
+    for (const char* broken : {
+             R"("fullscreenWidth": 1280)",                                  // half a size
+             R"("fullscreenWidth": 1280, "fullscreenHeight": 0)",           // half a size again
+             R"("fullscreenWidth": 99999, "fullscreenHeight": 720)",        // no monitor has it
+             R"("fullscreenWidth": 320, "fullscreenHeight": 240)",          // below the window's range
+             R"("fullscreenWidth": -1280, "fullscreenHeight": 720)",
+             R"("fullscreenWidth": 1280.5, "fullscreenHeight": 720)",
+             R"("fullscreenWidth": "1280", "fullscreenHeight": 720)",
+         }) {
+        warning.clear();
+        const glm::ivec2 mode = fullscreenMode(broken, &warning);
+        CHECK_MSG(mode == glm::ivec2(0, 0), broken);
+        CHECK_MSG(!warning.empty(), broken);
+    }
+    // A broken mode leaves the rest of the window as the file says.
+    const Settings brokenMode = Settings::FromJson(
+        R"({"window": {"width": 1280, "height": 720, "fullscreen": true, "fullscreenWidth": 7}})", en);
+    CHECK_EQ(brokenMode.windowWidth, 1280);
+    CHECK(brokenMode.fullscreen);
+    CHECK_EQ(brokenMode.fullscreenWidth, 0);
+
     // Nowhere to save.
     CHECK(!en.Save(fs::path(), &error));
     CHECK(!error.empty());
 
     fs::remove_all(dir, ec);
+}
+
+// Step 23: what SetWindowProperties becomes. A flip of the windowed flag
+// (Alt+Enter, the options' switch) carries the logical screen's size, never a
+// mode; a line of the mode list carries its size with the flag as it was.
+void testWindowActions() {
+    using Kind = WindowAction::Kind;
+    using Penumbra::Render::DecideWindowAction;
+    const glm::uvec2 logical(1024u, 768u);
+    const glm::uvec2 none(0u);
+    const glm::uvec2 saved(1280u, 720u);
+
+    // Into fullscreen: at the saved mode, or the desktop's when there is none.
+    WindowAction action = DecideWindowAction(false, logical, false, saved);
+    CHECK(action.kind == Kind::EnterFullscreen);
+    CHECK_MSG(action.size == saved, "the saved mode, not the logical screen's size");
+    action = DecideWindowAction(false, logical, false, none);
+    CHECK(action.kind == Kind::EnterFullscreen);
+    CHECK_MSG(action.size == none, "the desktop's mode");
+    // Half a saved mode is none (Settings refuses it anyway).
+    action = DecideWindowAction(false, logical, false, glm::uvec2(1280u, 0u));
+    CHECK(action.size == none);
+
+    // Out of it: the windowed size to come back to is the window's, not the request's.
+    action = DecideWindowAction(true, logical, true, saved);
+    CHECK(action.kind == Kind::LeaveFullscreen);
+
+    // A line picked in fullscreen switches the display (0.7.12's device reset);
+    // picked in a window it sizes the window.
+    action = DecideWindowAction(false, glm::uvec2(800u, 600u), true, saved);
+    CHECK(action.kind == Kind::SwitchFullscreenMode);
+    CHECK(action.size == glm::uvec2(800u, 600u));
+    action = DecideWindowAction(true, glm::uvec2(800u, 600u), false, saved);
+    CHECK(action.kind == Kind::ResizeWindow);
+    CHECK(action.size == glm::uvec2(800u, 600u));
+
+    // What a pick in fullscreen saves: the desktop's own size is 0 x 0, so a
+    // desktop that changes resolution later is followed.
+    using Penumbra::Render::FullscreenModeToSave;
+    const glm::uvec2 desktop(1920u, 1080u);
+    CHECK(FullscreenModeToSave(glm::uvec2(1920u, 1080u), desktop) == none);
+    CHECK(FullscreenModeToSave(glm::uvec2(800u, 600u), desktop) == glm::uvec2(800u, 600u));
+    CHECK(FullscreenModeToSave(glm::uvec2(1920u, 1200u), desktop) == glm::uvec2(1920u, 1200u));
 }
 
 void testAudioWithoutEngine() {
@@ -680,10 +832,12 @@ void runTests() {
     testSticks();
     testKeyboardPlayer2();
     testCursorAndText();
+    testPointerOverBars();
     testLatch();
     testMenuMode();
     testKeyNames();
     testSettings();
+    testWindowActions();
     testSystemLocale();
     testAudioWithoutEngine();
 }

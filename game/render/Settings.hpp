@@ -100,6 +100,15 @@ struct Settings {
     int windowWidth = 1366;
     int windowHeight = 768;
     bool fullscreen = false;
+    // The display mode fullscreen runs at: a line of the options screen's mode
+    // list picked while fullscreen, which switches the monitor to it as 0.7.12
+    // did (Step 23). 0 x 0 is the desktop's own mode, which switches nothing -
+    // the default, and what picking the desktop's size saves, so a desktop that
+    // changes resolution later is followed. Alt+Enter, the options' switch and
+    // a fullscreen launch all use it; a monitor that does not offer it gets the
+    // desktop's mode instead, and the setting is kept for one that does.
+    int fullscreenWidth = 0;
+    int fullscreenHeight = 0;
     bool widescreen = true;             // E1: the logical view widens with the window
     float musicVolume = 1.0f;           // master volumes, 0..1, on top of the scripts' own
     float effectsVolume = 1.0f;
