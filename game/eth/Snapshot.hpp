@@ -130,6 +130,11 @@ struct RenderSnapshot {
     std::vector<ParticleDraw> particles;
     std::vector<HudCmd> hud;
     bool cursorHidden = true;
+    // ENHANCEMENT E1 (the wide menus, Machine::SideMargin): how far past the
+    // logical screen's left and right edges this frame's world was collected,
+    // in logical pixels; 0 = the screen only, as 0.7.12 drew it. The view
+    // shows that far past the screen instead of barring it (View::openSides).
+    float sideMargin = 0.0f;
     // How many LoadScene requests have been served. A change means every
     // entity id and position before it belonged to another scene - even when
     // the file is the same one, as a death reloading the level is - so the

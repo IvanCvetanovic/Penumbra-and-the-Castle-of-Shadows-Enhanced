@@ -19,4 +19,5 @@
 #include "render/TextureCache.hpp"
 #include "render/TouchControls.hpp"
 #include "render/View.hpp"
+#include "render/WideMenus.hpp"
 #include "render/WindowMode.hpp"

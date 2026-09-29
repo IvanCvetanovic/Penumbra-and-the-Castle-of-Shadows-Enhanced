@@ -26,6 +26,10 @@
 // View::viewportMin..viewportMax (CameraRig::Bars, the one rule for them),
 // last, so nothing drawn past the original's 4:3 screen (DT_NOCLIP text, the
 // scene) shows in the bars. The layer does not call CameraRig::AddBars too.
+// Under E1's open sides (a menu in a wide window) the sides are not barred:
+// the scripts' HUD stays where their 1024x768 put it, and a rectangle that
+// meets the screen's left or right edge (a fade, the menu's panel) goes on
+// to the edge of what is shown, in that edge's colours (addRectangle).
 //
 // The overlay holds ScreenOverlay::kMaxQuads (4096) a frame; text is a quad a
 // glyph. The busiest screen, "How to Play" (460 glyphs, twice for the shadow)
@@ -85,7 +89,10 @@ private:
     void addCommand(const Eth::HudCmd& cmd, const View& view, std::vector<Quad>& out);
     void addText(const Eth::HudCmd& cmd, const View& view, std::vector<Quad>& out);
     void addSprite(const Eth::HudCmd& cmd, const View& view, bool stretched, std::vector<Quad>& out);
+    // The rectangle, and under E1's open sides its continuation past a
+    // screen edge it meets (addRectangleQuads draws one rectangle).
     void addRectangle(const Eth::HudCmd& cmd, const View& view, std::vector<Quad>& out);
+    void addRectangleQuads(const Eth::HudCmd& cmd, const View& view, std::vector<Quad>& out);
     void addBars(const View& view, std::vector<Quad>& out) const;
     // The 2x2 texture of a rectangle's corners, uploaded once; "" when there is
     // nowhere to upload it or the budget is spent.

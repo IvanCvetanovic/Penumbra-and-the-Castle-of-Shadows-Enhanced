@@ -157,21 +157,7 @@ std::shared_ptr<Entity> Scene::Add(const string& name, EntityDef def, const vect
     e.m_angle = angle;
     e.m_color = color;
     e.SetFrame(frame == UINT32_MAX ? e.m_def.startFrame : frame);
-
-    // Images: the shared basename cache, and the sizes GetSize() needs.
-    if (!e.m_def.sprite.empty()) {
-        const string sprite = "entities/" + BaseName(e.m_def.sprite);
-        if (m_machine.AddSpriteResource(sprite)) {
-            e.m_bitmapSize = m_machine.ImageSize(sprite);
-            e.m_def.spriteCutX = std::max(1, e.m_def.spriteCutX);
-            e.m_def.spriteCutY = std::max(1, e.m_def.spriteCutY);
-        }
-    }
-    if (!e.m_def.normal.empty()) m_machine.AddSpriteResource("entities/normalmaps/" + BaseName(e.m_def.normal));
-    if (!e.m_def.gloss.empty()) m_machine.AddSpriteResource("entities/" + BaseName(e.m_def.gloss));
-    if (!e.m_def.light.haloBitmap.empty()) {
-        e.m_haloLoaded = m_machine.AddSpriteResource("entities/" + BaseName(e.m_def.light.haloBitmap));
-    }
+    LoadImages(e);
 
     // LoadParticleSystem (ETHRenderEntity.cpp:350-381): at the entity's xy
     // (not its screen position), at the current time.
@@ -202,6 +188,40 @@ std::shared_ptr<Entity> Scene::Add(const string& name, EntityDef def, const vect
             m_machine.Samples().StartEffect(manager->System().soundEffect, e.m_def.soundVolume);
         }
     }
+    return entity;
+}
+
+void Scene::LoadImages(Entity& e) const {
+    // The shared basename cache, and the sizes GetSize() needs.
+    if (!e.m_def.sprite.empty()) {
+        const string sprite = "entities/" + BaseName(e.m_def.sprite);
+        if (m_machine.AddSpriteResource(sprite)) {
+            e.m_bitmapSize = m_machine.ImageSize(sprite);
+            e.m_def.spriteCutX = std::max(1, e.m_def.spriteCutX);
+            e.m_def.spriteCutY = std::max(1, e.m_def.spriteCutY);
+        }
+    }
+    if (!e.m_def.normal.empty()) m_machine.AddSpriteResource("entities/normalmaps/" + BaseName(e.m_def.normal));
+    if (!e.m_def.gloss.empty()) m_machine.AddSpriteResource("entities/" + BaseName(e.m_def.gloss));
+    if (!e.m_def.light.haloBitmap.empty()) {
+        e.m_haloLoaded = m_machine.AddSpriteResource("entities/" + BaseName(e.m_def.light.haloBitmap));
+    }
+}
+
+std::shared_ptr<Entity> Scene::AddBackdrop(const ScenePlacement& placement) {
+    const int id = kBackdropIdBase + static_cast<int>(m_backdrop.size());
+    EntityDef def = placement.def;
+    // Drawn, and nothing more: a particle system would have to be advanced,
+    // and advancing one draws from the scripts' generator.
+    def.particles.clear();
+    auto entity = std::make_shared<Entity>(id, placement.entityName, std::move(def));
+    Entity& e = *entity;
+    e.m_position = placement.position;
+    e.m_angle = placement.angle;
+    e.m_color = placement.color;
+    e.SetFrame(placement.spriteFrame);
+    LoadImages(e);
+    m_backdrop.push_back(entity);
     return entity;
 }
 

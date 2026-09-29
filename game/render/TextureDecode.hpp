@@ -52,4 +52,9 @@ glm::ivec2 ProbeImageSize(const std::string& absolutePath);
 // a MaterialComponent or ScreenOverlay::Quad names for that upload.
 std::string VirtualTextureKey(const std::string& relativePath, TextureVariant variant);
 
+// Whether TextureCache uploads its images sampled CLAMPED to their edges, as
+// 0.7.12 sampled every texture, rather than repeating (TextureCache.cpp, THE
+// EDGES; the switch kClampToEdge).
+bool TexturesClampToEdge();
+
 } // namespace Penumbra::Render

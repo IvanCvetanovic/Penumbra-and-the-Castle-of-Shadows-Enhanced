@@ -156,6 +156,9 @@ View CameraRig::ComputeView(const Eth::RenderSnapshot& snapshot, glm::uvec2 wind
     // this rounded box, not on the exact middle.
     view.viewportMin = glm::round((window - shown) * 0.5f);
     view.viewportMax = view.viewportMin + shown;
+    // E1 for the menus: the world the snapshot collected past the screen's
+    // sides is shown there, in place of the bars. Nothing above moves.
+    if (snapshot.sideMargin > 0.0f && std::isfinite(snapshot.sideMargin)) view.openSides = snapshot.sideMargin;
     return view;
 }
 
@@ -172,8 +175,9 @@ glm::uvec2 CameraRig::WindowPixels(const entt::registry& registry, const glm::ve
 std::vector<CameraRig::Bar> CameraRig::Bars(const View& view) {
     std::vector<Bar> bars;
     const glm::vec2 window(glm::max(view.windowPixels, glm::uvec2(1u)));
-    const glm::vec2 inner0 = glm::clamp(view.viewportMin, glm::vec2(0.0f), window);
-    const glm::vec2 inner1 = glm::clamp(view.viewportMax, glm::vec2(0.0f), window);
+    // What is shown: the logical screen's box, or wider under E1's open sides.
+    const glm::vec2 inner0 = glm::clamp(view.ShownMin(), glm::vec2(0.0f), window);
+    const glm::vec2 inner1 = glm::clamp(view.ShownMax(), glm::vec2(0.0f), window);
     const auto add = [&](glm::vec2 min, glm::vec2 max) {
         if (max.x - min.x < kMinBarPixels || max.y - min.y < kMinBarPixels) return;
         bars.push_back(Bar{min / window, max / window});

@@ -6,7 +6,8 @@
 //
 // Two checks lean on other modules and say so: the temporary entity's
 // auto-delete (ParticleManager, Particles.cpp) and the checkpoint round trip
-// (WriteSceneFile/ReadSceneFile, Defs.cpp).
+// (WriteSceneFile/ReadSceneFile, Defs.cpp). The side margin of E1's wide menus
+// (TestSideMargin) writes its scene with WriteSceneFile too.
 
 #include <algorithm>
 #include <cmath>
@@ -1013,6 +1014,165 @@ void TestNumbers() {
     CHECK(r >= 5 && r <= 7);
 }
 
+// --- E1's wide menus: the side margin (Machine.hpp, SceneWidening) ------------------------------
+
+// What the margin brings into the snapshot is drawn and nothing else. The same
+// scene run three ways - with no widening at all, widened with the sides
+// barred (a 4:3 window) and widened with them shown - draws the same rand()
+// numbers, runs the same static callbacks and keeps the same depth range; the
+// barred run's snapshot is the plain one, and the shown run's sprites are it,
+// in the same order, plus the margin's and the backdrop.
+void TestSideMargin() {
+    const std::filesystem::path root = ScratchDir("penumbra_test_pn_runtime_wide");
+    std::error_code ec;
+    std::filesystem::create_directories(root / "scenes", ec);
+    SceneFile file;
+    ScenePlacement anchor;
+    anchor.id = 1;
+    anchor.entityName = "anchor";
+    anchor.def = MakeDef(ET_HORIZONTAL, true);
+    anchor.position = vector3(500, 300, 0);
+    file.entities.push_back(anchor);
+    { std::ofstream(root / "scenes" / "wide.esc", std::ios::binary) << WriteSceneFile(file); }
+
+    struct Run {
+        std::vector<int> draws;
+        std::vector<string> callbacks;
+        std::vector<string> sprites;
+        std::vector<int> ids;
+        float minHeight = 0.0f;
+        float maxHeight = 0.0f;
+        float sideMargin = -1.0f;
+        std::size_t lights = 0;
+        uint entities = 0;
+        int lastId = 0;
+        bool backdropSeen = false;
+    };
+    enum class Mode { Plain, Barred, Shown };
+    const auto run = [&root](Mode mode) {
+        MachineConfig config = SuiteConfig();
+        config.gameRoot = root.generic_string();
+        if (mode != Mode::Plain) {
+            config.widenScene = [](const string& scene, const SceneFile&) {
+                SceneWidening widening;
+                if (scene != "scenes/wide.esc") return widening;
+                widening.sideMargin = 1024.0f;
+                ScenePlacement tile;
+                tile.entityName = "backdrop.ent";
+                tile.def = MakeDef(ET_HORIZONTAL, true);
+                tile.position = vector3(-600, 300, 0);
+                widening.backdrop.push_back(tile);
+                return widening;
+            };
+        }
+        Machine machine(config);
+        Machine::Scope scope(machine);
+        Run result;
+        std::shared_ptr<Entity> tall;
+        machine.RegisterFunction("pre", [&] {
+            Scene* scene = machine.CurrentScene();
+            SetBorderBucketsDrawing(false);   // the screen's buckets are x 0..4
+            scene->Add("onscreen", MakeDef(ET_HORIZONTAL, true), vector3(100, 100, 0), 0.0f);
+            // In the margin (bucket -2): a static callback, an entity that will
+            // rise past the depth range, a light, and an endless particle
+            // system whose sphere reaches the screen - advanced, it would draw
+            // from the scripts' generator.
+            scene->Add("margin", MakeDef(ET_HORIZONTAL, true), vector3(-300, 100, 0), 0.0f);
+            tall = scene->Add("tall", MakeDef(ET_HORIZONTAL, true), vector3(-400, 200, 0), 0.0f);
+            EntityDef lamp = MakeDef(ET_HORIZONTAL, true);
+            lamp.light.active = true;
+            scene->Add("lamp", lamp, vector3(-350, 500, 0), 0.0f);
+            EntityDef smoke = MakeDef(ET_HORIZONTAL, true);
+            ParticleSystemDef system;
+            system.bitmap = "fire.png";
+            system.nParticles = 4;
+            system.repeat = 0;
+            system.lifeTime = 100.0f;
+            system.boundingSphere = 512.0f;
+            system.size = 8.0f;
+            system.maxSize = 16.0f;
+            smoke.particles.push_back(system);
+            scene->Add("smoke", smoke, vector3(-300, 400, 0), 0.0f);
+        });
+        int frame = 0;
+        machine.RegisterFunction("loop", [&] {
+            result.draws.push_back(rand(1000000));
+            // Past the range the scene had: only a walk that grows it sees it.
+            if (++frame == 5 && tall) tall->SetPosition(vector3(-400, 200, 9000));
+        });
+        for (const char* name : {"onscreen", "margin", "tall", "lamp", "smoke", "backdrop"}) {
+            const string n = name;
+            machine.RegisterCallback(n, [&result, n](ETHEntity self) {
+                (void)self;
+                result.callbacks.push_back(n);
+            });
+        }
+        machine.SetSidesShown(mode == Mode::Shown);
+        machine.Boot([] { LoadScene("scenes/wide.esc", "pre", "loop"); });
+        Step(machine, 30);
+        const RenderSnapshot& snap = machine.Snapshot();
+        for (const SpriteDraw& s : snap.sprites) {
+            result.sprites.push_back(s.entityName);
+            result.ids.push_back(s.entityId);
+        }
+        result.minHeight = machine.CurrentScene()->MinHeight();
+        result.maxHeight = machine.CurrentScene()->MaxHeight();
+        result.sideMargin = snap.sideMargin;
+        result.lights = snap.lights.size();
+        result.entities = GetNumEntities();
+        result.lastId = GetLastID();
+        ETHEntityArray found;
+        GetEntityArray("backdrop.ent", found);
+        result.backdropSeen = SeekEntity("backdrop.ent") != nullptr || !found.empty();
+        return result;
+    };
+    const Run plain = run(Mode::Plain);
+    const Run barred = run(Mode::Barred);
+    const Run shown = run(Mode::Shown);
+
+    // The plain run: the screen's own, as 0.7.12 drew it.
+    CHECK(plain.sprites == std::vector<string>({"anchor", "onscreen"}) ||
+          plain.sprites == std::vector<string>({"onscreen", "anchor"}));
+    CHECK_EQ(plain.sideMargin, 0.0f);
+    // The loop from the frame after the load, the callbacks from the load's own.
+    CHECK(plain.draws.size() >= 28);
+    CHECK(plain.callbacks.size() >= 28);
+    CHECK(std::all_of(plain.callbacks.begin(), plain.callbacks.end(), [](const string& n) { return n == "onscreen"; }));
+    CHECK_EQ(plain.lights, std::size_t{0});
+
+    // Barred: the plain run, snapshot and all.
+    CHECK(barred.sprites == plain.sprites && barred.ids == plain.ids);
+    CHECK_EQ(barred.sideMargin, 0.0f);
+    CHECK(barred.draws == plain.draws);
+    CHECK(barred.callbacks == plain.callbacks);
+
+    // Shown: the same game...
+    CHECK_EQ(shown.sideMargin, 1024.0f);
+    CHECK(shown.draws == plain.draws);
+    CHECK(shown.callbacks == plain.callbacks);
+    CHECK_EQ(shown.minHeight, plain.minHeight);
+    CHECK_EQ(shown.maxHeight, plain.maxHeight);
+    CHECK(shown.maxHeight < 9000.0f);
+    CHECK_EQ(shown.entities, plain.entities);
+    CHECK_EQ(shown.lastId, plain.lastId);
+    CHECK(!shown.backdropSeen && !barred.backdropSeen);
+    // ...with more drawn: the margin's entities, its light, and the backdrop.
+    std::vector<string> screenOnly;
+    for (const string& name : shown.sprites) {
+        if (std::find(plain.sprites.begin(), plain.sprites.end(), name) != plain.sprites.end()) screenOnly.push_back(name);
+    }
+    CHECK(screenOnly == plain.sprites);
+    for (const char* name : {"margin", "tall", "lamp", "smoke", "backdrop.ent"}) {
+        CHECK_MSG(std::find(shown.sprites.begin(), shown.sprites.end(), name) != shown.sprites.end(), name);
+    }
+    CHECK_EQ(shown.sprites.size(), plain.sprites.size() + 5);
+    CHECK_EQ(shown.lights, std::size_t{1});
+    CHECK(std::find(shown.ids.begin(), shown.ids.end(), Scene::kBackdropIdBase) != shown.ids.end());
+    // The backdrop is behind whatever else is at its depth: first.
+    CHECK(!shown.sprites.empty() && shown.sprites.front() == "backdrop.ent");
+    std::filesystem::remove_all(root, ec);
+}
+
 } // namespace
 
 int main() {
@@ -1031,5 +1191,6 @@ int main() {
     TestSamples();
     TestInput();
     TestNumbers();
+    TestSideMargin();
     return test::summary("test_pn_runtime", 150);
 }

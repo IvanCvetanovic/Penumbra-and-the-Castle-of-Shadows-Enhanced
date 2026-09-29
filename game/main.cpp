@@ -11,6 +11,8 @@
 //   --smooth on|off        this run's motion between ticks (E8), over the settings;
 //                          off under --fixed-step unless given as on
 //   --cursor <x>,<y>       pin the scripts' cursor at a logical-screen point (menu captures)
+//   --pointer <x>,<y>      pin the scripts' cursor at a window pixel, mapped as the real mouse is
+//   --spawn <x>,<y>        put the wizard at a scene point once he exists (captures far from a start)
 //   --touch [on|off]       this run's on-screen touch controls (E16); on by itself. On the
 //                          desktop the held left mouse button is the finger
 //   --original <dir>       the original game's files (the folder holding data.enml)
@@ -59,6 +61,8 @@ constexpr const char* kGameUsage =
     "  --data <dir>           the port's data: the folder holding strings.json\n"
     "  --hold <KEY>@<a>-<b>   hold a key from tick a to tick b (RIGHT, UP, CTRL, S, D, SPACE, ENTER...)\n"
     "  --cursor <x>,<y>       pin the menu cursor at a point of the 1024x768 screen\n"
+    "  --pointer <x>,<y>      pin the menu cursor at a pixel of the window (mapped as the real mouse)\n"
+    "  --spawn <x>,<y>        put the wizard at a point of the scene (its pixels) once he appears\n"
     "  --touch [on|off]       this run's on-screen touch controls (not saved; on by itself);\n"
     "                         on a desktop the held left mouse button is the finger\n";
 
@@ -196,6 +200,26 @@ int PenumbraMain(int argc, char** argv) {
                 layerOptions.devCursor = glm::vec2(std::stof(value.substr(0, comma)), std::stof(value.substr(comma + 1)));
             } catch (const std::exception&) {
                 std::cerr << "[Penumbra] --cursor wants x,y in the logical screen, got " << value << std::endl;
+                return EXIT_FAILURE;
+            }
+        } else if (arg == "--pointer" && hasValue) {
+            const std::string value = argv[++i];
+            const std::size_t comma = value.find(',');
+            try {
+                if (comma == std::string::npos) throw std::invalid_argument("no comma");
+                layerOptions.devPointer = glm::vec2(std::stof(value.substr(0, comma)), std::stof(value.substr(comma + 1)));
+            } catch (const std::exception&) {
+                std::cerr << "[Penumbra] --pointer wants x,y in the window's pixels, got " << value << std::endl;
+                return EXIT_FAILURE;
+            }
+        } else if (arg == "--spawn" && hasValue) {
+            const std::string value = argv[++i];
+            const std::size_t comma = value.find(',');
+            try {
+                if (comma == std::string::npos) throw std::invalid_argument("no comma");
+                layerOptions.devSpawn = glm::vec2(std::stof(value.substr(0, comma)), std::stof(value.substr(comma + 1)));
+            } catch (const std::exception&) {
+                std::cerr << "[Penumbra] --spawn wants x,y in the scene's pixels, got " << value << std::endl;
                 return EXIT_FAILURE;
             }
         } else if (arg == "--original" && hasValue) {

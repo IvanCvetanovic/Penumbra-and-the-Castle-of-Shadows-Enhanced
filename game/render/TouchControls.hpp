@@ -183,6 +183,12 @@ enum class TouchCombo { None, Sword, Spell };
 struct TouchInput {
     std::vector<TouchContact> contacts;
     glm::vec2 screen{1024.0f, 768.0f};   // the logical screen (GetScreenSize)
+    // E1's wide menus: the logical rectangle the controls are laid out in,
+    // when the view shows past the screen's left and right edges
+    // (View::ShownLogicalMin/Max) - so the corner button sits in the window's
+    // corner, as in a level. Left empty (max not above min), it is the screen.
+    glm::vec2 areaMin{0.0f};
+    glm::vec2 areaMax{0.0f};
     TouchInsets safeArea;
     TouchScene scene = TouchScene::Play;
     TouchCorner corner = TouchCorner::Hidden;
@@ -305,12 +311,15 @@ public:
 
     // Safe-area insets as a platform reports them (window pixels, from each
     // edge of the window) -> logical pixels, less whatever the pillarbox bars
-    // already keep clear.
+    // already keep clear (measured from what is shown: View::ShownMin/Max).
     static TouchInsets WindowInsetsToLogical(const TouchInsets& windowPixels, const View& view);
 
     // Each control's box: from its anchor corner of the safe area, clamped
-    // into it.
+    // into it. The area is the logical screen (0,0)-screen, or the rectangle
+    // areaMin-areaMax (TouchInput::areaMin/areaMax).
     static TouchLayout ComputeLayout(const TouchManifest& manifest, const glm::vec2& screen, const TouchInsets& safe);
+    static TouchLayout ComputeLayout(const TouchManifest& manifest, const glm::vec2& areaMin, const glm::vec2& areaMax,
+                                     const TouchInsets& safe);
 
     void SetManifest(TouchManifest manifest);
     const TouchManifest& Manifest() const { return m_manifest; }

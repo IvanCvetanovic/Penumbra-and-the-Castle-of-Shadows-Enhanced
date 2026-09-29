@@ -189,8 +189,10 @@ bool InputMapper::PointerOverBars(const glm::vec2& window, const View& view) {
     const glm::vec2 size(view.windowPixels);
     const bool onImage = image.x >= 0.0f && image.y >= 0.0f && image.x < size.x && image.y < size.y;
     if (!onImage) return false;
-    const bool onScreen = image.x >= view.viewportMin.x && image.y >= view.viewportMin.y &&
-                          image.x < view.viewportMax.x && image.y < view.viewportMax.y;
+    // What is shown: the logical screen's box, or wider under E1's open sides.
+    const glm::vec2 shownMin = view.ShownMin();
+    const glm::vec2 shownMax = view.ShownMax();
+    const bool onScreen = image.x >= shownMin.x && image.y >= shownMin.y && image.x < shownMax.x && image.y < shownMax.y;
     return !onScreen;
 }
 
@@ -481,7 +483,10 @@ void InputMapper::EndFrame(const RawDevices& raw) {
 }
 
 void InputMapper::WarpCursor(const glm::vec2& logical, const View& view) {
-    m_cursor = glm::clamp(logical, glm::vec2(0.0f), view.logicalScreen);
+    // E1's open sides widen the screen the pointer can reach: the menus warp
+    // the cursor every tick (menu.as:239, videoModes.as:61), and a clamp to
+    // the 4:3 box would pull a still mouse in the side to the box's edge.
+    m_cursor = glm::clamp(logical, view.ShownLogicalMin(), view.ShownLogicalMax());
 }
 
 } // namespace Penumbra::Render

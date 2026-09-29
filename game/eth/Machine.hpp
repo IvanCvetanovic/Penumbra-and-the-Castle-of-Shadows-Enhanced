@@ -51,6 +51,23 @@ namespace Penumbra::Eth {
 using ScriptFunction = std::function<void()>;
 using CallbackFunction = std::function<void(ETHEntity)>;
 
+// ENHANCEMENT E1 for a scene laid out for 1024x768 (the menus): a wide window
+// shows its world past the screen's left and right edges instead of black bars.
+// ONLY WHAT IS DRAWN CHANGES. The scripts' screen stays GetScreenSize(); what
+// the margin brings into the snapshot neither grows the depth range, nor runs a
+// static callback, nor advances a particle system, nor counts toward the
+// reseed after a frame with particles in view (Render) - so the game plays
+// exactly as the 4:3 run does. The backdrop is kept out of the buckets
+// (Scene::AddBackdrop): no query, collision or callback of the scripts sees it.
+struct SceneWidening {
+    // How far past the screen's left and right edges the world is collected
+    // while the view shows past them (SetSidesShown), logical pixels.
+    float sideMargin = 0.0f;
+    // Drawn in the margins only, behind anything else of the same depth:
+    // the scene's own tiles continued past its edges.
+    std::vector<ScenePlacement> backdrop;
+};
+
 struct MachineConfig {
     // The original's root: extracted/app. Read-only.
     string gameRoot = PENUMBRA_ORIGINAL_DIR;
@@ -63,6 +80,10 @@ struct MachineConfig {
     vector2 screenSize{1024.0f, 768.0f};
     std::function<vector2(const string& sceneFile)> screenSizeForScene;
     std::uint32_t seed = 5489u;
+    // ENHANCEMENT E1 for the scenes laid out for 1024x768 (render/WideMenus.hpp):
+    // asked at every load, with the file as read. An empty answer is 0.7.12's
+    // scene. See SceneWidening.
+    std::function<SceneWidening(const string& sceneFile, const SceneFile& file)> widenScene;
 };
 
 // What the scripts asked of the window (SetWindowProperties, HideCursor, Exit).
@@ -211,6 +232,13 @@ public:
     const Scene* CurrentScene() const { return m_scene.get(); }
     const MachineConfig& Config() const { return m_config; }
     bool CursorHidden() const { return m_cursorHidden; }
+    // E1 (SceneWidening): whether the view shows past the screen's sides - the
+    // window is wider than the screen - for the frames from the next render on.
+    void SetSidesShown(bool shown) { m_sidesShown = shown; }
+    // The current scene's margin (MachineConfig::widenScene), and what the next
+    // render collects: that margin while the sides are shown, else 0.
+    float SceneSideMargin() const { return m_sceneSideMargin; }
+    float SideMargin() const { return m_sidesShown ? m_sceneSideMargin : 0.0f; }
     // Parsed .ent definitions (entities/<file>), cached by file name; null when
     // the file is missing or malformed.
     const EntityDef* EntityDefinition(const string& file);
@@ -265,6 +293,8 @@ private:
 
     vector2 m_camera{0.0f};
     vector2 m_screenSize{1024.0f, 768.0f};
+    float m_sceneSideMargin = 0.0f;   // E1: SceneWidening::sideMargin of this scene
+    bool m_sidesShown = false;        // E1: SetSidesShown
     bool m_roundUp = true;
     uint m_backgroundColor = 0xFF000000u;
     string m_backgroundImage;

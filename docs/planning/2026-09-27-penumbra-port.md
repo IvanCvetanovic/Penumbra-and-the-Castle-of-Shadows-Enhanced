@@ -32,7 +32,7 @@ in this repository, with the engine improved where the game needs it.
 
 | # | Enhancement | Original |
 |---|---|---|
-| E1 | Widescreen: logical view 768 px tall, width by aspect; menus pillarboxed at 1024x768 | 1024x768 only |
+| E1 | Widescreen: logical view 768 px tall, width by aspect; the menus keep their 1024x768 layout, centred, and in a window wider than 4:3 their scene goes on past the sides instead of bars (Step 25: the scenes' own tiles continued, edge rectangles to the window's edge, up to 4:1); off = the original's 4:3 with bars everywhere | 1024x768 only |
 | E2 | Any window size / fullscreen, rendered at native resolution; fullscreen at the desktop's mode, or at a mode picked from the list while fullscreen (switched as 0.7.12 did, saved as window.fullscreenWidth/Height, Step 23) | 1024x768 or listed video modes |
 | E3 | Modern gamepads (XInput via GLFW) mapped by meaning, for both players | winmm button numbers |
 | E4 | Keyboard second player (presented to the scripts as joystick 1) | P2 needs a joystick |
@@ -733,6 +733,176 @@ a real monitor, so the switch itself is measured only by a live run.
   over the bars is covered by its pure tests and is Ivan's to see by hand.
 Gates: Windows build zero warnings, test_pn_all once - 17 suites, 8087 checks, 0 failures; Linux
 7998; engine ctest 57 of 57 (Linux); Android both ABIs build.
+
+### Step 24 - the thin lines at the pits' edges: textures clamped, as 0.7.12 sampled them (2026-09-29)
+Ivan, after playing the whole game on Windows (a 1920x1200 panel, fullscreen, the widescreen view):
+"these weird lines at places that had holes leading to the bottom. There were some thin lines at the
+edges, I can't explain why they happened at all."
+- **Where** (Linux, lavapipe, 1920x1200 widescreen, fixed-step; the wizard put near the pits with
+  the new `--spawn x,y`): a 1-2 pixel dark line hanging two or three pixels above the top of every
+  ground.png and cliff_left.png quad. Over a pit's edge it reaches out past the rock into the empty
+  air, where it shows most: pvp_lv1 at x 400-455 and 650-700, y 799-800 (frame 240, beside the
+  first pit); level 3 at the checkpoint (`--spawn 4480,2530`, frame 200) along row 864, 10 levels
+  darker than the grey sky it crosses (77 -> 67 at x 908, over the pit). In level 1 (`--spawn
+  650,-800`), thin red lines in the black beside the lit walls, at the transparent edges of
+  half_wall01/02 (opaque on their other side); and the HUD panels' top rows. With E8's smooth motion
+  (`--fixed-step 0.0083333 --smooth on`, the wizard walking) the line changes from frame to frame
+  with the camera's sub-pixel phase. At 1366x768 and 1024x768 (1:1) nothing more than 8 levels
+  apart outside a torch's flame.
+- **Cause.** The engine samples every texture REPEATING (VulkanImage::CreateSampler's default),
+  bilinearly. 0.7.12 sampled CLAMPED: D3D9Video's start calls SetClamp(true)
+  (G:Video/Direct3D9/gs2dD3D9.cpp:1677; :623-643 put D3DTADDRESS_CLAMP on U and V of every stage)
+  and nothing in Ethanon turns it off. It also drew 1:1 with the half-texel alignment
+  (gs2dD3D9Sprite.cpp:581), so its samples landed on texel centres. The port magnifies (1.5625
+  image pixels a texel at 1200 tall, 1.40625 at 1080), so a pixel whose centre lies within about
+  0.8 pixels of a sprite's edge samples up to half a texel outside the image, and repeating, that
+  half is the OPPOSITE edge. ground.png is transparent in its top two rows and opaque along its
+  bottom row, so its top edge drew half of the bottom row: a dark line just above the ground.
+  cliff_left.png's bottom row is wider than its rock's top, so its line stretched out over the pit.
+  **Proven by the switch alone**, same frames: pvp_lv1 25343 pixels change (1269 by more than 8
+  levels; rows 799-800, 1266 each), the level 3 checkpoint 1550 (666; row 864), level 1 10983
+  (1694), and every line segment in the crops is gone; on the level 3 walk under E8, every frame of
+  the camera's move (f297-f330, one in three captured: 151-362 pixels a frame more than 8 levels
+  off, on row 864). No capture of the original shows a pit, so the verdict "not in the original"
+  rests on GS2D's clamp at 1:1, above.
+- **Ruled out**: kPerRowVerticalDepth (no ET_VERTICAL sprite in any level or arena, so nothing is
+  cut into bands there), kFloorSeamFix (collision, not drawing), E8 (the lines are in fixed-step
+  frames, where it is off), and kLightPassAlphaTest, kBakedShadowsOwnLight, E9's live shadows,
+  particles and fog: the clamp switch alone, with all of them as they were, removes every segment.
+- **Fix** (render/TextureCache.cpp kClampToEdge, on): every image TextureCache uploads is sampled
+  clamped to its edges, as 0.7.12 sampled it; off, they repeat as before. **Engine** (opt-in,
+  additive): TextureRegistry::UploadRGBA takes a sampler address mode, repeat by default, so every
+  other caller and game is unchanged; ReplaceRGBA still rebuilds a texture with the defaults, filter
+  and wrap. No engine suite uploads through a device, so none covers the parameter.
+- **Tests** (test_pn_render_textures, EdgesAreClampedAsTheOriginalSampledThem): a CPU model of a
+  Vulkan linear sample at level 0 over the real ground.png and cliff_left.png. Repeating, the
+  pixel on ground.png's top edge reads 127.5 of alpha (half the opaque bottom row), and cliff_left's
+  line lands on columns with no rock near the top; with the cache's mode (TexturesClampToEdge()),
+  neither; at 1:1 the two modes read the same.
+- **At 1:1** (level 1 at 1024x768, level 3 at 1366x768, fixed-step, switch off vs on): not
+  byte-identical, 992 and 936 pixels, 6 and 0 of them more than 8 levels (the torch's flame). The
+  rest lie on the same edges (level 3's row 553 is its ground top), 7 levels at most: most likely
+  lavapipe's level of detail at exactly 1:1 comes out a hair above 0 and mixes in the next mip
+  level, whose edge texels wrapped as well. Not measured on a GPU.
+- **Not fixed**: a cell of a sprite sheet still samples the cell beside it across an inner
+  boundary when magnified. A scan of the 21 multi-cell sheets (texel pairs either side of an inner
+  cell boundary more than 64 levels apart, premultiplied): thumbnails.png 411 of 1536; the
+  STONE03A4x wall sheets 10-46 of 128-512; master_knight 45/2112, LOS-Nac-Normal 34/960, bruxo
+  16/960, princess 10/960, paladin 4/960, ground2 3/3584, half_ground 1/768; cliff_left, crates,
+  Tubo_Bitmap, impy, king, knight, warrior and menu_buttons none. None of it seen in the captures.
+  Clamping per cell needs the fragment shader to hold the coordinate inside the cell's outer texel
+  centres, an engine change of its own. A half-texel inset of the frame's UVs would avoid the engine,
+  but it blurs every sprite at 1:1.
+- **Dev flag** `--spawn x,y`: the wizard put at a scene point the first tick he exists in a level or
+  an arena (PenumbraLayer; in --help).
+Gates: check.bat clean at /W4 (engine TextureRegistry.cpp; game TextureCache.cpp, PenumbraLayer.cpp,
+main.cpp; test_pn_render_textures.cpp); Linux (WSL, GCC) test_pn_all 17 suites, 9605 checks,
+0 failures (render_textures 191; the tree held the MENUS agent's work in progress too). Windows not
+built or run by this step.
+
+### Step 25 - the menus fill a wide window (E1, 2026-09-29)
+Ivan, having played the whole game through on Windows (a 1920x1200 panel): "the starting screen
+still has black bars at the left and right, would there be a way to make it work for wide screen on
+windows? What about very wide screens on android? Apart from that, inside of the game shows the
+correct resolution."
+- **What the four fixed-layout screens hold past their 1024x768** (extracted/app/scenes; their
+  buttons, panels and thumbnails sit at fixed pixels, menu.as, videoModes.as, gameover.as):
+  - menu.esc and arena_select.esc: a floor of lit white_ground.ent tiles (256x256, a normal and a
+    gloss map) laid from x 0 to 2048 (y 0-1280 and 0-1024): right of the screen the original's own
+    art; left of x 0, nothing.
+  - videoModes.esc: a room of four 256-wide columns (wall11/wall10 of STONE03A4x7, face_no_light
+    under arch01, floor03) from x 0 to 1024, half_wall02/01 framing its two ends, the crystal's
+    light at x 772; nothing on either side.
+  - gameover.esc: clouds.ent, a particle system emitted at x -236 (StartPoint -300 from the camera
+    + 64) drifting right about 1300 px, over black with no ambient light: it already spans more
+    than the screen.
+- **Chosen: (a), the world continued, the UI as the original laid it.** The scripts keep their
+  1024x768 screen (GetScreenSize) and everything they draw and hit-test stays where they put it.
+  In a window wider than 4:3 the pillarbox already scaled that screen by the window's height, so
+  the screen stays exactly where it was (the same scale, the same whole-pixel offset: 240 px at
+  1920x1080, 160 at 1920x1200, 480 at 2400x1080, 560 at 2560x1080); only the side bars give way
+  to the world past the screen's edges. Where the files stop, the backdrop continues each scene's
+  own tile rows at their own 256-px step (menu 22 tiles, arena 16, options 40, game over none),
+  far enough for a 4:1 window (1024 logical pixels each side); past 4:1 the bars come back.
+  Considered: (b) a darkened, blurred or mirrored fill needs the finished frame as a texture, which
+  the engine's ScreenOverlay does not offer (an engine change) for a look the scenes' own tiles give
+  exactly; a capture of (a) without the backdrop (out/shots/widemenus/approach/) shows why the
+  backdrop is needed: floor on the right, black on the left, and the options room in a black band.
+  Cropping the top and bottom was ruled out (the logo, Back and the footer sit at the edges).
+- **How** (Eth layer, then render/):
+  - `MachineConfig::widenScene` (render/WideMenus::WidenScene) answers, at each load, a side
+    margin and a backdrop. `Machine::SetSidesShown`, set every tick by the layer while the window
+    is wider than 4:3, makes the render walk the wider rectangle. ONLY WHAT IS DRAWN CHANGES: what
+    the margin brings in grows no depth range, runs no static callback, advances no particle
+    system (advancing draws from the scripts' generator) and does not count toward the reseed
+    after a frame with particles in view; the backdrop lives outside the buckets
+    (`Scene::AddBackdrop`, ids from 1 000 000 000), so no query, collision or callback of the
+    scripts sees it. Exactly 4:3, or widescreen off, is the old code path.
+  - `RenderSnapshot::sideMargin` -> `View::openSides`: `ShownMin/ShownMax` (what is not barred),
+    `ShownLogicalMin/Max`. CameraRig::Bars, InputMapper::PointerOverBars (Step 23's system pointer
+    over the bars follows whatever bars remain) and TouchControls::WindowInsetsToLogical measure
+    from the shown area; InputMapper::WarpCursor clamps to it (the menus warp the cursor every
+    tick, menu.as:239, videoModes.as:61, and a clamp to the 4:3 box pulled a still mouse in the
+    side to the box's edge). WindowToLogical and HudToFraction are untouched.
+  - HUD: a rectangle that meets the screen's left or right edge from inside goes on to the edge of
+    what is shown in that edge's colours - the fades and drawRect (util.as:379-403, the whole
+    screen), showData's panel (menu.as:217, against the right edge). Nothing else is stretched;
+    text and sprites stay at their 1024x768 places.
+  - E16: the touch controls are laid out across the shown area (TouchInput::areaMin/areaMax), so
+    the arena select's and game over's Back button hangs from the window's corner as a level's does.
+    E13's pause is only in play scenes (no change); E20's phone options screen is videoModes.esc
+    and widens with it.
+  - `--pointer x,y`: the scripts' cursor at a window pixel, mapped every tick as the real mouse is
+    (like --cursor, over the scripts' own warps), for captures that click where an item is seen.
+- **The switch**: E1's own row, "Tela larga (widescreen)": on (the default) = widescreen levels and
+  wide menus; off = the original's 4:3 with bars everywhere. Decided per scene load, as the levels'
+  width is, so the options screen's toggle shows on the way back to the menu.
+- **Measured** (Linux, lavapipe, headless; out/shots/widemenus/):
+  - 4:3 identity: HEAD's binary against HEAD plus only this step's files, every fixed-layout screen
+    at 1024x768 in both languages, with the default flags and with --widescreen off, plus the
+    menu at 1920x1080 and the options at 2560x1080 with widescreen off: byte-identical PNGs, 18
+    of 18 (identity/), and again for the final binary (12 of them). HEAD's binary is
+    run-to-run identical. The wide sizes with widescreen off are the old 4:3 with bars, byte for
+    byte.
+  - Every screen at 1920x1200, 1920x1080, 2400x1080 and 2560x1080 in both languages (new/): the
+    menu, the arena select, the options and game over fill the window; the backdrop meets the
+    file's tiles with no seam (column means at the menu's x 0 within the texture's own variation).
+  - Clicks at window pixels (--pointer + --hold LMOUSE, in English, clicks/): at every size the
+    pointer on Credits shows the credits panel, a click on Settings opens the options screen, a
+    click on the options' Back arrow returns to the menu, and a pointer in the side draws
+    cursor.ent and its light there (measured at the pointer's own column: 64, 96, 192, 224 px).
+    The English How to Play and Credits panels fit their 4:3 box at 21:9; no text runs into the
+    sides.
+  - Android (my emulator, Penumbra_API33_x86_64, cold-booted headless with `-skin 2400x1080` on
+    the command line - the AVD untouched - SwiftShader; android/): the main menu fills the 20:9
+    screen (adb screencap), and an adb tap at Settings' window pixel (1062, 627) opened the
+    options screen - E20's phone layout - filling it too. The first boot froze under the Linux
+    captures' load (qemu stopped using CPU) and was killed and booted again; the emulator's own
+    Messages app raised a not-responding dialog over the game (closed through adb). Not
+    measured: Windows (this step built and ran nothing there), a real phone, and where the
+    options screen's picker sits after the finger lifts (seen at the tap's x, higher up).
+- **Tests**: test_pn_render_input (the view at 16:10, 16:9, 20:9 and 21:9 keeps the pillarbox's
+  scale and offset; logical to window and back; every menu.esc button hit at its window pixel at
+  each size and at 1024x768, the sides hit nothing; the warp in a side; PointerOverBars with no bars
+  left, beyond 4:1 and in a narrow window's letterbox), test_pn_render_hud (the edge rectangles;
+  every scene's backdrop from the original's files; the real main menu at 16:9: New Game's button
+  and the panel's title at their 4:3 places plus the 240-px margin, the panel to the window's edge,
+  the same sprites in the same order with the sides barred), test_pn_render_touch (Back in the
+  window's corner at 20:9, a tap on it cancels, a finger in the side is the mouse, a cutout inset
+  from the window's edge), test_pn_runtime (one scene run plain, widened and barred, widened and
+  shown: the same rand() draws, static callbacks and depth range; the shown run's sprites a
+  superset in the same order).
+- **Open, for Ivan**: the options screen's hint "Vale a partir da próxima fase" ("Takes effect from
+  the next level") under the widescreen row is now also true of the menus from the next screen;
+  left as it is, since changing it changes the 4:3 options screen. showData's panel reaching the
+  window's edge (a choice: the alternative is a dark box ending in mid-floor). The half walls that
+  framed the options room now stand inside a longer room.
+Gates: check.bat clean at /W4 on every touched C++ file (eth/Machine, eth/Scene, render/WideMenus,
+CameraRig, HudRenderer, InputMapper, TouchControls, HeaderCheck, PenumbraLayer, main.cpp,
+script/videoModes and the four suites); Linux (WSL, GCC, no warning in game code) test_pn_all 17
+suites, 9605 checks, 0 failures (render_input 821, render_hud 1629, render_touch 3622, runtime
+306; the tree also held Step 24's work in progress). No engine change. Windows not built or run
+by this step.
 
 ### Open
 - **iOS: builds, untested** (Ivan, 2026-09-28: "leave it alone, we only need it to build"). No frame

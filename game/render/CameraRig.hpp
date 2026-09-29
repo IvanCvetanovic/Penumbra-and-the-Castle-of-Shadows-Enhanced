@@ -64,7 +64,9 @@ public:
     // writes the snapshot's background colour into RenderSettings, and returns
     // the frame's View (with imageOrigin from ViewportInfo). `pillarbox` keeps
     // the logical screen's aspect inside the window, centred, with black bars
-    // (Bars) over the rest; otherwise the logical screen is scaled to the
+    // (Bars) over the rest - or, where the snapshot collected the world past
+    // the screen's sides (RenderSnapshot::sideMargin, E1's wide menus), that
+    // world in place of the side bars; otherwise the logical screen is scaled to the
     // window's height and centred across it (the widescreen view, where the two
     // aspects match). Attaches itself if Attach was not called.
     View Update(entt::registry& registry, const Eth::RenderSnapshot& snapshot, bool pillarbox);
@@ -81,7 +83,10 @@ public:
     // The parts of the image outside the logical screen, in ScreenOverlay
     // fractions: left and right full height, then top and bottom between them.
     // Empty when the logical screen covers the image. THE one rule for the
-    // bars: HudRenderer::Build draws exactly these, last, in black.
+    // bars: HudRenderer::Build draws exactly these, last, in black. Under E1's
+    // open sides (View::openSides, a menu in a wide window) the scene shows
+    // past the screen's left and right edges, and only what lies beyond that
+    // (View::ShownMin/ShownMax) is barred.
     static std::vector<Bar> Bars(const View& view);
 
     // Adds Bars(view) to the overlay as opaque black quads. NOT for a layer

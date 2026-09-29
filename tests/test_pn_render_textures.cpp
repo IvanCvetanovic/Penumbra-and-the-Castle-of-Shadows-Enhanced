@@ -681,6 +681,77 @@ void StandingSpritesAreCutByWhatLiesInTheirRows() {
     renderer.Detach(registry);
 }
 
+// What a linear sample at level 0 (a magnified sprite) reads: texel space is
+// uv * size - 0.5, and the four texels around it are wrapped by the address
+// mode (Vulkan's "Texel Coordinate Systems" and "Wrapping Operation"). The
+// alpha only, filtered as the hardware filters the stored texels.
+float SampledAlpha(const DecodedImage& image, float u, float v, bool clampToEdge) {
+    const float x = u * static_cast<float>(image.width) - 0.5f;
+    const float y = v * static_cast<float>(image.height) - 0.5f;
+    const int x0 = static_cast<int>(std::floor(x));
+    const int y0 = static_cast<int>(std::floor(y));
+    const float fx = x - static_cast<float>(x0);
+    const float fy = y - static_cast<float>(y0);
+    const auto wrap = [clampToEdge](int i, int n) { return clampToEdge ? std::clamp(i, 0, n - 1) : ((i % n) + n) % n; };
+    const auto alpha = [&](int i, int j) {
+        return static_cast<float>(At(image, wrap(i, image.width), wrap(j, image.height)).a);
+    };
+    const float top = alpha(x0, y0) * (1.0f - fx) + alpha(x0 + 1, y0) * fx;
+    const float bottom = alpha(x0, y0 + 1) * (1.0f - fx) + alpha(x0 + 1, y0 + 1) * fx;
+    return top * (1.0f - fy) + bottom * fy;
+}
+
+void EdgesAreClampedAsTheOriginalSampledThem() {
+    // Step 24, Ivan's "thin lines at the edges" of the pits. At 1920x1200 a
+    // texel is 1.5625 image pixels, so a sprite's top edge can fall exactly on
+    // a row of pixel centres: those pixels sample v = 0, half a texel above the
+    // image. ground.png's two top rows are transparent and its bottom row
+    // opaque; repeating, that half is the bottom row - a dark line over every
+    // ground top. Clamped (0.7.12's D3DTADDRESS_CLAMP), it is the top row.
+    const bool clamp = TexturesClampToEdge();
+    const DecodedImage ground = DecodeTexture(kRoot + "/entities/ground.png", TextureVariant::Sprite);
+    CHECK(ground.Valid() && ground.width == 256 && ground.height == 256);
+    if (ground.Valid()) {
+        float repeatLine = 0.0f;
+        float drawnLine = 0.0f;
+        float atOneToOne = 0.0f;
+        for (int x = 0; x < ground.width; ++x) {
+            const float u = (static_cast<float>(x) + 0.5f) / static_cast<float>(ground.width);
+            repeatLine = std::max(repeatLine, SampledAlpha(ground, u, 0.0f, false));
+            drawnLine = std::max(drawnLine, SampledAlpha(ground, u, 0.0f, clamp));
+            // 1:1 with whole-pixel positions, as the original drew and as a
+            // 1024x768 window still does: the first row's pixel centre is the
+            // first texel's, and the wrap reads nothing of the far side.
+            const float centre = 0.5f / static_cast<float>(ground.height);
+            atOneToOne = std::max(atOneToOne, std::fabs(SampledAlpha(ground, u, centre, false) -
+                                                        SampledAlpha(ground, u, centre, true)));
+        }
+        CHECK_MSG(repeatLine >= 127.0f, "repeating, the top edge takes half of the opaque bottom row: " +
+                                            std::to_string(repeatLine));
+        CHECK_MSG(!clamp || drawnLine == 0.0f, "no line over ground.png's top edge: " + std::to_string(drawnLine));
+        CHECK_MSG(atOneToOne == 0.0f, "at 1:1 the address mode changes nothing: " + std::to_string(atOneToOne));
+    }
+
+    // cliff_left.png, the rock at a pit's side (cell 0 is its left half):
+    // wider at the bottom than at the top, so the repeated line reached out
+    // over the pit, past the rock it hung above.
+    const DecodedImage cliff = DecodeTexture(kRoot + "/entities/cliff_left.png", TextureVariant::Sprite);
+    CHECK(cliff.Valid() && cliff.width == 256 && cliff.height == 256);
+    if (cliff.Valid()) {
+        int overThePit = 0;
+        int drawn = 0;
+        for (int x = 0; x < cliff.width / 2; ++x) {
+            bool rockNearTop = false;
+            for (int y = 0; y < 8; ++y) rockNearTop = rockNearTop || At(cliff, x, y).a > 0;
+            const float u = (static_cast<float>(x) + 0.5f) / static_cast<float>(cliff.width);
+            if (!rockNearTop && SampledAlpha(cliff, u, 0.0f, false) >= 64.0f) ++overThePit;
+            if (SampledAlpha(cliff, u, 0.0f, clamp) > 0.0f) ++drawn;
+        }
+        CHECK_MSG(overThePit > 0, "repeating, the cliff's line reaches past its rock: " + std::to_string(overThePit));
+        CHECK_MSG(!clamp || drawn == 0, "no line over the cliff's top edge: " + std::to_string(drawn) + " columns");
+    }
+}
+
 } // namespace
 
 int main() {
@@ -695,5 +766,6 @@ int main() {
     StandingSpritesAreCutByWhatLiesInTheirRows();
     Camera();
     Sprites();
+    EdgesAreClampedAsTheOriginalSampledThem();
     return test::summary("test_pn_render_textures", 100);
 }

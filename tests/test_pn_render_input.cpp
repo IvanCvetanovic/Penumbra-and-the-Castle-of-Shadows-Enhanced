@@ -1,26 +1,34 @@
 // The platform side of the port: keys, pads and the keyboard second player
 // mapped onto the Eth InputFrame the scripts read, the latch across frames that
-// run no tick, the settings file, and the audio device with no engine behind it.
+// run no tick, the settings file, the audio device with no engine behind it,
+// and the pointer on E1's wide menus (Step 25: the view's offset, hits, bars).
 // Pure: no window, no GLFW calls, no audio device, no original files.
 
 #include <chrono>
+#include <cmath>
 #include <filesystem>
 #include <fstream>
+#include <iterator>
 #include <string>
+#include <vector>
 
 #include <GLFW/glfw3.h>
 
 #include "TestHarness.hpp"
 
+#include "eth/Snapshot.hpp"
 #include "render/AudioOutEngine.hpp"
+#include "render/CameraRig.hpp"
 #include "render/InputMapper.hpp"
 #include "render/Settings.hpp"
+#include "render/WideMenus.hpp"
 #include "render/WindowMode.hpp"
 
 namespace {
 
 using namespace Penumbra::Eth;
 using Penumbra::Render::AudioOutEngine;
+using Penumbra::Render::CameraRig;
 using Penumbra::Render::ControlAction;
 using Penumbra::Render::ControlSettings;
 using Penumbra::Render::InputMapper;
@@ -825,6 +833,206 @@ void testAudioWithoutEngine() {
     fs::remove(file, ec);
 }
 
+// Step 25 (E1's wide menus): a menu in a wide window. What the view of a
+// 1024x768 menu snapshot is, with the side margin the Machine collects
+// (RenderSnapshot::sideMargin) or without it (4:3, or widescreen off).
+View MenuView(glm::uvec2 window, float sideMargin) {
+    RenderSnapshot snapshot;
+    snapshot.screenSize = vector2(1024.0f, 768.0f);
+    snapshot.sideMargin = sideMargin;
+    return CameraRig::ComputeView(snapshot, window, true);
+}
+
+bool Near(float a, float b, float eps = 0.01f) { return std::fabs(a - b) <= eps; }
+
+// The sizes Step 25 measures: 16:10, 16:9, 20:9, 21:9.
+const glm::uvec2 kWideWindows[] = {{1920u, 1200u}, {1920u, 1080u}, {2400u, 1080u}, {2560u, 1080u}};
+
+void testWideMenuView() {
+    using Penumbra::Render::kFixedLayoutScreen;
+    using Penumbra::Render::kWideMenuMargin;
+    using Penumbra::Render::WiderThan;
+    for (const glm::uvec2 window : kWideWindows) {
+        const std::string size = std::to_string(window.x) + "x" + std::to_string(window.y);
+        const View barred = MenuView(window, 0.0f);
+        const View open = MenuView(window, kWideMenuMargin);
+        // The screen stays exactly where the pillarbox put it: the same scale
+        // (the window's height over 768) and the same whole-pixel offset.
+        CHECK_MSG(open.scale == barred.scale, size);
+        CHECK_MSG(open.viewportMin == barred.viewportMin, size);
+        CHECK_MSG(open.viewportMax == barred.viewportMax, size);
+        CHECK_MSG(Near(open.scale, static_cast<float>(window.y) / 768.0f, 1e-5f), size);
+        const float offset = std::round((static_cast<float>(window.x) - 1024.0f * open.scale) * 0.5f);
+        CHECK_MSG(open.viewportMin == glm::vec2(offset, 0.0f), size);
+        // Only the bars give way: the whole image is shown, nothing barred.
+        CHECK_MSG(barred.openSides == 0.0f && open.openSides == kWideMenuMargin, size);
+        CHECK_MSG(open.ShownMin() == glm::vec2(0.0f), size);
+        CHECK_MSG(open.ShownMax() == glm::vec2(window), size);
+        CHECK_MSG(CameraRig::Bars(open).empty(), size);
+        CHECK_MSG(CameraRig::Bars(barred).size() == 2u, size);
+        CHECK_MSG(barred.ShownMin() == barred.viewportMin && barred.ShownMax() == barred.viewportMax, size);
+        // In logical pixels the shown part runs from -margin to 1024 + margin,
+        // the margin being what an E1 level of this window adds each side.
+        const float margin = offset / open.scale;
+        CHECK_MSG(Near(open.ShownLogicalMin().x, -margin), size);
+        CHECK_MSG(Near(open.ShownLogicalMax().x, 1024.0f + margin), size);
+        CHECK_MSG(open.ShownLogicalMin().y == 0.0f && open.ShownLogicalMax().y == 768.0f, size);
+        const float levelWidth = 768.0f * static_cast<float>(window.x) / static_cast<float>(window.y);
+        CHECK_MSG(Near(margin, (levelWidth - 1024.0f) * 0.5f, 0.5f), size);
+        CHECK_MSG(barred.ShownLogicalMin() == glm::vec2(0.0f) && barred.ShownLogicalMax() == barred.logicalScreen, size);
+        // Logical -> window -> logical, through the pointer's mapping and the
+        // HUD's, anywhere on the image (the sides included).
+        for (const glm::vec2 logical : {glm::vec2(0.0f), glm::vec2(512.0f, 384.0f), glm::vec2(1024.0f, 768.0f),
+                                        glm::vec2(-margin, 100.0f), glm::vec2(1024.0f + margin - 1.0f, 700.0f)}) {
+            const glm::vec2 pixel = open.viewportMin + logical * open.scale;
+            const glm::vec2 back = InputMapper::WindowToLogical(pixel, open);
+            CHECK_MSG(Near(back.x, logical.x) && Near(back.y, logical.y), size);
+            const glm::vec2 fraction = open.HudToFraction(logical) * glm::vec2(window);
+            CHECK_MSG(Near(fraction.x, pixel.x, 0.05f) && Near(fraction.y, pixel.y, 0.05f), size);
+        }
+        CHECK_MSG(WiderThan(window, kFixedLayoutScreen), size);
+    }
+
+    // Exactly 4:3 is not wider: no margin is collected, and a view that had
+    // one would show nothing more (1024x768 is drawn as it always was).
+    CHECK(!WiderThan(glm::uvec2(1024u, 768u), kFixedLayoutScreen));
+    CHECK(!WiderThan(glm::uvec2(800u, 600u), kFixedLayoutScreen));
+    CHECK(WiderThan(glm::uvec2(1025u, 768u), kFixedLayoutScreen));
+    CHECK(!WiderThan(glm::uvec2(1280u, 1024u), kFixedLayoutScreen));
+    CHECK(!WiderThan(glm::uvec2(0u, 0u), kFixedLayoutScreen));
+    const View fourThree = MenuView(glm::uvec2(1024u, 768u), kWideMenuMargin);
+    CHECK(fourThree.ShownMin() == glm::vec2(0.0f) && fourThree.ShownMax() == glm::vec2(1024.0f, 768.0f));
+    CHECK(CameraRig::Bars(fourThree).empty());
+    // Narrower than 4:3 (5:4): still letterboxed, top and bottom.
+    const View tall = MenuView(glm::uvec2(1280u, 1024u), kWideMenuMargin);
+    CHECK_EQ(CameraRig::Bars(tall).size(), std::size_t{2});
+    CHECK(InputMapper::PointerOverBars({640.0f, 10.0f}, tall));
+    CHECK(!InputMapper::PointerOverBars({640.0f, 512.0f}, tall));
+    // Past 4:1 the margin runs out: bars again beyond it (4000x768: the screen
+    // at 1488..2512, shown from 464 to 3536).
+    const View ultra = MenuView(glm::uvec2(4000u, 768u), kWideMenuMargin);
+    CHECK(ultra.ShownMin() == glm::vec2(464.0f, 0.0f));
+    CHECK(ultra.ShownMax() == glm::vec2(3536.0f, 768.0f));
+    CHECK_EQ(CameraRig::Bars(ultra).size(), std::size_t{2});
+    CHECK(InputMapper::PointerOverBars({100.0f, 384.0f}, ultra));
+    CHECK(!InputMapper::PointerOverBars({500.0f, 384.0f}, ultra));
+    CHECK(InputMapper::PointerOverBars({3536.0f, 384.0f}, ultra));
+    CHECK(!InputMapper::PointerOverBars({3535.0f, 384.0f}, ultra));
+
+    // The scenes it applies to.
+    using Penumbra::Render::IsFixedLayoutScene;
+    for (const char* scene : {"scenes/menu.esc", "scenes/arena_select.esc", "scenes/videoModes.esc", "scenes/gameover.esc"}) {
+        CHECK_MSG(IsFixedLayoutScene(scene), scene);
+    }
+    for (const char* scene : {"scenes/level1.esc", "scenes/pvp_lv2.esc", "scenes/checkpoint.esc", "", "empty"}) {
+        CHECK_MSG(!IsFixedLayoutScene(scene), scene);
+    }
+}
+
+// A click where a menu item is drawn hits it at every size: the window pixel
+// the pillarbox formula puts each of menu.esc's buttons at (its collision box,
+// menu.esc: position + <Collision> offset, +-size/2) comes back through the
+// mapper inside that box, and the sides hit nothing.
+void testWideMenuHits() {
+    struct Button {
+        const char* name;
+        glm::vec2 min;
+        glm::vec2 max;
+    };
+    const Button buttons[] = {
+        {"novo_jogo", {231.5f, 200.5f}, {600.5f, 225.5f}},       {"versus", {281.5f, 258.5f}, {650.5f, 283.5f}},
+        {"como_jogar", {196.5f, 314.5f}, {565.5f, 339.5f}},      {"melhores_tempos", {182.5f, 376.5f}, {551.5f, 401.5f}},
+        {"opcoes_de_video", {229.5f, 433.5f}, {598.5f, 458.5f}}, {"creditos", {332.5f, 494.5f}, {701.5f, 519.5f}},
+        {"sair", {449.5f, 558.5f}, {818.5f, 583.5f}},
+    };
+    std::vector<glm::uvec2> windows(std::begin(kWideWindows), std::end(kWideWindows));
+    windows.push_back(glm::uvec2(1024u, 768u));
+    for (const glm::uvec2 window : windows) {
+        const View view = MenuView(window, Penumbra::Render::kWideMenuMargin);
+        // Independently of CameraRig: the 4:3 screen scaled to the height and
+        // centred on a whole pixel.
+        const float scale = static_cast<float>(window.y) / 768.0f;
+        const float left = std::round((static_cast<float>(window.x) - 1024.0f * scale) * 0.5f);
+        for (const Button& button : buttons) {
+            const std::string what = std::string(button.name) + " at " + std::to_string(window.x) + "x" +
+                                     std::to_string(window.y);
+            // Its centre and two pixels inside each corner.
+            const glm::vec2 inset(2.0f / scale);
+            for (const glm::vec2 logical : {(button.min + button.max) * 0.5f, button.min + inset, button.max - inset}) {
+                InputMapper mapper;
+                mapper.SetControls(Defaults());
+                RawDevices raw;
+                raw.mouseWindow = glm::vec2(left, 0.0f) + logical * scale;
+                raw.mouse[0] = true;
+                const InputFrame frame = mapper.BuildTick(raw, view);
+                const bool inside = frame.cursor.x > button.min.x && frame.cursor.x < button.max.x &&
+                                    frame.cursor.y > button.min.y && frame.cursor.y < button.max.y;
+                CHECK_MSG(inside, what);
+                CHECK_MSG(frame.keys[K_LMOUSE], what);
+                CHECK_MSG(!InputMapper::PointerOverBars(raw.mouseWindow, view), what);
+            }
+        }
+        // The sides: left of the screen's 0 and right of its 1024 - on the
+        // image, not over a bar, and on no button.
+        if (left >= 2.0f) {
+            for (const glm::vec2 pixel : {glm::vec2(1.0f, 210.0f), glm::vec2(static_cast<float>(window.x) - 2.0f, 570.0f)}) {
+                InputMapper mapper;
+                RawDevices raw;
+                raw.mouseWindow = pixel;
+                const InputFrame frame = mapper.BuildTick(raw, view);
+                CHECK(frame.cursor.x < 0.0f || frame.cursor.x > 1024.0f);
+                for (const Button& button : buttons) {
+                    CHECK(!(frame.cursor.x > button.min.x && frame.cursor.x < button.max.x &&
+                            frame.cursor.y > button.min.y && frame.cursor.y < button.max.y));
+                }
+                CHECK(!InputMapper::PointerOverBars(pixel, view));
+            }
+        }
+    }
+}
+
+// The menus warp the cursor every tick (menu.as:239, videoModes.as:61): a
+// still mouse in an open side stays where it is, not pulled to the 4:3 box.
+void testWideMenuWarp() {
+    const View open = MenuView(glm::uvec2(1920u, 1080u), Penumbra::Render::kWideMenuMargin);
+    const float margin = open.viewportMin.x / open.scale;   // 240 px = 170.67 logical
+    InputMapper mapper;
+    mapper.SetControls(Defaults());
+    RawDevices raw;
+    raw.mouseWindow = {20.0f, 540.0f};
+    InputFrame frame = mapper.BuildTick(raw, open);
+    const float expected = (20.0f - 240.0f) / open.scale;
+    CHECK(Near(frame.cursor.x, expected));
+    mapper.EndFrame(raw);
+    mapper.WarpCursor(frame.cursorAbsolute + glm::vec2(0.0f), open);   // the script's SetCursorPos(abs + 0)
+    CHECK(Near(mapper.Cursor().x, expected));
+    frame = mapper.BuildTick(raw, open);
+    CHECK(Near(frame.cursor.x, expected));
+    mapper.EndFrame(raw);
+    // A pad pushing past what is shown stops at its edge.
+    mapper.WarpCursor({-5000.0f, 384.0f}, open);
+    CHECK(Near(mapper.Cursor().x, -margin));
+    mapper.WarpCursor({5000.0f, 900.0f}, open);
+    CHECK(Near(mapper.Cursor().x, 1024.0f + margin));
+    CHECK_NEAR(mapper.Cursor().y, 768.0f);
+    // Barred (4:3, widescreen off): the 4:3 box, exactly as before.
+    const View barred = MenuView(glm::uvec2(1920u, 1080u), 0.0f);
+    mapper.WarpCursor({-5000.0f, -5.0f}, barred);
+    CHECK(mapper.Cursor() == glm::vec2(0.0f));
+    mapper.WarpCursor({5000.0f, 5000.0f}, barred);
+    CHECK(mapper.Cursor() == glm::vec2(1024.0f, 768.0f));
+
+    // The system pointer over what remains barred, and nowhere else.
+    CHECK(!InputMapper::PointerOverBars({20.0f, 540.0f}, open));
+    CHECK(InputMapper::PointerOverBars({20.0f, 540.0f}, barred));
+    CHECK(!InputMapper::PointerOverBars({1919.0f, 1079.0f}, open));
+    CHECK(!InputMapper::PointerOverBars({1920.0f, 540.0f}, open));   // off the image
+    View inEditor = open;
+    inEditor.imageOrigin = {300.0f, 40.0f};
+    CHECK(!InputMapper::PointerOverBars({310.0f, 580.0f}, inEditor));
+    CHECK(!InputMapper::PointerOverBars({100.0f, 580.0f}, inEditor));
+}
+
 void runTests() {
     testKeyboardPlayer1();
     testGamepads();
@@ -833,6 +1041,9 @@ void runTests() {
     testKeyboardPlayer2();
     testCursorAndText();
     testPointerOverBars();
+    testWideMenuView();
+    testWideMenuHits();
+    testWideMenuWarp();
     testLatch();
     testMenuMode();
     testKeyNames();

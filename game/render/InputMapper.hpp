@@ -102,12 +102,14 @@ public:
     static glm::vec2 WindowToLogical(const glm::vec2& window, const View& view);
 
     // Whether a pointer at `window` (Input::MousePosition() coordinates) is on
-    // the image but outside the logical screen's box in it: over the bars of a
+    // the image but outside what is shown in it: over the bars of a
     // pillarboxed or letterboxed frame (CameraRig::Bars), where the scripts'
     // cursor sprite is drawn under a bar and the player would have no pointer
-    // at all. Both boxes are half-open - viewportMin is the screen's first
-    // pixel, viewportMax the bar's - and a pointer off the image (an editor's
-    // panels) is not over the bars.
+    // at all. What is shown is the logical screen's box, or wider under E1's
+    // open sides (View::ShownMin/ShownMax), where the cursor sprite is seen.
+    // Both boxes are half-open - the shown box's min is its first pixel, its
+    // max the bar's - and a pointer off the image (an editor's panels) is not
+    // over the bars.
     static bool PointerOverBars(const glm::vec2& window, const View& view);
 
     // Typed codepoints as the WM_CHAR bytes GetLastCharInput read: cp1252,
@@ -151,7 +153,8 @@ public:
 
     // An InputState::TakeCursorRequest, in the same logical pixels the frame
     // reports (cursorAbsolute is the cursor). Clamped to the logical screen,
-    // which the OS cursor the original moved could not leave either.
+    // which the OS cursor the original moved could not leave either - to what
+    // is shown of it under E1's open sides (View::ShownLogicalMin/Max).
     void WarpCursor(const glm::vec2& logical, const View& view);
     glm::vec2 Cursor() const { return m_cursor; }
 

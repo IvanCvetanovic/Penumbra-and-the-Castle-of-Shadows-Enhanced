@@ -14,6 +14,7 @@
 #include <fstream>
 #include <stdexcept>
 #include <system_error>
+#include <utility>
 
 #include "core/Log.hpp"
 #include "eth/ImageInfo.hpp"
@@ -198,6 +199,7 @@ void Machine::DoLoad(const PendingLoad& request) {
     ++m_sceneSerial;
     // ETHEngine::LoadScene (ETHEngine.cpp:823-851).
     m_screenSize = m_config.screenSizeForScene ? m_config.screenSizeForScene(request.file) : m_config.screenSize;
+    m_sceneSideMargin = 0.0f;   // E1: until a file below is widened
 
     // ResetScene, then both resource managers released (:825-827): every
     // sample stops, every sprite is forgotten.
@@ -218,6 +220,13 @@ void Machine::DoLoad(const PendingLoad& request) {
             return;
         }
         m_scene->Populate(*file);
+        // ENHANCEMENT E1 (SceneWidening): before the preLoop, which adds its
+        // own entities with ids the backdrop never takes.
+        if (m_config.widenScene) {
+            const SceneWidening widening = m_config.widenScene(request.file, *file);
+            m_sceneSideMargin = std::max(0.0f, widening.sideMargin);
+            for (const ScenePlacement& placement : widening.backdrop) m_scene->AddBackdrop(placement);
+        }
     }
 
     m_sceneFileName = request.file;
@@ -334,62 +343,95 @@ void Machine::Render() {
         struct Drawn {
             float drawHash;
             std::shared_ptr<Entity> entity;
+            // E1: brought in by the side margin only - drawn, and nothing else.
+            bool margin = false;
         };
         std::vector<Drawn> drawn;
-        for (const Scene::BucketKey& key : scene->VisibleBuckets(m_camera, m_screenSize)) {
+
+        // ENHANCEMENT E1 (SceneWidening): with a side margin the walk covers the
+        // wider rectangle, and the screen's own buckets are told apart. The
+        // same row-major walk, so the screen's buckets keep their order. A wide
+        // rectangle that reached 0.7.12's bucket cap (129, VisibleBuckets)
+        // could have lost some of the screen's own: the screen alone then.
+        const float margin = SideMargin();
+        const vector2 wideCamera = m_camera - vector2(margin, 0.0f);
+        const vector2 wideScreen = m_screenSize + vector2(2.0f * margin, 0.0f);
+        std::vector<Scene::BucketKey> keys = scene->VisibleBuckets(m_camera, m_screenSize);
+        std::set<Scene::BucketKey> screenKeys;
+        if (margin > 0.0f) {
+            std::vector<Scene::BucketKey> wide = scene->VisibleBuckets(wideCamera, wideScreen);
+            if (wide.size() <= 128) {
+                screenKeys.insert(keys.begin(), keys.end());
+                keys = std::move(wide);
+            }
+        }
+        snap.sideMargin = margin;
+        std::vector<std::pair<std::shared_ptr<Entity>, bool>> walk;
+        if (margin > 0.0f) {
+            // The backdrop first: behind whatever else is at its depth.
+            for (const auto& entity : scene->Backdrop()) walk.emplace_back(entity, true);
+        }
+        for (const Scene::BucketKey& key : keys) {
             const Scene::EntityList* bucket = scene->Bucket(key);
             if (bucket == nullptr) continue;
-            for (const auto& entity : *bucket) {
+            const bool marginBucket = !screenKeys.empty() && screenKeys.count(key) == 0;
+            for (const auto& entity : *bucket) walk.emplace_back(entity, marginBucket);
+        }
+        for (const auto& [entity, inMargin] : walk) {
+            // What the margin brought in leaves the depth range alone: the
+            // range is the scene's, and the scripts' next frames read it.
+            if (!inMargin) {
                 maxHeight = std::max(maxHeight, entity->MaxHeight());
                 minHeight = std::min(minHeight, entity->MinHeight());
-                if (entity->IsHidden()) continue;
-
-                const EntityDef& def = entity->Def();
-                if (def.light.active) {
-                    LightDraw light;
-                    light.ownerId = entity->GetID();
-                    light.position = entity->GetPosition() + def.light.position;
-                    light.color = def.light.color;
-                    light.range = def.light.range;
-                    light.isStatic = def.light.isStatic;
-                    light.castShadows = def.light.castShadows;
-                    light.haloBrightness = def.light.haloBrightness;
-                    light.haloSize = def.light.haloSize;
-                    light.haloBitmap = entity->m_haloLoaded ? def.light.haloBitmap : string();
-                    const ParticleManager* slot0 = entity->ParticleSlot(0);
-                    if (slot0 != nullptr && slot0->NumParticles() > 0) {
-                        light.particleRatio = static_cast<float>(slot0->NumActiveParticles()) /
-                                              static_cast<float>(slot0->NumParticles());
-                    }
-                    snap.lights.push_back(light);
-                }
-
-                const float depth = entity->ComputeDepth(maxHeight, minHeight);
-                float drawHash = depth;
-                switch (entity->GetType()) {
-                case ET_HORIZONTAL:
-                    drawHash = depth / 2.0f;
-                    break;
-                case ET_VERTICAL:
-                    drawHash = (0.5f + depth) + (entity->GetPosition().y - m_camera.y);
-                    break;
-                case ET_GROUND_DECAL:
-                case ET_OPAQUE_DECAL:
-                    drawHash = depth / 2.0f + 0.01f;
-                    break;
-                case ET_OVERALL:
-                case ET_LAYERABLE:
-                    drawHash = depth;
-                    break;
-                }
-                drawn.push_back({drawHash, entity});
             }
+            if (entity->IsHidden()) continue;
+
+            const EntityDef& def = entity->Def();
+            if (def.light.active) {
+                LightDraw light;
+                light.ownerId = entity->GetID();
+                light.position = entity->GetPosition() + def.light.position;
+                light.color = def.light.color;
+                light.range = def.light.range;
+                light.isStatic = def.light.isStatic;
+                light.castShadows = def.light.castShadows;
+                light.haloBrightness = def.light.haloBrightness;
+                light.haloSize = def.light.haloSize;
+                light.haloBitmap = entity->m_haloLoaded ? def.light.haloBitmap : string();
+                const ParticleManager* slot0 = entity->ParticleSlot(0);
+                if (slot0 != nullptr && slot0->NumParticles() > 0) {
+                    light.particleRatio = static_cast<float>(slot0->NumActiveParticles()) /
+                                          static_cast<float>(slot0->NumParticles());
+                }
+                snap.lights.push_back(light);
+            }
+
+            const float depth = entity->ComputeDepth(maxHeight, minHeight);
+            float drawHash = depth;
+            switch (entity->GetType()) {
+            case ET_HORIZONTAL:
+                drawHash = depth / 2.0f;
+                break;
+            case ET_VERTICAL:
+                drawHash = (0.5f + depth) + (entity->GetPosition().y - m_camera.y);
+                break;
+            case ET_GROUND_DECAL:
+            case ET_OPAQUE_DECAL:
+                drawHash = depth / 2.0f + 0.01f;
+                break;
+            case ET_OVERALL:
+            case ET_LAYERABLE:
+                drawHash = depth;
+                break;
+            }
+            drawn.push_back({drawHash, entity, inMargin});
         }
         // A multimap on drawHash: equal keys keep their insertion order.
         std::stable_sort(drawn.begin(), drawn.end(),
                          [](const Drawn& a, const Drawn& b) { return a.drawHash < b.drawHash; });
 
-        std::vector<std::shared_ptr<Entity>> withParticles;
+        std::vector<std::pair<std::shared_ptr<Entity>, bool>> withParticles;   // and whether the margin brought it
+        bool particlesInView = false;
         for (const Drawn& item : drawn) {
             const Entity& e = *item.entity;
             const EntityDef& def = e.Def();
@@ -440,28 +482,41 @@ void Machine::Render() {
 
             for (uint t = 0; t < 2 && t < def.particles.size(); ++t) {
                 if (def.particles[t].nParticles > 0) {
-                    withParticles.push_back(item.entity);
+                    withParticles.emplace_back(item.entity, item.margin);
+                    if (!item.margin) particlesInView = true;
                     break;
                 }
             }
-            if (e.IsStatic() && e.m_hasCallback && !e.IsTemporary()) m_staticCallbacks.push_back(item.entity);
+            if (!item.margin && e.IsStatic() && e.m_hasCallback && !e.IsTemporary()) {
+                m_staticCallbacks.push_back(item.entity);
+            }
         }
 
         // c. RenderParticleList (ETHScene.cpp:1091-1132): a system off screen
         // advances only if it is finite, one on screen only if it is endless -
         // so a finite system of a visible static entity outside the every-frame
         // list stands still, as it did.
-        for (const auto& entity : withParticles) {
+        // E1: a system is also drawn where the side margin shows it, but only
+        // the screen decides what advances, and what the margin brought in never
+        // does: advancing draws from the scripts' generator. (The every-frame
+        // list's, the menu's cursor among them, advanced in a. already.)
+        for (const auto& [entity, inMargin] : withParticles) {
             const EntityDef& def = entity->Def();
             for (uint t = 0; t < 2 && t < def.particles.size(); ++t) {
                 const ParticleSystemDef& system = def.particles[t];
                 if (system.nParticles <= 0) continue;
                 const vector3 emitter = entity->GetPosition() + system.startPoint;
-                if (!IsSphereInScreen(emitter, system.boundingSphere, m_camera, m_screenSize)) {
-                    if (system.repeat > 0) UpdateParticles(*entity, t);
-                    continue;
+                const bool onScreen = IsSphereInScreen(emitter, system.boundingSphere, m_camera, m_screenSize);
+                if (!inMargin) {
+                    if (!onScreen) {
+                        if (system.repeat > 0) UpdateParticles(*entity, t);
+                    } else if (system.repeat <= 0) {
+                        UpdateParticles(*entity, t);
+                    }
                 }
-                if (system.repeat <= 0) UpdateParticles(*entity, t);
+                const bool shown =
+                    onScreen || (margin > 0.0f && IsSphereInScreen(emitter, system.boundingSphere, wideCamera, wideScreen));
+                if (!shown) continue;
                 if (const ParticleManager* manager = entity->ParticleSlot(t)) {
                     const std::size_t first = snap.particles.size();
                     manager->CollectDraws(entity->GetID(), props.ambient, frameMin, frameMax, entity->GetType(),
@@ -476,7 +531,8 @@ void Machine::Render() {
         }
         // gsSeed(elapsed ms) after any frame that had particle entities in view
         // (ETHScene.cpp:1129-1130): the scripts' rand() is reseeded from time.
-        if (!withParticles.empty()) m_rng.Seed(m_timeMs);
+        // In view of the screen, not of the margin (E1).
+        if (particlesInView) m_rng.Seed(m_timeMs);
 
         // RenderScene keeps the grown range for the next frame (:640-641).
         scene->SetHeightRange(minHeight, maxHeight);

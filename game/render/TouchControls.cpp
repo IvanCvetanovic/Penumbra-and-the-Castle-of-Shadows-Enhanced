@@ -398,19 +398,29 @@ TouchInsets TouchControls::WindowInsetsToLogical(const TouchInsets& windowPixels
     if (!(view.scale > 0.0f)) return out;
     const glm::vec2 image(view.windowPixels);
     // What the bars already keep clear is not asked of the controls again.
-    out.left = std::max(0.0f, windowPixels.left - view.viewportMin.x) / view.scale;
-    out.top = std::max(0.0f, windowPixels.top - view.viewportMin.y) / view.scale;
-    out.right = std::max(0.0f, windowPixels.right - (image.x - view.viewportMax.x)) / view.scale;
-    out.bottom = std::max(0.0f, windowPixels.bottom - (image.y - view.viewportMax.y)) / view.scale;
+    // The bars are what is not shown: under E1's open sides, less than the
+    // pillarbox's.
+    const glm::vec2 shownMin = view.ShownMin();
+    const glm::vec2 shownMax = view.ShownMax();
+    out.left = std::max(0.0f, windowPixels.left - shownMin.x) / view.scale;
+    out.top = std::max(0.0f, windowPixels.top - shownMin.y) / view.scale;
+    out.right = std::max(0.0f, windowPixels.right - (image.x - shownMax.x)) / view.scale;
+    out.bottom = std::max(0.0f, windowPixels.bottom - (image.y - shownMax.y)) / view.scale;
     return out;
 }
 
 TouchLayout TouchControls::ComputeLayout(const TouchManifest& manifest, const glm::vec2& screen,
                                          const TouchInsets& safe) {
+    return ComputeLayout(manifest, glm::vec2(0.0f), screen, safe);
+}
+
+TouchLayout TouchControls::ComputeLayout(const TouchManifest& manifest, const glm::vec2& areaMin,
+                                         const glm::vec2& areaMax, const TouchInsets& safe) {
     TouchLayout layout;
     const float scale = std::clamp(manifest.scale, kMinScale, kMaxScale);
-    const glm::vec2 lo(std::max(0.0f, safe.left), std::max(0.0f, safe.top));
-    const glm::vec2 hi = glm::max(lo, screen - glm::vec2(std::max(0.0f, safe.right), std::max(0.0f, safe.bottom)));
+    const glm::vec2 lo = areaMin + glm::vec2(std::max(0.0f, safe.left), std::max(0.0f, safe.top));
+    const glm::vec2 hi =
+        glm::max(lo, areaMax - glm::vec2(std::max(0.0f, safe.right), std::max(0.0f, safe.bottom)));
     for (int i = 0; i < kTouchControlCount; ++i) {
         const auto index = static_cast<std::size_t>(i);
         const TouchControlSpec& spec = manifest.controls[index];
@@ -534,7 +544,10 @@ void TouchControls::startCombo(TouchCombo combo, TouchFacing facing) {
 TouchStep TouchControls::Update(const TouchInput& input) {
     m_scene = input.scene;
     m_corner = input.corner;
-    m_layout = ComputeLayout(m_manifest, input.screen, input.safeArea);
+    // E1's wide menus lay the controls out across what is shown.
+    const bool area = input.areaMax.x > input.areaMin.x && input.areaMax.y > input.areaMin.y;
+    m_layout = area ? ComputeLayout(m_manifest, input.areaMin, input.areaMax, input.safeArea)
+                    : ComputeLayout(m_manifest, input.screen, input.safeArea);
     const bool play = m_scene == TouchScene::Play;
     const auto show = [this](TouchControl control, bool shown) {
         m_visible[static_cast<std::size_t>(control)] = shown && m_manifest[control].enabled;

@@ -52,7 +52,8 @@ struct InputFrame;
 //    lights and halos, particles, then the HUD through the ScreenOverlay.
 //  - The world is seen through a logical screen 768 pixels tall (the
 //    original's height) and as wide as the window's aspect (enhancement E1);
-//    the menus, laid out for 1024x768, keep that size and are pillarboxed.
+//    the menus, laid out for 1024x768, keep that size, centred, and in a wide
+//    window the world goes on past their sides (render/WideMenus.hpp).
 //  - Settings (render/Settings.hpp) persist in the user directory; the
 //    original's own options switches are seeded from them.
 //  - The window follows the scripts (E2): SetWindowProperties's windowed flag
@@ -109,6 +110,15 @@ public:
         // for headless captures of the mouse-driven menu (the live OS pointer
         // otherwise decides which panel a capture shows).
         std::optional<glm::vec2> devCursor;
+        // --pointer x,y: the scripts' cursor at a WINDOW pixel, mapped every
+        // tick as the real mouse is (the view's offset and scale), for captures
+        // that check a click lands where it is seen at any window size. Like
+        // --cursor, it overrides the scripts' own warps. Dev-only.
+        std::optional<glm::vec2> devPointer;
+        // --spawn x,y: the wizard put at a scene point (Ethanon pixels) the
+        // first tick he exists, for captures of places far from a level's
+        // start (Step 24's pit edges). Dev-only, never saved.
+        std::optional<glm::vec2> devSpawn;
     };
 
     explicit PenumbraLayer(Options options);
@@ -189,6 +199,7 @@ private:
     bool m_pillarbox = true;
     unsigned m_ticks = 0;
     bool m_devStarted = false;
+    bool m_devSpawned = false;
     std::size_t m_tourIndex = 0;
     unsigned m_tourSince = 0;
     // The last windowed/fullscreen state asked of the engine. Not the Machine's

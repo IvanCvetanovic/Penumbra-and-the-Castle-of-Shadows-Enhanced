@@ -1,6 +1,8 @@
 #include "render/HudRenderer.hpp"
 
+#include <algorithm>
 #include <array>
+#include <cmath>
 #include <cstdint>
 #include <cstdio>
 #include <utility>
@@ -192,6 +194,46 @@ std::string HudRenderer::gradientTexture(const Eth::HudCmd& cmd) {
 }
 
 void HudRenderer::addRectangle(const Eth::HudCmd& cmd, const View& view, std::vector<Quad>& out) {
+    addRectangleQuads(cmd, view, out);
+    if (!(view.openSides > 0.0f) || cmd.size.x == 0.0f || cmd.size.y == 0.0f) return;
+
+    // E1's open sides: a rectangle that meets the logical screen's left or
+    // right edge - a fade (fadeIn/fadeOut, util.as:379-403), drawRect's black,
+    // showData's panel (menu.as:217) - goes on to the edge of what is shown,
+    // in the colours of the edge it meets, as if that edge were clamped.
+    // Otherwise a fade would darken the 4:3 box and leave the sides lit, and
+    // the panel would stop in mid-floor. Nothing else is stretched.
+    constexpr float kEdge = 0.5f;   // showData's right edge is 1024 - 0.382 x 1024 + 0.382 x 1024, in floats
+    const float left = std::min(cmd.pos.x, cmd.pos.x + cmd.size.x);
+    const float right = std::max(cmd.pos.x, cmd.pos.x + cmd.size.x);
+    const float top = std::min(cmd.pos.y, cmd.pos.y + cmd.size.y);
+    const float height = std::abs(cmd.size.y);
+    // The corners' colours as the rectangle has them on screen, whichever
+    // way its size runs: c0 top-left, c1 top-right, c2 bottom-left, c3 bottom-right.
+    const bool flipX = cmd.size.x < 0.0f;
+    const bool flipY = cmd.size.y < 0.0f;
+    const auto corner = [&cmd, flipX, flipY](bool rightSide, bool bottom) {
+        const bool r = rightSide != flipX;
+        const bool b = bottom != flipY;
+        return b ? (r ? cmd.color3 : cmd.color2) : (r ? cmd.color1 : cmd.color);
+    };
+    const auto strip = [&](float from, float to, bool rightSide) {
+        if (!(to - from > 0.0f)) return;
+        Eth::HudCmd edge = cmd;
+        edge.pos = {from, top};
+        edge.size = {to - from, height};
+        edge.color = edge.color1 = corner(rightSide, false);
+        edge.color2 = edge.color3 = corner(rightSide, true);
+        addRectangleQuads(edge, view, out);
+    };
+    const glm::vec2 shownMin = view.ShownLogicalMin();
+    const glm::vec2 shownMax = view.ShownLogicalMax();
+    // It must reach the edge from inside the screen, not lie wholly past it.
+    if (left <= kEdge && right > 0.0f) strip(shownMin.x, left, false);
+    if (right >= view.logicalScreen.x - kEdge && left < view.logicalScreen.x) strip(right, shownMax.x, true);
+}
+
+void HudRenderer::addRectangleQuads(const Eth::HudCmd& cmd, const View& view, std::vector<Quad>& out) {
     const Eth::uint c[4] = {cmd.color, cmd.color1, cmd.color2, cmd.color3};
     if (((c[0] | c[1] | c[2] | c[3]) >> 24) == 0) return;   // all four corners transparent
     if (cmd.size.x == 0.0f || cmd.size.y == 0.0f) return;

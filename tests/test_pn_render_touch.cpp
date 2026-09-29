@@ -1189,6 +1189,89 @@ void CheckArrowsInSectors(const TouchManifest& manifest, const std::string& name
     }
 }
 
+// Step 25 (E1's wide menus): the arena select and game over in a 20:9 phone's
+// 2400x1080, the 4:3 screen centred with the world past its sides. Their Back
+// button hangs from the window's corner, as a level's does - not from the 4:3
+// box's - and a finger anywhere else, the sides included, is the mouse there.
+void testWideMenuCorner() {
+    View open;   // what CameraRig::ComputeView makes of a 1024x768 menu with its side margin
+    open.logicalScreen = kFourThree;
+    open.windowPixels = glm::uvec2(2400, 1080);
+    open.scale = 1080.0f / 768.0f;
+    open.viewportMin = glm::vec2(480.0f, 0.0f);   // (2400 - 1440) / 2
+    open.viewportMax = glm::vec2(1920.0f, 1080.0f);
+    open.openSides = 1024.0f;
+    const float margin = 480.0f / open.scale;   // 341.33 logical
+    const glm::vec2 areaMin = open.ShownLogicalMin();
+    const glm::vec2 areaMax = open.ShownLogicalMax();
+    CHECK_NEAR(areaMin.x, -margin);
+    CHECK_NEAR(areaMax.x, 1024.0f + margin);
+
+    // A level in the same window (E1: 768 x 20/9 wide, the image is the window).
+    const glm::vec2 levelScreen(2400.0f * 768.0f / 1080.0f, 768.0f);
+    const TouchManifest manifest = TouchControls::DefaultManifest();
+    const TouchLayout level = TouchControls::ComputeLayout(manifest, levelScreen, TouchInsets{});
+    const TouchLayout wide = TouchControls::ComputeLayout(manifest, areaMin, areaMax, TouchInsets{});
+    // Every control the same distance from the window's edges as in the level.
+    for (int i = 0; i < kTouchControlCount; ++i) {
+        const TouchControl control = static_cast<TouchControl>(i);
+        const glm::vec2 shifted = wide[control].min - areaMin;
+        CHECK_MSG(std::fabs(shifted.x - level[control].min.x) < 1e-3f && std::fabs(shifted.y - level[control].min.y) < 1e-3f,
+                  TouchControls::ControlId(control));
+        CHECK_MSG(wide[control].Size() == level[control].Size(), TouchControls::ControlId(control));
+    }
+    // Back is past the 4:3 box's right edge, in the window's top-right corner.
+    CHECK(wide[TouchControl::Back].min.x > 1024.0f);
+    CHECK(wide[TouchControl::Back].max.x <= areaMax.x + 1e-3f);
+
+    // Through Update, as the layer hands it over: the corner drawn there, and
+    // a tap on it cancels.
+    TouchControls touch;
+    touch.SetImageRoot(PENUMBRA_DATA_DIR);
+    TouchInput input = Menu({}, TouchCorner::Back);
+    input.areaMin = areaMin;
+    input.areaMax = areaMax;
+    touch.Update(input);
+    CHECK(touch.Visible(TouchControl::Back));
+    CHECK(touch.Layout()[TouchControl::Back].min == wide[TouchControl::Back].min);
+    const glm::vec2 back = wide[TouchControl::Back].Centre();
+    input.contacts = {Finger(1, back)};
+    TouchStep step = touch.Update(input);
+    CHECK(step.Held(TouchAction::Cancel));
+    CHECK(!step.pointer);
+    CHECK(FrameOf(step).keys[K_ESC]);
+    input.contacts = {Finger(1, back, false)};
+    touch.Update(input);
+    // A finger in the left side, past the 4:3 box: the mouse, at that point.
+    input.contacts = {Finger(2, glm::vec2(-200.0f, 400.0f))};
+    step = touch.Update(input);
+    CHECK(step.pointer);
+    CHECK(step.pointerPos == glm::vec2(-200.0f, 400.0f));
+    CHECK(!step.Held(TouchAction::Cancel));
+    input.contacts = {Finger(2, glm::vec2(-200.0f, 400.0f), false)};
+    touch.Update(input);
+    // No area given (a level, a barred menu): the logical screen, as before.
+    TouchControls plain;
+    plain.Update(Menu({}, TouchCorner::Back));
+    CHECK(plain.Layout()[TouchControl::Back].min == Default()[TouchControl::Back].min);
+
+    // A phone's cutout: measured from the window's edges, which the open sides
+    // reach - no bar keeps it clear any more.
+    TouchInsets logical = TouchControls::WindowInsetsToLogical({120.0f, 0.0f, 120.0f, 45.0f}, open);
+    CHECK_NEAR(logical.left, 120.0f / open.scale);
+    CHECK_NEAR(logical.right, 120.0f / open.scale);
+    CHECK_NEAR(logical.bottom, 45.0f / open.scale);
+    const TouchLayout notched = TouchControls::ComputeLayout(manifest, areaMin, areaMax, logical);
+    CHECK(notched[TouchControl::Back].max.x <= areaMax.x - logical.right + 1e-3f);
+    CHECK(std::fabs(notched[TouchControl::Back].max.x - (wide[TouchControl::Back].max.x - logical.right)) < 1e-3f);
+    // Barred (4:3 or widescreen off): the bars keep the cutout clear, as before.
+    View barred = open;
+    barred.openSides = 0.0f;
+    logical = TouchControls::WindowInsetsToLogical({120.0f, 0.0f, 120.0f, 45.0f}, barred);
+    CHECK_NEAR(logical.left, 0.0f);
+    CHECK_NEAR(logical.right, 0.0f);
+}
+
 void testManifest() {
     const fs::path dataDir = PENUMBRA_DATA_DIR;
     const fs::path file = ShippedManifest();
@@ -1983,6 +2066,7 @@ void runTests() {
     testSceneChanges();
     testLatch();
     testLayout();
+    testWideMenuCorner();
     testManifest();
     testSetting();
     testComboTimelines();

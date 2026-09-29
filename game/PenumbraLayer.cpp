@@ -18,6 +18,7 @@
 #include "eth/Paths.hpp"
 #include "platform/SafeArea.hpp"
 #include "render/DrawOrder.hpp"
+#include "render/WideMenus.hpp"
 #include "render/WindowMode.hpp"
 
 namespace Penumbra {
@@ -26,13 +27,9 @@ namespace {
 
 // The scenes laid out for the original's 1024x768: their buttons, panels and
 // thumbnails sit at fixed pixels (menu.as, videoModes.as, gameover.as), so
-// they keep that screen and are pillarboxed rather than widened.
-bool IsFixedLayoutScene(const std::string& sceneFile) {
-    for (const char* name : {"menu.esc", "arena_select.esc", "videoModes.esc", "gameover.esc"}) {
-        if (sceneFile.find(name) != std::string::npos) return true;
-    }
-    return false;
-}
+// they keep that screen, centred; in a wide window the world goes on past its
+// sides instead of bars (E1, render/WideMenus.hpp).
+using Render::IsFixedLayoutScene;
 
 // ETHShaderManager's m_fakeEyeHeight (ETHShaderManager.cpp:55).
 constexpr float kFakeEyeHeight = 768.0f;
@@ -92,6 +89,10 @@ void PenumbraLayer::OnAttach(entt::registry& registry) {
     config.userRoot = m_options.userDir.string();
     config.screenSize = LogicalScreenFor("scenes/menu.esc");
     config.screenSizeForScene = [this](const std::string& scene) { return LogicalScreenFor(scene); };
+    // E1 for the menus: as the levels' width, decided at each load.
+    config.widenScene = [this](const std::string& scene, const Eth::SceneFile& file) {
+        return Widescreen() ? Render::WidenScene(scene, file) : Eth::SceneWidening{};
+    };
     m_machine = std::make_unique<Eth::Machine>(config);
 
     m_audio.Attach(registry);
@@ -231,6 +232,11 @@ void PenumbraLayer::ApplyTouch(Eth::InputFrame& frame) {
     Render::TouchInput input;
     input.contacts = TouchContacts();
     input.screen = m_machine->GetScreenSize();
+    // E1's wide menus: laid out across what is shown, into the window's corners.
+    if (m_view.openSides > 0.0f) {
+        input.areaMin = m_view.ShownLogicalMin();
+        input.areaMax = m_view.ShownLogicalMax();
+    }
     // The window's safe area (a notch, rounded corners, a bar that shows), in
     // window pixels from the platform - zero on the desktop - brought into the
     // logical screen the controls are laid out in.
@@ -436,6 +442,10 @@ void PenumbraLayer::OnFixedUpdate(entt::registry& registry, float fixedDelta) {
     Eth::InputFrame frame = m_input.BuildTick(m_view);
     ApplyDevHolds(frame);
     if (m_options.devCursor) frame.cursor = frame.cursorAbsolute = *m_options.devCursor;
+    // --pointer: a window pixel, through the real mouse's mapping, every tick.
+    if (m_options.devPointer) {
+        frame.cursor = frame.cursorAbsolute = Render::InputMapper::WindowToLogical(*m_options.devPointer, m_view);
+    }
     ++m_ticksThisFrame;
     // E16: the fingers press player 1's keys, or click in a menu, before
     // anything reads the frame - the pause included, which a finger opens
@@ -474,7 +484,20 @@ void PenumbraLayer::OnFixedUpdate(entt::registry& registry, float fixedDelta) {
         // E8: where the outgoing tick drew everything, before Frame rebuilds the
         // snapshot in place - the pose the frames until the next tick blend from.
         m_interp.BeginTick(m_machine->Snapshot());
+        // E1: a menu's world past its sides is collected while the window is
+        // wider than the 1024x768 it is laid out on (none for a level).
+        m_machine->SetSidesShown(Render::WiderThan(m_options.windowPixels, Render::kFixedLayoutScreen));
         m_machine->Frame(frame);   // steps the key and button state machines itself
+        // --spawn: once, the first tick the wizard exists in a level or arena;
+        // the camera follows him on the next tick as it follows any move.
+        if (m_options.devSpawn && !m_devSpawned && InPlayScene()) {
+            if (Eth::ETHEntity wizard = Eth::SeekEntity("bruxo.ent"); wizard != nullptr) {
+                wizard->SetPositionXY(Eth::vector2(m_options.devSpawn->x, m_options.devSpawn->y));
+                m_devSpawned = true;
+                SUPERSONIC_LOG_INFO("Penumbra") << "dev spawn: the wizard at " << m_options.devSpawn->x << ","
+                                                << m_options.devSpawn->y << " | tick " << m_ticks << std::endl;
+            }
+        }
     }
     ++m_ticks;   // engine ticks, paused or not: --hold spans stay where they were put
 

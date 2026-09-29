@@ -146,7 +146,8 @@ void screenModesLoop()
     // (y 753); x 520 on is free at these y.                                     // E10
     g_keyboardP2.put(vector2(255, origin.y+324), "Arial Narrow", fontSize, 256);   // E10: y 424-474
     g_widescreen.put(vector2(255, origin.y+394), "Arial Narrow", fontSize, 256);   // E10: y 494-544
-    // The menus stay 4:3 (pillarboxed), so the view shows only in a level.     // E10
+    // The view applies from the next scene: the next level, and the menus      // E10
+    // (render/WideMenus.hpp), whose world goes on past their sides.            // E10
     shadowText(vector2(520, origin.y+411), "Vale a partir da pr\xF3xima fase", "Arial Narrow", 15.0f, 150, 203,203,228);   // E10
     g_language.put(vector2(255, origin.y+464), "Arial Narrow", fontSize, 256);     // E10: y 564-614
     g_musicVolume.put(vector2(255, origin.y+534), "Arial Narrow", fontSize, 180);  // E10: y 634-659

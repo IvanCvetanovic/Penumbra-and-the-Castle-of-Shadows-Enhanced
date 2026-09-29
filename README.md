@@ -206,7 +206,7 @@ Each enhancement is listed with what the original did. The full record is
 
 | # | Enhancement | The original |
 |---|---|---|
-| E1 | Widescreen: the view is 768 logical pixels tall and as wide as the window. The menus stay 1024x768, pillarboxed; over the bars the system pointer shows, since the game's own cursor cannot be seen there. | 1024x768 only |
+| E1 | Widescreen: the view is 768 logical pixels tall and as wide as the window. The menus, the options, the arena select and game over keep the original's 1024x768 layout, centred; in a wider window (a 16:10 or 16:9 monitor, a 20:9 or 21:9 phone, up to 4:1) their scene goes on past the sides instead of black bars - the floor and walls continued with the scenes' own tiles, a fade or the menu's panel against the edge reaching the window's edge - and the pointer and a tap reach it. Off, everything is the original's 4:3 with bars; over the bars the system pointer shows, since the game's own cursor cannot be seen there. | 1024x768 only |
 | E2 | Any window size, and a real fullscreen at the monitor's resolution, drawn at native resolution. Alt+Enter and the options screen switch between them. On the options screen a video mode picked in a window sizes the window; picked in fullscreen it switches the display to that mode, as the original did, and is remembered (`fullscreenWidth`/`fullscreenHeight`) for Alt+Enter and the next launch. The desktop's own size is always in the list and switches back. | 1024x768 or one of the listed video modes |
 | E3 | Modern gamepads, mapped by meaning, for both players | Button numbers of the pad's own winmm driver |
 | E4 | A keyboard second player | Player 2 needed a joystick |

@@ -4,14 +4,22 @@
 // strings through the pattern rules, the control hints' touch wording (E16:
 // every text that names a key has it, in both languages, and fits where it is
 // drawn; with touch off not a byte changes), FontAtlas's layout of a two-line
-// cp1252 string with an accent (when the system has the fonts), and the quads
-// HudRenderer builds on a bare registry.
+// cp1252 string with an accent (when the system has the fonts), the quads
+// HudRenderer builds on a bare registry, and E1's wide menus (Step 25): the
+// rectangles that go on past the screen's sides, the backdrop each fixed-layout
+// scene gets, and the real main menu in a 16:9 window.
+// Script.hpp first: an engine header that reaches <windows.h> would turn the
+// script API's DrawText into DrawTextA.
+#include "script/Script.hpp"
+
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
+#include <map>
+#include <optional>
 #include <set>
 #include <string>
 #include <vector>
@@ -19,12 +27,16 @@
 #include <entt/entt.hpp>
 
 #include "TestHarness.hpp"
+#include "eth/Defs.hpp"
+#include "eth/Machine.hpp"
 #include "eth/Snapshot.hpp"
+#include "render/CameraRig.hpp"
 #include "render/FontAtlas.hpp"
 #include "render/HudRenderer.hpp"
 #include "render/Localization.hpp"
 #include "render/TextureCache.hpp"
 #include "render/View.hpp"
+#include "render/WideMenus.hpp"
 
 using namespace Penumbra;
 using Render::Language;
@@ -791,6 +803,273 @@ void TestHudRenderer() {
     }
 }
 
+// Step 25 (E1's wide menus): a 1024x768 menu's view in a 1920x1080 window,
+// barred (sideMargin 0) or open.
+Render::View MenuView(float sideMargin, glm::uvec2 window = glm::uvec2(1920u, 1080u)) {
+    Eth::RenderSnapshot snapshot;
+    snapshot.screenSize = Eth::vector2(1024.0f, 768.0f);
+    snapshot.sideMargin = sideMargin;
+    return Render::CameraRig::ComputeView(snapshot, window, true);
+}
+
+bool Near(float a, float b, float eps = 1e-4f) { return std::fabs(a - b) <= eps; }
+
+Eth::HudCmd Rect(glm::vec2 pos, glm::vec2 size, Eth::uint top, Eth::uint bottom) {
+    Eth::HudCmd rect;
+    rect.kind = Eth::HudCmd::Kind::Rectangle;
+    rect.pos = pos;
+    rect.size = size;
+    rect.color = rect.color1 = top;
+    rect.color2 = rect.color3 = bottom;
+    return rect;
+}
+
+void TestWideMenuHud() {
+    entt::registry registry;
+    Render::TextureCache textures(kApp);
+    Render::FontAtlas fonts;
+    Render::Localization loc;
+    loc.Load();
+    Render::HudRenderer hud;
+    hud.Attach(registry, textures, fonts, loc);
+    const Render::View open = MenuView(Render::kWideMenuMargin);
+    const Render::View barred = MenuView(0.0f);
+    const float left = 240.0f / 1920.0f;    // the 4:3 box in the window, as fractions
+    const float right = 1680.0f / 1920.0f;
+
+    // A fade (fadeIn/fadeOut, drawRect: the whole screen, util.as:379-403)
+    // covers the whole window: the box, then the left and right sides in its
+    // colour. No bars.
+    Eth::RenderSnapshot snapshot;
+    snapshot.hud.push_back(Rect({0.0f, 0.0f}, {1024.0f, 768.0f}, 0x80000000u, 0x80000000u));
+    std::vector<Supersonic::ScreenOverlay::Quad> quads;
+    hud.Build(snapshot, open, quads);
+    CHECK_EQ(quads.size(), std::size_t{3});
+    if (quads.size() == 3) {
+        CHECK(Near(quads[0].min.x, left) && Near(quads[0].max.x, right));
+        CHECK(Near(quads[1].min.x, 0.0f) && Near(quads[1].max.x, left));
+        CHECK(Near(quads[2].min.x, right) && Near(quads[2].max.x, 1.0f));
+        for (const auto& quad : quads) {
+            CHECK_NEAR(quad.color.a, 128.0f / 255.0f);
+            CHECK(Near(quad.min.y, 0.0f) && Near(quad.max.y, 1.0f));
+        }
+    }
+    // Barred, as before: the box and two black bars.
+    quads.clear();
+    hud.Build(snapshot, barred, quads);
+    CHECK_EQ(quads.size(), std::size_t{3});
+    if (quads.size() == 3) CHECK_NEAR(quads[2].color.a, 1.0f);
+
+    // showData's panel (menu.as:217-224): against the right edge, a vertical
+    // gradient, in floats as the script makes it. It goes on to the window's
+    // right edge in the same gradient; nothing is added on its left.
+    const glm::vec2 panelSize(1024.0f * (1.0f - 0.618f), 768.0f);
+    const glm::vec2 panelPos(1024.0f - panelSize.x, 0.0f);
+    snapshot.hud.clear();
+    snapshot.hud.push_back(Rect(panelPos, panelSize, 0xBE000000u, 0x37000000u));
+    quads.clear();
+    hud.Build(snapshot, open, quads);
+    // No TextureRegistry on a bare registry: 48 strips for the panel, 48 for its continuation.
+    CHECK_EQ(quads.size(), std::size_t{96});
+    if (quads.size() == 96) {
+        const float panelLeft = (240.0f + panelPos.x * 1080.0f / 768.0f) / 1920.0f;
+        for (std::size_t i = 0; i < 48; ++i) {
+            CHECK(Near(quads[i].min.x, panelLeft, 1e-3f) && Near(quads[i].max.x, right, 1e-3f));
+            CHECK(Near(quads[48 + i].min.x, right, 1e-3f) && Near(quads[48 + i].max.x, 1.0f));
+            // Row for row, the continuation is the panel's colour.
+            CHECK_NEAR(quads[48 + i].color.a, quads[i].color.a);
+            CHECK(Near(quads[48 + i].min.y, quads[i].min.y) && Near(quads[48 + i].max.y, quads[i].max.y));
+        }
+        CHECK(quads[48].color.a > quads[95].color.a);   // darkest at the top
+    }
+
+    // A rectangle that meets no edge, or lies wholly past one, is drawn as it
+    // is; so is one with no width.
+    snapshot.hud.clear();
+    snapshot.hud.push_back(Rect({100.0f, 100.0f}, {200.0f, 200.0f}, 0xFF102030u, 0xFF102030u));
+    snapshot.hud.push_back(Rect({-300.0f, 100.0f}, {200.0f, 200.0f}, 0xFF102030u, 0xFF102030u));
+    snapshot.hud.push_back(Rect({1100.0f, 100.0f}, {50.0f, 50.0f}, 0xFF102030u, 0xFF102030u));
+    snapshot.hud.push_back(Rect({0.0f, 100.0f}, {0.0f, 50.0f}, 0xFF102030u, 0xFF102030u));
+    quads.clear();
+    hud.Build(snapshot, open, quads);
+    CHECK_EQ(quads.size(), std::size_t{3});
+    // One against the left edge only, a horizontal gradient: the left side
+    // takes its left edge's colour.
+    snapshot.hud.clear();
+    Eth::HudCmd ramp = Rect({0.0f, 700.0f}, {300.0f, 68.0f}, 0xFF000000u, 0xFF000000u);
+    ramp.color1 = ramp.color3 = 0xFFFFFFFFu;
+    snapshot.hud.push_back(ramp);
+    quads.clear();
+    hud.Build(snapshot, open, quads);
+    CHECK(quads.size() > 1);
+    if (quads.size() > 1) {
+        const auto& side = quads.back();
+        CHECK(Near(side.min.x, 0.0f) && Near(side.max.x, left));
+        CHECK(side.color == glm::vec4(0.0f, 0.0f, 0.0f, 1.0f));
+        CHECK(Near(side.min.y, 1080.0f * 700.0f / 768.0f / 1080.0f));
+    }
+}
+
+// Every fixed-layout scene's backdrop, from the original's own files: rows of
+// the scenes' own tiles, continued at their step, meeting the file's tiles
+// with no gap and on none of them, far enough for a 4:1 window.
+void TestWideMenuBackdrop() {
+    struct Expect {
+        const char* scene;
+        std::size_t copies;
+        std::set<std::string> names;
+    };
+    const Expect expects[] = {
+        // The four full rows of white_ground (x 128..1920) go on left 4 tiles
+        // each; the fifth (y 1152, x 128..1408) 4 left and 2 right, to 2048.
+        {"menu.esc", 22, {"white_ground.ent"}},
+        {"arena_select.esc", 16, {"white_ground.ent"}},
+        // Five rows of four columns, 4 more each way.
+        {"videoModes.esc", 40, {"wall11.ent", "wall10.ent", "face_no_light.ent", "arch01.ent", "floor03.ent"}},
+        {"gameover.esc", 0, {}},
+    };
+    for (const Expect& expect : expects) {
+        const std::string path = kApp + "/scenes/" + expect.scene;
+        const std::optional<Eth::SceneFile> file = Eth::ReadSceneFile(path);
+        CHECK_MSG(file.has_value(), path);
+        if (!file) continue;
+        const std::string scene = std::string("scenes/") + expect.scene;
+        const Eth::SceneWidening widening = Render::WidenScene(scene, *file);
+        CHECK_MSG(widening.sideMargin == Render::kWideMenuMargin, scene);
+        CHECK_MSG(widening.backdrop.size() == expect.copies, scene + ": " + std::to_string(widening.backdrop.size()));
+        // Each row, file and copies together: x from -896 on, a tile every
+        // 256 up to at least 1920 (covering -1024..2048), none twice.
+        std::map<std::pair<std::string, std::pair<float, float>>, std::vector<float>> rows;
+        for (const Eth::ScenePlacement& p : file->entities) {
+            if (expect.names.count(p.entityName) != 0) rows[{p.entityName, {p.position.y, p.position.z}}].push_back(p.position.x);
+        }
+        for (const Eth::ScenePlacement& copy : widening.backdrop) {
+            CHECK_MSG(expect.names.count(copy.entityName) == 1, copy.entityName);
+            CHECK_MSG(copy.position.x < 0.0f || copy.position.x > 1024.0f, scene);
+            auto& row = rows[{copy.entityName, {copy.position.y, copy.position.z}}];
+            CHECK_MSG(std::find(row.begin(), row.end(), copy.position.x) == row.end(), scene + ": a copy on a tile");
+            row.push_back(copy.position.x);
+            // As the file lays it: the same image, lighting and depth.
+            const auto original = std::find_if(file->entities.begin(), file->entities.end(),
+                                               [&copy](const Eth::ScenePlacement& p) { return p.entityName == copy.entityName; });
+            if (original != file->entities.end()) {
+                CHECK(copy.def.sprite == original->def.sprite);
+                CHECK(copy.def.normal == original->def.normal);
+                CHECK(copy.def.type == original->def.type);
+                CHECK(copy.def.isStatic);
+            }
+        }
+        for (auto& [key, xs] : rows) {
+            std::sort(xs.begin(), xs.end());
+            // The rows the screen shows (y < 768) reach the margin's end both ways.
+            if (key.second.first < 768.0f) {
+                CHECK_MSG(!xs.empty() && xs.front() <= -896.0f && xs.back() >= 1920.0f, scene + " " + key.first);
+            }
+            for (std::size_t i = 1; i < xs.size(); ++i) CHECK_MSG(xs[i] - xs[i - 1] == 256.0f, scene + " " + key.first);
+        }
+    }
+    // Not a fixed-layout scene: nothing.
+    const std::optional<Eth::SceneFile> level = Eth::ReadSceneFile(kApp + "/scenes/level1.esc");
+    CHECK(level.has_value());
+    if (level) {
+        const Eth::SceneWidening none = Render::WidenScene("scenes/level1.esc", *level);
+        CHECK(none.sideMargin == 0.0f && none.backdrop.empty());
+    }
+}
+
+// The real main menu, loaded as the layer loads it with widescreen on, in a
+// 16:9 window, the cursor on New Game: the world goes on past the sides, and
+// everything the scripts placed is where the pillarbox put it - New Game's
+// button and the panel's title at their 1024x768 places plus the 240-pixel
+// margin, the panel on to the window's edge.
+void TestWideMenuScene() {
+    Eth::MachineConfig config;
+    config.userRoot.clear();   // nothing is written
+    config.widenScene = [](const std::string& scene, const Eth::SceneFile& file) {
+        return Render::WidenScene(scene, file);
+    };
+    Eth::Machine machine(config);
+    Eth::Machine::Scope scope(machine);
+    Script::RegisterAll(machine);
+    machine.Boot(Script::ScriptMain);
+    machine.SetSidesShown(true);
+    Eth::InputFrame input;
+    input.cursor = input.cursorAbsolute = Eth::vector2(416.0f, 213.0f);   // novo_jogo's box (menu.esc)
+    for (int i = 0; i < 240 && machine.Snapshot().sceneFile != "scenes/menu.esc"; ++i) machine.Frame(input);
+    for (int i = 0; i < 200; ++i) machine.Frame(input);   // past the 3 s fade-in (LIVE_FADE_IN_TIME)
+    const Eth::RenderSnapshot shown = machine.Snapshot();
+    CHECK(shown.sceneFile == "scenes/menu.esc");
+    CHECK(shown.sideMargin == Render::kWideMenuMargin);
+    CHECK(machine.SceneSideMargin() == Render::kWideMenuMargin);
+
+    // The backdrop is drawn: 22 white_ground tiles, ids of their own.
+    std::size_t backdrop = 0;
+    std::vector<int> screenIds;
+    glm::vec2 newGame(-1.0f);
+    for (const Eth::SpriteDraw& sprite : shown.sprites) {
+        if (sprite.entityId >= Eth::Scene::kBackdropIdBase) {
+            ++backdrop;
+            CHECK(sprite.entityName == "white_ground.ent");
+            CHECK(sprite.position.x < 0.0f || sprite.position.x > 1024.0f);
+            continue;
+        }
+        screenIds.push_back(sprite.entityId);
+        if (sprite.entityName == "novo_jogo") newGame = sprite.origin;
+    }
+    CHECK_EQ(backdrop, std::size_t{22});
+    // The scripts see none of it.
+    CHECK(Eth::SeekEntity(Eth::Scene::kBackdropIdBase) == nullptr);
+    CHECK(machine.CurrentScene() != nullptr && machine.CurrentScene()->LastId() < 1000);
+
+    // New Game where the pillarbox drew it: the 4:3 origin, the window's 240 px
+    // margin added (1920 - 1024 x 1.40625 = 480, half each side).
+    const Render::View view = Render::CameraRig::ComputeView(shown, glm::uvec2(1920u, 1080u), true);
+    CHECK(view.viewportMin == glm::vec2(240.0f, 0.0f));
+    CHECK(view.openSides == Render::kWideMenuMargin);
+    CHECK(Render::CameraRig::Bars(view).empty());
+    // menu.esc: (434, 209) at z 10, drawn 10 px up (ZAxisDirection (0,-1)),
+    // less the centre of its 512x64 frame.
+    CHECK(newGame == glm::vec2(434.0f - 256.0f, 209.0f - 10.0f - 32.0f));
+    const glm::vec2 fraction = view.HudToFraction(newGame);
+    CHECK(Near(fraction.x * 1920.0f, 240.0f + newGame.x * 1080.0f / 768.0f, 0.01f));
+
+    // The panel's title, "Novo jogo", at rectPos + (10, 20) (menu.as:222),
+    // rectPos.x = 1024 - 1024 x 0.382: in the window at 240 + 642.83 x 1.40625.
+    bool title = false;
+    for (const Eth::HudCmd& cmd : shown.hud) {
+        if (cmd.kind != Eth::HudCmd::Kind::Text || cmd.text != "Novo jogo" || cmd.color != 0xFFCBCBE4u) continue;
+        title = true;
+        CHECK(Near(cmd.pos.x, 1024.0f - 1024.0f * (1.0f - 0.618f) + 10.0f, 0.01f));
+        CHECK(Near(view.HudToFraction(cmd.pos).x * 1920.0f, 240.0f + cmd.pos.x * 1080.0f / 768.0f, 0.01f));
+    }
+    CHECK(title);
+    // Its panel reaches the window's right edge.
+    entt::registry registry;
+    Render::TextureCache textures(kApp);
+    Render::FontAtlas fonts;
+    Render::Localization loc;
+    loc.Load();
+    Render::HudRenderer hud;
+    hud.Attach(registry, textures, fonts, loc);
+    std::vector<Supersonic::ScreenOverlay::Quad> quads;
+    hud.Build(shown, view, quads);
+    const bool toTheEdge = std::any_of(quads.begin(), quads.end(), [](const Supersonic::ScreenOverlay::Quad& q) {
+        return q.texture.empty() && q.max.x >= 0.9999f && q.min.x >= 1680.0f / 1920.0f - 1e-3f;
+    });
+    CHECK(toTheEdge);
+
+    // The same menu with the sides barred again (a 4:3 window): the screen's
+    // own sprites, in the same order, and nothing past it.
+    machine.SetSidesShown(false);
+    machine.Frame(input);
+    const Eth::RenderSnapshot barred = machine.Snapshot();
+    CHECK(barred.sideMargin == 0.0f);
+    std::vector<int> barredIds;
+    for (const Eth::SpriteDraw& sprite : barred.sprites) barredIds.push_back(sprite.entityId);
+    CHECK(barredIds == screenIds);
+    CHECK(Render::CameraRig::Bars(Render::CameraRig::ComputeView(barred, glm::uvec2(1920u, 1080u), true)).size() == 2u);
+}
+
 } // namespace
 
 int main() {
@@ -803,5 +1082,8 @@ int main() {
     TestFontStandIns();
     TestFontAtlas();
     TestHudRenderer();
+    TestWideMenuHud();
+    TestWideMenuBackdrop();
+    TestWideMenuScene();   // last: it boots the real game, whose globals outlive it
     return test::summary("test_pn_render_hud", 150);
 }

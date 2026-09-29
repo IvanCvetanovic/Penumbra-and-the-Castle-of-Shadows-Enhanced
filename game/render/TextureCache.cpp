@@ -236,7 +236,24 @@ std::uint8_t ToByte(float unit) {
     return static_cast<std::uint8_t>(std::clamp(std::lround(unit * 255.0f), 0L, 255L));
 }
 
+// THE EDGES. 0.7.12 sampled every texture CLAMPED: the device's start sets
+// SetClamp(true) (G:Video/Direct3D9/gs2dD3D9.cpp:1677; :623-643 put
+// D3DTADDRESS_CLAMP on U and V of every stage) and nothing in Ethanon turns
+// it off. It also drew 1:1 with the half-texel alignment (gs2dD3D9Sprite.cpp:581,
+// "subtract 0.5 to align pixel-texel"), so its samples fell on texel centres
+// and the wrap would not have shown either way. The port magnifies (1.5625
+// image pixels a texel at 1920x1200) and blends between ticks, so a pixel at a
+// sprite's border samples up to half a texel outside the image; under the
+// engine's default REPEAT that half is the OPPOSITE border. ground.png and
+// cliff_left.png are transparent in their top two rows and opaque along the
+// bottom, so every ground top and cliff top had a thin dark line hanging a
+// few pixels above it, wider than the rock over a pit's edge (Step 24). Off,
+// the images repeat as the engine's default does.
+constexpr bool kClampToEdge = true;
+
 } // namespace
+
+bool TexturesClampToEdge() { return kClampToEdge; }
 
 void ApplyTextureVariant(std::vector<std::uint8_t>& rgba, TextureVariant variant) {
     switch (variant) {
@@ -411,11 +428,12 @@ std::string TextureCache::Key(const std::string& relativePath, TextureVariant va
     //  - a normal map always with srgb = false (RenderSystem.cpp:487),
     //  - a ScreenOverlay::Quad texture always with srgb = false (VulkanRenderer.cpp:1956).
     // So a material naming `key` finds this upload and never reaches stbi_load.
-    // Linear filtering, as D3D9 sampled every texture (docs/spec/30 §3.5).
-    const std::uint32_t id = m_textures->UploadRGBA("data:" + key, image.rgba.data(),
-                                                    static_cast<std::uint32_t>(image.width),
-                                                    static_cast<std::uint32_t>(image.height),
-                                                    /*srgb*/ false, vk::Filter::eLinear);
+    // Linear filtering, as D3D9 sampled every texture (docs/spec/30 §3.5), and
+    // clamped at the edges as it was (THE EDGES, above).
+    const std::uint32_t id = m_textures->UploadRGBA(
+        "data:" + key, image.rgba.data(), static_cast<std::uint32_t>(image.width),
+        static_cast<std::uint32_t>(image.height), /*srgb*/ false, vk::Filter::eLinear,
+        kClampToEdge ? vk::SamplerAddressMode::eClampToEdge : vk::SamplerAddressMode::eRepeat);
     if (id == m_textures->GetCheckerTexture()) {
         SUPERSONIC_LOG_ERROR("Penumbra") << relativePath << " could not be uploaded; drawn as nothing." << std::endl;
         entry.failed = true;

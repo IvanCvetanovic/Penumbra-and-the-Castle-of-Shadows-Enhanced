@@ -68,6 +68,14 @@ public:
     // `frame` UINT32_MAX = the definition's startFrame.
     std::shared_ptr<Entity> Add(const string& name, EntityDef def, const vector3& pos, float angle,
                                 int forcedId = -1, uint frame = UINT32_MAX, glm::vec4 color = glm::vec4(1.0f));
+    // ENHANCEMENT E1 (Machine.hpp, SceneWidening): an entity that is only ever
+    // drawn, past the screen's sides. Its images load as Add's do; it is in no
+    // bucket and no list, takes no id from the counter (its own lie from
+    // kBackdropIdBase up), grows no depth range and has no callback or particle
+    // system - so nothing the scripts can ask of the scene sees it.
+    static constexpr int kBackdropIdBase = 1000000000;
+    std::shared_ptr<Entity> AddBackdrop(const ScenePlacement& placement);
+    const std::vector<std::shared_ptr<Entity>>& Backdrop() const { return m_backdrop; }
     // DeleteEntity (ETHScene.cpp:1273-1301): kill and unlink, searching the
     // bucket of the entity's CURRENT position. False when it is not there.
     // The object lives on in any handle.
@@ -126,6 +134,9 @@ public:
 private:
     void Link(const std::shared_ptr<Entity>& entity, const BucketKey& key);
     void BindCallback(Entity& entity) const;
+    // The sprite, normal, gloss and halo into the Machine's cache, and the
+    // sizes GetSize() needs (Add and AddBackdrop).
+    void LoadImages(Entity& entity) const;
 
     Machine& m_machine;
     string m_fileName;
@@ -133,6 +144,7 @@ private:
     SceneProperties m_properties;
     std::map<BucketKey, EntityList> m_buckets;
     std::vector<std::shared_ptr<Entity>> m_dynamicOrTemp;
+    std::vector<std::shared_ptr<Entity>> m_backdrop;   // E1: AddBackdrop
     int m_idCounter = 0;
     bool m_borderBuckets = true;
     float m_minHeight = 0.0f;

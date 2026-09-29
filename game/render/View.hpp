@@ -43,10 +43,14 @@
 //             under the mirror (render/Lighting.cpp, THE Y FLIP).
 //   SCREEN    HUD primitives and pillarbox bars are ScreenOverlay quads in
 //             fractions of the image (+y down, no flip): HudToFraction.
+//             The bars cover what is not shown (ShownMin/ShownMax): the
+//             logical screen's box, or wider under E1's open sides.
 //   POINTER   Input::MousePosition() is in the same coordinates as
 //             ViewportInfo::rect; the image starts at imageOrigin there, and a
 //             logical pixel is (mouse - imageOrigin - viewportMin) / scale
 //             (InputMapper::WindowToLogical).
+
+#include <algorithm>
 
 #include <glm/glm.hpp>
 
@@ -81,6 +85,35 @@ struct View {
     // (ViewportInfo::rect.min; 0 in a packaged game, whose image is the
     // window). Only the pointer mapping reads it.
     glm::vec2 imageOrigin{0.0f};
+    // ENHANCEMENT E1 for the menus (RenderSnapshot::sideMargin): how far past
+    // the logical screen's left and right edges the scene is shown instead of
+    // barred, in logical pixels. The logical screen stays exactly where the
+    // pillarbox put it (the same scale and viewportMin), so the pointer and the
+    // HUD map as before; only the bars give way. 0: bars wherever the logical
+    // screen leaves the image, as before.
+    float openSides = 0.0f;
+
+    // The part of the image that is not barred (CameraRig::Bars), image
+    // pixels: the logical screen's box, widened across by openSides as far as
+    // the image goes. Exactly viewportMin/viewportMax when nothing is open.
+    glm::vec2 ShownMin() const {
+        if (!(openSides > 0.0f)) return viewportMin;
+        return {std::max(0.0f, viewportMin.x - openSides * scale), viewportMin.y};
+    }
+    glm::vec2 ShownMax() const {
+        if (!(openSides > 0.0f)) return viewportMax;
+        return {std::min(static_cast<float>(windowPixels.x), viewportMax.x + openSides * scale), viewportMax.y};
+    }
+    // The same, in logical pixels (x may run below 0 and past the screen's
+    // width). Exactly (0, 0) and logicalScreen when nothing is open.
+    glm::vec2 ShownLogicalMin() const {
+        if (!(openSides > 0.0f) || !(scale > 0.0f)) return glm::vec2(0.0f);
+        return {(ShownMin().x - viewportMin.x) / scale, 0.0f};
+    }
+    glm::vec2 ShownLogicalMax() const {
+        if (!(openSides > 0.0f) || !(scale > 0.0f)) return logicalScreen;
+        return {(ShownMax().x - viewportMin.x) / scale, logicalScreen.y};
+    }
 
     // Screen-space HUD position (logical pixels, y down) -> ScreenOverlay
     // fraction of the whole image.
