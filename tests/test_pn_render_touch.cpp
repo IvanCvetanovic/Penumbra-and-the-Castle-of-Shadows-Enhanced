@@ -42,6 +42,7 @@
 #include "eth/Snapshot.hpp"
 #include "render/FontAtlas.hpp"
 #include "render/HudRenderer.hpp"
+#include "render/InputMapper.hpp"
 #include "render/Localization.hpp"
 #include "render/PauseMenu.hpp"
 #include "render/Settings.hpp"
@@ -49,6 +50,7 @@
 #include "render/TextureDecode.hpp"
 #include "render/TouchControls.hpp"
 #include "render/View.hpp"
+#include "render/WideMenus.hpp"
 
 namespace {
 
@@ -2052,6 +2054,279 @@ void testComboInGame() {
     fs::remove_all(userRoot, ec);
 }
 
+// E22 through the real game, fed as the layer feeds it on a phone: each tick
+// InputMapper maps one Bluetooth gamepad (E22's order, the touch controls on;
+// the cursor and the scripts' warps), then the fingers go through
+// TouchControls. Without the pad, Versus shows its message, which the HUD
+// draws in touch wording. With it, the menu's Versus opens and the arena
+// select is tapped - the pad neither moves the menu's cursor nor confirms - and
+// in the arena the touchscreen moves and jumps the wizard only, the pad the
+// princess only. Then level 1: the pad's Start summons the co-op princess, and
+// it walks her, not him.
+void testPhoneVersusWithPad() {
+    if (!fs::exists(fs::path(PENUMBRA_ORIGINAL_DIR) / "scenes" / "pvp_lv1.esc")) {
+        std::printf("  (the original is not at %s: Versus with a pad in the real game is skipped)\n",
+                    PENUMBRA_ORIGINAL_DIR);
+        return;
+    }
+    namespace Pad = Supersonic::Pad;
+    using Penumbra::Render::Language;
+    std::error_code ec;
+    const fs::path userRoot = fs::temp_directory_path(ec) / ("penumbra-touch-pad-" + std::to_string(std::random_device{}()));
+    fs::remove_all(userRoot, ec);
+    fs::create_directories(userRoot, ec);
+    {
+        MachineConfig config;
+        config.userRoot = userRoot.generic_string();
+        Machine machine(config);
+        Machine::Scope scope(machine);
+        Script::RegisterAll(machine);
+        machine.Boot(Script::ScriptMain);
+
+        Penumbra::Render::ControlSettings phone = Settings::Defaults(false).controls;
+        phone.keyboardPlayer2 = false;   // a phone's default (Settings.hpp)
+        Penumbra::Render::InputMapper mapper;
+        mapper.SetControls(phone);
+        mapper.SetTouchPlaysPlayer1(true);   // what the layer's SetTouchEnabled(true) does
+        TouchControls touch;
+        View view;
+        view.logicalScreen = kFourThree;
+        view.windowPixels = glm::uvec2(1024, 768);
+        view.scale = 1.0f;
+        view.viewportMin = glm::vec2(0.0f);
+        view.viewportMax = kFourThree;
+
+        bool padPlugged = false;
+        glm::vec2 mouse(0.0f);   // window pixels, the logical screen's at scale 1
+        Penumbra::Render::RawPad restingPad;
+        restingPad.gamepad = true;
+        restingPad.axes[Pad::LeftTrigger] = -1.0f;
+        restingPad.axes[Pad::RightTrigger] = -1.0f;
+        int fingers = 100;
+        const auto tick = [&](std::vector<TouchContact> contacts, std::initializer_list<int> padButtons = {}) {
+            Penumbra::Render::RawDevices raw;
+            raw.mouseWindow = mouse;
+            if (padPlugged) {
+                Penumbra::Render::RawPad pad = restingPad;
+                for (const int b : padButtons) pad.buttons[static_cast<std::size_t>(b)] = true;
+                raw.pads.push_back(pad);
+            }
+            mapper.SetPlayer2Pad(static_cast<int>(Script::getPlayerJoystick(1)));
+            mapper.SetMenuMode(Penumbra::Render::IsFixedLayoutScene(machine.GetSceneFileName()));
+            InputFrame frame = mapper.BuildTick(raw, view);
+            const std::string& loop = machine.LoopFunction();
+            const bool level = loop == "levelLoop" || loop == "pvpLoop";
+            TouchInput input;
+            input.contacts = std::move(contacts);
+            input.screen = machine.GetScreenSize();
+            input.scene = level ? TouchScene::Play : TouchScene::Menu;
+            input.corner = TouchControls::CornerFor(
+                Penumbra::Render::TouchScreen{machine.GetSceneFileName(), level, Script::g_gameFinished, false});
+            input.sceneSerial = machine.Snapshot().sceneSerial;
+            const TouchStep step = touch.Update(input);
+            TouchControls::ApplyToFrame(step, frame);
+            if (step.pointer) mapper.WarpCursor(step.pointerPos, view);
+            touch.ObserveFrame(frame, static_cast<int>(Script::getPlayerJoystick(0)));
+            machine.Frame(frame);
+            vector2 warp;
+            if (machine.Input().TakeCursorRequest(warp)) mapper.WarpCursor(warp, view);
+            mapper.EndFrame(raw);
+            return frame;
+        };
+        const auto tap = [&](glm::vec2 at) {
+            const int id = ++fingers;
+            tick({Finger(id, at)});
+            tick({Finger(id, at)});
+            tick({});
+        };
+        const auto waitScene = [&](const std::string& scene, int limit) {
+            int i = 0;
+            for (; i < limit && machine.GetSceneFileName() != scene; ++i) tick({});
+            return machine.GetSceneFileName() == scene ? i : -1;
+        };
+        const auto hudText = [&](const std::string& needle) {
+            for (const HudCmd& cmd : machine.Snapshot().hud) {
+                if (cmd.kind == HudCmd::Kind::Text && cmd.text.find(needle) != std::string::npos) return cmd.text;
+            }
+            return std::string();
+        };
+        const glm::vec2 kVersus(466.0f, 271.0f);     // menu.esc's Versus button (test_pn_scenarios)
+        const glm::vec2 kArena1(276.0f, 244.0f);     // arena_select.esc's Obelisco
+
+        CHECK(waitScene("scenes/menu.esc", 5) >= 0);
+        for (int i = 0; i < 5; ++i) tick({});
+
+        // No pad: Versus asks for one, in touch wording (strings.json "touch").
+        tap(kVersus);
+        CHECK(!Script::hasASecondController());
+        const std::string message = hudText("ao menos um joystick");
+        std::printf("  no pad: Versus says \"%s\"\n", message.c_str());
+        CHECK(message == "\xC9 necess\xE1rio ao menos um joystick\n para jogar neste modo.");
+        CHECK(machine.GetSceneFileName() == "scenes/menu.esc");
+        Penumbra::Render::Localization loc;
+        CHECK(loc.Load());
+        loc.SetTouch(true);
+        CHECK(loc.Translate(message, Language::Portuguese) ==
+              "Conecte um gamepad para o jogador 2.\n\nO jogador 1 joga com os\n controles de toque.");
+        CHECK(loc.Translate(message, Language::English) ==
+              "Connect a gamepad for player 2.\n\nPlayer 1 plays with the\n touch controls.");
+        loc.SetTouch(false);   // touch off: the original's, as ever
+        CHECK(loc.Translate(message, Language::Portuguese) == message);
+        CHECK(loc.Translate(message, Language::English) == "At least one joystick is needed\n to play this mode.");
+
+        // A pad connects: player 2's, so Versus opens.
+        padPlugged = true;
+        for (int i = 0; i < 3; ++i) tick({});
+        CHECK(Script::hasASecondController());
+        CHECK(!hudText("Escolha uma arena").empty());
+        tap(kVersus);
+        const int select = waitScene("scenes/arena_select.esc", 5);
+        std::printf("  a pad: Versus opens the arena select (%d ticks after the tap)\n", select);
+        CHECK(select >= 0);
+        for (int i = 0; i < 3; ++i) tick({});
+        // menu.as:74: the joystick icon for joystick 0 (player 2's), none for 1.
+        int icons = 0;
+        for (const HudCmd& cmd : machine.Snapshot().hud) {
+            if (cmd.kind != HudCmd::Kind::Sprite || cmd.sprite.find("joystick.png") == std::string::npos) continue;
+            ++icons;
+            CHECK_NEAR(cmd.pos.y, 0.0f);
+        }
+        CHECK_EQ(icons, 1);
+        // The pad neither moves the menu's cursor (player 1's axis, menu.as:239)
+        // nor confirms (player 1's, E14's A included), even on a thumbnail.
+        // The cursor is put there with a mouse, not a finger: a tap would be
+        // the click this checks the pad never makes.
+        mouse = kArena1;
+        for (int i = 0; i < 3; ++i) tick({});
+        CHECK(!hudText("Obelisco").empty());
+        const ETHEntity cursor = SeekEntity("cursor.ent");
+        CHECK(cursor != nullptr);
+        if (cursor != nullptr) {
+            const vector2 before = cursor->GetPositionXY();
+            for (int i = 0; i < 20; ++i) tick({}, {Pad::DpadRight, Pad::DpadDown});
+            for (int i = 0; i < 3; ++i) {
+                tick({}, {Pad::A, Pad::Start});
+                tick({});
+            }
+            std::printf("  the pad on the arena select: cursor (%.0f,%.0f) -> (%.0f,%.0f); confirmed %s\n", before.x,
+                        before.y, cursor->GetPositionXY().x, cursor->GetPositionXY().y,
+                        cursor->CheckCustomData("newGame") == DT_NODATA ? "no" : "YES");
+            CHECK_NEAR(cursor->GetPositionXY().x, before.x);
+            CHECK_NEAR(cursor->GetPositionXY().y, before.y);
+            CHECK(cursor->CheckCustomData("newGame") == DT_NODATA);
+        }
+        CHECK(machine.GetSceneFileName() == "scenes/arena_select.esc");
+        tap(kArena1);
+        const int arena = waitScene("scenes/pvp_lv1.esc", 200);
+        std::printf("  Obelisco tapped: pvp_lv1.esc %d ticks later\n", arena);
+        CHECK(arena >= 0);
+
+        ETHEntity wizard;
+        ETHEntity princess;
+        for (int i = 0; i < 240; ++i) {
+            wizard = SeekEntity("bruxo.ent");
+            princess = SeekEntity("princess.ent");
+            if (Standing(wizard) && Standing(princess)) break;
+            tick({});
+        }
+        CHECK(Standing(wizard) && Standing(princess));
+        if (Standing(wizard) && Standing(princess)) {
+            const glm::vec2 screen = machine.GetScreenSize();
+            for (int i = 0; i < 10; ++i) tick({});
+            // Each walks away from the other, so neither is pushed.
+            const float wizardAway = wizard->GetPosition().x < princess->GetPosition().x ? -1.0f : 1.0f;
+            const int princessAway = wizardAway < 0.0f ? Pad::DpadRight : Pad::DpadLeft;
+            vector2 w0 = wizard->GetPositionXY();
+            vector2 q0 = princess->GetPositionXY();
+            const int thumb = ++fingers;
+            for (int i = 0; i < 20; ++i) tick({Finger(thumb, Centre(TouchControl::Dpad, screen) + glm::vec2(100.0f * wizardAway, 0.0f))});
+            tick({});
+            std::printf("  the disc: wizard x %.1f -> %.1f, princess x %.1f -> %.1f\n", w0.x, wizard->GetPosition().x,
+                        q0.x, princess->GetPosition().x);
+            CHECK((wizard->GetPosition().x - w0.x) * wizardAway > 30.0f);
+            CHECK(std::fabs(princess->GetPosition().x - q0.x) < 1.0f);
+            for (int i = 0; i < 10; ++i) tick({});
+            w0 = wizard->GetPositionXY();
+            q0 = princess->GetPositionXY();
+            for (int i = 0; i < 20; ++i) tick({}, {princessAway});
+            tick({});
+            std::printf("  the pad's d-pad: princess x %.1f -> %.1f, wizard x %.1f -> %.1f\n", q0.x,
+                        princess->GetPosition().x, w0.x, wizard->GetPosition().x);
+            CHECK(std::fabs(princess->GetPosition().x - q0.x) > 30.0f);
+            CHECK(std::fabs(wizard->GetPosition().x - w0.x) < 1.0f);
+            // Jumps: the pad's A lifts her only; the jump button him only.
+            for (int i = 0; i < 20; ++i) tick({});
+            w0 = wizard->GetPositionXY();
+            q0 = princess->GetPositionXY();
+            float wizardTop = w0.y;
+            float princessTop = q0.y;
+            tick({}, {Pad::A});
+            for (int i = 0; i < 10; ++i) {
+                tick({});
+                wizardTop = std::min(wizardTop, wizard->GetPosition().y);
+                princessTop = std::min(princessTop, princess->GetPosition().y);
+            }
+            std::printf("  the pad's A: princess up %.1f px, wizard up %.1f px\n", q0.y - princessTop, w0.y - wizardTop);
+            CHECK(q0.y - princessTop > 20.0f);
+            CHECK(w0.y - wizardTop < 1.0f);
+            for (int i = 0; i < 60; ++i) tick({});
+            w0 = wizard->GetPositionXY();
+            q0 = princess->GetPositionXY();
+            wizardTop = w0.y;
+            princessTop = q0.y;
+            const int jump = ++fingers;
+            tick({Finger(jump, Centre(TouchControl::Jump, screen))});
+            for (int i = 0; i < 10; ++i) {
+                tick({});
+                wizardTop = std::min(wizardTop, wizard->GetPosition().y);
+                princessTop = std::min(princessTop, princess->GetPosition().y);
+            }
+            std::printf("  the jump button: wizard up %.1f px, princess up %.1f px\n", w0.y - wizardTop, q0.y - princessTop);
+            CHECK(w0.y - wizardTop > 20.0f);
+            CHECK(q0.y - princessTop < 1.0f);
+        }
+
+        // Level 1 with the pad: its Start summons the co-op princess
+        // (controlCharacters.as:674), and its d-pad walks her.
+        const uint setup = Script::g_levelStartTime;
+        Script::newGame("CAMPAIGN");
+        for (int i = 0; i < 5 && Script::g_levelStartTime == setup; ++i) tick({});
+        CHECK(machine.GetSceneFileName() == "scenes/level1.esc");
+        wizard = SeekEntity("bruxo.ent");
+        for (int i = 0; i < 300 && !Standing(wizard); ++i) {
+            tick({});
+            wizard = SeekEntity("bruxo.ent");
+        }
+        CHECK(Standing(wizard));
+        if (Standing(wizard)) {
+            for (int i = 0; i < 20; ++i) tick({});
+            wizard->AddIntData("mp", wizard->GetIntData("maxMp"));   // SHORTCUT: mana for the summon
+            const int lives = Script::g_lives;
+            CHECK(Script::hasASecondController());
+            tick({}, {Pad::Start});
+            tick({});
+            princess = SeekEntity("princess.ent");
+            std::printf("  level 1, the pad's Start: princess %s, lives %d -> %d\n",
+                        princess != nullptr ? "summoned" : "NOT summoned", lives, Script::g_lives);
+            CHECK(princess != nullptr);
+            CHECK_EQ(Script::g_lives, lives - 1);
+            for (int i = 0; i < 60 && princess != nullptr && !Standing(princess); ++i) tick({});
+            if (princess != nullptr && Standing(princess)) {
+                const vector2 w0 = wizard->GetPositionXY();
+                const vector2 q0 = princess->GetPositionXY();
+                for (int i = 0; i < 30; ++i) tick({}, {Pad::DpadRight});
+                tick({});
+                std::printf("  her d-pad: princess x %.1f -> %.1f, wizard x %.1f -> %.1f\n", q0.x,
+                            princess->GetPosition().x, w0.x, wizard->GetPosition().x);
+                CHECK(princess->GetPosition().x - q0.x > 50.0f);
+                CHECK(std::fabs(wizard->GetPosition().x - w0.x) < 1.0f);
+            }
+        }
+        CHECK_EQ(machine.ScriptAborts(), 0u);
+    }
+    fs::remove_all(userRoot, ec);
+}
+
 void runTests() {
     testKeys();
     testEachButton();
@@ -2075,7 +2350,9 @@ void runTests() {
     testComboCancel();
     testComboManifest();
     testComboBuffer();
-    testComboInGame();   // last: it boots the real game, whose globals outlive it
+    // Last: they boot the real game, whose globals outlive it.
+    testComboInGame();
+    testPhoneVersusWithPad();
 }
 
 } // namespace

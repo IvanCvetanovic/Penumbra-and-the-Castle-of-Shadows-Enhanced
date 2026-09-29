@@ -108,7 +108,10 @@ public:
         std::optional<bool> touchOverride;
         // --cursor x,y: the scripts' cursor pinned at a logical-screen point,
         // for headless captures of the mouse-driven menu (the live OS pointer
-        // otherwise decides which panel a capture shows).
+        // otherwise decides which panel a capture shows). A finger (E16)
+        // moves it only while it is down: after the lift the pin is back, so
+        // on a device run with this flag a tap's picker or cursor light
+        // jumps back to the pinned point (Step 26).
         std::optional<glm::vec2> devCursor;
         // --pointer x,y: the scripts' cursor at a WINDOW pixel, mapped every
         // tick as the real mouse is (the view's offset and scale), for captures
@@ -166,7 +169,8 @@ private:
     // the game read it.
     void ApplyTouch(Eth::InputFrame& frame);
     // E16/E20: the touch controls on or off, their layout read the first time
-    // they come on (at attach, or from the options screen's row).
+    // they come on (at attach, or from the options screen's row), and with
+    // them E22's pad order (InputMapper::PadOrder).
     void SetTouchEnabled(bool enabled);
 
     Options m_options;

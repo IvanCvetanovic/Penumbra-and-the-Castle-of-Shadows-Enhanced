@@ -147,7 +147,8 @@ void ETHCallback_cursor(ETHEntity thisEntity)
             const bool confirmed = getConfirmButtonStatus(0) == KS_HIT;
             if (entityName == "creditos")
             {
-                showData("Cr\xE9" "ditos", creditos);                  // menu.as:252
+                // E21: the enhanced edition's credit after the original team's.
+                showData("Cr\xE9" "ditos", creditos + creditosEnhanced);   // menu.as:252: creditos
             } else
             if (entityName == "melhores_tempos")
             {

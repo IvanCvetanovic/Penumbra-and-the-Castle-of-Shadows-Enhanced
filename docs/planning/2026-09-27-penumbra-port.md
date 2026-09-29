@@ -52,6 +52,8 @@ in this repository, with the engine improved where the game needs it.
 | E18 | MP3 without Media Foundation (eth/SoundDecode, dr_mp3 vendored at a pinned commit): where the engine cannot decode an MP3 (every platform but Windows) the port decodes it itself; on Windows the engine's Media Foundation path still decodes, dr_mp3 only if it refuses a file | Audiere on Windows |
 | E19 | The first language off Windows: Portuguese when LC_ALL, LC_MESSAGES or LANG starts with pt (Settings::SetSystemLocale is the hook Android and iOS feed the device locale into) | Portuguese only |
 | E20 | The options screen on a phone (Script::g_mobileLayout, raised by the layer on PENUMBRA_MOBILE builds; a runtime flag, so test_pn_scenarios 21 runs it on the desktop): no video-mode list, no windowed/fullscreen switch and no "Pressione Alt+Enter" line (menu footer and options screen); in the switch's place E16's touch controls on/off ("Ativa/Desativa controles de toque", saved as settings.touchControls "on"/"off", applied at once) | the video modes, the window switch and the Alt+Enter line, on every machine |
+| E21 | The enhanced edition's credit (Ivan, Step 26): the Credits panel draws the original team's credits untouched, then one blank line, "Ivan Cvetanović" and one role, " -Edição aprimorada (Supersonic Engine)" / " -Enhanced edition (Supersonic Engine)" (Script.hpp creditosEnhanced after menu.as's creditos; the English by a strings.json pattern). One role, not three: the panel has three lines left below the original's (the last ends at y 745 of 768) and 381 px across. The c with acute: cp1252 has none, so 0x8D, a byte cp1252 leaves undefined and none of the original's 261 text files (.as .enml .esc .ent .par .txt .cg .ethproj) holds, is the port's byte for U+0107 (eth/Text: logs, strings.json; FontAtlas: every face and both stand-ins have the glyph). Not switchable: it changes no play | the panel credited the 2010 team only |
+| E22 | The touch controls are player 1 (Step 26; InputMapper::PadOrder, set with them by the layer's SetTouchEnabled): while they are on, real pads start at player 2's index and never take player 1's, so on a phone one Bluetooth gamepad plays player 2 - Versus opens, the co-op princess comes with its Start - and a second pad changes nothing for player 1 (it goes to an index no player reads); off (E20's row, or a desktop without --touch), E12 as before. Versus without a pad says so in touch wording, "Conecte um gamepad para o jogador 2." / "Connect a gamepad for player 2." (strings.json "touch") | winmm's order made a lone pad player 2's; E12 made it player 1's, which on a phone (touch on, keyboard player 2 off) left Versus closed and the princess never summoned |
 
 ## Steps
 
@@ -904,6 +906,106 @@ suites, 9605 checks, 0 failures (render_input 821, render_hud 1629, render_touch
 306; the tree also held Step 24's work in progress). No engine change. Windows not built or run
 by this step.
 
+### Step 26 - the enhanced edition's credit, Versus on a phone, the options' picker (2026-09-29)
+Ivan, from a playtest: "also put my name in the credits for doing this enhanced version", the name
+exactly "Ivan Cvetanović", with the diacritic; on a phone player 1 plays on the touchscreen and
+player 2 on a Bluetooth gamepad (or two pads), Versus without a pad stays and says to connect one,
+and the co-op princess works the same way. And Step 25's unmeasured note: on the 2400x1080 emulator
+the options screen's picker light was seen at the tap's x but near y 298, not at the tap.
+- **E21, the credit** (table above). The Credits panel (menu.as:252, showData) draws
+  `creditos + creditosEnhanced` (Script.hpp): menu.as's text untouched, then "\n\r\n" (creditos ends
+  in a lone CR; CR LF is one break, so exactly one blank line), "Ivan Cvetanovi\x8D" and
+  " -Edição aprimorada (Supersonic Engine)" / " -Enhanced edition (Supersonic Engine)", no CR at the
+  end (FontAtlas counts one as a line). Where it reads right: after the original team, a block of
+  its own - those credits are the 2010 authors'. One role line, not the three suggested: showData
+  draws from y 70 in Arial Narrow 25 at 25 px a line; the original's 24 lines end at 670 and a
+  fourth added line would end at 770, past the 768 screen, so the room is a blank line, the name
+  and one role (bottom at 745). The role lines measure 353 px (pt) and 341 px (en) of the column's
+  381, in the Windows face's metrics and in the stand-in's. The English comes from a strings.json
+  pattern, "{text}\n\nIvan Cvetanović\n -Edição..." -> "{1}\n\n... -Enhanced edition...", so the
+  original's credits keep their own whole-string key (menu.as's heredoc alone still translates).
+  E1's wide menus change nothing here: the text keeps its 4:3 place, the panel reaches the edge.
+- **The c with acute**: cp1252 has none. 0x8D, one of its five undefined bytes, is the port's byte
+  for U+0107 (eth/Text.hpp kCAcuteByte/kCAcuteCodePoint), in the one table the port's cp1252 goes
+  through: Cp1252CodePoint (so FontAtlas bakes the font's U+0107 glyph for it), Cp1252ToUtf8 (logs)
+  and Utf8ToCp1252 (strings.json says "ć" and loads as 0x8D). Why 0x8D: none of the original's 261
+  text files (.as .enml .esc .ent .par .txt .cg .ethproj) holds any of the five undefined bytes (scanned), so nothing
+  the original draws changes; 0x81 and 0x9D are the ones test_pn_formats pins as U+FFFD, and the
+  other four stay U+FFFD. Typed characters keep InputMapper's own table: a typed ć is '?', as an
+  ANSI window's WM_CHAR made it. Every face has the glyph (cmap read without fontTools):
+  ARIALNB.TTF glyph 253, arialbd 252, ariblk 254, verdanab 252, LiberationSans-Bold 201,
+  DejaVuSans-Bold 201. Localization passes the byte through (Portuguese untouched, normalising
+  keeps it, the English carries it).
+- **E22, player 1 on the touchscreen** (table above). `InputMapper::PadOrder(controls, player2Pad,
+  touchIsPlayer1)`: with the touch controls on, the first real pad takes player 2's index, later
+  ones the indices no player reads (the scripts ask for 0 and 1 only), and player 1's index is
+  never given a pad (`kNoPad` ends the list: a fourth pad is not presented). Pure and tested; the
+  layer sets it in SetTouchEnabled, the one place the controls go on or off (at attach, --touch,
+  E20's options row), so switching them off hands the pads back to E12 from the next tick; a pad
+  press latched in a frame with no tick is dropped when the order changes rather than handed to
+  another player's index. A second pad changes nothing for player 1 while touch is on (decided):
+  otherwise a finger and a pad would steer the wizard at once, a pad put down on a sofa would walk
+  him, and turning touch off would still reshuffle the pads (E12 gives the first to player 1); two
+  pad players turn the touch controls off and E12 gives them one each. What follows from the
+  rule, as intended: the pad never drives the menus (they read player 1: the pad moves neither the
+  menu's cursor nor confirms, E14's A included) - player 1 taps them; a solo phone player with
+  one pad and touch on plays player 2's side of it (Start summons the princess), and plays the
+  wizard with the pad by turning the touch controls off. Desktop without --touch: nothing changes.
+  Versus without a pad: the original's "É necessário ao menos um joystick / para jogar neste modo."
+  has a touch wording (strings.json "touch", drawn while the controls are on): "Conecte um gamepad
+  para o jogador 2. / O jogador 1 joga com os / controles de toque." and "Connect a gamepad for
+  player 2. / Player 1 plays with the / touch controls." The second paragraph (a pad on player 1's
+  index) cannot be drawn with touch on and keeps the original's words.
+- **The picker (not a port bug)**: ETHCallback_picker puts the picker at GetCursorPos() after the
+  cursor warp (videoModes.as:58-63); a still mouse leaves it where it is, in the original and in the
+  port. Measured on the emulator with a temporary log (removed): after a tap on Settings the
+  scripts' cursor, InputMapper's and the picker entity are all at the tap's logical point (413.9,
+  445.9), at 1280x720 and at 2400x1080, through the finger's lift and 300 ticks on; a difference of
+  two captures (picker at the tap, then moved away) puts the light's brightening centroid at (1062,
+  615) for a tap at (1062, 627) (round5/18). What Step 25 saw is its own dev flag: its screencap of
+  the menu already had New Game hovered with no finger down, i.e. the cursor pinned by a dev flag (--cursor or --pointer)
+  at New Game (416, 213) = device (1065, 300); a pin is overridden only while a finger is down, so
+  after the lift the picker went back to it - the same x as Settings (414), y 298. Reproduced
+  exactly with `--cursor 416,213` in penumbra_args.txt (round5/20). No fix; the --cursor comment
+  (PenumbraLayer.hpp) says what a finger does to a pin.
+- **Measured on the emulator** (Penumbra_API33_x86_64, headless, port 5560, SwiftShader;
+  out/shots/android/round5/): at 1280x720, a fresh install with no pad: Versus says "Connect a
+  gamepad for player 2..." in touch wording (02). `adb shell input gamepad keyevent` creates a
+  connected pad by itself (logcat "Gamepad 1 connected (input device -1)": the engine takes a
+  device from its first GAMEPAD-source event; every injected event has device -1, so only one pad
+  can be made this way - the two-pad cases are tests only). With it: the joystick icon for
+  joystick 0 (player 2's) on the menu (04); the pad's d-pad, down and Start leave the menu's cursor
+  at (0,0) and confirm nothing; a tap on Versus opens the arena select (05); in pvp_lv1 the pad's
+  d-pad moves the princess 791 -> 1094 with the wizard still at 224 (07), the touch disc's left
+  arrow moves the wizard 224 -> 49 with the princess still at 791 (08), the pad's A lifts her
+  (y 302 -> 191) and not him; in level 1 the pad's Start summons the princess ("Magical creature
+  summoned", mp -50, lives 13 -> 12, 11) and its d-pad walks her 425 -> 638 with the wizard at 410
+  (12); touch controls off in the options (13): the same pad now moves the menu's cursor (300 ->
+  5, E12, 14); back on: it does not. At 2400x1080 (`-skin 2400x1080` on the command line, the AVD
+  untouched): the picker at the tap (16, 17, 18), and the Step 25 view reproduced (20).
+- **Measured on Linux** (lavapipe, out/shots/credits/): the Credits panel at 1024x768 and 1920x1080
+  in both languages, the name with its acute in the stand-in face, the role line inside the
+  column, nothing past y 745.
+- **Tests**: test_pn_formats (0x8D <-> U+0107 both ways, the capital not held, the other four
+  still U+FFFD, 251 round trips), test_pn_render_hud (the panel's text: the original's untouched,
+  one blank line, the English whole with the name and role; 27 lines, width <= 381, bottom <= 768
+  in both languages with the system faces and the stand-ins; every face maps 0x8D to its file's
+  U+0107 glyph, as wide as 'c' and taller - the system set is the Windows faces only on Windows,
+  which this step did not run: on Linux both sets are the stand-ins; Versus without a pad's touch
+  wording, which fits the column), test_pn_render_input (PadOrder with touch on and off under both g_controls, one to four
+  pads, E14's A, keyboard player 2 with --touch, the mapper switched on, off and on with the latch
+  dropped), test_pn_render_touch (the real game fed as the layer feeds a phone: no pad, Versus's
+  message and its wording; a pad: Versus opens, the arena select shows player 2's icon, the pad
+  neither moves the cursor nor confirms, a tapped arena loads; the disc and the jump button move
+  the wizard only, the pad's d-pad and A the princess only; level 1: the pad's Start summons her,
+  its d-pad walks her), test_pn_scenarios (the credit on the menu's HUD).
+Gates: check.bat clean at /W4 on every touched C++ file (eth/Text, render/FontAtlas,
+render/InputMapper, PenumbraLayer, main.cpp, script/menu, render/Localization, the three
+HeaderChecks and the five suites); Linux (WSL, GCC, no warning in game code) test_pn_all 17
+suites, 9781 checks, 0 failures (formats 598, render_hud 1720, render_input 858, render_touch
+3660, scenarios 959); Android x86_64 builds with no warning in game code. No engine change.
+Windows not built or run by this step.
+
 ### Open
 - **iOS: builds, untested** (Ivan, 2026-09-28: "leave it alone, we only need it to build"). No frame
   in the simulator (base-instance drawing); no signed device run. Not to be worked on unless asked.
@@ -912,7 +1014,8 @@ by this step.
   a translucent texel's depth write blocked fog drawn behind it; the bake used every static light
   in the scene, the port's live lights come from visible buckets (unverified at screen edges).
 - **Touch (E16), for Ivan:** a combo button (Left-Left-Sword and Down-Forward-Fire are hard with a
-  thumb); Versus on a phone needs pads; the layout and the placeholder art until the Magic Rampage
+  thumb); Versus on a phone needs a pad for player 2 (E22, Step 26: the touchscreen is player 1); the
+  layout and the placeholder art until the Magic Rampage
   buttons (not on this laptop) are given.
 - **Decided (orchestrator, 2026-09-28):** the misnamed horror markers play (E15, switchable). A solo
   player counts as having a second controller while keyboard player 2 is on (E4): Versus opens and the

@@ -92,6 +92,9 @@ reference/           gitignored: Ethanon 0.7.12 source (eth-0.7.12), GS2D r485, 
 8. **Text is cp1252.** The original's strings are Windows-1252 bytes. Keep them as bytes in the
    ported code (write non-ASCII in C++ literals as `\xE3` escapes); translate at the draw boundary
    (`game/data/strings.json`, keyed by the original string) and convert to UTF-8 only for logs.
+   One byte goes beyond cp1252: 0x8D, which cp1252 leaves undefined and none of the original's
+   files holds, is the port's U+0107 (c with acute) for the enhanced edition's credit (E21):
+   `\x8D` in C++, `ć` in strings.json (eth/Text.hpp). The other four undefined bytes stay undefined.
 9. **Port faithfully, then enhance deliberately.** A ported function keeps the original's name,
    order of operations and numbers, with `// file.as:line` comments. Enhancements (widescreen, gamepads,
    keyboard P2, English, settings, bug fixes) are explicit, switchable where it matters, and listed

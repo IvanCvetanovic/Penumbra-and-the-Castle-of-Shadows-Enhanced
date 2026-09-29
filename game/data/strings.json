@@ -173,6 +173,11 @@
             "en": "Choose an arena and fight a\nmatch against another player.\n\n-Defeating the other scores 1 point\n-The first to score {1} points wins\n-The match ends if the gap in\nthe score exceeds {2} points"
         },
         {
+            "_note": "ENHANCEMENT E21: the Credits panel as menu.cpp draws it, menu.as:159 creditos (translated whole by its own key in 'strings') then the enhanced edition's credit (Script.hpp creditosEnhanced). The name is the same in both; one role line, because the panel has room for three more lines (a blank one, the name, the role) and 381 px across",
+            "pt": "{text}\n\nIvan Cvetanović\n -Edição aprimorada (Supersonic Engine)",
+            "en": "{1}\n\nIvan Cvetanović\n -Enhanced edition (Supersonic Engine)"
+        },
+        {
             "_note": "setupScene.as:362 \"Melhores tempos:\\n\" + getRecordTimeList() + \"\\n\\n\"",
             "pt": "Melhores tempos:\n{any}",
             "en": "Best times:\n{1}"
@@ -203,7 +208,7 @@
     ],
 
     "touch": {
-        "_about": "ENHANCEMENT E16: the original's control hints - every text it draws that names a key to press - worded for the on-screen touch controls, drawn in place of the original (either language) while they are on (render/Localization SetTouch, from the layer's switch every frame; off, the text is exactly what it always was). Keyed by the original's Portuguese as 'strings' is; whole strings only. The buttons are named by what they show: the arrows at the bottom left (the direction control, left, right and down), the jump, sword, fire and light buttons at the bottom right, the two combo buttons above them, the pause button at the top right. Each fits where the original is drawn (the help messages at (10,70) in Arial 30 and at half size under the wizard; the how-to-play panel's 381 px column in Arial Narrow 25, 768 px tall; the lore sign's two lines in Arial Narrow 16), which test_pn_render_hud measures. Not here, on purpose: 'Pressione Alt+Enter...' (menu.as:101: E20 does not draw it on a phone, and a desktop with touch controls still has the keyboard it names); the Versus screen's joystick messages and the settings blurb (menu.as:151, 278-283: what the mode or the screen needs, not a key to press); the options' row labels.",
+        "_about": "ENHANCEMENT E16: the original's control hints - every text it draws that names a key to press - worded for the on-screen touch controls, drawn in place of the original (either language) while they are on (render/Localization SetTouch, from the layer's switch every frame; off, the text is exactly what it always was). Keyed by the original's Portuguese as 'strings' is; whole strings only. The buttons are named by what they show: the arrows at the bottom left (the direction control, left, right and down), the jump, sword, fire and light buttons at the bottom right, the two combo buttons above them, the pause button at the top right. Each fits where the original is drawn (the help messages at (10,70) in Arial 30 and at half size under the wizard; the how-to-play panel's 381 px column in Arial Narrow 25, 768 px tall; the lore sign's two lines in Arial Narrow 16), which test_pn_render_hud measures. Not here, on purpose: 'Pressione Alt+Enter...' (menu.as:101: E20 does not draw it on a phone, and a desktop with touch controls still has the keyboard it names); the Versus screen's second paragraph, 'Já há um joystick plugado...' (menu.as:281-283: drawn only with a pad on player 1's index, which the touch controls never give a pad, E22) and the settings blurb (menu.as:151: what the screen sets up, not a key to press); the options' row labels.",
 
         "_help signs: scenes/level1.esc 'message' (ETHCallback_help -> addMessage)": "",
         "Utilize as setas ou as direcionais do joystick para mover-se": {
@@ -233,6 +238,12 @@
         "Próxima fase: seta para baixo": {
             "pt": "Próxima fase: seta para baixo, embaixo à esquerda",
             "en": "Next level: the down arrow at the bottom left"
+        },
+
+        "_menu.as:278 the Versus screen without a second controller. ENHANCEMENT E22: while the touch controls are on, player 1 plays on them and the first gamepad is player 2's (InputMapper::PadOrder), so what Versus needs is a pad for player 2; the original's text names a joystick for a keyboard-and-joystick PC. Drawn in the showData column (381 px, Arial Narrow 25)": "",
+        "É necessário ao menos um joystick\n para jogar neste modo.": {
+            "pt": "Conecte um gamepad para o jogador 2.\n\nO jogador 1 joga com os\n controles de toque.",
+            "en": "Connect a gamepad for player 2.\n\nPlayer 1 plays with the\n touch controls."
         },
 
         "_lore sign: data.enml global.comboTip (ETHCallback_story); the combos are the same moves on the arrows and the sword and fire buttons, which the two combo buttons also make in one tap": "",

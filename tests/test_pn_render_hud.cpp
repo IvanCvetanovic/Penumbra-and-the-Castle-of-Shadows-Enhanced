@@ -30,6 +30,7 @@
 #include "eth/Defs.hpp"
 #include "eth/Machine.hpp"
 #include "eth/Snapshot.hpp"
+#include "eth/Text.hpp"
 #include "render/CameraRig.hpp"
 #include "render/FontAtlas.hpp"
 #include "render/HudRenderer.hpp"
@@ -418,8 +419,10 @@ void TestTouchHints() {
     const std::pair<std::string, const char*> kept[] = {
         {"Pressione Alt+Enter para trocar entre fullscreen e modo janela",
          "E20 does not draw it on a phone; a desktop with touch keeps the keyboard it names"},
-        {"\xC9 necess\xE1rio ao menos um joystick\n para jogar neste modo.", "what Versus needs, not a key to press"},
-        {noJoystick, "the same"},
+        // E22: the first paragraph alone has its touch wording (a pad for
+        // player 2); both paragraphs are drawn only with a pad on player 1's
+        // index, which the touch controls never give a pad.
+        {noJoystick, "never drawn while the touch controls are on (E22)"},
         {Heredoc(menu, "config"), "the settings blurb: what the screen sets up"},
         {"2\xBA joystick para jogador 2", "a row's label"},
         {"1\xBA joystick para jogador 1", "a row's label"},
@@ -449,8 +452,9 @@ void TestTouchHints() {
     }
     // Every "touch" key is one of these texts (a typo would never match).
     CHECK_EQ(worded.size(), loc.TouchCount());
-    // Seven help signs, the combo lore sign, the how-to-play panel.
-    CHECK_EQ(loc.TouchCount(), std::size_t{9});
+    // Seven help signs, the combo lore sign, the how-to-play panel, and
+    // Versus without a second controller (E22).
+    CHECK_EQ(loc.TouchCount(), std::size_t{10});
 
     Render::FontAtlas fonts;
     fonts.SetSystemFontsEnabled(false);   // the stand-ins: the same widths on every machine
@@ -490,7 +494,9 @@ void TestTouchHints() {
             } else if (hint->kind == Where::Enml) {
                 // A lore sign: as many lines as the original's.
                 CHECK_EQ(std::count(wording.begin(), wording.end(), '\n'), std::count(text.begin(), text.end(), '\n'));
-            } else if (hint->kind == Where::Heredoc) {
+            } else if (hint->kind == Where::Heredoc || (hint->kind == Where::Literal && hint->where == "menu.as")) {
+                // (menu.as's one worded literal is Versus without a second
+                // controller, E22, drawn by showData as the heredocs are.)
                 // showData's panel: 391 px from x 633, the text at +10; from y 70
                 // in Arial Narrow 25 on the 768 px menu (menu.as:217-229).
                 const Render::TextLayout layout = fonts.Layout(wording, "Arial Narrow", 25.0f, glm::vec2(0.0f));
@@ -718,6 +724,96 @@ void TestFontAtlas() {
     // Every face the scripts name resolves to something, on any machine.
     for (const char* face : {"Arial Black", "Arial", "Verdana"}) {
         CHECK_MSG(!fonts.FaceFile(face).empty(), face);
+    }
+}
+
+// ENHANCEMENT E21: the enhanced edition's credit after the original team's,
+// and the one byte beyond cp1252 it needs (0x8D, the port's U+0107).
+void TestEnhancedCredits() {
+    // The panel's text as menu.cpp draws it (menu.as:252 creditos, then E21's).
+    const std::string credits = Script::creditos + Script::creditosEnhanced;
+    CHECK(credits.compare(0, Script::creditos.size(), Script::creditos) == 0);   // the original's, untouched
+    CHECK(credits.find("\r\n\r\nIvan Cvetanovi\x8D\r\n -Edi\xE7\xE3o aprimorada (Supersonic Engine)") !=
+          std::string::npos);
+    // One blank line between the teams: the original's lone CR at its end and
+    // the LF that follows it are one break.
+    CHECK(Render::Localization::Normalise(credits).find("-Taina Monclaire\n\nIvan Cvetanovi\x8D\n") !=
+          std::string::npos);
+
+    Render::Localization loc;
+    CHECK(loc.Load());
+    // Portuguese: the bytes as they are, 0x8D included; normalising keeps it.
+    CHECK(loc.Translate(credits, Language::Portuguese) == credits);
+    CHECK(Render::Localization::Normalise("Cvetanovi\x8D\r\n") == "Cvetanovi\x8D\n");
+    // English: the original's credits whole, then the name - its 0x8D read
+    // from strings.json's UTF-8 U+0107 - and the role.
+    CheckTranslated(loc, credits, "E21 credits");
+    const std::string english = loc.Translate(credits, Language::English);
+    const std::string originalEnglish = loc.Translate(Script::creditos, Language::English);
+    CHECK(english.rfind("Andr\xE9 Santee\n -Programming", 0) == 0);
+    CHECK(english.compare(0, originalEnglish.size() - 1, originalEnglish, 0, originalEnglish.size() - 1) == 0);
+    CHECK(english.find("-Taina Monclaire\n\nIvan Cvetanovi\x8D\n -Enhanced edition (Supersonic Engine)") !=
+          std::string::npos);
+    const std::string role = "\n -Enhanced edition (Supersonic Engine)";
+    CHECK(english.size() > role.size() && english.compare(english.size() - role.size(), role.size(), role) == 0);
+    // The original's heredoc alone keeps its own translation, without E21's.
+    CHECK(originalEnglish.find("Ivan") == std::string::npos);
+
+    // It fits showData's panel in both languages, with the Windows faces
+    // where this machine has them and with the stand-ins: 381 px from x 643,
+    // from y 70 in Arial Narrow 25 on the 768 px menu (menu.as:217-229).
+    for (const bool system : {true, false}) {
+        Render::FontAtlas fonts;
+        fonts.SetSystemFontsEnabled(system);
+        if (fonts.FaceFile("Arial Narrow").empty()) continue;
+        for (const std::string& text : {credits, english}) {
+            const Render::TextLayout layout = fonts.Layout(text, "Arial Narrow", 25.0f, glm::vec2(0.0f));
+            std::printf("  E21 credits (%s, %s): %d lines, %.0f px wide, bottom at y %.0f\n",
+                        system ? "system faces" : "stand-ins", text == english ? "en" : "pt", layout.lines,
+                        layout.width, 70.0f + static_cast<float>(layout.lines) * layout.lineHeight);
+            CHECK_EQ(layout.lines, 27);   // the original's 24, a blank line, the name, the role
+            CHECK_MSG(layout.width > 0.0f && layout.width <= 381.0f, std::to_string(layout.width));
+            CHECK_MSG(70.0f + static_cast<float>(layout.lines) * layout.lineHeight <= 768.0f,
+                      std::to_string(layout.lines) + " lines");
+        }
+    }
+
+    // THE GLYPH: every face the scripts name draws 0x8D with its file's own
+    // U+0107, in both font sets - the Windows files where this machine has
+    // them (ARIALNB, arialbd, ariblk, verdanab) and the bundled stand-ins
+    // (Liberation Sans Bold, DejaVu Sans Bold) - and not with 'c' or .notdef.
+    int systemFaces = 0;
+    for (const bool system : {true, false}) {
+        Render::FontAtlas fonts;
+        fonts.SetSystemFontsEnabled(system);
+        for (const char* face : {"Arial Narrow", "Arial", "Arial Black", "Verdana"}) {
+            const std::string file = fonts.FaceFile(face);
+            CHECK_MSG(!file.empty(), face);
+            if (file.empty()) continue;
+            if (system && !fonts.FaceIsStandIn(face)) ++systemFaces;
+            const int cAcute = fonts.GlyphForCodePoint(face, 0x0107u);
+            std::printf("  %s -> %s: 0x8D is glyph %d, U+0107 glyph %d\n", face, file.c_str(),
+                        fonts.GlyphForByte(face, 0x8D), cAcute);
+            CHECK_MSG(cAcute != 0, file + " has no U+0107");
+            CHECK_MSG(fonts.GlyphForByte(face, Eth::kCAcuteByte) == cAcute, file);
+            CHECK_MSG(fonts.GlyphForByte(face, 'c') != cAcute, file);
+            CHECK_EQ(fonts.GlyphForByte(face, 0xE7), fonts.GlyphForCodePoint(face, 0xE7u));   // the rest as before
+        }
+        // Drawn: as wide as a 'c' (the pen after it is where it is after 'c'),
+        // taller (the acute), on the same foot.
+        const Render::TextLayout plain = fonts.Layout("cx", "Arial Narrow", 25.0f, glm::vec2(0.0f));
+        const Render::TextLayout acute = fonts.Layout("\x8Dx", "Arial Narrow", 25.0f, glm::vec2(0.0f));
+        CHECK_EQ(acute.glyphs.size(), std::size_t{2});
+        if (plain.glyphs.size() == 2 && acute.glyphs.size() == 2) {
+            CHECK_EQ(acute.glyphs[0].byte, static_cast<unsigned char>(0x8D));
+            CHECK_NEAR(plain.glyphs[1].pen.x, acute.glyphs[1].pen.x);
+            CHECK(acute.glyphs[0].max.y - acute.glyphs[0].min.y > plain.glyphs[0].max.y - plain.glyphs[0].min.y + 3.0f);
+            CHECK_NEAR(acute.glyphs[0].max.y, plain.glyphs[0].max.y);
+        }
+    }
+    if (systemFaces == 0) {
+        std::printf("  (no Windows faces in \"%s\": the system set is the stand-ins here)\n",
+                    Render::FontAtlas::FontsDirectory().c_str());
     }
 }
 
@@ -1081,6 +1177,7 @@ int main() {
     TestTouchHints();
     TestFontStandIns();
     TestFontAtlas();
+    TestEnhancedCredits();
     TestHudRenderer();
     TestWideMenuHud();
     TestWideMenuBackdrop();

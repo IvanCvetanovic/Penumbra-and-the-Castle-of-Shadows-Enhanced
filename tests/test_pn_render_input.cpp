@@ -4,6 +4,7 @@
 // and the pointer on E1's wide menus (Step 25: the view's offset, hits, bars).
 // Pure: no window, no GLFW calls, no audio device, no original files.
 
+#include <array>
 #include <chrono>
 #include <cmath>
 #include <filesystem>
@@ -212,6 +213,110 @@ void testLonePadIsPlayer1() {
     frame = Map(two, controls, 0);
     CHECK(frame.pads[1].buttons[JK_03] && !frame.pads[1].buttons[JK_04]);
     CHECK(frame.pads[0].buttons[JK_04]);            // the second pad is the princess's
+}
+
+// E22: while the touch controls are on they are player 1, and real pads start
+// at the index player 2 reads - never player 1's, whatever E12 says; off
+// (E20's options row), E12's order is back from the next tick.
+void testTouchIsPlayer1() {
+    ControlSettings phone = Defaults();
+    phone.keyboardPlayer2 = false;   // a phone's default (Settings.hpp)
+    CHECK(phone.firstPadIsPlayer1);  // E12, as shipped
+    ControlSettings original = phone;
+    original.firstPadIsPlayer1 = false;
+    using Order = std::array<int, kMaxJoysticks>;
+    constexpr int kNo = InputMapper::kNoPad;
+
+    // The rule. g_controls 0: player 2 reads joystick 0, player 1 joystick 1;
+    // g_controls 1: the other way round (playerInput.as:43-53).
+    CHECK((InputMapper::PadOrder(phone, 0, true) == Order{0, 2, 3, kNo}));
+    CHECK((InputMapper::PadOrder(phone, 1, true) == Order{1, 2, 3, kNo}));
+    CHECK((InputMapper::PadOrder(original, 0, true) == Order{0, 2, 3, kNo}));
+    CHECK((InputMapper::PadOrder(original, 1, true) == Order{1, 2, 3, kNo}));
+    // Off: E12's order, and the original's, exactly as before.
+    CHECK((InputMapper::PadOrder(phone, 0, false) == Order{1, 0, 2, 3}));
+    CHECK((InputMapper::PadOrder(phone, 1, false) == Order{0, 1, 2, 3}));
+    CHECK((InputMapper::PadOrder(original, 0, false) == Order{0, 1, 2, 3}));
+    CHECK((InputMapper::PadOrder(original, 1) == Order{0, 1, 2, 3}));
+
+    // One pad, touch on: player 2's, and nothing on player 1's index - no
+    // button, no direction, no key.
+    RawDevices one;
+    one.pads.push_back(Gamepad());
+    one.pads[0].buttons[Pad::A] = true;
+    one.pads[0].buttons[Pad::DpadRight] = true;
+    InputFrame frame = InputMapper::Map(one, phone, glm::vec2(0.0f), 0, {}, true);
+    CHECK(frame.pads[0].connected && frame.pads[0].buttons[JK_03]);
+    CHECK_NEAR(frame.pads[0].xy.x, 1.0f);
+    CHECK(!frame.pads[1].connected);
+    CHECK_EQ(CountButtons(frame.pads[1]), 0);
+    CHECK(frame.pads[1].xy == glm::vec2(0.0f));
+    CHECK_EQ(CountKeys(frame), 0);
+    frame = InputMapper::Map(one, phone, glm::vec2(0.0f), 1, {}, true);   // g_controls 1
+    CHECK(frame.pads[1].connected && frame.pads[1].buttons[JK_03]);
+    CHECK(!frame.pads[0].connected);
+    // The same pad with touch off: E12 makes it player 1's, as before.
+    frame = InputMapper::Map(one, phone, glm::vec2(0.0f), 0, {}, false);
+    CHECK(frame.pads[1].buttons[JK_03] && !frame.pads[0].connected);
+
+    // A second pad changes nothing for player 1: it goes where no player
+    // reads. A fourth is not presented at all (three indices besides player 1's).
+    RawDevices four = one;
+    for (int i = 0; i < 3; ++i) four.pads.push_back(Gamepad());
+    four.pads[1].buttons[Pad::X] = true;
+    four.pads[3].buttons[Pad::Y] = true;
+    frame = InputMapper::Map(four, phone, glm::vec2(0.0f), 0, {}, true);
+    CHECK(frame.pads[0].buttons[JK_03] && !frame.pads[0].buttons[JK_04]);
+    CHECK(!frame.pads[1].connected);
+    CHECK(frame.pads[2].connected && frame.pads[2].buttons[JK_04]);
+    CHECK(frame.pads[3].connected && CountButtons(frame.pads[3]) == 0);
+    for (const InputFrame::Pad& pad : frame.pads) CHECK(!pad.buttons[JK_01]);   // the fourth's Y: nowhere
+
+    // E14 in the menus: the pad's A also confirms on player 2's index only;
+    // the menus read player 1's, which a pad never reaches under touch.
+    frame = InputMapper::Map(one, phone, glm::vec2(0.0f), 0, Penumbra::Render::MenuButtons{true, 0, 0}, true);
+    CHECK(frame.pads[0].buttons[JK_10]);
+    CHECK(!frame.pads[1].buttons[JK_10]);
+
+    // A desktop with --touch and keyboard player 2 on: the keys and the pad
+    // share player 2's index, as they do without touch.
+    RawDevices keysAndPad = one;
+    keysAndPad.keys[GLFW_KEY_U] = true;
+    frame = InputMapper::Map(keysAndPad, Defaults(), glm::vec2(0.0f), 0, {}, true);
+    CHECK(frame.pads[0].buttons[JK_03] && frame.pads[0].buttons[JK_04]);
+    CHECK(!frame.pads[1].connected);
+
+    // The mapper, switched on, off (E20's row) and on again: the lone pad
+    // follows at the next tick.
+    View view;
+    InputMapper mapper;
+    mapper.SetControls(Defaults());   // keyboard player 2 on: index 0 is connected either way
+    mapper.SetPlayer2Pad(0);
+    CHECK(!mapper.TouchPlaysPlayer1());
+    RawDevices idle;
+    idle.pads.push_back(Gamepad());
+    frame = mapper.BuildTick(one, view);
+    CHECK(frame.pads[1].buttons[JK_03] && !frame.pads[0].buttons[JK_03]);
+    mapper.EndFrame(one);
+    mapper.SetTouchPlaysPlayer1(true);
+    CHECK(mapper.TouchPlaysPlayer1());
+    frame = mapper.BuildTick(one, view);
+    CHECK(frame.pads[0].buttons[JK_03] && !frame.pads[1].connected);
+    mapper.EndFrame(one);
+    // A press made in a frame that ran no tick, then touch off before the
+    // next tick: the latch was the pad's at player 2's index, which is now
+    // the keyboard's alone - it is dropped, not handed to the keyboard.
+    frame = mapper.BuildTick(idle, view);
+    mapper.EndFrame(idle);
+    mapper.EndFrame(one);
+    mapper.SetTouchPlaysPlayer1(false);
+    frame = mapper.BuildTick(idle, view);
+    CHECK(frame.pads[0].connected && !frame.pads[0].buttons[JK_03]);
+    CHECK(frame.pads[1].connected && !frame.pads[1].buttons[JK_03]);
+    mapper.EndFrame(idle);
+    frame = mapper.BuildTick(one, view);
+    CHECK(frame.pads[1].buttons[JK_03] && !frame.pads[0].buttons[JK_03]);
+    mapper.EndFrame(one);
 }
 
 void testSticks() {
@@ -1037,6 +1142,7 @@ void runTests() {
     testKeyboardPlayer1();
     testGamepads();
     testLonePadIsPlayer1();
+    testTouchIsPlayer1();
     testSticks();
     testKeyboardPlayer2();
     testCursorAndText();

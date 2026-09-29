@@ -271,6 +271,16 @@ std::string FontAtlas::FaceFile(const std::string& face) { return choiceFor(face
 
 bool FontAtlas::FaceIsStandIn(const std::string& face) { return !choiceFor(face).standIn.empty(); }
 
+int FontAtlas::GlyphForByte(const std::string& face, const unsigned char byte) {
+    Font* font = fontFor(face);
+    return font != nullptr ? font->glyph[byte] : 0;
+}
+
+int FontAtlas::GlyphForCodePoint(const std::string& face, const unsigned codePoint) {
+    Font* font = fontFor(face);
+    return font != nullptr ? stbtt_FindGlyphIndex(&font->info, static_cast<int>(codePoint)) : 0;
+}
+
 FontAtlas::Font* FontAtlas::fontFor(const std::string& face) {
     const FaceChoice& choice = choiceFor(face);
     if (choice.file.empty()) return nullptr;

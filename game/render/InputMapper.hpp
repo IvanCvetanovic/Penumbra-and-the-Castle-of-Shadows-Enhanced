@@ -19,6 +19,10 @@
 //    (playerInput.as:159-164) sees a second controller. A key bound to player 2
 //    no longer produces its own KEY, so J walking the princess left does not
 //    also hold K_J, which setupScene.as:393 reads to show the joystick icons.
+//  - TOUCH IS PLAYER 1 (E22, SetTouchPlaysPlayer1): while the on-screen
+//    touch controls are on they play player 1, and real pads start at the
+//    index player 2 reads (PadOrder), so a phone with one Bluetooth pad has
+//    two players: Versus opens, the co-op princess can be summoned.
 //  - MENU MODE (E14, SetMenuMode): in the screens laid out as menus a real
 //    gamepad's A ALSO presses JK_10 and its B ALSO JK_09. The original's
 //    menus confirm only on Start and cancel only on Back
@@ -89,13 +93,29 @@ public:
 
     // One frame from the devices. `cursor` is the (virtual) cursor in logical
     // screen pixels; `player2Pad` is the index player 2 reads,
-    // getPlayerJoystick(1); `menu` is E14's menu mode (off by default).
+    // getPlayerJoystick(1); `menu` is E14's menu mode (off by default);
+    // `touchIsPlayer1` is E22 (PadOrder).
     static Eth::InputFrame Map(const RawDevices& raw, const ControlSettings& controls, const glm::vec2& cursor,
-                               int player2Pad, const MenuButtons& menu = {});
+                               int player2Pad, const MenuButtons& menu = {}, bool touchIsPlayer1 = false);
 
-    // Which pad index each real pad takes, in order: 0,1,2,3 as winmm numbered
-    // them, or player 1's index first when controls.firstPadIsPlayer1.
-    static std::array<int, Eth::kMaxJoysticks> PadOrder(const ControlSettings& controls, int player2Pad);
+    // PadOrder's entry for "no index": the real pads from there on are not
+    // presented to the scripts at all.
+    static constexpr int kNoPad = -1;
+
+    // Which pad index each real pad takes, in order (kNoPad ends the list):
+    //  - 0,1,2,3 as winmm numbered them;
+    //  - with controls.firstPadIsPlayer1 (E12), player 1's index first, then
+    //    player 2's, then the rest;
+    //  - while the touch controls are on (touchIsPlayer1, E22, whatever E12
+    //    says), player 2's index first, then the indices neither player reads,
+    //    and never player 1's: player 1 plays on the touchscreen and the first
+    //    pad plays player 2 (Versus on a phone, the co-op princess). A second
+    //    pad changes nothing for player 1 either: it would put the wizard
+    //    under a finger and a pad at once, and a pad set down on a sofa would
+    //    walk him; two pad players turn the touch controls off (E20's row) and
+    //    E12 gives them one each.
+    static std::array<int, Eth::kMaxJoysticks> PadOrder(const ControlSettings& controls, int player2Pad,
+                                                        bool touchIsPlayer1 = false);
 
     // Input::MousePosition() pixels -> logical screen pixels:
     // (window - imageOrigin - viewportMin) / scale (render/View.hpp, POINTER).
@@ -135,6 +155,12 @@ public:
     // getPlayerJoystick(1) of the ported playerInput: 0 while g_controls is 0.
     void SetPlayer2Pad(int index);
     int Player2Pad() const { return m_player2Pad; }
+    // E22: the touch controls are on, so they are player 1 and the first pad
+    // is player 2's (PadOrder). The layer sets it wherever the controls go on
+    // or off, E20's options row included; off, E12's order is back from the
+    // next tick.
+    void SetTouchPlaysPlayer1(bool on);
+    bool TouchPlaysPlayer1() const { return m_touchIsPlayer1; }
     // E14: on in the screens laid out as menus (the layer's
     // IsFixedLayoutScene: menu.esc, arena_select.esc, videoModes.esc,
     // gameover.esc), before BuildTick. A or B already held when it turns on
@@ -167,6 +193,7 @@ private:
 
     ControlSettings m_controls;
     int m_player2Pad = 0;
+    bool m_touchIsPlayer1 = false;
     bool m_menuMode = false;
     bool m_menuWasOn = false;       // menu mode was on at the last step
     std::uint32_t m_menuHeldA = 0;

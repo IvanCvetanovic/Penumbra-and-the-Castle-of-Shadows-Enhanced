@@ -541,6 +541,8 @@ void ScenarioMenu(Game& g) {
     std::printf("  cursor over '%s'\n", LastButton().c_str());
     CHECK(LastButton() == "creditos");
     CHECK(WaitForHud(g, "Andr\xE9 Santee", 3));
+    // E21: the enhanced edition's credit, after the original team's.
+    CHECK(HudHas(g.m, "-Taina Monclaire\r\n\r\nIvan Cvetanovi\x8D\r\n -Edi\xE7\xE3o aprimorada"));
     g.base.cursor = kRecordsButton;
     g.Steps(3);
     CHECK(LastButton() == "melhores_tempos");

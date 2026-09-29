@@ -153,6 +153,9 @@ button means onto the button numbers the original read:
   the princess (E12). In 2010 the first pad was player 2's; `firstPadIsPlayer1: false` in
   `settings.json` restores that, and the options screen's input switch (the original's) still swaps
   which joystick each player reads.
+- While the touch controls are on (a phone, or `--touch`), they are player 1 and the first pad
+  plays player 2 (E22): the princess in the campaign (Start summons her), player 2 in Versus. A
+  second pad is not used then; to play on two pads, turn the touch controls off in the options.
 
 The keyboard bindings of both players are in `settings.json` and can be changed there.
 
@@ -174,6 +177,10 @@ down, is the finger.
 | Pause (in a level) / back (arena select, game over, the end screens) | The button at the top right | Esc |
 
 - Several fingers work at once: hold a direction and tap the buttons.
+- Two players on one phone (E22): player 1 plays on the touchscreen and player 2 on a Bluetooth
+  gamepad. Versus opens once a pad is connected (until then its entry says "Connect a gamepad for
+  player 2"), and in the campaign the pad's Start summons the princess. The pad never moves the
+  wizard, and it does not drive the menus: player 1 taps them.
 - A combo button presses its combo's keys one a tick, toward the way the wizard faces. If a
   direction, the sword or the fireball was pressed in the last fifth of a second, it waits until the
   game's combo memory has emptied (the original forgets a combo 210 ms after its last key), so the
@@ -221,6 +228,8 @@ Each enhancement is listed with what the original did. The full record is
 | E13 | A pause: in a level or an arena, Esc or player 1's Back freezes the game (the clock too, so best times leave it out) under Resume / Main menu, with the music at 40%. It also opens when the window loses focus (`pauseOnFocusLoss`, a row on the options screen). Not on the end screens, where Esc and Back still go to the menu. | No pause: Esc in a level went straight to the main menu and the run was lost |
 | E14 | In the menus, the arena select, the options and game over, a pad's A also confirms and B also goes back | Only Start confirmed and only Back went back |
 | E16 | On-screen touch controls for phones and tablets: a direction disc, jump, sword, fireball, light, the two combos and pause, pressing player 1's own keys; a tap clicks in the menus. Magic Rampage's buttons, laid out by `data/touch_controls.json`. While they are on, the control hints name the buttons, not the keys (`touch` in `data/strings.json`). `touchControls` in `settings.json`, `--touch` on a desktop. | Keyboard and joysticks only; hints name the keys |
+| E21 | The Credits panel also credits the enhanced edition, after the original team: "Ivan Cvetanović", Enhanced edition (Supersonic Engine). The c with acute, which the original's Windows-1252 text cannot hold, is drawn from byte 0x8D, which that code page leaves unused. | The 2010 team only |
+| E22 | While the touch controls are on they are player 1, and the first gamepad plays player 2: Versus and the co-op princess on a phone with one Bluetooth pad. Without a pad, Versus says to connect one. | A lone pad was player 2's (E12 made it player 1's) |
 
 ## Settings and saves
 
@@ -345,8 +354,10 @@ NativeActivity with no Java: the engine's `android_main` (engine/src/platform/an
 game, `game/android/AndroidMain.cpp` unpacks the original's files and the port's data from the
 APK into the app's private storage on the first launch (and again only when they change), and
 passes them with `--original`/`--data`. Landscape only; minimum Android 8.0 (API 26, for AAudio);
-Vulkan 1.2 is required. The touch controls (E16) are on by default, keyboard player 2 is off (a
-phone has no keyboard: Versus waits for a second pad), and the Back key is Esc. Development flags
+Vulkan 1.2 is required. The touch controls (E16) are on by default and play player 1; keyboard
+player 2 is off (a phone has no keyboard), so a Bluetooth gamepad plays player 2 (E22) - in
+Versus, which asks for one until it is connected, and as the campaign's princess. The Back key is
+Esc. Development flags
 go in `penumbra_args.txt` in the app's files directory (`tools/build_android.sh --run "<flags>"`).
 
 ### macOS and iOS
@@ -411,12 +422,12 @@ every suite through its own executable, and a second registration would run each
 | `test_pn_render_textures` | Colour keys, DDS, normal maps, blend variants |
 | `test_pn_render_lights` | Lights, halos and projected shadows |
 | `test_pn_render_particles` | Particles drawn as pooled quads |
-| `test_pn_render_hud` | `strings.json` against every string the scripts draw, the control hints' touch wording (every hint has it, it fits, touch off changes nothing), the font layout, the HUD's quads |
+| `test_pn_render_hud` | `strings.json` against every string the scripts draw, the control hints' touch wording (every hint has it, it fits, touch off changes nothing), the font layout, the Credits panel with the enhanced edition's credit and its c with acute in every face (E21), the HUD's quads |
 | `test_pn_render_english` | The English images: each variant exists at the original's size, and the renderers swap them with the language |
-| `test_pn_render_input` | Keys, pads and the keyboard second player mapped onto the original's input; A and B in the menus (E14); the settings file |
+| `test_pn_render_input` | Keys, pads and the keyboard second player mapped onto the original's input; A and B in the menus (E14); the pads' order with the touch controls on (E22); the settings file |
 | `test_pn_render_interp` | Smooth motion (E8): the blend between two ticks, whole pixels kept whole, never across a scene load, a frame gap or a jump |
 | `test_pn_render_pause` | The pause (E13): when it opens, the frozen ticks, the menu, the one-tick cancel to the main menu, focus loss, the overlay, the input held back after it |
-| `test_pn_render_touch` | The touch controls (E16): the key each control presses, the direction disc, several fingers at once, the pause opened and tapped, a tap in a menu as a click, the knob only while a direction is held, the corner button screen by screen, the layout on 4:3 and widescreen with a safe area, the manifest and its art, the setting; the combo buttons' key timelines, and the combos firing through the ported combo buffer and in level 1, where the first help sign is drawn in touch wording |
+| `test_pn_render_touch` | The touch controls (E16): the key each control presses, the direction disc, several fingers at once, the pause opened and tapped, a tap in a menu as a click, the knob only while a direction is held, the corner button screen by screen, the layout on 4:3 and widescreen with a safe area, the manifest and its art, the setting; the combo buttons' key timelines, and the combos firing through the ported combo buffer and in level 1, where the first help sign is drawn in touch wording; a phone's Versus with one gamepad through the real game (the touchscreen moves the wizard only, the pad the princess only) and the co-op princess summoned with its Start (E22) |
 
 ## Repository layout
 
@@ -450,7 +461,8 @@ extracted/app/       the original game as installed; read, never written
 - Special thanks: James Hastings-Trew, for some of his textures (planetpixelemporium.com); José
   Rodolfo Ortale; Rafael "Pet" Alencar; Taina Monclaire.
 
-**This remake:** Ivan Cvetanovic, on his Supersonic engine.
+**This remake, the enhanced edition:** Ivan Cvetanović, on his Supersonic engine. The game's own
+Credits panel names him after the original team (E21).
 
 ## Licences
 

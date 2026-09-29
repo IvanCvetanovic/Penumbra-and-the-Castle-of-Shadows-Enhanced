@@ -297,6 +297,9 @@ void PenumbraLayer::SetTouchEnabled(bool enabled) {
     // A combo does not wait for them to come back on.
     if (!enabled) m_touch.CancelCombo();
     m_touchEnabled = enabled;
+    // E22: on, they are player 1 and the first pad is player 2's; off, the
+    // pads go back to E12's order from the next tick.
+    m_input.SetTouchPlaysPlayer1(enabled);
 }
 
 void PenumbraLayer::SaveSettings() {

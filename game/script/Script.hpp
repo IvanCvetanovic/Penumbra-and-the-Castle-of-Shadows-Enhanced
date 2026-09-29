@@ -534,6 +534,21 @@ inline const string creditos =                        // menu.as:159-184
     "-Rafael \"Pet\" Alencar\r\n"
     "-Taina Monclaire\r";
 
+// ENHANCEMENT E21: the enhanced edition's credit, drawn after creditos as a
+// block of its own, in the original's format (a name, then " -" roles):
+// menu.as credited the 2010 team only, and those lines stay theirs, untouched.
+// It begins with "\n" because creditos ends in the lone CR AngelScript left:
+// CR LF is one break, so "\n\r\n" makes exactly one blank line. No CR at the
+// end: FontAtlas counts one as a line. The panel has room for exactly three
+// more lines - showData draws from y 70 in Arial Narrow 25, 25 px a line, the
+// original's 24 end at 670, these three at 745 of 768 - so one role, not
+// several. 0x8D is the port's byte for U+0107, c with acute (eth/Text.hpp).
+// strings.json's "patterns" has the English (the original's credits, then this).
+inline const string creditosEnhanced =
+    "\n\r\n"
+    "Ivan Cvetanovi\x8D\r\n"
+    " -Edi\xE7\xE3o aprimorada (Supersonic Engine)";
+
 inline const string novo_jogo =                       // menu.as:186-207
     "Penumbra n\xE3o \xE9 um bom lugar\r\n"
     "para se viver. Quando acaba a\r\n"

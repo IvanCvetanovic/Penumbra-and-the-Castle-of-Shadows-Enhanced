@@ -568,13 +568,23 @@ void TestText() {
     CHECK(Utf8ToCp1252("S\xC3\xA3o \xE4\xB8\xAD") == "S\xE3o ?");
     CHECK(Utf8ToCp1252("\xC2\x81") == "?");             // a C1 control is not cp1252's 0x81
     CHECK(Utf8ToCp1252("a\xC3") == "a?");               // truncated
+    // E21: 0x8D, undefined in cp1252, is the port's U+0107 (c with acute),
+    // both ways; the other four undefined bytes stay U+FFFD.
+    CHECK_EQ(Cp1252CodePoint(0x8D), 0x0107u);
+    CHECK_EQ(Cp1252CodePoint(kCAcuteByte), kCAcuteCodePoint);
+    CHECK(Cp1252ToUtf8("Cvetanovi\x8D") == "Cvetanovi\xC4\x87");
+    CHECK(Utf8ToCp1252("Ivan Cvetanovi\xC4\x87") == "Ivan Cvetanovi\x8D");
+    CHECK(Utf8ToCp1252("\xC4\x86") == "?");             // the capital, U+0106: not held
+    for (const unsigned b : {0x81u, 0x8Fu, 0x90u, 0x9Du}) {
+        CHECK_EQ(Cp1252CodePoint(static_cast<unsigned char>(b)), 0xFFFDu);
+    }
     std::size_t roundTrips = 0;
     for (int b = 1; b < 256; ++b) {
-        if (b == 0x81 || b == 0x8D || b == 0x8F || b == 0x90 || b == 0x9D) continue;
+        if (b == 0x81 || b == 0x8F || b == 0x90 || b == 0x9D) continue;
         const string one(1, static_cast<char>(b));
         if (Utf8ToCp1252(Cp1252ToUtf8(one)) == one) ++roundTrips;
     }
-    CHECK_EQ(roundTrips, std::size_t(250));
+    CHECK_EQ(roundTrips, std::size_t(251));   // 0x8D included (E21)
 
     // AngelScript's string + number (ostringstream, six significant digits).
     CHECK(Str(1.5f) == "1.5");

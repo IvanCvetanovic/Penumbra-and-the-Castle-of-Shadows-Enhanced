@@ -78,7 +78,9 @@ struct ControlSettings {
     // drives the menu - and the second to player 2's. false (the original):
     // the first pad is joystick 0, which player 2 reads under the default
     // g_controls, so a lone pad played the princess (who must be summoned) and
-    // could not drive the menu (it reads player 0).
+    // could not drive the menu (it reads player 0). While the touch controls
+    // are on, E22 decides instead: they are player 1 and the first pad is
+    // player 2's (InputMapper::PadOrder); off again, this applies again.
     bool firstPadIsPlayer1 = true;
     // Joysticks GLFW has no gamepad mapping for, read by their own button
     // numbers (what winmm reported). Off by default: an unmapped HID device at

@@ -47,8 +47,17 @@
 // at 1080p and 4K; its layout is the original's, scaled. Glyph advances are
 // whole pixels at that resolution, as GDI's were at its own.
 //
+// ONE BYTE BEYOND CP1252 (ENHANCEMENT E21, eth/Text.hpp): 0x8D, which cp1252
+// leaves undefined, is drawn as U+0107 (c with acute), for the enhanced
+// edition's credit ("Cvetanovi" + c-acute, with the diacritic, Ivan's ruling).
+// Every face the scripts name has it: the Windows files (ARIALNB.TTF,
+// arialbd.ttf, ariblk.ttf, verdanab.ttf) and both stand-ins (Liberation Sans
+// Bold, DejaVu Sans Bold) map U+0107 in their cmap (test_pn_render_hud checks
+// whichever files this machine resolves each face to).
+//
 // An atlas is baked per (face file, pixel size) on first use: every cp1252 byte
-// 0x20-0xFF (the undefined ones as U+FFFD, through Eth::Cp1252CodePoint). Above
+// 0x20-0xFF (the other four undefined ones as U+FFFD, through
+// Eth::Cp1252CodePoint). Above
 // kFullAtlasMaxPx only the characters actually drawn are baked (the 256-pixel
 // clock is digits and ':'), and a new character rebakes that atlas. An atlas
 // unused for a few seconds - a size left behind by a window resize - is freed.
@@ -127,6 +136,13 @@ public:
     std::string FaceFile(const std::string& face);
     // Whether that file is a bundled stand-in rather than the face itself.
     bool FaceIsStandIn(const std::string& face);
+
+    // For the suites: the glyph (the font file's own index; 0 is .notdef,
+    // i.e. none) this atlas draws a cp1252 byte with in a face, and the glyph
+    // the same file has for a Unicode code point - so a suite can see E21's
+    // 0x8D drawn as U+0107 in whichever file the face resolved to.
+    int GlyphForByte(const std::string& face, unsigned char byte);
+    int GlyphForCodePoint(const std::string& face, unsigned codePoint);
 
     // %WINDIR%\Fonts on Windows; "" elsewhere, where no system face is looked
     // for and the bundled stand-ins are the only candidates.

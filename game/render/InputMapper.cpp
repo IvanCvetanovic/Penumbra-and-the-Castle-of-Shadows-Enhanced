@@ -157,10 +157,11 @@ float InputMapper::ApplyDeadzone(float value, float deadzone) {
     return value < 0.0f ? -scaled : scaled;
 }
 
-std::array<int, kMaxJoysticks> InputMapper::PadOrder(const ControlSettings& controls, int player2Pad) {
+std::array<int, kMaxJoysticks> InputMapper::PadOrder(const ControlSettings& controls, int player2Pad,
+                                                     bool touchIsPlayer1) {
     std::array<int, kMaxJoysticks> order{};
     for (int i = 0; i < kMaxJoysticks; ++i) order[static_cast<std::size_t>(i)] = i;
-    if (!controls.firstPadIsPlayer1) return order;
+    if (!controls.firstPadIsPlayer1 && !touchIsPlayer1) return order;
 
     // getPlayerJoystick gives the two players the two lowest indices, one
     // each (playerInput.as:43-53), so player 1's is whichever of 0 and 1
@@ -168,6 +169,18 @@ std::array<int, kMaxJoysticks> InputMapper::PadOrder(const ControlSettings& cont
     const int player2 = std::clamp(player2Pad, 0, kMaxJoysticks - 1);
     const int player1 = player2 == 0 ? 1 : 0;
     std::size_t next = 0;
+    if (touchIsPlayer1) {
+        // E22: player 1 is the touch controls, so the first pad is player 2's
+        // and no pad is ever player 1's: the ones after go where no player
+        // reads (the scripts ask for indices 0 and 1 only), and the index
+        // player 1 reads stays empty - a pad button never also moves him.
+        order.fill(kNoPad);
+        order[next++] = player2;
+        for (int i = 0; i < kMaxJoysticks; ++i) {
+            if (i != player1 && i != player2) order[next++] = i;
+        }
+        return order;
+    }
     order[next++] = player1;
     order[next++] = player2;
     for (int i = 0; i < kMaxJoysticks; ++i) {
@@ -223,7 +236,7 @@ std::string InputMapper::ToCp1252(const std::vector<std::uint32_t>& codepoints) 
 }
 
 InputFrame InputMapper::Map(const RawDevices& raw, const ControlSettings& controls, const glm::vec2& cursor,
-                            int player2Pad, const MenuButtons& menu) {
+                            int player2Pad, const MenuButtons& menu, bool touchIsPlayer1) {
     InputFrame frame;
     frame.hasFocus = raw.focused;
     // The scripts only compare the two (menu.as:239 moves the cursor by
@@ -271,13 +284,14 @@ InputFrame InputMapper::Map(const RawDevices& raw, const ControlSettings& contro
     frame.keys[K_RMOUSE] = raw.mouse[1];
     frame.keys[K_MMOUSE] = raw.mouse[2];
 
-    // Real pads, in winmm's order unless the settings put player 1 first.
-    const std::array<int, kMaxJoysticks> order = PadOrder(controls, player2Pad);
+    // Real pads, in winmm's order unless the settings put player 1 first, or
+    // the touch controls are player 1 (E22).
+    const std::array<int, kMaxJoysticks> order = PadOrder(controls, player2Pad, touchIsPlayer1);
     std::size_t next = 0;
     for (std::size_t i = 0; i < raw.pads.size(); ++i) {
         const RawPad& pad = raw.pads[i];
         if (!pad.gamepad && !controls.rawJoysticks) continue;
-        if (next >= order.size()) break;
+        if (next >= order.size() || order[next] == kNoPad) break;
         InputFrame::Pad mapped = MapRealPad(pad, controls.stickDeadzone);
         // E14: A and B keep their own buttons (jump, fire) and add the
         // menus' confirm and cancel.
@@ -378,6 +392,14 @@ RawDevices InputMapper::PollDevices() {
 
 void InputMapper::SetPlayer2Pad(int index) { m_player2Pad = std::clamp(index, 0, kMaxJoysticks - 1); }
 
+void InputMapper::SetTouchPlaysPlayer1(bool on) {
+    if (on == m_touchIsPlayer1) return;
+    m_touchIsPlayer1 = on;
+    // The pads change index: a press latched for a frame that ran no tick
+    // belongs to the index it was pressed on, which is now another player's.
+    m_latchedButtons = {};
+}
+
 MenuButtons InputMapper::stepMenuButtons(const RawDevices& raw) {
     if (!m_menuMode) {
         m_menuWasOn = false;
@@ -429,7 +451,7 @@ InputFrame InputMapper::BuildTick(const RawDevices& raw, const View& view) {
     }
     m_pendingTyped.clear();
 
-    InputFrame frame = Map(adjusted, m_controls, m_cursor, m_player2Pad, stepMenuButtons(raw));
+    InputFrame frame = Map(adjusted, m_controls, m_cursor, m_player2Pad, stepMenuButtons(raw), m_touchIsPlayer1);
 
     // A press made in a frame that ran no tick is handed to this one, so it is
     // seen for at least one Ethanon frame (HIT, then RELEASE).
@@ -465,7 +487,7 @@ void InputMapper::EndFrame(const RawDevices& raw) {
         // No tick saw this frame. Only NEW presses are latched: a key already
         // down at the last tick is held, and the next tick sees it anyway if
         // it still is - latching it would stretch every release by a tick.
-        const InputFrame now = Map(raw, m_controls, m_cursor, m_player2Pad, stepMenuButtons(raw));
+        const InputFrame now = Map(raw, m_controls, m_cursor, m_player2Pad, stepMenuButtons(raw), m_touchIsPlayer1);
         for (std::size_t k = 0; k < now.keys.size(); ++k) {
             if (now.keys[k] && !m_lastTick.keys[k]) m_latchedKeys[k] = true;
         }
