@@ -652,6 +652,23 @@ Gates after the fix: Windows build zero warnings, test_pn_all once - 17 suites, 
 failures; Linux 7935, 0 failures; engine 57 of 57 (ctest, on Linux); Android both ABIs, the menu
 and level 1 on the emulator (out/shots/android/fixes/final_*.png).
 
+### Step 22 - the pause with real input on Windows (2026-09-29)
+With the Magic Portals session idle and the desktop free, the packaged game (the Smart App
+Control-accepted binary; PauseMenu has not changed since it was built) was driven with real OS
+input for half a minute (keybd_event, mouse_event, and a small window of the test's own taking the
+foreground), from penumbra.log's pause lines and client-area captures (out/shots/windows/live/):
+- a real Esc opens the pause (tick 501) and a real Esc closes it (641);
+- losing the foreground to another window pauses a running level on its own ("pause opened ...
+  focused 0", tick 708);
+- the click that brings the window back, on the Main menu row, only moves the highlight: the
+  15-tick grace keeps it from choosing (tick 800, still paused; 5_refocus_click_still_paused.png);
+- a real click on Resume closes it (tick 887).
+The first run's arrow keys never arrived: the test sent them with scan code 0, and GLFW reads keys
+by scan code (a test-side mistake; real arrows were checked live in session 2 and by --hold in
+Step 19). A freshly linked build/game/Penumbra.exe was refused by Smart App Control first (one
+notification); the accepted packaged binary was used instead, never the refused one again. Still
+unmeasured: a real gamepad, and the music's 40% while paused, by ear.
+
 ### Open
 - **iOS: builds, untested** (Ivan, 2026-09-28: "leave it alone, we only need it to build"). No frame
   in the simulator (base-instance drawing); no signed device run. Not to be worked on unless asked.

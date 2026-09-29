@@ -161,3 +161,19 @@ playing on each.
 in its data) launched once, headless and without input, with the Magic Portals session's
 go-ahead: level 1 at frame 300 on the laptop's Radeon, lights, torches, HUD and English text
 drawn, no touch controls (off on the desktop by default), exit 0.
+
+## 2026-09-29 — session 3, the end: small fixes, the pause with real input
+
+**Built.** Magic Rampage's buttons for E16 (from Ivan's XAPK), then the small fixes: touch-worded
+hints, the knob only while held, one back button on Options, and the shadows of baked lights that
+remove only their own light (engine 6cb4036, which also sizes the descriptor pool from the layout).
+
+**Numbers.** Windows test_pn_all 17 suites, 8024 checks, 0 failures; Linux 7935; engine 57/57; the
+APK starts and plays on the emulator. The pause with real OS input on Windows (planning Step 22):
+Esc opens and closes it, a focus loss opens it, the refocus click does not choose, a click resumes.
+
+**Broke.** A descriptor pool one storage buffer short (a literal 7 against the new binding 13):
+SwiftShader refused it at startup, desktop drivers did not notice; caught on the emulator before
+the push, now sized from the layout and guarded. Smart App Control refused one freshly linked
+Penumbra.exe (one notification). The live test's first arrow keys were sent without scan codes.
+
