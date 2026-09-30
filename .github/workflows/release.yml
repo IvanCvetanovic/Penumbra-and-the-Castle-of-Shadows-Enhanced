@@ -113,6 +113,9 @@ jobs:
       # What a player's system must provide: the Vulkan loader, ALSA and libc,
       # nothing newer than glibc 2.35, and no C++ runtime of its own. Without
       # libasound2-dev the build still succeeds, silent, so ALSA is required.
+      # ld-linux-x86-64.so.2 is glibc's own loader, named once libstdc++ is
+      # linked in statically (its thread-local storage): every glibc system
+      # has it.
       - name: Libraries and glibc
         run: |
           BIN=/tmp/pn/game/Penumbra
@@ -123,7 +126,7 @@ jobs:
           done
           for lib in $needed; do
             case "$lib" in
-              libvulkan.so.1|libasound.so.2|libc.so.6|libm.so.6|libpthread.so.0|libdl.so.2) ;;
+              libvulkan.so.1|libasound.so.2|libc.so.6|libm.so.6|libpthread.so.0|libdl.so.2|ld-linux-x86-64.so.2) ;;
               *) echo "links $lib, which a player's system may not have"; exit 1 ;;
             esac
           done
