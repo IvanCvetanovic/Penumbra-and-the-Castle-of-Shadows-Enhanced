@@ -942,7 +942,7 @@ In the table below, "Joystick" means the joystick of that player's own index, an
 - An ENML reader and writer for `data.enml` and `hs.enml`.
 
 **Coordination:**
-- Another session is editing Supersonic for a different game. Any engine-side addition (OGG decoding, a TTF text path, gradient quads, a second gamepad) must be coordinated with that session, or kept game-side.
+- Another project (Magic Portals) is developing Supersonic for a different game. Any engine-side addition (OGG decoding, a TTF text path, gradient quads, a second gamepad) must be coordinated with that project, or kept game-side.
 - This task was read-only. I changed nothing in any of the three trees.
 
 ## Key facts
@@ -979,11 +979,11 @@ In the table below, "Joystick" means the joystick of that player's own index, an
 - No runtime world snapshot preserving arbitrary per-entity custom data (Ethanon SaveScene to checkpoint.esc and reload). The engine's SceneSerializer is for its own JSON component scenes; checkpoint save and restore must be a game-side snapshot of the entities and their custom-data maps.
 - No bucket-grid spatial queries (GetEntitiesFromBucket, GetCurrentBucket with 256 or 1024x256 buckets) and no visible-bucket-only callback scheduling for static entities. Both must be emulated game-side for exact trigger semantics.
 - No global ambient-light and per-entity 2D light model with the Ethanon 'lightIntensity/ambient' semantics is confirmed here (Light2D exists; this belongs to the rendering dimension). Lightning needs SetAmbientLight(vec3) every frame.
-- Coordination: the user's relayed request says another Claude session edits Supersonic for a different game. Every gap above should preferably be solved game-side in the Penumbra repository; any engine change must be coordinated with that session.
+- Coordination: another project (Magic Portals) develops Supersonic for a different game. Every gap above should preferably be solved game-side in the Penumbra repository; any engine change must be coordinated with that project.
 
 ## Open questions
 
-- Callback scheduling in the 2010 runtime: is it really 'dynamic entities always, static entities only in visible buckets' (the 2013 ETHScene::Update model)? Evidence for: the RunCallbackScript string on ETHRenderEntity, level1's static 'play' at x=3981, and checkpoint restore needing the off-screen dynamic bruxo to run. This decides whether the HUD fades with the scene and whether next_level fades freeze off-screen. Ivan could verify on a COPY of extracted/app, since running it writes checkpoint.esc and hs.enml.
+- Callback scheduling in the 2010 runtime: is it really 'dynamic entities always, static entities only in visible buckets' (the 2013 ETHScene::Update model)? Evidence for: the RunCallbackScript string on ETHRenderEntity, level1's static 'play' at x=3981, and checkpoint restore needing the off-screen dynamic bruxo to run. This decides whether the HUD fades with the scene and whether next_level fades freeze off-screen. It can be verified on a COPY of extracted/app, since running it writes checkpoint.esc and hs.enml.
 - Order of dynamic-entity callbacks relative to the loop function in 2010: before it (2013) or after? This affects whether fadeIn covers the HUD and whether camera-dependent draws lag a frame.
 - Does LoadScene in 2010 release all audio samples on a scene change? In 2013 resources are released only when the file name differs. If 2010 also behaves that way, reloading the same level after a death leaves fase.mp3 at the faded volume (~0), so the music is silent after the first death. Test on a copy: die once in level2 (music starts near the spawn) and listen.
 - After a checkpoint reload (checkpoint.esc), does fase.mp3 play at all? The 'play' entity deleted itself before the save, so nothing restarts it unless the previous stream survives the scene change.
@@ -994,8 +994,8 @@ In the table below, "Joystick" means the joystick of that player's own index, an
 - DrawText size semantics in 2010: D3DXCreateFontA Height = size, positive (cell height) or negative (character height)? What weight, quality and antialiasing? The port needs a size mapping to match text widths (menu panel, 256 px end-screen clock).
 - 5th bool of SetWindowProperties(title,w,h,windowed,?,PF32BIT): vsync in 2013; unverified for 2010.
 - CollideDynamic in 2010 is native. Does it include the z-axis overlap and the 3x3 bucket neighbourhood like the 2013 script reimplementation, and with strict or inclusive edges? It matters only where thumbnail hit zones overlap.
-- Joystick button semantics for a modern XInput pad: the original uses WinMM raw buttons (JK_01 light, JK_02 fire, JK_03 jump, JK_04 sword, JK_09 cancel/select, JK_10 confirm/start). Which GLFW gamepad buttons should these map to in the port (design decision for Ivan)?
+- Joystick button semantics for a modern XInput pad: the original uses WinMM raw buttons (JK_01 light, JK_02 fire, JK_03 jump, JK_04 sword, JK_09 cancel/select, JK_10 confirm/start). Which GLFW gamepad buttons should these map to in the port (a design decision)?
 - Draw order among top-layer items versus entity callbacks: is the 2010 top layer strictly call-order? Is DrawSprite anchored top-left and unaffected by the camera? Assumed yes.
 - Is the menu's 1024x256 bucket size significant beyond CollideDynamic's neighbourhood (for example border-bucket rendering of the menu art)? Probably not visible.
 - Heredoc trimming in the 2010 AngelScript version: are the leading and trailing CRLF of the como_jogar/config/creditos/novo_jogo strings removed as in the modern AS manual? This affects the vertical position of the panel text by one line.
-- Should the port keep the original's known bugs (x5 PvP hp via 'complete' presence, checkpoint re-trigger on respawn, help.mp3 restarting every frame, a possible double king, missing lv20 and infinite loop past lv30, PvP-end music stutter)? The recommendation is given per item in report section 18; this needs Ivan's decision.
+- Should the port keep the original's known bugs (x5 PvP hp via 'complete' presence, checkpoint re-trigger on respawn, help.mp3 restarting every frame, a possible double king, missing lv20 and infinite loop past lv30, PvP-end music stutter)? The recommendation is given per item in report section 18; this needs a decision.

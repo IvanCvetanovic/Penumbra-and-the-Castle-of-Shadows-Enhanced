@@ -12,13 +12,17 @@
     and every configuration change handled in place, because a NativeActivity
     that is recreated starts its native thread again over a running game.
 
-    tools/build_android.sh links this with aapt2 (debug mode, so run-as works)
-    and signs the APK with the debug keystore.
+    tools/build_android.sh links this with aapt2 and signs the APK: by default
+    in debug mode (debuggable, so run-as works) with the debug keystore; with
+    release not debuggable, with the release key (the build_android.sh flag).
+    versionName is the release's, the top-level CMakeLists.txt project VERSION
+    (tools/make_release.py checks they agree); versionCode goes up by one with
+    every release, or Android refuses the update.
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.ivancvetanovic.penumbra"
     android:versionCode="1"
-    android:versionName="0.1">
+    android:versionName="1.0.0">
 
     <uses-feature android:name="android.hardware.vulkan.level" android:version="0" android:required="true" />
     <uses-feature android:name="android.hardware.vulkan.version" android:version="0x402000" android:required="true" />

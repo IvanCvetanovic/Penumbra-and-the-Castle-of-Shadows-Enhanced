@@ -10,8 +10,8 @@ MPR's knowledge is a decode of the Dec-2013 Ethanon source (`reference/ethanon`,
 - **Many of MPR's numbers and rules are Android- or 2013-specific.** Copied blindly, they would mis-render Penumbra. Sections 3 and 4 flag each one.
 
 State of things right now:
-- SE `main` HEAD is `4bfcf67` ("The games moved to their own repositories"). That is exactly MPR's submodule pin, and SE's working tree was clean when checked. The other session may move it at any time.
-- Another agent is already scaffolding the Penumbra repo:
+- SE `main` HEAD is `4bfcf67` ("The games moved to their own repositories"). That is exactly MPR's submodule pin, and SE's working tree was clean when checked. The Magic Portals project may move it at any time.
+- The Penumbra repo is already being scaffolded:
   - `git status` shows `A .gitmodules`, `A engine` (submodule at `4bfcf67`), and untracked `.gitattributes`, `.gitignore` and `tools/build.bat`.
   - `tools/build.bat` is a near-verbatim copy of MPR's `port_build.bat` (same vcvars path and configure line).
   - Do not duplicate that work.
@@ -64,7 +64,7 @@ Consumed in `MagicPortalsLayer::Paths` as defaults, e.g. `std::string levels = M
 ### 1.4 Tests layout (`tests/CMakeLists.txt`, SE `cmake/SupersonicTesting.cmake`, SE `tests/TestHarness.hpp`)
 - Each suite is one `.cpp` built by SE's `supersonic_add_test(name)`. It links `Supersonic::TestHarness` (header-only) and `SupersonicCore`, compiles at `/W4`, and calls `add_test` (SupersonicTesting.cmake:26-45).
 - MPR wraps this in `add_mp_test(name [SKIPS_WITH_77])` (`tests/CMakeLists.txt:26-36`). The wrapper links `MagicPortalsSim`, sets `SKIP_RETURN_CODE 77` when marked, and refuses unknown arguments.
-  - The mark sits on each suite's own line because a separate list had "nine suites added without" it. That was SE `80a4ed2`, DEVLOG session 18 (`DEVLOG.md:~2008-2016`).
+  - The mark sits on each suite's own line because a separate list had "nine suites added without" it. That was SE `80a4ed2`, MPR DEVLOG entry 18 (`DEVLOG.md:~2008-2016`).
 - The harness provides `CHECK`, `CHECK_MSG`, `CHECK_NEAR` and `CHECK_EQ`, each evaluating its arguments once. `test::summary(suite, minChecks)` fails a suite that ran fewer checks than its floor, which is the guard against "the suite skipped work" (TestHarness.hpp:37-47).
 - Suite style: a header comment states the oracle and where each pinned number came from, e.g. `test_mp_levels.cpp:1-18`, "counts taken with grep on 10 September 2026 ... independently of this reader".
   - Hand-written fixtures run anywhere (`test_mp_tscn.cpp:1-11`). Suites that read the real data skip with 77 and print the path they looked in.
@@ -97,7 +97,7 @@ Consumed in `MagicPortalsLayer::Paths` as defaults, e.g. `std::string levels = M
   - `.tscn`, `.json`, `.py`, `.toml`, `.md` and `.sh` are LF (`:12-17`).
   - The dotfiles `.gitignore`, `.gitattributes` and `.gitmodules` are pinned to LF (`:22-24`) so git stops warning on every touch.
   - `* text=auto` (`:27`).
-- `.gitmodules` has **no `branch =`**: "the pin is the contract" (DEVLOG session 19 decision, `DEVLOG.md:~2170`).
+- `.gitmodules` has **no `branch =`**: "the pin is the contract" (MPR DEVLOG entry 19 decision, `DEVLOG.md:~2170`).
 - The draft in the Penumbra repo already has these ideas. Its `.gitattributes` adds `*.cpp`, `*.hpp` and similar as LF, and notes that `extracted/` was committed with `text=auto`.
 
 ### 1.7 `game/main.cpp` pattern (worth copying almost verbatim)
@@ -121,20 +121,20 @@ Consumed in `MagicPortalsLayer::Paths` as defaults, e.g. `std::string levels = M
 - The last line is `Record: docs/planning/2026-09-11-magic-portals-remaster.md, step N`. See `git log -1` (step 92) for a full example.
 - Before any commit, `git diff --cached --name-only | grep -iE '\.(png|bmp|jpg|jpeg|mp3|ogg|wav|esc|ent|enml|par|fnt)$'` must print nothing, and nothing from `reference/` or `out/` may be staged.
 - Never force-push or `reset --hard`. An engine gap is fixed in SE first; `engine/` then moves to that commit in a separate commit (`CLAUDE.md:208-211`, rule 5).
-- **Divergences in Penumbra, which Ivan must decide:**
-  - Commit `89a684b` in the Penumbra repo is authored with Ivan's university address.
-  - This session's harness asks for a `Co-Authored-By` trailer, but it also says a user CLAUDE.md rule takes precedence. MPR's CLAUDE.md forbids trailers; Penumbra has no CLAUDE.md yet.
+- **Divergences in Penumbra, open when this was written (both resolved since; see the last section):**
+  - Commit `89a684b` in the Penumbra repo is authored with a university address.
+  - The coding tool's default adds a `Co-Authored-By` trailer, while a project CLAUDE.md rule takes precedence over it. MPR's CLAUDE.md forbids trailers; Penumbra has no CLAUDE.md yet.
 
 ### 2.2 DEVLOG (`DEVLOG.md:1-80`)
 - The log is append-only: never edit a past entry, and correct it in a later one.
-- Session start: run `Get-Date` and check that `reference/` has its inputs.
-- Session end: append an entry from the template, run `git status` to confirm nothing from `reference/` or `out/` is staged, and record that check.
+- Start of work: run `Get-Date` and check that `reference/` has its inputs.
+- End of work: append an entry from the template, run `git status` to confirm nothing from `reference/` or `out/` is staged, and record that check.
 - Template fields: `### YYYY-MM-DD HH:MM — Session N: <goal>`, then **Built / Broke / dead ends / Decision / Assets check / [CLIP] / [BROLL] / Numbers / Inferred mood** (the mood is explicitly marked as a guess).
-- A session that died is written up the next day "from git, the planning doc, the workflow journals", and says so in italics (sessions 14c, 16, 17b).
+- Work cut off before its entry was written is written up the next day "from git, the planning doc, the workflow journals", and says so in italics (entries 14c, 16, 17b).
 
 ### 2.3 Planning doc (`docs/planning/2026-09-11-magic-portals-remaster.md`)
 - **One live record.** Every change is a `## Step N - <title> (built)` section. It says what was built, the gates (numbered thresholds written before the run), and suite check counts, historically on both GCC 13.3 and MSVC 14.50.
-- Owner rulings are recorded as R1..R25, along with "What the owner settled".
+- Decisions are recorded as R1..R25, along with "What the owner settled".
 - A step that fails its gates three times is committed with **RECORDED DEVIATIONS** instead of being tuned, and the deviation also goes into `docs/parity-backlog.md`.
 - Open items go under the step's "LEFT FOR THE OWNER".
 - Around it sit a spike doc (`2026-09-10-magic-portals-spike.md`, thresholds set before measuring) and a port plan (`2026-09-10-magic-portals-port.md`).
@@ -168,7 +168,7 @@ Legend: **LIFT** (near-verbatim), **ADAPT** (the logic is right but 2010/PC chan
 | `sim/Camera` | follow with lag and hold, clamped to level bounds | **SKIP / PATTERN** | Its numbers are `_guess`. Penumbra has `cameraManager.as` (159 lines) in source. `Camera::Clamp` is generic. |
 | `sim/Scores` | medals with an injected `saveDir`; writes `scores.json`, not `scores.enml` | **PATTERN** | `Scores.hpp:12-16` deliberately avoided a C++ ENML parser. Penumbra needs one anyway, for `data.enml` (gameplay: `global`, `warrior`, `minion`, `knight`, `master_knight`, `impy`, `paladin`, `king` blocks) and `hs.enml`. The converter's `enml.py` is a faithful port of `File::ParseString` (`Enml.cpp:313-448`) and is the reference to port to C++. It reads UTF-8 (`enml.py:183`), which is **wrong** for `data.enml` (25 Latin-1 bytes in multi-line Portuguese story strings). The engine reads it with `GetAnsiFileString` (formats doc §8.2, lines 1698-1702: raw bytes, CR stripped, latin-1). |
 | `game/LevelVisit` | DEV `--visit-levels`: walks levels in one process and fails unless material descriptor sets return to the pool | **LIFT (adapt names)** | Generic leak check for per-level `TextureRegistry::Invalidate` (`LevelVisit.hpp:1-30`). It found a real SE bug (`TextureRegistry.hpp` SetPool comment: 20 validation errors). |
-| `Game`, `LevelBuilder`, `Roles`, `Portals`, `Player`, bosses, `Minions`, … | Magic Portals gameplay | **SKIP** | The behaviour layer is game-specific. MPR's method finding does carry over: an entity has behaviour iff an `ETHCallback_<name>` exists (DEVLOG session 8, `DEVLOG.md:1100-1106`). Penumbra's `.as` defines 36 of them, e.g. `ETHCallback_knight`, `_king`, `_minion`, `_potion`, `_fire_ball`, `_falling_bridge`. |
+| `Game`, `LevelBuilder`, `Roles`, `Portals`, `Player`, bosses, `Minions`, … | Magic Portals gameplay | **SKIP** | The behaviour layer is game-specific. MPR's method finding does carry over: an entity has behaviour iff an `ETHCallback_<name>` exists (MPR DEVLOG entry 8, `DEVLOG.md:1100-1106`). Penumbra's `.as` defines 36 of them, e.g. `ETHCallback_knight`, `_king`, `_minion`, `_potion`, `_fire_ball`, `_falling_bridge`. |
 | `tools/asbc` | AngelScript bytecode reader | **SKIP** | Penumbra ships `.as` source (25 files, LGPL-3 header). |
 | `tools/converter` (Python) | `enml.py`, `entity.py`, `scene.py`, `particles.py`, `tscn.py`, `textio.py` | **ADAPT or reimplement** | `entity.py`/`scene.py` implement the 2013 gated-attribute reads (formats doc §5.1). Penumbra's files are the **older writer's**, with every attribute written unconditionally (`castShadow`, `shadowScale`, `shadowLengthScale`, `shadowOpacity`, `specularPower`, `specularBrightness`, `soundVolume`, `layerDepth`, `startFrame`, `collidable`). The doc's §4.8 and §11.7 say this matches the testbed's `customDataTesting.esc` legacy form. `textio.read_ethanon_xml` falls back to `utf-8-sig` (`textio.py:41`) and **raises on `level1.esc` (3 bytes) and `level3.esc` (5 bytes)**, whose Latin-1 accents sit in CustomData `message` strings (e.g. "s\xe3o", "espa\xe7o", "\xc9 uma boa hora"). |
 
@@ -195,7 +195,7 @@ Legend: **LIFT** (near-verbatim), **ADAPT** (the logic is right but 2010/PC chan
 - Engine bug already fixed by MPR (remaster step 18, `docs/planning/...remaster.md:1742-1818`): `ModelLoader::GenerateQuad` never called `computeBounds()`, so every quad was frustum-culled as a point. This is fixed in SE `4bfcf67` and needs no action; it shows why an in-level "things vanish" symptom should first be checked in `RenderSystem`'s gather loop.
 
 ### 4.3 Lighting: engine `Light2DComponent`, not a game shader
-- SE's 2D light path was **added to the engine for Magic Portals**: DEVLOG session 14c, "E2 the engine's overlay map, 2D sprite record and premultiplied blend (0656311, 6d55f68)" and "E3, the engine's 2D point light with a height and the shader loop that adds it (1aa34b9, e1c64f3)". MPR itself writes no shader.
+- SE's 2D light path was **added to the engine for Magic Portals**: MPR DEVLOG entry 14c, "E2 the engine's overlay map, 2D sprite record and premultiplied blend (0656311, 6d55f68)" and "E3, the engine's 2D point light with a height and the shader loop that adds it (1aa34b9, e1c64f3)". MPR itself writes no shader.
 - **Per sprite:** `MagicPortalsLayer::tint` (`.cpp:4648-4690`) fills `MaterialComponent::Sprite2DLight` (`Components.hpp:709-735`):
   - `enabled`;
   - `ambient = AmbientTerm(ambient, emissive)`;
@@ -277,8 +277,8 @@ Legend: **LIFT** (near-verbatim), **ADAPT** (the logic is right but 2010/PC chan
 
 ## 5. Pitfalls recorded in MPR's DEVLOG and planning doc
 
-### 5.1 From the Supersonic era (sessions 14-19, `DEVLOG.md:1422-2394`)
-1. **Smart App Control refuses freshly linked exes, and every refusal pops a Windows notification.** Counts: at least 101 refused launches in session 16 (`:1690-1694`), 71 in 17b, 25 in 18b and 10 in 18c. Session 15b says a relink-and-retry ctest loop "fired dozens (37 in one round)" (`:1597-1600`).
+### 5.1 From the Supersonic era (MPR DEVLOG entries 14-19, `DEVLOG.md:1422-2394`)
+1. **Smart App Control refuses freshly linked exes, and every refusal pops a Windows notification.** Counts: at least 101 refused launches in entry 16 (`:1690-1694`), 71 in 17b, 25 in 18b and 10 in 18c. Entry 15b says a relink-and-retry ctest loop "fired dozens (37 in one round)" (`:1597-1600`).
    - Rule (`CLAUDE.md:146-152`): relink only what you need, launch each suite at most once, never loop ctest or relinks, and report a refused exe as **not run**.
    - `ctest --test-dir build -N` lists tests without launching anything.
 2. **Standby and unclean shutdown.** The laptop slept through a ctest (29,660 s, of which 29,618 s was `test_mp_zerog`; `:2342-2344`).
@@ -293,22 +293,22 @@ Legend: **LIFT** (near-verbatim), **ADAPT** (the logic is right but 2010/PC chan
 8. **Relative paths resolve inside `engine/`.** The game changes its working directory there, so a relative `--screenshot` lands in the submodule, whose `.gitignore` does not cover it (README "Capture flags"; `CLAUDE.md:250-255`).
 9. **CRLF baselines.** An md5 list with `\r` made every frame read as different until it was stripped (`:2161-2162`).
 10. **Parallel agents cross wires.** Another role's `ctest -N` output, `ctestN.txt`, was written into MPR's root (`:2163-2164, 2244-2245`). A workflow chose the wrong build script because `tree.includes('worktree')` matched the main tree's own description (`:1678-1680`).
-    - With another Claude session editing SE right now, use exact paths. Never write into the other repositories. Build only your own `build/`.
-    - MPR's two-track work used separate worktrees, planning step numbers offset by 80, and one merge agent (`:1720-1724`). Session 18c shipped engine changes on a branch (`games-out`) and fast-forwarded SE `main` only after `git ls-remote` confirmed it (`:2206-2213`).
+    - With another project editing SE at the same time, use exact paths. Never write into the other repositories. Build only your own `build/`.
+    - MPR's two-track work used separate worktrees, planning step numbers offset by 80, and one merge agent (`:1720-1724`). Entry 18c shipped engine changes on a branch (`games-out`) and fast-forwarded SE `main` only after `git ls-remote` confirmed it (`:2206-2213`).
 11. **Records were wrong more often than builds.** Fireball step 7.2 failed two checks "on the RECORD, not the build" (`:2325-2331`), and 00_order baselines named a superseded capture (`:1684-1687`). Reproduce every number before writing it into a step.
 12. **The first lighting-rules path pointed at the wrong data directory.** The quantise never applied until `test_mp_layer` caught it (`:1601`). `requires` as a member name is a C++20 keyword (`:1606`).
 13. **Git and Windows.** A submodule does not inherit `core.longpaths`, so a deep clone needs `git -c core.longpaths=true submodule update --init` (`:2158-2160`, README step 5). A CMake object path over 250 characters needed `subst`.
 14. **`port_build.bat` must stay CRLF on checkout.** A tool rewrote the working copy as LF (`:2076-2079`).
 
-### 5.2 General method lessons, stated once (Godot era, sessions 1-13)
+### 5.2 General method lessons, stated once (Godot era, MPR DEVLOG entries 1-13)
 - **Mutation-test any assertion you intend to quote.** Four "proof" tests passed vacuously: a rotation test truncated with `[:12]`, `free()` vs `queue_free()`, a fall-through test that passed by timing out, and a child-count check (`:679-712, 794-836, 926-966`).
-- **Treat "0 of N" as a possibly broken selector.** `<Polygon>` and `<Joints>` nest **inside `<Collision>`**, not under `<Entity>`; "every ENML payload lives under the collision root" (`:539-560, 1247-1255`). The same session had `.ent`-append and branch-B errors of the same shape (`:469-535`).
-- **Encoding is silent when wrong.** MPR's parser stubs originally hard-coded UTF-8 (`:1-9` of the persisted excerpt, session 1). Here the inverse applies: Penumbra is Latin-1, so both the MPR Python fallback and the C++ `ReadUtf16` fail.
+- **Treat "0 of N" as a possibly broken selector.** `<Polygon>` and `<Joints>` nest **inside `<Collision>`**, not under `<Entity>`; "every ENML payload lives under the collision root" (`:539-560, 1247-1255`). The same entry had `.ent`-append and branch-B errors of the same shape (`:469-535`).
+- **Encoding is silent when wrong.** MPR's parser stubs originally hard-coded UTF-8 (`:1-9` of the persisted excerpt, entry 1). Here the inverse applies: Penumbra is Latin-1, so both the MPR Python fallback and the C++ `ReadUtf16` fail.
 - `<CustomData>` is child elements (`<Variable><Type/><Name/><Value/>`), not attributes. Parsing it as attributes gave empty dicts for every entity, "the single most costly bug" (`:852-861`).
 - **Never write lookup tables from memory**; generate them from the source (`:1351-1355`). **Don't edit source through shell heredocs** containing escapes (`:1072-1075`).
 - **Existence proofs, not ranges.** Every frequency in the formats doc was measured on the wrong corpus (the 11-scene testbed) until the audit (`formats doc :50-79`).
 - **A confident sentence is the dangerous one.** "AM_ADD never appears" turned out to be 111 occurrences.
-- **PowerShell 5.1 eats `$LASTEXITCODE`** with `*>$null`; use `Start-Process -Wait -PassThru` (`:10-14` of the session 1 excerpt). Run captures from Git Bash; PowerShell mangles the arguments (`CLAUDE.md:246-255`).
+- **PowerShell 5.1 eats `$LASTEXITCODE`** with `*>$null`; use `Start-Process -Wait -PassThru` (`:10-14` of the entry 1 excerpt). Run captures from Git Bash; PowerShell mangles the arguments (`CLAUDE.md:246-255`).
 
 ### 5.3 Rules from `docs/ethanon-formats.md` that do apply to a 2010 PC game
 Hedged: the doc cites 2013 source, and 2010 must be re-checked.
@@ -351,7 +351,7 @@ Hedged: the doc cites 2013 source, and 2010 must be re-checked.
 - Tests: SE's supersonic_add_test (cmake/SupersonicTesting.cmake:26-45) is wrapped in add_mp_test(name [SKIPS_WITH_77]) with SKIP_RETURN_CODE 77 (tests/CMakeLists.txt:26-36). The TestHarness has CHECK/CHECK_EQ/CHECK_NEAR and summary(suite, minChecks), which fails a suite that skipped work. MPR has 44 suites, 27 of them marked SKIPS_WITH_77.
 - tools/parity/port_build.bat (CRLF, 18 lines) calls C:\Program Files (x86)\Microsoft Visual Studio\18\BuildTools\VC\Auxiliary\Build\vcvars64.bat. It configures only once: `cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DSUPERSONIC_ENABLE_VALIDATION=ON -DCMAKE_C_COMPILER=cl -DCMAKE_CXX_COMPILER=cl -DGLSL_COMPILER=C:/VulkanSDK/1.4.357.0/Bin/glslc.exe`. The Penumbra repo already holds a copy as tools/build.bat (untracked, written by another agent).
 - Commit convention (MPR CLAUDE.md:264-270): author IvanCvetanovic <icvetanovic99@gmail.com>, no AI trailers, title '<Game>: ...', last line 'Record: docs/planning/<doc>.md, step N', and a forbidden-extension grep over staged files before every commit. Engine gaps are fixed in SE first; the submodule pin moves in a separate commit.
-- The DEVLOG is append-only, with fields Built / Broke / dead ends / Decision / Assets check / [CLIP] / [BROLL] / Numbers / Inferred mood. The planning doc is one live step record: '## Step N - title (built)' with gates, check counts, owner rulings R#, and RECORDED DEVIATIONS after three failed verify rounds. JSON data carries _about/_source/_guess/_ruling.
+- The DEVLOG is append-only, with fields Built / Broke / dead ends / Decision / Assets check / [CLIP] / [BROLL] / Numbers / Inferred mood. The planning doc is one live step record: '## Step N - title (built)' with gates, check counts, decisions R#, and RECORDED DEVIATIONS after three failed verify rounds. JSON data carries _about/_source/_guess/_ruling.
 - MPR renders Ethanon lighting through the ENGINE: Light2DComponent (color, intensity, range, height, layers, enabled) plus MaterialComponent::Sprite2DLight (ambient, height, lightMask, normalYDown, overlayStrength), with overlayTexturePath for lightmaps and Premultiplied blend when lit. MPR itself has no game shader; SE's 2D light path (commits 0656311, 6d55f68, 1aa34b9, e1c64f3) was added for Magic Portals.
 - SE Light2D formula: clamp(tint*color*(1-d²/r²)*dot(L-P,N)/d,0,1), normal NOT renormalised, 64 lights max (Light2D.hpp:19, 84-100). Penumbra's 2010 hPixelLight.cg differs: it renormalises the normal, multiplies by diffuse alpha, and has a specular variant with a gloss map. There is a vertical variant (xzy swizzle), dynamic shadows (dynaShadowVS.cg + shadow.dds), and a per-vertex fallback.
 - MPR scene settings: RenderSettings::SceneEncoding::DisplayEncoded, black background, bloom 0 (MagicPortalsLayer.cpp:150-158), justified by a fit (13.59 linear vs 0.28 encoded). OutputQuantize::Rgb565 is Android-specific and must not be carried to Penumbra.
@@ -364,8 +364,8 @@ Hedged: the doc cites 2013 source, and 2010 must be re-checked.
 - Lighting.hpp's ReceiverMask skips static lights on static sprites even without a baked lightmap. Penumbra ships no scenes/*-esc lightmap directories, so copying this rule unlit would leave every static sprite without its static lights. MPR's runtimeBake path, which evaluates static lights live, is the closer model.
 - Encoding pitfall: MPR's converter reads non-BOM XML as utf-8-sig (textio.py:41) and ENML as UTF-8 (enml.py:183). Penumbra's level1.esc (3 bytes) and level3.esc (5 bytes) have Latin-1 accents in CustomData 'message' strings, and data.enml has 25 Latin-1 bytes. The correct model is raw bytes decoded as latin-1 with CR stripped (formats doc §8.2).
 - Reusable as-is or near: game/main.cpp flag and log pattern, LevelVisit's descriptor-pool leak check, sim/Sounds' hook/event/shared-timer JSON pattern, Lighting's LightColour/HaloColour/OwnerScaled/ParticleRatio, and Particles' arithmetic once the reader is fixed. Skip for Penumbra: Tiers, Tscn (unless keeping the .tscn intermediate), asbc (the .as source is present), Camera numbers, and ETHFramework UI modules.
-- Supersonic-era DEVLOG pitfalls: Smart App Control notification floods (at least 101 refused launches in one session; run each suite once and never loop ctest); standby and unclean shutdowns leaving NUL-padded files; the engine quad culled as a point, with a test blind to it; a pointer into a by-value vector; unspecified order of two rand() calls in one glm::dvec2; a script clock that floors to 16 ms per frame (the port ran 4.17% fast); a relative --screenshot landing in engine/; CRLF md5 baselines; parallel agents writing into the wrong repo or matching the wrong build script.
-- State on 2026-09-27 at about 18:10: SE main HEAD 4bfcf67 equals MPR's pin, working tree clean. The Penumbra repo has .gitmodules and engine staged, and .gitattributes, .gitignore and tools/build.bat untracked, from another agent. extracted/ and penumbra_setup.exe are already committed and pushed, unlike MPR's hard rule against committing originals.
+- Supersonic-era DEVLOG pitfalls: Smart App Control notification floods (at least 101 refused launches in one DEVLOG entry; run each suite once and never loop ctest); standby and unclean shutdowns leaving NUL-padded files; the engine quad culled as a point, with a test blind to it; a pointer into a by-value vector; unspecified order of two rand() calls in one glm::dvec2; a script clock that floors to 16 ms per frame (the port ran 4.17% fast); a relative --screenshot landing in engine/; CRLF md5 baselines; parallel agents writing into the wrong repo or matching the wrong build script.
+- State on 2026-09-27 at about 18:10: SE main HEAD 4bfcf67 equals MPR's pin, working tree clean. The Penumbra repo has .gitmodules and engine staged, and .gitattributes, .gitignore and tools/build.bat untracked, from the scaffolding in progress. extracted/ and penumbra_setup.exe are already committed and pushed, unlike MPR's hard rule against committing originals.
 
 ## Engine gaps
 
@@ -397,7 +397,7 @@ Hedged: the doc cites 2013 source, and 2010 must be re-checked.
 - Does machine.exe (D3D9 + Cg + audiere) run natively on Windows 11? If so, parity captures need no emulator rig, unlike MPR's docs/parity.md.
 - What are the viewport and virtual resolution under videoModes.as (no app.enml; Penumbra.ethproj is the 27-byte marker)? How does the original scale to modern resolutions?
 - Pipeline choice: keep MPR's Python converter to .tscn (or JSON) intermediate, or parse .esc/.ent/.par/.enml directly in C++ (which needs an XML parser)?
-- Legal and repo policy: MPR's hard rule forbids committing originals, but Penumbra's repo has extracted/ and penumbra_setup.exe committed and pushed to origin (visibility not checked). Is there a written grant for Penumbra, and should MPR's reference/-gitignore model apply? **Resolved (2026-09-30): Ivan holds the original authors' permission, which covers publishing their files; the repository is public with them.**
-- Commit identity and trailers: MPR uses IvanCvetanovic <icvetanovic99@gmail.com> with no AI trailers; Penumbra commit 89a684b uses his university address; this session's harness requests Co-Authored-By. Penumbra has no CLAUDE.md yet to settle this. **Resolved: commits carry no AI trailers (CLAUDE.md rule 3); the use of Claude Code is disclosed in README.md.**
-- Engine coordination: SE is being edited by another session. Should Penumbra's engine gaps (OGG, TTF, DDS, modulate, specular, vertical lighting, shadows) go to SE on a branch and be pinned later, as MPR did with games-out, or be solved port-side where possible (AddClip, UploadRGBA)?
+- Legal and repo policy: MPR's hard rule forbids committing originals, but Penumbra's repo has extracted/ and penumbra_setup.exe committed and pushed to origin (visibility not checked). Is there a written grant for Penumbra, and should MPR's reference/-gitignore model apply? **Resolved (2026-09-30): the repository went public with them; LICENSE.md says they stay their authors' property and grants no licence to them.**
+- Commit identity and trailers: MPR uses IvanCvetanovic <icvetanovic99@gmail.com> with no AI trailers; Penumbra commit 89a684b uses a university address; the coding tool's default requests Co-Authored-By. Penumbra has no CLAUDE.md yet to settle this. **Resolved: commits carry no AI trailers (CLAUDE.md rule 3); the use of Claude Code is disclosed in README.md.**
+- Engine coordination: SE is being edited by another project (Magic Portals). Should Penumbra's engine gaps (OGG, TTF, DDS, modulate, specular, vertical lighting, shadows) go to SE on a branch and be pinned later, as MPR did with games-out, or be solved port-side where possible (AddClip, UploadRGBA)?
 - Does the 60 Hz fixed tick with a floored-millisecond script clock (Ethanon Update(float) truncation, which made MPR's port 4.17% fast) also apply to the 2010 PC engine?

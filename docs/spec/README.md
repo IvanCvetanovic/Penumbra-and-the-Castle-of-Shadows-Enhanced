@@ -23,10 +23,10 @@ Known correction: text is Windows-1252, not Latin-1 (bytes 0x95 in menu.as/switc
 **Citation keys.** `A:` or a bare `file.as:line` = `extracted/app/`; `E:` = `reference/eth-0.7.12/src/`;
 `G:` = `reference/gs2d-r485/`; `DLL@0x…` = a virtual address in `extracted/app/GameSpace.dll`
 (listing: `reference/analysis/gs.asm`); `reference/analysis/*.py` are the census scripts. Engine
-citations are relative to `engine/`. `reference/` is gitignored and lives on Ivan's laptop only; it
+citations are relative to `engine/`. `reference/` is gitignored and lives on the development machine only; it
 is recreated from SourceForge SVN (`https://svn.code.sf.net/p/ethanon/code/tags/v0-7-12`, via
 `reference/analysis/svncrawl.py`).
 
-**Superseded by Ivan's rulings** (see `CLAUDE.md`): the reports assume a faithful 1024x768 port;
+**Superseded by the project's decisions** (see `CLAUDE.md`): the reports assume a faithful 1024x768 port;
 the remake is *enhanced from the start* — widescreen, gamepads, English — so the reports' parity
 details are the baseline the enhancements depart from on purpose, not a mandate.

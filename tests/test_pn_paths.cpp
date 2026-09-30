@@ -21,6 +21,7 @@
 #include "eth/Audio.hpp"
 #include "eth/Machine.hpp"
 #include "eth/Paths.hpp"
+#include "eth/StartupErrors.hpp"
 
 namespace {
 
@@ -162,6 +163,131 @@ void TestOriginal(const Layout& l) {
     CHECK(r.source == RootSource::NotFound);
     CHECK(!r.found);
     CHECK(r.path.empty());
+}
+
+// A player who double-clicks Penumbra.exe INSIDE the downloaded zip: Explorer
+// extracts that one file into %TEMP%\Temp1_<zip>\Penumbra\ and runs it there,
+// and the build's baked path names a checkout on another machine. Neither root
+// is found, and not through a flag - which is what makes main.cpp tell the
+// player to extract the whole folder (eth/StartupErrors.hpp).
+void TestRunFromInsideTheZip(const Layout& l) {
+    const fs::path temp = l.root / "Temp1_Penumbra-Windows.zip" / "Penumbra";
+    Touch(temp / "Penumbra.exe");
+    const fs::path elsewhere = l.root / "D" / "a" / "Penumbra" / "extracted" / "app";
+    const FoundRoot original = FindOriginalRoot({}, temp, elsewhere);
+    CHECK(original.source == RootSource::NotFound);
+    CHECK(!original.found);
+    const FoundRoot data = FindDataRoot({}, temp, l.root / "D" / "a" / "Penumbra" / "game" / "data");
+    CHECK(data.source == RootSource::NotFound);
+    CHECK(!data.found);
+    // Extracted whole, the same exe finds both beside it.
+    Touch(temp / "original" / "data.enml");
+    Touch(temp / "data" / "strings.json");
+    CHECK(FindOriginalRoot({}, temp, elsewhere).source == RootSource::BesideExecutable);
+    CHECK(FindDataRoot({}, temp, elsewhere).source == RootSource::BesideExecutable);
+}
+
+// Every byte sequence well-formed UTF-8 (the message box converts from it).
+bool ValidUtf8(const std::string& text) {
+    for (std::size_t i = 0; i < text.size();) {
+        const auto c = static_cast<unsigned char>(text[i]);
+        std::size_t extra = 0;
+        if (c < 0x80) extra = 0;
+        else if ((c & 0xE0) == 0xC0 && c >= 0xC2) extra = 1;
+        else if ((c & 0xF0) == 0xE0) extra = 2;
+        else if ((c & 0xF8) == 0xF0 && c <= 0xF4) extra = 3;
+        else return false;
+        if (i + extra >= text.size()) return false;   // cut short
+        for (std::size_t k = 1; k <= extra; ++k) {
+            if ((static_cast<unsigned char>(text[i + k]) & 0xC0) != 0x80) return false;
+        }
+        i += extra + 1;
+    }
+    return true;
+}
+
+bool Has(const std::string& text, const std::string& part) { return text.find(part) != std::string::npos; }
+
+// What a player is told, and when (eth/StartupErrors.hpp). Never the box
+// itself: ShowStartupDialog would stop the suite at a modal window.
+void TestStartupErrors() {
+    using Penumbra::Eth::ErrorStream;
+    using Penumbra::Eth::ShouldShowStartupDialog;
+    using Penumbra::Eth::StartupMessage;
+    using Penumbra::Eth::StartupProblem;
+
+    // Only a run with nowhere to write stderr, and never a headless one.
+    CHECK(ShouldShowStartupDialog(false, ErrorStream::Nowhere));
+    CHECK(!ShouldShowStartupDialog(true, ErrorStream::Nowhere));
+    for (const ErrorStream stream : {ErrorStream::Console, ErrorStream::Pipe, ErrorStream::File}) {
+        CHECK(!ShouldShowStartupDialog(false, stream));
+        CHECK(!ShouldShowStartupDialog(true, stream));
+    }
+    // This suite's own stderr is a console, a pipe or a file - never nowhere
+    // under a runner - so nothing it runs would ever raise a box.
+    CHECK(Penumbra::Eth::CurrentErrorStream() != ErrorStream::Nowhere);
+
+    const std::string notTilde = "n\xC3\xA3o";   // "nao" with its tilde, as UTF-8
+    const struct {
+        StartupProblem problem;
+        const char* english;
+        const char* portuguese;
+    } cases[] = {
+        {StartupProblem::GameFilesMissing, "Penumbra could not find its game files.", "encontrou os arquivos do jogo."},
+        {StartupProblem::FolderNameUnusable, "Penumbra cannot run from this folder", "pode ser aberto desta pasta"},
+        {StartupProblem::NoGraphics, "Penumbra could not start its graphics.", "iniciar os gr\xC3\xA1" "ficos."},
+        {StartupProblem::StoppedByError, "Penumbra stopped because of an unexpected error.", "O Penumbra parou"},
+    };
+    for (const auto& c : cases) {
+        const std::string english = StartupMessage(c.problem, false, "", "");
+        const std::string portuguese = StartupMessage(c.problem, true, "", "");
+        CHECK(ValidUtf8(english));
+        CHECK(ValidUtf8(portuguese));
+        // Both languages, whichever comes first.
+        CHECK(Has(english, c.english) && Has(english, c.portuguese));
+        CHECK(Has(portuguese, c.english) && Has(portuguese, c.portuguese));
+        CHECK(english.find(c.english) < english.find(c.portuguese));
+        CHECK(portuguese.find(c.portuguese) < portuguese.find(c.english));
+        // Neither line when there is nothing to say.
+        CHECK(!Has(english, "Details:") && !Has(english, "Log:"));
+        // The English half is plain ASCII; the Portuguese keeps its accents.
+        const std::string englishHalf = english.substr(0, english.find("\n\n----"));
+        bool ascii = true;
+        for (const char ch : englishHalf) ascii = ascii && static_cast<unsigned char>(ch) < 0x80;
+        CHECK(ascii);
+        if (c.problem != StartupProblem::StoppedByError) CHECK(Has(portuguese, notTilde));
+        // No '?' where a letter failed to encode, no stray escape.
+        CHECK(!Has(portuguese, "?"));
+    }
+    // The steps Explorer names, in both languages.
+    const std::string missing = StartupMessage(StartupProblem::GameFilesMissing, false, "", "");
+    CHECK(Has(missing, "\"Extract All\""));
+    CHECK(Has(missing, "\"Extrair Tudo\""));
+    CHECK(Has(missing, "extract (unzip) the whole folder first"));
+    CHECK(Has(StartupMessage(StartupProblem::NoGraphics, false, "", ""), "Vulkan 1.2"));
+    CHECK(Has(StartupMessage(StartupProblem::StoppedByError, true, "", ""),
+              "github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/issues"));
+
+    // The detail and the log, once each, at the end, in any order of languages.
+    const std::string detailed = StartupMessage(StartupProblem::NoGraphics, true, "Failed to find GPUs with Vulkan support!",
+                                                "C:\\Users\\Jo\xC3\xA3o\\AppData\\Roaming\\Penumbra\\penumbra.log");
+    CHECK(ValidUtf8(detailed));
+    CHECK(Has(detailed, "\n\nDetails: Failed to find GPUs with Vulkan support!\nLog: C:\\Users\\Jo\xC3\xA3o\\"));
+    CHECK(detailed.rfind("penumbra.log") == detailed.size() - std::string("penumbra.log").size());
+    const std::string logOnly = StartupMessage(StartupProblem::StoppedByError, false, "", "/tmp/penumbra.log");
+    CHECK(Has(logOnly, "\n\nLog: /tmp/penumbra.log"));
+    CHECK(!Has(logOnly, "Details:"));
+
+    // The validator itself: a cp1252 byte on its own is not UTF-8.
+    CHECK(!ValidUtf8("n\xE3o"));
+    CHECK(!ValidUtf8("\xC3"));
+    CHECK(ValidUtf8(notTilde));
+
+    // The loader probe answers without a window (always true off Windows,
+    // where there is nothing to probe; on Windows whatever this machine has -
+    // asked, not required).
+    const bool loader = Penumbra::Eth::VulkanLoaderAvailable();
+    std::printf("  (VulkanLoaderAvailable: %s)\n", loader ? "yes" : "no");
 }
 
 void TestData(const Layout& l) {
@@ -341,11 +467,39 @@ void TestRepository() {
     CHECK_MSG(text.find("%PKG%\\assets\\shaders") != std::string::npos,
               "package.bat must copy the engine's shaders, which anchor the working directory");
     // cmd.exe mis-parses a batch file with bare LF line ends.
-    bool crlf = text.find('\n') != std::string::npos;
-    for (std::size_t i = 0; i < text.size(); ++i) {
-        if (text[i] == '\n' && (i == 0 || text[i - 1] != '\r')) crlf = false;
+    const auto allCrlf = [](const std::string& batch) {
+        bool crlf = batch.find('\n') != std::string::npos;
+        for (std::size_t i = 0; i < batch.size(); ++i) {
+            if (batch[i] == '\n' && (i == 0 || batch[i - 1] != '\r')) crlf = false;
+        }
+        return crlf;
+    };
+    CHECK_MSG(allCrlf(text), "package.bat must have CRLF line ends (.gitattributes converts only on checkout)");
+
+    // The release zip's script: CRLF as well, and it packages through
+    // package.bat rather than a copy of its rules.
+    const fs::path tools = built / ".." / ".." / "tools";
+    const std::string release = ReadText(tools / "make_release.bat");
+    CHECK_MSG(allCrlf(release), "make_release.bat must have CRLF line ends");
+    CHECK(Has(release, "package.bat"));
+    CHECK(Has(release, "make_release.py"));
+
+    // One release version everywhere a player's system reads one: the Windows
+    // resources take the top-level project VERSION (penumbra_windows_resources),
+    // and the Windows and Android manifests must say the same (make_release.py
+    // refuses a release otherwise; this catches it on every push).
+    const std::string cmake = ReadText(built / ".." / ".." / "CMakeLists.txt");
+    const std::string marker = "project(Penumbra VERSION ";
+    const std::size_t at = cmake.find(marker);
+    CHECK_MSG(at != std::string::npos, "the top-level CMakeLists.txt must name the release: project(Penumbra VERSION x.y.z ...)");
+    if (at != std::string::npos) {
+        const std::size_t start = at + marker.size();
+        const std::string version = cmake.substr(start, cmake.find(' ', start) - start);
+        const std::string windowsManifest = ReadText(built / ".." / ".." / "game" / "windows" / "Penumbra.manifest");
+        const std::string androidManifest = ReadText(built / ".." / ".." / "game" / "android" / "AndroidManifest.xml");
+        CHECK_MSG(Has(windowsManifest, "version=\"" + version + ".0\""), "Penumbra.manifest's assemblyIdentity version must be " + version + ".0");
+        CHECK_MSG(Has(androidManifest, "android:versionName=\"" + version + "\""), "AndroidManifest.xml's versionName must be " + version);
     }
-    CHECK_MSG(crlf, "package.bat must have CRLF line ends (.gitattributes converts only on checkout)");
 }
 
 } // namespace
@@ -355,11 +509,13 @@ int main() {
     TestMarkers(layout);
     TestOriginal(layout);
     TestData(layout);
+    TestRunFromInsideTheZip(layout);
+    TestStartupErrors();
     TestWorkingDirectory(layout);
     TestDescriptions();
     TestAssetResolver(layout);
     TestRepository();
     std::error_code ec;
     fs::remove_all(layout.root, ec);
-    return test::summary("test_pn_paths", 60);
+    return test::summary("test_pn_paths", 140);
 }

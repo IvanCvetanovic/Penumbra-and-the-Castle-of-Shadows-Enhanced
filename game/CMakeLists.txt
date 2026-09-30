@@ -70,6 +70,13 @@ penumbra_windows_resources(Penumbra "Penumbra and the Castle of Shadows - Enhanc
 if (MSVC)
     set_target_properties(Penumbra PROPERTIES WIN32_EXECUTABLE ON)
     target_link_options(Penumbra PRIVATE /ENTRY:mainCRTStartup)
+    # vulkan-1.dll delay-loaded, bound at the first Vulkan call instead of at
+    # process start. Linked outright, a PC without any Vulkan driver never got
+    # as far as main(): Windows refused to start the game with a message naming
+    # a DLL. Now main.cpp asks for it first (eth/StartupErrors.hpp) and tells
+    # the player what to do. The game only; the suites never call Vulkan.
+    target_link_options(Penumbra PRIVATE /DELAYLOAD:vulkan-1.dll)
+    target_link_libraries(Penumbra PRIVATE delayimp)
 endif()
 target_link_libraries(Penumbra PRIVATE PenumbraGame)
 

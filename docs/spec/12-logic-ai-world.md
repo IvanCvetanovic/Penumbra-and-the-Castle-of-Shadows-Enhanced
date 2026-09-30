@@ -1072,7 +1072,7 @@ Not used anywhere in scope: SetSprite, SetEmissiveColor, SetLightRange, DrawShap
   - the per-frame knockback.
 
   The Magic Portals port does the same (game/sim).
-- Per the user: another session is porting a different game onto the same Supersonic engine. Any engine change must be coordinated with it. I made none.
+- Another project (Magic Portals) is porting a different game onto the same Supersonic engine. Any engine change must be coordinated with it. This investigation made none.
 
 ## Key facts
 
@@ -1101,7 +1101,7 @@ Not used anywhere in scope: SetSprite, SetEmissiveColor, SetLightRange, DrawShap
 - Not checked: whether src/core/ParticleSystem.cpp can reproduce Ethanon particle semantics (staggered release, repeat count, allAtOnce, MirrorX, alphaMode, per-particle randomisation), temporary-entity auto-deletion, and SoundEffect-on-spawn.
 - Not checked: 2D normal-mapped per-pixel point lights with halos, and sprite-sheet frame animation (SpriteAnimationSystem exists but was not read).
 - Port-side layer needed rather than engine changes: the 256-px bucket grid with centre-based membership, the typed custom-data bag, callbacks bound by entity label with static/dynamic gating, the path-keyed sample API (play/loop/stop/isPlaying/volume) and camera earthquake.
-- Coordination: per the user, another Claude session is porting a different game onto the same Supersonic engine. Any engine change must be coordinated with that session; this investigation changed nothing.
+- Coordination: another project (Magic Portals) is porting a different game onto the same Supersonic engine. Any engine change must be coordinated with that project; this investigation changed nothing.
 
 ## Open questions
 

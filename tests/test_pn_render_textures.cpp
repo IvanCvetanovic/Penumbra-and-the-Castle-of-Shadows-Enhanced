@@ -702,7 +702,7 @@ float SampledAlpha(const DecodedImage& image, float u, float v, bool clampToEdge
 }
 
 void EdgesAreClampedAsTheOriginalSampledThem() {
-    // Step 24, Ivan's "thin lines at the edges" of the pits. At 1920x1200 a
+    // Step 24, the thin lines reported at the pits' edges. At 1920x1200 a
     // texel is 1.5625 image pixels, so a sprite's top edge can fall exactly on
     // a row of pixel centres: those pixels sample v = 0, half a texel above the
     // image. ground.png's two top rows are transparent and its bottom row

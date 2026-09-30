@@ -73,7 +73,7 @@ public:
     bool Loaded() const { return m_loaded; }
 
     // The language Translate(text) and the HUD use. English by default: the
-    // enhanced port's own language (Ivan's ruling); Portuguese is the original.
+    // enhanced port's own language (a project decision); Portuguese is the original.
     void SetLanguage(Language language) { m_language = language; }
     Language CurrentLanguage() const { return m_language; }
 

@@ -1,4 +1,4 @@
-# Penumbra e o Castelo das Sombras - Enhanced, on the Supersonic Engine.
+# Penumbra and the Castle of Shadows - Enhanced, on the Supersonic Engine.
 #
 #   engine/   the engine, a git submodule pinned to a commit. Added as a
 #             subproject, it builds SupersonicCore and the test harness and
@@ -16,7 +16,11 @@
 #   cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DSUPERSONIC_ENABLE_VALIDATION=ON
 
 cmake_minimum_required(VERSION 3.20)
-project(Penumbra LANGUAGES C CXX)
+# VERSION is the release's: the Windows resources carry it (game/windows),
+# and tools/make_release.py checks that the Windows manifest and the Android
+# manifest say the same.
+project(Penumbra VERSION 1.0.0 LANGUAGES C CXX)
+set(PENUMBRA_PRODUCT_NAME "Penumbra and the Castle of Shadows - Enhanced")
 
 # Objective-C++ on Apple platforms: the entries in game/macos and game/ios ask
 # the system for its language and the bundle's folders, and the engine's iOS
@@ -65,6 +69,8 @@ function(penumbra_windows_resources target description)
     set(PENUMBRA_ICON "${PENUMBRA_ORIGINAL_DIR}/penumbra.ico")
     set(PENUMBRA_RC_NAME "${target}")
     set(PENUMBRA_RC_DESCRIPTION "${description}")
+    set(PENUMBRA_RC_VERSION "${Penumbra_VERSION_MAJOR}.${Penumbra_VERSION_MINOR}.${Penumbra_VERSION_PATCH}.0")
+    set(PENUMBRA_RC_VERSION_COMMAS "${Penumbra_VERSION_MAJOR},${Penumbra_VERSION_MINOR},${Penumbra_VERSION_PATCH},0")
     configure_file(${PENUMBRA_REPO_DIR}/game/windows/Penumbra.rc.in ${CMAKE_CURRENT_BINARY_DIR}/${target}.rc @ONLY)
     target_sources(${target} PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/${target}.rc ${PENUMBRA_REPO_DIR}/game/windows/Penumbra.manifest)
 endfunction()

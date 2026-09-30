@@ -4,11 +4,11 @@ Everything below was read at engine commit `4bfcf67` ("The games moved to their 
 
 All engine citations are relative to `<Desktop>\Supersonic-Engine`. Citations prefixed `MPR:` are relative to `<Desktop>\Magic-Portals-Remake`. Citations prefixed `PEN:` are relative to `...\Penumbra-and-the-Castle-of-Shadows-Enhanced\extracted\app`.
 
-**Coordination note.** Another Claude session is editing this engine for a different game. Every gap below is therefore split into two groups:
+**Coordination note.** Another project (Magic Portals) is developing this engine for a different game. Every gap below is therefore split into two groups:
 - **ENGINE CHANGE REQUIRED**: this needs a change in Supersonic (C++ and/or shader SPIR-V), and the change must not break Magic Portals or the other game.
 - **GAME-SIDE**: this can be done entirely in the port's repository with no engine edit.
 
-**Recommendation.** The port should consume the engine the way MPR does: as a git submodule pinned to a commit (`4bfcf67` today). It should not `add_subdirectory` the live Desktop checkout, which the other session is changing.
+**Recommendation.** The port should consume the engine the way MPR does: as a git submodule pinned to a commit (`4bfcf67` today). It should not `add_subdirectory` the live Desktop checkout, which the other project is changing.
 
 ---
 
@@ -517,7 +517,7 @@ It draws through ImGui's draw list with `ImGui::GetFont()` (Inter). Its fields a
 
 - **Smart App Control is in enforce mode** (MPR:CLAUDE.md:146-150; README.md:285-288; DEVLOG.md:1529-2392; engine docs/planning/2026-09-10-migration-readiness.md:161-164).
   - It randomly refuses the first launch of freshly linked exes: "An Application Control policy has blocked this file", "Permission denied", ctest "Not Run", rc 126.
-  - **Every refusal shows Ivan a Windows notification.**
+  - **Every refusal shows the desktop's user a Windows notification.**
   - Rules: relink nothing unnecessary; launch each suite at most once; never loop ctest or relinks; report a refused exe as not run; use `ctest --test-dir build -N` to list tests without launching them.
 - **Toolchain** (MPR:tools/parity/port_build.bat; paths verified present):
   - `call "C:\Program Files (x86)\Microsoft Visual Studio\18\BuildTools\VC\Auxiliary\Build\vcvars64.bat"`: VS Build Tools 18, MSVC toolset 14.50 (v145), x64.
@@ -530,7 +530,7 @@ It draws through ImGui's draw list with `ImGui::GetFont()` (Inter). Its fields a
 - **Window:** the size comes from the manifest or `--window` only. There is no fullscreen (no `glfwSetWindowMonitor` anywhere), no runtime resize or video-mode enumeration API, and `Window` is not exposed to layers (src/platform/Window.hpp).
   - Present mode is Mailbox, else FIFO (VulkanSwapchain.cpp:66-72).
   - Penumbra defaults to 1024×768 and offers a windowed/fullscreen toggle plus a video-mode list (main.as:144, menu.as:111, videoModes.as:95-129).
-- **Shared engine:** the engine is read-only for this port and another session edits it. The rest of this bullet is my inference, not something I checked: every ENGINE CHANGE below probably touches shared files (`shader.frag`, `Components.hpp`, `VulkanPipeline`, `AudioClip`, `InputPolling`), needs recompiled committed SPIR-V, and must keep `test_materials`/`test_light2d`/`test_screenoverlay` (which read `shader.frag`) green for MPR and the other game.
+- **Shared engine:** the engine is read-only for this port and another project edits it. The rest of this bullet is my inference, not something I checked: every ENGINE CHANGE below probably touches shared files (`shader.frag`, `Components.hpp`, `VulkanPipeline`, `AudioClip`, `InputPolling`), needs recompiled committed SPIR-V, and must keep `test_materials`/`test_light2d`/`test_screenoverlay` (which read `shader.frag`) green for MPR and the other game.
 
 ---
 
@@ -600,7 +600,7 @@ It draws through ImGui's draw list with `ImGui::GetFont()` (Inter). Its fields a
 
 ## Key facts
 
-- Engine read at commit 4bfcf67 ('The games moved to their own repositories'); clean tree on 2026-09-27; Magic-Portals-Remake's engine/ submodule pins the same commit. The port should consume the engine as a submodule pinned to a commit, not the live Desktop checkout another session is editing.
+- Engine read at commit 4bfcf67 ('The games moved to their own repositories'); clean tree on 2026-09-27; Magic-Portals-Remake's engine/ submodule pins the same commit. The port should consume the engine as a submodule pinned to a commit, not the live Desktop checkout another project is editing.
 - Game build: add_subdirectory(engine) gives SupersonicCore (static), Supersonic::TestHarness and supersonic_add_test(name), which builds <name>.cpp at /W4 and calls add_test (cmake/SupersonicTesting.cmake:26-47). Editor, plugin and engine suites are off in a subproject build. The game uses the engine's committed SPIR-V; the Shaders target is editor-only.
 - main.cpp: GameManifest{isGame=true, title, startupScene.clear()} -> SupersonicApp app(options,&manifest) -> app.PushLayer(make_unique<Layer>) -> app.Run(); then check VulkanContext::ValidationErrorCount() (MPR game/main.cpp:357-431).
 - EngineLayer hooks (EngineLayer.hpp): OnAttach/OnDetach, OnFixedUpdate(registry, fixedDelta) inside the tick loop after physics and SpriteAnimationSystem::Update, and OnUpdate(registry, frameDelta) per frame. There is no render hook: visuals are components, plus ScreenOverlay/WorldShapes filled in OnUpdate.
@@ -622,7 +622,7 @@ It draws through ImGui's draw list with `ImGui::GetFont()` (Inter). Its fields a
 - Audio is XAudio2 with no voice cap. AudioClip::Load handles .wav and .mp3 only (MP3 via Windows Media Foundation) and refuses .ogg. AudioEngine::Play(path, loop, volume, pitch), Stop, SetVoiceParameters(volume [0,1], pitch [0.5,2], pan), IsVoicePlaying, AddClip(name, AudioClip). Finished voices are reaped each frame. There is no master volume and no streaming; clips are decoded whole on first use.
 - Input: all GLFW keys are polled. IsKeyDown/WasKeyPressed are per frame, with no raw release edge. Named actions have IsDown and the tick-latched TickWasPressed/TickWasReleased; only actions, axes, mouse and UI clicks are recorded or replayed. The gamepad is only GLFW_JOYSTICK_1 as a GLFW gamepad. LoadDefaultBindings runs at startup (WASD/arrows/Space...); call ClearBindings().
 - StateHash::Compute(registry) and StateHash::RegisterContributor(name, fn(registry, Mixer&)) cover game-owned state. Use DetMath for trig inside the tick. Penumbra's 59 GetTime() calls must become SimulationClock ticks.
-- Machine: VS Build Tools 18 vcvars64 at C:\Program Files (x86)\Microsoft Visual Studio\18\BuildTools\VC\Auxiliary\Build\vcvars64.bat; CMake 3.29.2 and Ninja from C:\Strawberry\c\bin (force -DCMAKE_C_COMPILER=cl -DCMAKE_CXX_COMPILER=cl); Vulkan SDK C:\VulkanSDK\1.4.357.0 with GLSL_COMPILER=.../Bin/glslc.exe; configure Ninja, Release, SUPERSONIC_ENABLE_VALIDATION=ON. Smart App Control is enforcing: fresh exes are randomly blocked and each block notifies Ivan, so launch once and never loop.
+- Machine: VS Build Tools 18 vcvars64 at C:\Program Files (x86)\Microsoft Visual Studio\18\BuildTools\VC\Auxiliary\Build\vcvars64.bat; CMake 3.29.2 and Ninja from C:\Strawberry\c\bin (force -DCMAKE_C_COMPILER=cl -DCMAKE_CXX_COMPILER=cl); Vulkan SDK C:\VulkanSDK\1.4.357.0 with GLSL_COMPILER=.../Bin/glslc.exe; configure Ninja, Release, SUPERSONIC_ENABLE_VALIDATION=ON. Smart App Control is enforcing: fresh exes are randomly blocked and each block shows a notification, so launch once and never loop.
 - Other useful APIs: Supersonic::Application::RequestQuit(); Supersonic::UserDataDirectory(title) for saves; MeshRegistry::Upload/Replace plus MeshComponent::meshKey for game-built geometry (text meshes, shadow trapezoids); TextureRegistry::UploadRGBA to pre-seed decoded images (e.g. DDS) under the 'data:'+path key.
 
 ## Engine gaps
@@ -649,10 +649,10 @@ It draws through ImGui's draw list with `ImGui::GetFont()` (Inter). Its fields a
 - Does Penumbra's 2010 Ethanon use the same ALPHA_MODE enum as the 2013 source MPR decoded (0 PIXEL, 1 ADD, 2 ALPHA_TEST, 3 NONE, 4 MODULATE) for .ent blendMode and .par alphaMode? blendMode="2" (76 .ent) and alphaMode="4" (14 files) change meaning otherwise. No 2010 D3D9 gs2d source is in the tree to confirm.
 - Does the 2010 ENTITY_TYPE enum match the 2013 one (0 HORIZONTAL, 1 GROUND_DECAL, 2 VERTICAL, 3 OVERALL, 4 OPAQUE_DECAL, 5 LAYERABLE, per MPR docs/ethanon-formats.md:2398)? Penumbra uses types 0, 2 and 5.
 - What D3D9 blend state did 2010 Ethanon use for the per-pixel light pass (One,One vs SrcAlpha,One) and for AM_ADD? It decides whether horizontal sprites should use engine BlendMode::Alpha (matches hPixelLight's *diffuse.w under One,One) or something else, and what vPixelLight's missing *diffuse.w implies.
-- Should vertical-entity lighting, specular, modulate blend, clamp sampling, dual pads and fullscreen become engine features, which means coordinating with the other session editing Supersonic and recompiling committed SPIR-V? Or should the port accept approximations or drop them?
+- Should vertical-entity lighting, specular, modulate blend, clamp sampling, dual pads and fullscreen become engine features, which means coordinating with the other project developing Supersonic and recompiling committed SPIR-V? Or should the port accept approximations or drop them?
 - Fonts: is it acceptable to pre-bake BMFont atlases from Microsoft's Arial Narrow/Arial Black/Verdana (licensing), or should metric-compatible free substitutes be used (e.g. Liberation Sans Narrow for Arial Narrow; there is no exact free Arial Black clone)?
 - Dynamic sprite shadows: is a per-frame MeshRegistry::Replace trapezoid per shadow-casting entity per light affordable (82 .esc instances x lights)? Not measured. Or should shadows be approximated with affine skewed quads or the unreferenced data/shadow.dds blob?
 - Does the port need --record/--replay determinism? If yes, all input must go through named actions read inside OnFixedUpdate, because raw IsKeyDown/WasKeyPressed are neither tick-latched nor replayed.
-- Will GLFW's gamepad mapping recognise the controllers Ivan wants to use (XInput pads yes; older DirectInput joysticks only if listed in the SDL controller DB)? Penumbra's original assumed DirectInput button numbering JK_01..JK_10.
+- Will GLFW's gamepad mapping recognise the controllers players are likely to use (XInput pads yes; older DirectInput joysticks only if listed in the SDL controller DB)? Penumbra's original assumed DirectInput button numbering JK_01..JK_10.
 - Is gapless looping of MP3 music (menu.mp3, fase.mp3, chefao.mp3) through Media Foundation clean, given the encoder delay/padding? Not tested.
 - Should sprites be mip-mapped and linearly filtered (the engine always generates mips) or drawn nearest at 1:1? The .meta-based nearest switch requires sidecar files next to the textures, which must live outside the read-only extracted/app.

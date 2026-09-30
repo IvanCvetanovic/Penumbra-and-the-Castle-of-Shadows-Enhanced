@@ -88,7 +88,7 @@ public:
         // --tour a,b,c@N: after the menu boots, start each scene in turn for N
         // ticks (as --start starts one), for one headless launch that captures
         // many screens - every launch of a fresh exe is a Smart App Control
-        // verdict, and every refusal a notification for Ivan.
+        // verdict, and every refusal a notification on the desktop.
         std::vector<std::string> tour;
         unsigned tourTicks = 0;
         glm::uvec2 windowPixels{1366, 768}; // what the window opens at; then kept current (for the logical width)

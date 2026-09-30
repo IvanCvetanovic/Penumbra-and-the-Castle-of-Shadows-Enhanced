@@ -916,7 +916,7 @@ void testSettings() {
         CHECK_MSG(!warning.empty(), broken);
     }
     // A file written before E23 (version 1) keeps what it says, and the new
-    // field is automatic: Ivan's own, as it was on 2026-09-29.
+    // field is automatic: the development laptop's, as it was on 2026-09-29.
     warning.clear();
     const Settings version1 = Settings::FromJson(
         R"({"version": 1, "language": "en", "window": { "width": 1920, "height": 1200, "fullscreen": true,
@@ -1012,7 +1012,7 @@ void testAutomaticDisplayMode() {
     // A desktop already at its highest: that mode, which switches nothing.
     choice = ChooseFullscreen({{1920, 1200, 60}}, desktop, glm::uvec2(0u), 0);
     CHECK(choice.mode == desktop);
-    // Ivan's panel as Windows reports it (one source mode, 1920x1200 at 60).
+    // The development laptop's panel as Windows reports it (one source mode, 1920x1200 at 60).
     choice = ChooseFullscreen({{1920, 1200, 60}}, desktop, glm::uvec2(0u), 0);
     CHECK(choice.mode == desktop);
 
@@ -1070,7 +1070,7 @@ void testAutomaticDisplayMode() {
     CHECK(rates.rates == (std::vector<uint32_t>{0}));
     CHECK_EQ(rates.automaticRate, 0u);
 
-    // The automatic window's share, and what it comes to on Ivan's panel over
+    // The automatic window's share, and what it comes to on that laptop's panel over
     // a 48-pixel taskbar (the engine's FitWindowedSize).
     CHECK(Penumbra::Render::kAutoWindowFraction == 0.85f);
     CHECK(WindowControl::FitWindowedSize(WindowControl::ScreenRect{0, 0, 1920, 1152}, desktop,

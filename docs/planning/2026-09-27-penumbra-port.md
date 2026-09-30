@@ -1,21 +1,21 @@
 # Penumbra on Supersonic — the port's step record
 
-Started 2026-09-27. Ivan asked for Penumbra e o Castelo das Sombras to be remade on his own engine,
-in this repository, with the engine improved where the game needs it.
+Started 2026-09-27. The goal: Penumbra e o Castelo das Sombras (2010) ported to the Supersonic
+Engine, in this repository, with the engine improved where the game needs it.
 
-## Rulings (Ivan, 2026-09-27)
+## Decisions (2026-09-27)
 
 - **R1 Enhanced from the start.** The original is the base; visuals, controls, resolution and balance
   may be modernised freely. The scripts remain the gameplay spec.
 - **R2 Portuguese + English**, selectable in the game.
 - **R3 The original may be run** (from a scratch copy) for reference captures.
 - **R4 Assets are read in place** from `extracted/app` (committed; the repository was private until
-  the public release, Step 28, with the authors' permission to publish them). No
-  converted copies are committed.
-- **R5 Commits as Ivan, no AI trailers**, here and in the engine; checkpoints at Claude's discretion.
+  the public release, Step 28). No converted copies are committed.
+- **R5 Commits as IvanCvetanovic, no AI trailers**, here and in the engine; checkpoints at the
+  implementer's discretion.
   The use of Claude Code is disclosed in README.md ("How this was made").
-- **R6 A second Claude session (Magic Portals) also edits Supersonic.** Engine changes are additive,
-  made from this repo's `engine/`, rebased before push, announced to that session. Agreed with it on
+- **R6 A second project (Magic Portals) also develops Supersonic.** Engine changes are additive,
+  made from this repo's `engine/`, rebased before push, announced to that project. Agreed with it on
   2026-09-27: keep existing enum values and their order (append new ones).
 
 ## Architecture (decided 2026-09-27, see CLAUDE.md)
@@ -27,7 +27,7 @@ in this repository, with the engine improved where the game needs it.
 - `game/render` + `PenumbraLayer` — the snapshot drawn with the engine: sprite quads, Light2D with
   normal maps, projected shadows, particles as pooled quads, HUD via ScreenOverlay, TrueType text.
 - Alternatives rejected: embedding AngelScript and running the original scripts (exact, but no room
-  for the enhancements Ivan asked for and no C++ to test); a data-only rewrite in the Magic Portals
+  for the planned enhancements and no C++ to test); a data-only rewrite in the Magic Portals
   style (the scripts ARE the spec here, so re-deriving them would only add error).
 
 ## Enhancements (planned; each switchable where it changes gameplay)
@@ -54,7 +54,7 @@ in this repository, with the engine improved where the game needs it.
 | E18 | MP3 without Media Foundation (eth/SoundDecode, dr_mp3 vendored at a pinned commit): where the engine cannot decode an MP3 (every platform but Windows) the port decodes it itself; on Windows the engine's Media Foundation path still decodes, dr_mp3 only if it refuses a file | Audiere on Windows |
 | E19 | The first language off Windows: Portuguese when LC_ALL, LC_MESSAGES or LANG starts with pt (Settings::SetSystemLocale is the hook Android and iOS feed the device locale into) | Portuguese only |
 | E20 | The options screen on a phone (Script::g_mobileLayout, raised by the layer on PENUMBRA_MOBILE builds; a runtime flag, so test_pn_scenarios 21 runs it on the desktop): no video-mode list, no windowed/fullscreen switch and no "Pressione Alt+Enter" line (menu footer and options screen); in the switch's place E16's touch controls on/off ("Ativa/Desativa controles de toque", saved as settings.touchControls "on"/"off", applied at once) | the video modes, the window switch and the Alt+Enter line, on every machine |
-| E21 | The enhanced edition's credit (Ivan, Step 26): the Credits panel draws the original team's credits untouched, then one blank line, "Ivan Cvetanović" and one role, " -Edição aprimorada (Supersonic Engine)" / " -Enhanced edition (Supersonic Engine)" (Script.hpp creditosEnhanced after menu.as's creditos; the English by a strings.json pattern). One role, not three: the panel has three lines left below the original's (the last ends at y 745 of 768) and 381 px across. The c with acute: cp1252 has none, so 0x8D, a byte cp1252 leaves undefined and none of the original's 261 text files (.as .enml .esc .ent .par .txt .cg .ethproj) holds, is the port's byte for U+0107 (eth/Text: logs, strings.json; FontAtlas: every face and both stand-ins have the glyph). Not switchable: it changes no play | the panel credited the 2010 team only |
+| E21 | The enhanced edition's credit (Step 26): the Credits panel draws the original team's credits untouched, then one blank line, "Ivan Cvetanović" and one role, " -Edição aprimorada (Supersonic Engine)" / " -Enhanced edition (Supersonic Engine)" (Script.hpp creditosEnhanced after menu.as's creditos; the English by a strings.json pattern). One role, not three: the panel has three lines left below the original's (the last ends at y 745 of 768) and 381 px across. The c with acute: cp1252 has none, so 0x8D, a byte cp1252 leaves undefined and none of the original's 261 text files (.as .enml .esc .ent .par .txt .cg .ethproj) holds, is the port's byte for U+0107 (eth/Text: logs, strings.json; FontAtlas: every face and both stand-ins have the glyph). Not switchable: it changes no play | the panel credited the 2010 team only |
 | E23 | The display mode chosen for the player, and by hand (Step 27). Automatic: fullscreen at the desktop's size - the monitor's native size as the system runs it, not the largest listed mode (NVIDIA DSR and AMD VSR list virtual modes above the panel's; a virtual X server lists one oversized mode) - at the highest refresh rate the monitor offers at that size, which switches the display only when the desktop does not run that rate already (engine: SetFullscreenMode's kHighestRefreshRate); a window fitted to its monitor, the largest of the monitor's own shape within 85% of its work area each way, centred (engine: FitWindowToMonitor; 1566x979 on a 1920x1200 panel over a 48 px taskbar), fitted before the first swapchain at launch (GameManifest::fitWindowToMonitor) and again on each way out of fullscreen; a first launch (no settings.json) is fullscreen. By hand, on the options screen: the mode list's first line "Automático (melhor)" / "Automatic (best)" (automatic in the window or in fullscreen, whichever the game is in), the sizes as "WxH" with the monitor's native one marked "(nativa)" / "(native)", the current choice marked "[•]" and drawn at full alpha as a Switch row's is; a window picked from the list is centred on its monitor; a refresh-rate row at x 540 beside the window switch, "Taxa de atualização" / "Refresh rate", "[<] Automática (165 Hz) [>]" and every rate the monitor offers at the fullscreen size, applied at once in fullscreen and at the next fullscreen from a window ("Vale para a tela cheia" / "Applies in fullscreen"). Saved as window.width/height and fullscreenWidth/Height (0 x 0 automatic) and fullscreenRefresh (0 automatic; a rate the size lacks runs at the highest and is kept); --refresh auto\|Hz for one run. On Android the row, beside the touch controls' (E20), asks the display for "Automática (máxima)" / "Automatic (highest)" or "60 Hz" (engine: SetPreferredRefreshRate - the activity's preferredDisplayModeId, and ANativeWindow_setFrameRate from API 30). Not switchable as a whole: automatic is a line of the list and of the row | fullscreen at the mode picked, at whatever rate the driver gave it, a window at 1024x768 or the size picked; the list's lines "WxHx32", each size once per refresh rate; no refresh rate to choose |
 | E22 | The touch controls are player 1 (Step 26; InputMapper::PadOrder, set with them by the layer's SetTouchEnabled): while they are on, real pads start at player 2's index and never take player 1's, so on a phone one Bluetooth gamepad plays player 2 - Versus opens, the co-op princess comes with its Start - and a second pad changes nothing for player 1 (it goes to an index no player reads); off (E20's row, or a desktop without --touch), E12 as before. Versus without a pad says so in touch wording, "Conecte um gamepad para o jogador 2." / "Connect a gamepad for player 2." (strings.json "touch") | winmm's order made a lone pad player 2's; E12 made it player 1's, which on a phone (touch on, keyboard player 2 off) left Versus closed and the princess never summoned |
 
@@ -116,7 +116,7 @@ points, 3 to win) - with only teleports, marker moves and direct hp writes as sh
   emboss re-derived by the measured relation), the logo subtitle ('and the Castle of Shadows'),
   'Voltar' -> 'Back' (arrow_button) and 'Jogador 1/2' -> 'Player 1/2' (input_options1/2). The logo
   subtitle and 'Back' use Matura MT Script Capitals in place of the original's hand-cut uncial.
-  **Ruling (R4 exception):** these generated variants carry some original pixels (the Penumbra letters,
+  **Decision (R4 exception):** these generated variants carry some original pixels (the Penumbra letters,
   the pad art, the arrow body) and are committed; they are new art the English game needs, in a
   private repository that already holds every original asset.
 - **E2 window (engine a516b7c, WindowControl).** Alt+Enter and the options screen's switch really go
@@ -138,7 +138,7 @@ Alt+Enter directions captured, all exit 0 with validation active.
 
 ### Step 6 — standing sprites, highlights, smooth motion, the options screen, a package (done 2026-09-27)
 - **Vertical sprites and gloss highlights (engine b999491: f30df7c + b999491, pushed after the Magic
-  Portals session's go-ahead; at b999491 test_light2d 151, test_resourcesync 37, test_audio 90 pass,
+  Portals project's go-ahead; at b999491 test_light2d 151, test_resourcesync 37, test_audio 90 pass,
   test_materials refused by Smart App Control).**
   Sprite2DLight::vertical/verticalBaseY stands a 2D sprite up in the light - the flat frame turned a
   quarter turn about x through the base line, which through the port's y flip is exactly
@@ -211,8 +211,8 @@ test_pn_formats were refused by Smart App Control on both launches of this build
   with a pad drove the princess (who must be summoned) and the menu ignored it. The first real pad now
   goes to player 1's index and the second to player 2's (settings.controls.firstPadIsPlayer1, default
   true; false is the original). test_pn_render_input 172 checks, 0 failures.
-- LICENSE.md now states only what Ivan said (the permission is his to describe; his own code has no
-  licence chosen yet).
+- LICENSE.md now states only what is settled (the enhanced edition's own code has no licence
+  chosen yet).
 
 ### Step 9 — a pause, gamepad menus, the smooth-motion row, six more scenarios, one test executable (2026-09-28)
 - **E13** render/PauseMenu, pure, fed held input each tick. The layer skips Machine::Frame while it
@@ -266,8 +266,8 @@ Gates: build zero warnings (full build, then Penumbra alone); test_pn_all 16/16.
 
 - **E15** (the decision above) and the final run of this round: build zero warnings;
   test_pn_all once - 16 suites, 3719 checks, 0 failures (test_pn_scenarios 919 with E15's
-  expectations). Smart App Control refused test_pn_all's first link of the round and, through an
-  orchestrator mistake, the same binary a second time; a relink with a real change (the runner's
+  expectations). Smart App Control refused test_pn_all's first link of the round and, through a
+  process mistake, the same binary a second time; a relink with a real change (the runner's
   summary now lists every suite with its time) was accepted.
 
 ### Step 10 — the pause, live (2026-09-28)
@@ -275,8 +275,8 @@ Gates: build zero warnings (full build, then Penumbra alone); test_pn_all 16/16.
   frames 1.5 s apart byte-identical), the selection moved, and Main menu reached the main menu. Two
   anomalies (Main menu preselected on opening; an Enter that did not resume) traced to the test, not the
   game: the rig moves the window under a resting mouse on its first screenshot, and the Magic Portals
-  session's game windows were opening on the same desktop, taking the focus (auto-pause) and some of the
-  rig's input. Live desktop tests stopped while another session drives windows here.
+  project's game windows were opening on the same desktop, taking the focus (auto-pause) and some of the
+  rig's input. Live desktop tests stopped while the other project drives windows here.
 - The pause's pointer now selects a row only when it moves at least 2 logical pixels between ticks: a
   wobble of a pixel (DPI or rounding) no longer takes the selection from the keys. It does not cover
   the rig's anomaly: a window moved far under a resting mouse jumps the pointer past the threshold in
@@ -285,14 +285,14 @@ Gates: build zero warnings (full build, then Penumbra alone); test_pn_all 16/16.
   still chooses it. No check pins the threshold yet. If it matters, measure from an anchor set when the
   pause opens and on each key move, and pin wobble, slow creep and key-then-rest in test_pn_render_pause.
 - Pause transitions (open, close, selection, with the inputs that caused them) are logged to
-  %APPDATA%\Penumbra\penumbra.log, for Ivan's own testing.
+  %APPDATA%\Penumbra\penumbra.log, for testing by hand.
 Gates: test_pn_all once - 16 suites, 3719 checks, 0 failures.
 
-### Step 11 - session 3 opens: the pause's options row (2026-09-28)
-Ivan's ruling for session 3: polish the open list, and make the game play on Android, iOS, Windows,
-Linux and macOS, with on-screen controls for mobile (button art from Magic Rampage, which is not on
-this laptop: placeholder art until he gives its path; macOS/iOS verified on a GitHub Actions macOS
-runner). The Magic Portals session does no platform work: the engine's platform backends are ours,
+### Step 11 - the platform work opens: the pause's options row (2026-09-28)
+The goal from here: polish the open list, and make the game play on Android, iOS, Windows,
+Linux and macOS, with on-screen controls for mobile (button art from Magic Rampage, which was not on
+this laptop: placeholder art until its package was available; macOS/iOS verified on a GitHub Actions
+macOS runner). The Magic Portals project does no platform work: the engine's platform backends are ours,
 additive, the desktop path unchanged.
 - **pauseOnFocusLoss** now has its row: "Pausa ao perder o foco" / "Continua sem o foco" (Pause on
   focus loss / Play on without focus), a Switch at x 540-796, y 694-744, beside E8's (the column at
@@ -357,7 +357,7 @@ particles, one lit area). Silent without a sound device; ALSA's null device play
   minSdk 26, targetSdk 35. tools/build_android.sh + tools/android_package.py: NDK CMake, aapt2,
   zipalign, apksigner - no Gradle.
 - **Measured** on an emulator of our own (Penumbra_API33_x86_64, port 5560, SwiftShader Vulkan 1.2,
-  headless; never the Magic Portals session's AVD): the menu, a tap as a click, New Game to level 1,
+  headless; never the Magic Portals project's AVD): the menu, a tap as a click, New Game to level 1,
   the touch controls moving the wizard, Back opening the pause, Home and back (surface rebuilt,
   pause open, 5 of 5), the pause's Main menu, Quit, a pad's Select and A. The emulator draws about
   5 frames a second (SwiftShader), so its game clock runs slow. AAudio opens, pauses and closes
@@ -376,7 +376,7 @@ build, the APK packages.
   on en-US; Portuguese after persist.sys.locale pt-BR). **Keyboard player 2** is off on a phone.
 - **Immersive**: the engine's SupersonicActivity (a small NativeActivity subclass, javac + d8 in
   tools/build_android.sh, no Gradle) hides both system bars, again after Home and on focus.
-- **The notch (orchestrator's ruling, option b)**: the window stays off the display cutout, so the
+- **The notch (decided: option b)**: the window stays off the display cutout, so the
   whole game - its HUD in the top corners included - is drawn clear of it; measured with the tall
   cutout overlay: 1184x720 beside a 96 px black strip, the HUD right of it. The engine's
   SafeArea::Get() (window-pixel insets, zero on the desktop) still feeds E16's controls whatever
@@ -431,7 +431,7 @@ offered. Its README's Platforms section lists it all.
   reads pads from Supersonic::Gamepads wherever the window is not GLFW's. tools/apple/make_app.sh
   assembles Penumbra.app for either (original/ without the Windows binaries and scripts, data/,
   engine/assets/shaders, the original's skull icon via tools/apple/ico_to_png.py, ad-hoc signed).
-- **The notch (orchestrator's ruling):** the game is drawn clear of it - the Metal view is the
+- **The notch (decided):** the game is drawn clear of it - the Metal view is the
   safe area's width (black beside the notch or Dynamic Island) and runs to the bottom edge;
   SafeArea::Get (the engine's, Step 15) reports what remains inside it (measured: 2250x1206
   of 2622x1206 pixels, a 60-pixel home-indicator band). E20's phone options follow
@@ -499,7 +499,7 @@ with a tick of regeneration, the spell combo fired 16 ticks after the step, 100 
 check.bat clean on every touched file; not built or run this step.
 
 ### Step 19 - Magic Rampage's buttons; the pause and the touch controls tested on the devices (2026-09-28)
-- **The art** (Ivan gave Magic Rampage 7.8.7's XAPK from APKPure): MR's own pad is six square buttons
+- **The art** (the source: Magic Rampage 7.8.7's XAPK from APKPure): MR's own pad is six square buttons
   built in its compiled script (CharacterScreenPadController in assets/game_32.bin: left, right,
   jump, attack, pause, the arcane-rune special), every button dpad-frame.png with an icon baked in,
   128 px only, no pressed-state image (the press is a tint). Used as shipped: jump, sword (MR's
@@ -526,7 +526,7 @@ check.bat clean on every touched file; not built or run this step.
   closing the pause; Home and back (the pause open, the frame rebuilt); a pad's A and B in the
   menus and Select in a level; the options' touch switch. A skeptical review re-read every capture
   and log: all confirmed but "Start never pauses" (no event shows Start reached the game).
-- **For Ivan's eye:** the combo buttons lie over level 1's first sign at the start; at rest the
+- **To be looked at by hand:** the combo buttons lie over level 1's first sign at the start; at rest the
   knob's brackets frame the gap between left and right; the options screen shows the original's
   Back beside MR's corner back; a thumb between two direction buttons presses both (the sectors);
   the level tutorial still speaks of arrow keys on a phone.
@@ -534,7 +534,7 @@ Gates: Windows build zero warnings, test_pn_all once, 17 suites, 7539 checks, 0 
 7450, 0 failures; Android both ABIs build.
 
 ### Step 20 - the touch controls: the knob at rest, the options' back, hints in touch wording (E16 addendum, 2026-09-28)
-Three of Step 19's "for Ivan's eye" points, which he approved as fixes.
+Three of Step 19's "to be looked at by hand" points, approved as fixes.
 - **The knob at rest.** Magic Rampage's focus brackets were drawn at the direction control's centre
   with no thumb on it, framing the empty gap between left and right like a missing button. They are
   now drawn only while the thumb points a direction (past the dead zone and not within 22.5 degrees
@@ -658,7 +658,7 @@ failures; Linux 7935, 0 failures; engine 57 of 57 (ctest, on Linux); Android bot
 and level 1 on the emulator (out/shots/android/fixes/final_*.png).
 
 ### Step 22 - the pause with real input on Windows (2026-09-29)
-With the Magic Portals session idle and the desktop free, the packaged game (the Smart App
+With the Magic Portals project idle and the desktop free, the packaged game (the Smart App
 Control-accepted binary; PauseMenu has not changed since it was built) was driven with real OS
 input for half a minute (keybd_event, mouse_event, and a small window of the test's own taking the
 foreground), from penumbra.log's pause lines and client-area captures (out/shots/windows/live/):
@@ -669,15 +669,14 @@ foreground), from penumbra.log's pause lines and client-area captures (out/shots
   15-tick grace keeps it from choosing (tick 800, still paused; 5_refocus_click_still_paused.png);
 - a real click on Resume closes it (tick 887).
 The first run's arrow keys never arrived: the test sent them with scan code 0, and GLFW reads keys
-by scan code (a test-side mistake; real arrows were checked live in session 2 and by --hold in
+by scan code (a test-side mistake; real arrows were checked live in Step 10 and by --hold in
 Step 19). A freshly linked build/game/Penumbra.exe was refused by Smart App Control first (one
 notification); the accepted packaged binary was used instead, never the refused one again. Still
 unmeasured: a real gamepad, and the music's 40% while paused, by ear.
 
 ### Step 23 - fullscreen modes, and the pointer over the bars (2026-09-29)
-Ivan, playtesting on Windows: "I cannot change the resolution after going into fullscreen. Nothing
-changes when I press on different resolutions at all", and "there are black bars on the sides of the
-screen and I cannot reach in them with my cursor".
+Reported from a playtest on Windows: in fullscreen, picking another resolution changed nothing;
+and the mouse pointer could not reach into the black bars at the sides of the screen.
 - **A mode picked in fullscreen.** 0.7.12: a line of the options screen's list calls
   SetWindowProperties(title, w, h, Windowed(), ...) (videoModes.as:110), which reset the D3D9
   device at that back buffer size (E:ETHEngine.cpp:144-166, G:Video/Direct3D9/gs2dD3D9.cpp:886-960):
@@ -726,7 +725,7 @@ new warning. The Android and iOS NativeWindowControl files were syntax-checked w
 or Xcode: they see only new private declarations of plain types in the shared header, and drop a
 mode request as they drop any fullscreen request. Windows not built or run by this step's author; a mode switch needs
 a real monitor, so the switch itself is measured only by a live run.
-- **Measured live** (Ivan's laptop, 1920x1200 panel; one run of the new Penumbra.exe, the game's
+- **Measured live** (the development laptop, 1920x1200 panel; one run of the new Penumbra.exe, the game's
   own --hold input, settings.json backed up and restored): fullscreen at the desktop's 1920x1200;
   the list's first line picked -> "at 800x600 @ 60 Hz, switched from the desktop's 1920x1200"
   (swapchain 800x600); Alt+Enter -> "Windowed at 1920x1170" (the saved window, a 1914x1153 client
@@ -735,14 +734,13 @@ a real monitor, so the switch itself is measured only by a live run.
   bars); settings.json held fullscreenWidth/Height 800x600. After the review, DesktopMode()
   answers with the remembered desktop mode only while the window still covers the monitor it
   switched (a monitor unplugged while switched would otherwise leave a stale pointer). The pointer
-  over the bars is covered by its pure tests and is Ivan's to see by hand.
+  over the bars is covered by its pure tests and is to be seen by hand.
 Gates: Windows build zero warnings, test_pn_all once - 17 suites, 8087 checks, 0 failures; Linux
 7998; engine ctest 57 of 57 (Linux); Android both ABIs build.
 
 ### Step 24 - the thin lines at the pits' edges: textures clamped, as 0.7.12 sampled them (2026-09-29)
-Ivan, after playing the whole game on Windows (a 1920x1200 panel, fullscreen, the widescreen view):
-"these weird lines at places that had holes leading to the bottom. There were some thin lines at the
-edges, I can't explain why they happened at all."
+Reported after a playthrough of the whole game on Windows (a 1920x1200 panel, fullscreen, the
+widescreen view): thin lines at the edges of the holes that lead to the bottom of a level.
 - **Where** (Linux, lavapipe, 1920x1200 widescreen, fixed-step; the wizard put near the pits with
   the new `--spawn x,y`): a 1-2 pixel dark line hanging two or three pixels above the top of every
   ground.png and cliff_left.png quad. Over a pit's edge it reaches out past the rock into the empty
@@ -806,10 +804,9 @@ main.cpp; test_pn_render_textures.cpp); Linux (WSL, GCC) test_pn_all 17 suites, 
 built or run by this step.
 
 ### Step 25 - the menus fill a wide window (E1, 2026-09-29)
-Ivan, having played the whole game through on Windows (a 1920x1200 panel): "the starting screen
-still has black bars at the left and right, would there be a way to make it work for wide screen on
-windows? What about very wide screens on android? Apart from that, inside of the game shows the
-correct resolution."
+Reported after a playthrough of the whole game on Windows (a 1920x1200 panel): the menus still had
+black bars at the left and right, while the levels filled the widescreen view; the same question
+stood for very wide Android screens.
 - **What the four fixed-layout screens hold past their 1024x768** (extracted/app/scenes; their
   buttons, panels and thumbnails sit at fixed pixels, menu.as, videoModes.as, gameover.as):
   - menu.esc and arena_select.esc: a floor of lit white_ground.ent tiles (256x256, a normal and a
@@ -897,7 +894,7 @@ correct resolution."
   from the window's edge), test_pn_runtime (one scene run plain, widened and barred, widened and
   shown: the same rand() draws, static callbacks and depth range; the shown run's sprites a
   superset in the same order).
-- **Open, for Ivan**: the options screen's hint "Vale a partir da próxima fase" ("Takes effect from
+- **Open, to be decided**: the options screen's hint "Vale a partir da próxima fase" ("Takes effect from
   the next level") under the widescreen row is now also true of the menus from the next screen;
   left as it is, since changing it changes the 4:3 options screen. showData's panel reaching the
   window's edge (a choice: the alternative is a dark box ending in mid-floor). The half walls that
@@ -910,8 +907,8 @@ suites, 9605 checks, 0 failures (render_input 821, render_hud 1629, render_touch
 by this step.
 
 ### Step 26 - the enhanced edition's credit, Versus on a phone, the options' picker (2026-09-29)
-Ivan, from a playtest: "also put my name in the credits for doing this enhanced version", the name
-exactly "Ivan Cvetanović", with the diacritic; on a phone player 1 plays on the touchscreen and
+From a playtest: the enhanced edition credited on the Credits panel, the name exactly
+"Ivan Cvetanović", with the diacritic; on a phone player 1 plays on the touchscreen and
 player 2 on a Bluetooth gamepad (or two pads), Versus without a pad stays and says to connect one,
 and the co-op princess works the same way. And Step 25's unmeasured note: on the 2400x1080 emulator
 the options screen's picker light was seen at the tap's x but near y 298, not at the tap.
@@ -920,7 +917,7 @@ the options screen's picker light was seen at the tap's x but near y 298, not at
   in a lone CR; CR LF is one break, so exactly one blank line), "Ivan Cvetanovi\x8D" and
   " -Edição aprimorada (Supersonic Engine)" / " -Enhanced edition (Supersonic Engine)", no CR at the
   end (FontAtlas counts one as a line). Where it reads right: after the original team, a block of
-  its own - those credits are the 2010 authors'. One role line, not the three suggested: showData
+  its own - those credits are the 2010 authors'. One role line, not three: showData
   draws from y 70 in Arial Narrow 25 at 25 px a line; the original's 24 lines end at 670 and a
   fourth added line would end at 770, past the 768 screen, so the room is a blank line, the name
   and one role (bottom at 745). The role lines measure 353 px (pt) and 341 px (en) of the column's
@@ -1010,11 +1007,11 @@ suites, 9781 checks, 0 failures (formats 598, render_hud 1720, render_input 858,
 Windows not built or run by this step.
 
 ### Step 27 - the display mode chosen for the player, and by hand (E23, 2026-09-30)
-Ivan: "could you also make the game choose the best resolution and refresh rate automatically? Then
-also offer an option to edit this manually."
+The goal: the game chooses the best resolution and refresh rate by itself, and offers a way to set
+them by hand.
 - **What "best" is on this laptop** (read-only, no display touched: WMI `Win32_VideoController`
   and `root\wmi WmiMonitorListedSupportedSourceModes`): an AMD Radeon 780M driving the 1920x1200
-  panel at 60 Hz, and the panel's EDID lists one source mode, 1920x1200 at 60. So on Ivan's panel
+  panel at 60 Hz, and the panel's EDID lists one source mode, 1920x1200 at 60. So on this laptop's panel
   the automatic mode is the desktop's own and switches nothing; a faster external monitor is where
   the rate part shows. The game's last log on this machine: "Present Mode: FIFO (V-Sync Fallback)".
 - **Native = the desktop's current size, not the largest listed mode.** Windows sets the panel's
@@ -1133,7 +1130,7 @@ also offer an option to edit this manually."
   and logged", not a rate seen to change; the emulator's old version-1 settings.json kept its
   1366x768 and gained fullscreenRefresh.
 - **Tests**: test_pn_render_input (the defaults, the automatic and half sizes, the rate's reading and
-  its refusals, a version-1 file as Ivan's reads, the round trip; ChooseFullscreen and ChooseRates on
+  its refusals, a version-1 file as the development laptop's reads, the round trip; ChooseFullscreen and ChooseRates on
   a 60/165 Hz panel, a monitor without the saved size, Xvfb's unknown rate, no monitor; the automatic
   line through DecideWindowAction), test_pn_scenarios (scenario 10's list as "[x] WxH" under the
   automatic line; 21: the row stays on a phone; the new 22 in the third runtime: the marks, the
@@ -1156,7 +1153,7 @@ one rate.
 - **After review:** an older settings.json with fullscreen on now runs at the HIGHEST rate its size
   offers, not the desktop's: on a faster monitor whose desktop runs below its maximum (60 on a
   144 Hz panel), launch and Alt+Enter switch the display's rate, and leaving switches it back
-  (Ivan's panel has one 60 Hz mode: nothing switches). The phone row is Android's only:
+  (the development laptop's panel has one 60 Hz mode: nothing switches). The phone row is Android's only:
   Script::g_refreshRateRow leaves it out on iOS, whose backend sets no rate (scenario 22 checks
   the row goes and comes back with the flag). A list line must end inside its 200 px hit column.
 
@@ -1200,33 +1197,33 @@ one rate.
 
 ### Open
 - **E23 on Windows, live (not run: the desktop was not to be touched).** Flags and the log lines to
-  expect are in Step 27's report; on Ivan's panel (one 60 Hz mode) automatic switches nothing.
+  expect are in Step 27's report; on the development laptop's panel (one 60 Hz mode) automatic switches nothing.
   From E23 on, a run without `--window` or `--windowed` covers the screen on a first launch (and on
   a faster monitor may switch its rate): any script or package check that launches the game bare.
-- **E23, for Ivan:** his own settings.json holds a windowed size of 1920x1200 (explicit, from a
-  Step 23 pick), larger than his work area: kept as the file says, so Alt+Enter gives that window
+- **E23, on the development laptop:** its settings.json holds a windowed size of 1920x1200
+  (explicit, from a Step 23 pick), larger than its work area: kept as the file says, so Alt+Enter gives that window
   until "Automático (melhor)" is picked in a window once. Every version-1 file holds a windowed
   size (1366x768 was the default written into all of them); kept too, not guessed to be automatic.
-- **iOS: builds, untested** (Ivan, 2026-09-28: "leave it alone, we only need it to build"). No frame
-  in the simulator (base-instance drawing); no signed device run. Not to be worked on unless asked.
+- **iOS: builds, untested** (decided 2026-09-28: it only needs to build). No frame
+  in the simulator (base-instance drawing); no signed device run. Not to be worked on unless that decision changes.
 - **Light, still not modelled** (Step 16; the baked shadows are Step 21's, which lists what they
   still miss): baked light on static sprites' soft edges went through the sprite's own blend;
   a translucent texel's depth write blocked fog drawn behind it; the bake used every static light
   in the scene, the port's live lights come from visible buckets (unverified at screen edges).
-- **Touch (E16), for Ivan:** a combo button (Left-Left-Sword and Down-Forward-Fire are hard with a
+- **Touch (E16), open points:** a combo button (Left-Left-Sword and Down-Forward-Fire are hard with a
   thumb); Versus on a phone needs a pad for player 2 (E22, Step 26: the touchscreen is player 1); the
   layout and the placeholder art until the Magic Rampage
   buttons (not on this laptop) are given.
-- **Decided (orchestrator, 2026-09-28):** the misnamed horror markers play (E15, switchable). A solo
+- **Decided (2026-09-28):** the misnamed horror markers play (E15, switchable). A solo
   player counts as having a second controller while keyboard player 2 is on (E4): Versus opens and the
   AI may look for a princess that is not there - intended, harmless. The original's off-screen second
   summon and its refusal at exactly 50 mana are kept as the original (harmless quirks, not bugs that
   break play). test_pn_all's child starts are one file's, so one Smart App Control verdict per build:
   accepted as the way to run the suites.
-- **E13/E14 rulings to confirm:** no pause on the end screens (g_gameFinished); the post-pause input
+- **E13/E14 decisions to confirm:** no pause on the end screens (g_gameFinished); the post-pause input
   filter; E14's fresh-press rule; the 15-tick click grace after refocus; the pause reads player 1's
   keys and pad only; auto-pause off under --fixed-step.
-- **E13/E14 to confirm by hand (Ivan):** Esc in a level, Resume/Main menu with keys and mouse, Alt-Tab
+- **E13/E14 to confirm by hand:** Esc in a level, Resume/Main menu with keys and mouse, Alt-Tab
   in a level (the pause, the music at 40%), the click back in, a real pad's A/B in the menus, Start never
   pausing. No scenario drives the pause through
   the layer (a pad-driven way out of a level for scenario 20).
@@ -1236,9 +1233,9 @@ one rate.
 - **test_pn_all's child processes** (17 starts of one file per run) against rule 5's "once per
   build": run once this build as instructed, every start accepted. A full build now compiles every
   suite twice.
-- **The public release (Ivan, 2026-09-30).** This repository goes public with its full history,
+- **The public release (2026-09-30).** This repository goes public with its full history,
   the original's files (`extracted/`, `penumbra_setup.exe`) and the Magic Rampage buttons included
-  by the authors' permission (they stay theirs); the engine goes public too. Ivan's own code and
+  (they stay their authors'); the engine goes public too. The enhanced edition's own code and
   the engine are MIT No Attribution (`LICENSE`, `engine/LICENSE`); `game/script/` and `game/eth/`
   stay LGPL-3.0-or-later; `LICENSE.md` lists every part. README.md rewritten for the public (the
   platform status says only Windows was played by a person, and that the work was done with

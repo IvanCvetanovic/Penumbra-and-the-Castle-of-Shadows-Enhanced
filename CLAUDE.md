@@ -1,16 +1,16 @@
-# PENUMBRA E O CASTELO DAS SOMBRAS — Enhanced, on the Supersonic Engine
+# PENUMBRA AND THE CASTLE OF SHADOWS — Enhanced, on the Supersonic Engine
 
 > The working brief for Claude Code sessions on the author's machine: its absolute paths, emulator names and rules are that machine's. To build from any clone, see README.md.
 
 ## What this is
 
-An enhanced edition of **Penumbra e o Castelo das Sombras** (2010, PC, by Andre Santee / Asantee), a 2D
+An enhanced edition of **Penumbra and the Castle of Shadows** (2010, PC, by Andre Santee / Asantee), a 2D
 side-view action platformer (a wizard, a sword, fireballs and a light spell; three campaign levels,
 a king to beat, local co-op and 2-player Versus in six arenas). The original ran on the **Ethanon
-Engine 0.7.12** (D3D9 + NVIDIA Cg, AngelScript gameplay). The enhanced edition runs on Ivan's own engine,
+Engine 0.7.12** (D3D9 + NVIDIA Cg, AngelScript gameplay). The enhanced edition runs on the author's own engine,
 **Supersonic** (C++20, Vulkan, EnTT), which is a git submodule at `engine/`.
 
-Ivan's rulings (2026-09-27): **enhanced from the start** — the original's scripts are the gameplay
+Decisions (2026-09-27): **enhanced from the start** — the original's scripts are the gameplay
 spec, but visuals, controls, resolution and balance may be modernised freely; **Portuguese and
 English** text, selectable in the game; the original's assets are **read in place** from
 `extracted/app` (committed, and public since 2026-09-30) and never copied or converted into
@@ -50,7 +50,7 @@ tools/apple/         make_app.sh (Penumbra.app for macOS or iOS); Apple builds r
 tools/art/           make_english_art.py: the English image variants in game/data/images/en
 docs/spec/           what the original is and does (read-only knowledge base, cited)
 docs/planning/       the port's step record
-DEVLOG.md            append-only session log
+DEVLOG.md            append-only work log
 extracted/app/       THE ORIGINAL GAME, read-only. Never write into it.
 reference/           gitignored: Ethanon 0.7.12 source (eth-0.7.12), GS2D r485, disassembly, scripts
 ```
@@ -59,13 +59,13 @@ reference/           gitignored: Ethanon 0.7.12 source (eth-0.7.12), GS2D r485, 
 
 1. **Never write into `extracted/`.** The game reads it in place; saves (high scores, checkpoint
    scene, settings) go to `Supersonic::UserDataDirectory("Penumbra")`.
-2. **Never touch the `Supersonic-Engine` checkout on the author's Desktop** — another Claude session (Magic
-   Portals) works from it. Engine changes are made in THIS repo's `engine/` checkout: `git -C engine
+2. **Never touch the `Supersonic-Engine` checkout on the author's Desktop** — another project's development session
+   (Magic Portals) works from it. Engine changes are made in THIS repo's `engine/` checkout: `git -C engine
    pull --ff-only` first, keep changes additive (new values/APIs/opt-in flags; never change existing
    behaviour), add checks to an existing engine suite rather than a new suite where possible (CI
    checks the documented suite counts), build and run the touched engine suites, `git pull --rebase`
    right before `git push`, then commit the new pin here (`git add engine`) in a separate commit.
-   Tell the Magic Portals session (SendMessage to `magic-portals-remake-93`) before each engine push.
+   Tell the Magic Portals development session (SendMessage to `magic-portals-remake-93`) before each engine push.
 3. **Commits and pushes as `IvanCvetanovic <icvetanovic99@gmail.com>`, with no AI trailers** (no
    Co-Authored-By, no session lines) — here and in the engine. The use of Claude Code is disclosed
    once, in README.md's "How this was made", not per commit. Never force-push,
@@ -77,7 +77,7 @@ reference/           gitignored: Ethanon 0.7.12 source (eth-0.7.12), GS2D r485, 
    the exe (a package, tools/package.bat), then the baked PENUMBRA_ORIGINAL_DIR / PENUMBRA_DATA_DIR.
 5. **Smart App Control is enforcing on this laptop.** A freshly linked exe is sometimes refused
    ("An Application Control policy has blocked this file", exit 126, ctest "Not Run") and EVERY
-   refusal pops a notification for Ivan. Launch each suite/exe at most once per build; never loop
+   refusal pops a notification on the desktop. Launch each suite/exe at most once per build; never loop
    ctest or relink-and-retry; report a refused exe as "not run". `ctest --test-dir build -N` lists
    without launching. Every executable gets `penumbra_windows_resources` (icon, VERSIONINFO,
    manifest): refusals stopped once they carried them. Prefer `build/tests/test_pn_all.exe` to
@@ -137,7 +137,7 @@ bash tools/build_android.sh --abi all                     # APK in out/android/
 The Android emulator is ours only as `Penumbra_API33_x86_64` on port 5560, headless
 (`emulator -avd Penumbra_API33_x86_64 -port 5560 -no-window -no-audio -gpu swiftshader_indirect
 -memory 2048 -cores 2`), always addressed with `adb -s emulator-5560`, input only through `adb shell
-input`. Never start or change `MP_Original_API30`: the Magic Portals session's parity rig.
+input`. Never start or change `MP_Original_API30`: the Magic Portals project's parity rig.
 
 The original runs from a scratch copy (never from `extracted/app`, which it would write into):
 `reference/analysis/orig_rig.ps1` drives a copy of `machine.exe` (start / shot / keys / stop). An

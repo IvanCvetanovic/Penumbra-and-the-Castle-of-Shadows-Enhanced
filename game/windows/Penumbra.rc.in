@@ -7,15 +7,19 @@
 //
 // Beyond looking like a real application in Explorer, these matter on a
 // machine running Smart App Control, which judges an unsigned executable by
-// what it looks like when it has no reputation yet.
+// what it looks like when it has no reputation yet. And code signing
+// (docs/code-signing.md) wants every signed file's product name to be the
+// project's and its product version the release's, the same in every build:
+// both come from the top-level CMakeLists.txt (PENUMBRA_PRODUCT_NAME and the
+// project's VERSION).
 
 #include <winver.h>
 
 1 ICON "@PENUMBRA_ICON@"
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 0,1,0,0
- PRODUCTVERSION 0,1,0,0
+ FILEVERSION @PENUMBRA_RC_VERSION_COMMAS@
+ PRODUCTVERSION @PENUMBRA_RC_VERSION_COMMAS@
  FILEFLAGSMASK 0x3fL
  FILEFLAGS 0x0L
  FILEOS VOS_NT_WINDOWS32
@@ -28,12 +32,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "Ivan Cvetanovic"
             VALUE "FileDescription", "@PENUMBRA_RC_DESCRIPTION@"
-            VALUE "FileVersion", "0.1.0.0"
+            VALUE "FileVersion", "@PENUMBRA_RC_VERSION@"
             VALUE "InternalName", "@PENUMBRA_RC_NAME@"
             VALUE "LegalCopyright", "Original game (c) Andre Santee / Asantee; enhanced edition by Ivan Cvetanovic"
             VALUE "OriginalFilename", "@PENUMBRA_RC_NAME@.exe"
-            VALUE "ProductName", "Penumbra e o Castelo das Sombras - Enhanced"
-            VALUE "ProductVersion", "0.1.0.0"
+            VALUE "ProductName", "@PENUMBRA_PRODUCT_NAME@"
+            VALUE "ProductVersion", "@PENUMBRA_RC_VERSION@"
         END
     END
     BLOCK "VarFileInfo"

@@ -752,7 +752,7 @@ The 2013 source is `Magic-Portals-Remake/reference/ethanon/toolkit/Source/src/en
 
 Read-only sources: `AGENTS.md`; `README.md` (Features, "How a frame runs"); `ARCHITECTURE.md` §4, §10 and §11; `src/core/AudioClip.hpp`.
 
-**Another session ports a different game on the same engine**, so every item below should be an **opt-in addition**, never a change to existing behaviour. See `engineGaps` for the list.
+**Another project (Magic Portals) ports a different game on the same engine**, so every item below should be an **opt-in addition**, never a change to existing behaviour. See `engineGaps` for the list.
 
 ## Key facts
 

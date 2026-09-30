@@ -2,8 +2,8 @@
 """The on-screen touch controls' art (E16, game/render/TouchControls), from Magic Rampage's screen pad.
 
 Magic Rampage (Asantee Games) is the Android game by the studio that made Penumbra in 2010. Its
-touch buttons are the look E16's controls take, used with the authors' permission as Ivan stated
-it. This reads the pad's PNGs from Magic Rampage 7.8.7's own package, read only - the .xapk
+touch buttons are the look E16's controls take; they remain Asantee Games' property (LICENSE.md).
+This reads the pad's PNGs from Magic Rampage 7.8.7's own package, read only - the .xapk
 (its base APK, com.asanteegames.magicrampage.apk, is a zip inside it) or a folder the base APK's
 assets/ were extracted to:
 

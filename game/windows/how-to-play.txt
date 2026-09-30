@@ -1,0 +1,113 @@
+PENUMBRA AND THE CASTLE OF SHADOWS - ENHANCED
+for Windows
+
+(Português mais abaixo.)
+
+
+HOW TO PLAY
+===========
+
+1. Keep the download. If the browser said "Penumbra-Windows.zip isn't
+   commonly downloaded": in Edge, click the "..." next to it, then "Keep",
+   then "Show more", then "Keep anyway". In Chrome, choose "Keep".
+   (If you are reading this, this step is already done.)
+
+2. Unzip it. Right-click Penumbra-Windows.zip, choose "Extract All...",
+   then click "Extract". Playing from inside the zip does not work: the game
+   needs all of its files.
+
+3. Open the extracted folder, then the "Penumbra" folder, and double-click
+   Penumbra.exe (the file with the grey skull icon).
+
+4. If Windows shows "Windows protected your PC", click "More info", then
+   "Run anyway". Windows shows this because the game is new and not signed
+   yet.
+
+5. The game needs a graphics card with Vulkan - most PCs from about the last
+   eight years have one. If the game says it could not start its graphics,
+   update the graphics driver (Windows Update, or the NVIDIA, AMD or Intel
+   website).
+
+If Windows says "VCRUNTIME140.dll was not found" or "MSVCP140.dll was not
+found", the game was started from inside the zip: extract it first (step 2).
+
+If Windows says "MFPlat.DLL was not found", the PC has an "N" edition of
+Windows, which comes without Windows' media features. Install Microsoft's
+free Media Feature Pack (Settings, Apps, Optional features, Add a feature),
+then start the game again.
+
+On some new Windows 11 PCs, "Smart App Control" blocks programs that are not
+signed, and there is no "Run anyway" button. Until the game is signed, it
+cannot run on those PCs. Please do not turn Smart App Control off just for
+this game.
+
+Controls: arrow keys to walk, Up or Ctrl to jump, S sword, D fireball,
+Space light, Esc pause. Gamepads work too (A jump, X sword, B fireball,
+Y light). Combos: Left Left S, and Down Left D.
+
+For parents:
+- The game is free. It works offline. It has no ads, no purchases and no
+  accounts, and it collects no data: it never connects to the internet.
+- Settings, high scores and a log file are kept in %APPDATA%\Penumbra.
+- To remove the game, delete its folder (and %APPDATA%\Penumbra).
+- In fullscreen the game may switch the monitor to another resolution or
+  refresh rate while it runs.
+- Source code, help and the licence:
+  https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced
+
+
+COMO JOGAR
+==========
+
+1. Mantenha o download. Se o navegador disse que "Penumbra-Windows.zip não
+   é baixado com frequência" (isn't commonly downloaded): no Edge, clique
+   nos "..." ao lado dele, depois em "Manter" (Keep), em "Mostrar mais"
+   (Show more) e em "Manter mesmo assim" (Keep anyway). No Chrome, escolha
+   "Manter" (Keep). (Se você está lendo isto, este passo já foi feito.)
+
+2. Descompacte. Clique com o botão direito em Penumbra-Windows.zip, escolha
+   "Extrair Tudo..." (Extract All) e clique em "Extrair". Jogar de dentro do
+   zip não funciona: o jogo precisa de todos os seus arquivos.
+
+3. Abra a pasta extraída, depois a pasta "Penumbra", e clique duas vezes em
+   Penumbra.exe (o arquivo com o ícone de uma caveira cinza).
+
+4. Se o Windows mostrar "O Windows protegeu o computador" (Windows protected
+   your PC), clique em "Mais informações" (More info) e depois em "Executar
+   assim mesmo" (Run anyway). O Windows mostra isso porque o jogo é novo e
+   ainda não é assinado.
+
+5. O jogo precisa de uma placa de vídeo com Vulkan - a maioria dos PCs dos
+   últimos oito anos tem uma. Se o jogo disser que não conseguiu iniciar os
+   gráficos, atualize o driver de vídeo (Windows Update, ou o site da NVIDIA,
+   AMD ou Intel).
+
+Se o Windows disser que "VCRUNTIME140.dll não foi encontrado" ou que
+"MSVCP140.dll não foi encontrado", o jogo foi aberto de dentro do zip:
+extraia primeiro (passo 2).
+
+Se o Windows disser que "MFPlat.DLL não foi encontrado", o computador tem uma
+edição "N" do Windows, que vem sem os recursos de mídia do Windows. Instale o
+Pacote de Recursos de Mídia (Media Feature Pack), grátis, da Microsoft
+(Configurações, Aplicativos, Recursos opcionais, Adicionar um recurso) e abra
+o jogo de novo.
+
+Em alguns PCs novos com Windows 11, o "Controle Inteligente de Aplicativos"
+(Smart App Control) bloqueia programas que não são assinados, e não existe o
+botão "Executar assim mesmo". Enquanto o jogo não for assinado, ele não roda
+nesses PCs. Por favor, não desligue esse recurso só por causa deste jogo.
+
+Controles: setas para andar, Cima ou Ctrl para pular, S espada, D bola de
+fogo, Espaço luz, Esc pausa. Controles de videogame (gamepads) também
+funcionam (A pular, X espada, B bola de fogo, Y luz). Combos: Esquerda
+Esquerda S, e Baixo Esquerda D.
+
+Para os pais:
+- O jogo é grátis. Ele funciona offline. Não tem anúncios, compras nem
+  contas, e não coleta nenhum dado: ele nunca se conecta à internet.
+- Configurações, recordes e um arquivo de log ficam em %APPDATA%\Penumbra.
+- Para remover o jogo, apague a pasta dele (e %APPDATA%\Penumbra).
+- Em tela cheia, o jogo pode mudar a resolução ou a taxa de atualização do
+  monitor enquanto está aberto.
+- Código-fonte, ajuda e a licença:
+  https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced

@@ -1,10 +1,12 @@
 # DEVLOG — Penumbra on Supersonic
 
-Append-only. One entry per session: what was built, what broke, dead ends, decisions, numbers.
+Append-only. One entry per stretch of work: what was built, what broke, dead ends, decisions,
+numbers. (On 2026-09-30 the earlier entries were reworded in place for the public repository:
+conversational phrasing removed, every fact kept. See the last entry.)
 
 ---
 
-## 2026-09-27 — session 1: understand, scaffold, contract
+## 2026-09-27 — understand, scaffold, contract
 
 **Built.** Mapped the original with an 8-reader workflow plus a critic (docs/spec, ~92k words).
 Found the exact engine build the game shipped on — Ethanon 0.7.12, SourceForge SVN tag v0-7-12 —
@@ -14,18 +16,19 @@ the menu. Scaffolded the repo on the Magic Portals pattern and wrote the Eth con
 
 **Decisions.** Port the AngelScript to C++ over an emulated 0.7.12 runtime (not embed AngelScript,
 not re-derive gameplay from data). One Ethanon frame per 60 Hz tick. Snapshot taken at 0.7.12's
-render point, before callbacks. Ivan: enhanced from the start, PT+EN, assets in place.
+render point, before callbacks. Enhanced from the start, PT+EN, assets in place.
 
 **Dead ends.** The original's menu ignores Enter unless the (hidden) cursor entity is over a button:
 it is mouse-driven through CollideDynamic. First capture was offset by DPI virtualisation.
 
 ---
 
-## 2026-09-27 — session 1 (continued): the game runs, whole
+## 2026-09-27 (continued) — the game runs, whole
 
 **Built.** eth runtime + 25 scripts (9c64f8a); render/ + layer (abbc062); engine Ogg Vorbis (abb9e8a)
-and window control (a516b7c), both additive and announced to the Magic Portals session; English
-image variants; live shadows to the light's reach; ten headless gameplay scenarios.
+and window control (a516b7c), both additive and announced to the Magic Portals project, which
+shares the engine; English image variants; live shadows to the light's reach; ten headless
+gameplay scenarios.
 
 **Numbers.** 13 suites, 2593 checks, 0 failures. Level 1 at 1024x768 against the original's capture:
 sampled pixels within 2 levels. Scenarios: 458 checks, 0 script aborts, no port bug.
@@ -40,10 +43,10 @@ live mouse (cursor.ent follows it) - hence --cursor.
 
 ---
 
-## 2026-09-27 — session 1 (night): standing statues, highlights, options, a package
+## 2026-09-27 (night) — standing statues, highlights, options, a package
 
 **Built.** Engine f30df7c + b999491 (vertical 2D sprites, gloss highlights; opt-in, bit-identical
-for everything else; announced and green-lit by the Magic Portals session before the push). The
+for everything else; announced to the Magic Portals project and cleared by it before the push). The
 original's Settings screen gained the enhanced rows (E10). Interpolation between ticks (E8). A
 runtime path resolver and tools/package.bat; README.md; LICENSE.md + the LGPL/GPL texts;
 Penumbra.exe without a console, logging to %APPDATA%\Penumbra\penumbra.log.
@@ -58,7 +61,7 @@ move them. Recorded as not run; their ground is covered by test_pn_scenarios.
 
 ---
 
-## 2026-09-28 — session 2: a pause, pad menus, six more scenarios, one test executable
+## 2026-09-28 — a pause, pad menus, six more scenarios, one test executable
 
 **Built.** E13, a pause (render/PauseMenu): Esc or player 1's Back in a level or an arena freezes
 the Machine under Resume / Main menu, the music at 40%, and opens by itself on a focus loss; Main
@@ -76,29 +79,29 @@ with a real change (--help lists --tour) was accepted. test_pn_all was accepted 
 and with it test_pn_boot and test_pn_formats ran for the first time since Step 5.
 
 **Decisions.** Original bugs found by the new scenarios (the `play_sound.ent` horror markers that
-never play, the off-screen second summon, the 50-mana refusal) are pinned, not fixed, pending Ivan.
+never play, the off-screen second summon, the 50-mana refusal) are pinned, not fixed, pending a
+decision.
 
-**Session 2, later.** E15 (the misnamed horror markers play). The round's gates: test_pn_all once,
+**Later the same day.** E15 (the misnamed horror markers play). The round's gates: test_pn_all once,
 16 suites, 3719 checks, 0 failures. Mistakes, owned: a capture loop launched a freshly relinked
 Penumbra.exe eight times after Smart App Control had refused it (eight notifications), and later a
 build-then-run chain relaunched a refused test_pn_all because the edit meant to relink it had not
-applied. Rule written down (memory + CLAUDE.md rule 5 practice): launch a new binary once, alone,
-and only after the build log shows it was relinked.
+applied. Rule written down (CLAUDE.md rule 5 practice): launch a new binary once, alone, and only
+after the build log shows it was relinked.
 
-**Session 2, the pause live.** Driven with real input events: Esc in level 1 opened the pause,
-froze the game (two frames 1.5 s apart byte-identical), and Main menu reached the main menu. Two
-anomalies came from the test, not the game: the window moved under a resting mouse, and the Magic
-Portals session's game windows, opening on the same desktop, took the focus and some of the rig's
-input. The pointer now selects a pause row only when it moves 2 logical pixels or more in a tick
-(against a pixel of rounding wobble; the rig's window move is larger and is a test artifact, and a
-pointer creeping slower than that does not highlight), and every pause transition is logged to
-penumbra.log. Live desktop tests stopped while another session drives
-windows here; E13/E14 by hand (Ivan) is the remaining check. test_pn_all once: 16 suites, 3719
-checks, 0 failures.
+**The pause, live.** Driven with real input events: Esc in level 1 opened the pause, froze the game
+(two frames 1.5 s apart byte-identical), and Main menu reached the main menu. Two anomalies came
+from the test, not the game: the window moved under a resting mouse, and the Magic Portals
+project's game windows, opening on the same desktop, took the focus and some of the rig's input.
+The pointer now selects a pause row only when it moves 2 logical pixels or more in a tick (against
+a pixel of rounding wobble; the rig's window move is larger and is a test artifact, and a pointer
+creeping slower than that does not highlight), and every pause transition is logged to
+penumbra.log. Live desktop tests stopped while the other project drives windows on this desktop;
+E13/E14 by hand is the remaining check. test_pn_all once: 16 suites, 3719 checks, 0 failures.
 
 ---
 
-## 2026-09-28 — session 3: macOS and iOS (branch apple-port)
+## 2026-09-28 — macOS and iOS (branch apple-port)
 
 **Built.** The port on Apple platforms, compiled and run only on GitHub's macOS runners
 (.github/workflows/apple.yml: apple-port pushes and manual runs, never main, 40-minute jobs).
@@ -124,16 +127,16 @@ checkout of extracted/ is LF.
 **Decisions.** MoltenVK statically linked on both platforms (no loader to find, nothing to
 rewrite in a bundle; no validation layers). A bundle is never written: the engine runs from
 ~/Library/Caches (Library/Caches on iOS). The game's view on a notched phone is the safe area's
-width (orchestrator's ruling). The simulator's base-instance limit is left to the renderer.
+width. The simulator's base-instance limit is left to the renderer.
 
 ---
 
-## 2026-09-28 — session 3: every platform, touch controls, the open polish
+## 2026-09-28 — every platform, touch controls, the open polish
 
-**Asked.** Ivan: do the open polish; make the game play on Android, iOS, Windows, Linux and macOS
-"if possible"; controls for mobile, the buttons from Magic Rampage (not on this laptop: placeholder
-art until he gives a path); Apple verified on GitHub Actions (his choice; a read-only deploy key
-on the engine for the CI, approved).
+**Goal.** The open polish; the game playing on Android, iOS, Windows, Linux and macOS where
+possible; controls for mobile, with the buttons from Magic Rampage (not on this laptop at first:
+placeholder art until its package was available); Apple builds verified on GitHub Actions (with,
+at the time, a read-only deploy key on the engine for the CI).
 
 **Built.** The pause's focus-loss row. Linux (WSL): one path resolver, stand-in fonts (E17),
 dr_mp3 (E18), the POSIX locale (E19), posix_spawn suites. E16 touch controls, then combo buttons.
@@ -147,9 +150,9 @@ checks, 0 failures. Linux 5596, macOS (CI) 5005 at the Apple merge. Engine suite
 desktop path (Linux) at every engine push. Android: both ABIs, an 18 MB APK; on the emulator the
 menu, taps, level 1 with the controls, Back, Home and resume, the music, the device's language.
 
-**Broke.** A docs script of mine dropped the planning doc's "Open" heading (restored a commit
-later). Ubuntu's glslc, installed in WSL by the polish work, rewrote every committed .spv through
-the engine's build; caught before the push, removed, and build_linux.sh now refuses a configured
+**Broke.** A docs script dropped the planning doc's "Open" heading (restored a commit later).
+Ubuntu's glslc, installed in WSL by the polish work, rewrote every committed .spv through the
+engine's build; caught before the push, removed, and build_linux.sh now refuses a configured
 shader compiler. Smart App Control refused test_pn_all once (exit 126, one notification), at the
 polish build; the next relink ran.
 
@@ -157,16 +160,17 @@ polish build; the next relink ran.
 (base-instance drawing), sound by ear on any new platform, two-finger touch on a device, a person
 playing on each.
 
-**Session 3, last.** The packaged Windows game (tools/package.bat, the new fonts and touch art
-in its data) launched once, headless and without input, with the Magic Portals session's
-go-ahead: level 1 at frame 300 on the laptop's Radeon, lights, torches, HUD and English text
-drawn, no touch controls (off on the desktop by default), exit 0.
+**Last.** The packaged Windows game (tools/package.bat, the new fonts and touch art in its data)
+launched once, headless and without input, with the go-ahead of the Magic Portals project, which
+shares the desktop: level 1 at frame 300 on the laptop's Radeon, lights, torches, HUD and English
+text drawn, no touch controls (off on the desktop by default), exit 0.
 
-## 2026-09-29 — session 3, the end: small fixes, the pause with real input
+## 2026-09-29 — small fixes, the pause with real input
 
-**Built.** Magic Rampage's buttons for E16 (from Ivan's XAPK), then the small fixes: touch-worded
-hints, the knob only while held, one back button on Options, and the shadows of baked lights that
-remove only their own light (engine 6cb4036, which also sizes the descriptor pool from the layout).
+**Built.** Magic Rampage's buttons for E16 (from Magic Rampage 7.8.7's XAPK), then the small fixes:
+touch-worded hints, the knob only while held, one back button on Options, and the shadows of baked
+lights that remove only their own light (engine 6cb4036, which also sizes the descriptor pool from
+the layout).
 
 **Numbers.** Windows test_pn_all 17 suites, 8024 checks, 0 failures; Linux 7935; engine 57/57; the
 APK starts and plays on the emulator. The pause with real OS input on Windows (planning Step 22):
@@ -181,29 +185,30 @@ Penumbra.exe (one notification). The live test's first arrow keys were sent with
 
 ## 2026-09-30 — the public release: the README, the licences, screenshots
 
-**Asked.** Ivan: prepare the repository for its public release; a professional README that says
-Claude Code was used in the development and which platforms were playtested and which only built.
-His rulings: publish everything, the original's files and the Magic Rampage art included by the
-authors' permission (they stay theirs); the engine goes public too; his own code and the engine
-become free to use (MIT No Attribution, the orchestrator's choice); the full history stays.
+**Goal.** The repository ready for its public release, with a professional README that says Claude
+Code was used in the development and which platforms were playtested and which only built.
+Decided: everything is published, the original's files and the Magic Rampage art included (they
+stay their authors'); the engine goes public too; the enhanced edition's own code and the engine
+become free to use (MIT No Attribution); the full history stays.
 
 **Built.** README.md rewritten for readers outside the project: the pitch, four screenshots, About
-(the original, its authors, their permission, how the port works), highlights grouped from E1-E23,
-a platform status table (build, automated tests, playtested: only Windows was played by a person),
-getting started per platform, short controls and settings, testing, the layout, how this was made
-(directed and reviewed by Ivan, done with Claude Code), credits and a licence summary. Its long
+(the original, its authors, how the port works), highlights grouped from E1-E23, a platform status
+table (build, automated tests, playtested: only Windows was played by a person), getting started
+per platform, short controls and settings, testing, the layout, how this was made (directed and
+reviewed by Ivan Cvetanović, done with Claude Code), credits and a licence summary. Its long
 reference moved to docs/: enhancements.md (the player's table, now with E15 and E17-E20),
-controls.md, playing.md, building.md, testing.md. Licences: a top-level LICENSE (MIT-0 for Ivan's
-code); LICENSE.md's table with Ivan's code and the engine as MIT-0, game/script and game/eth
-LGPL-3.0-or-later, the English art as derived from the original's, and the original's runtime DLLs
-under their makers' terms; the engine's LICENSE, README (badge, licence section) and CONTRIBUTING
-from MIT to MIT-0. Screenshots in docs/images as JPEG (114-319 KB): the widescreen menu (Step 25's
-Linux capture), the Android emulator's touch controls (Step 21), and two new Linux captures from
-the existing ~/pn-build-linux binary on lavapipe, level 2 with a fireball and the options screen at
-1920x1080 (out/readme_captures.sh).
+controls.md, playing.md, building.md, testing.md. Licences: a top-level LICENSE (MIT-0 for Ivan
+Cvetanović's code); LICENSE.md's table with that code and the engine as MIT-0, game/script and
+game/eth LGPL-3.0-or-later, the English art as derived from the original's, and the original's
+runtime DLLs under their makers' terms; the engine's LICENSE, README (badge, licence section) and
+CONTRIBUTING from MIT to MIT-0. Screenshots in docs/images as JPEG (114-319 KB): the widescreen
+menu (Step 25's Linux capture), the Android emulator's touch controls (Step 21), and two new Linux
+captures from the existing ~/pn-build-linux binary on lavapipe, level 2 with a fireball and the
+options screen at 1920x1080 (out/readme_captures.sh).
 
-**Numbers.** No code changed; nothing was built or launched on Windows. The platform facts are the
-orchestrator's: Windows test_pn_all 17 suites, 10056 checks, 0 failures; Linux 9967 checks.
+**Numbers.** No code changed; nothing was built or launched on Windows. The platform facts come
+from the last runs before this step: Windows test_pn_all 17 suites, 10056 checks, 0 failures;
+Linux 9967 checks.
 
 **Found.** extracted/app holds the original's runtime DLLs (D3DX9, NVIDIA Cg, Audiere), which are
 not the original authors' and which no package carries; LICENSE.md says whose they are. The old
@@ -211,3 +216,42 @@ README's font fallback (Arial Bold for a missing Arial Narrow) predated E17: Fon
 face's own file, then the bundled stand-in. Left for the release: CLAUDE.md and planning R4 still
 call the repository private; tools/package.bat copies LICENSE.md but not LICENSE; the engine's
 THIRD_PARTY_LICENSES.md asks for the provenance of assets/audio/ambient.wav before a public release.
+
+---
+
+## 2026-09-30 — the download page, the release files, neutral docs
+
+**Built.** The download page (site/index.html, English and Portuguese): a first Windows step for
+the browser's "isn't commonly downloaded" warning (Edge: "...", Keep, Show more, Keep anyway;
+Chrome: Keep), Chrome's "Download anyway" in Android step 1, a note for in-app browsers ("Nothing
+happens when you tap Download? Open this page in Chrome"), a note for grown-ups on newer Samsung
+phones (Settings, Security and privacy, Auto Blocker: off, install, back on), Android's
+requirement as "Android 8 or newer with Vulkan 1.2 graphics - most phones from about 2020 on", a
+note that the Android version is new and not yet tested on real phones, and two more Windows
+help lines ("VCRUNTIME140.dll / MSVCP140.dll was not found": started inside the zip; "MFPlat.DLL
+was not found": an N edition of Windows, which needs the Media Feature Pack). The step pictures
+show the game's real icon, the original's grey skull (site/images/icon.png, from
+extracted/app/penumbra.ico's 48 px image), not a flame. The footer links the code signing policy.
+game/windows/how-to-play.txt says the same, in both languages. The SmartScreen warning is
+explained as "because the game is new and not signed yet".
+
+**Found.** Penumbra.exe imports MFPlat.DLL and MFReadWrite.dll in its regular import table, not
+the delay-load one (read with objdump -p in WSL): on a Windows N edition without the Media
+Feature Pack the game cannot start at all. docs/playing.md claimed the game decodes its music
+itself there; corrected (E18's decoder is for the other platforms, and on Windows only for a file
+Media Foundation refuses).
+
+**Docs.** The shipped notes (game/data/touch_controls.json, game/data/strings.json,
+tools/art/make_mr_touch_art.py) now name the game in English and say only whose the art is. DEVLOG.md, the planning record and docs/spec were reworded for a public repository: no
+quoted requests, no personal attributions of decisions, no references to working sessions; every
+number, commit, step and date kept. README: "over 10,000 automated checks" (Linux measured 10040
+after test_pn_paths grew from 92 to 165 checks; no Windows run since). Comment-only C++ changes
+(the same line counts).
+
+**Numbers.** Windows: tools\build.bat zero warnings; check.bat clean at /W4 on the seven files
+whose comments changed; nothing launched (the desktop was in use). Linux (WSL, GCC): test_pn_all
+17 suites, 10040 checks, 0 failures. The release files rebuilt: the APK repackaged with the new
+data (build_android.sh --release --package-only; apksigner: Verifies, v2 and v3, the release
+key's certificate), then tools\make_release.bat (490 files in the zip, 15.7 MB). The page rendered
+headless (Playwright, Chromium) in both languages at desktop and phone width: every
+Portuguese key present, no horizontal scroll, the icon loaded (out/shots/site/).

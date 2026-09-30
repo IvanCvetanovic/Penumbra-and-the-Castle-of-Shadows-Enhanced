@@ -23,8 +23,18 @@ You need:
 
 - Windows 10 or 11 (64-bit).
 - A graphics driver that supports Vulkan 1.2.
-- Nothing extra for the music: Windows' Media Foundation decodes the MP3s where it is present,
-  and the game decodes them itself where it is not (an "N" edition of Windows; enhancement E18).
+- Windows' media features (Media Foundation), which decode the music. Every edition of Windows has
+  them except the "N" editions, which get them from Microsoft's free Media Feature Pack (Settings,
+  Apps, Optional features, Add a feature). `Penumbra.exe` imports Media Foundation (`MFPlat.DLL`,
+  `MFReadWrite.dll`) when it loads, not on demand, so without them Windows does not start the game
+  at all: it says "MFPlat.DLL was not found". The game's own MP3 decoder (enhancement E18) is for
+  the other platforms, and on Windows only for a file Media Foundation refuses.
+
+If Windows says "VCRUNTIME140.dll was not found" or "MSVCP140.dll was not found", the game was
+started from inside the zip: Explorer then copies out `Penumbra.exe` alone, without the Visual C++
+runtime that sits beside it in the folder. Extract the whole zip first. (On a PC that has the
+Visual C++ Redistributable installed, the game starts instead and says it could not find its game
+files, for the same reason.)
 
 The game writes its own files into its folder: the engine's shader pipeline cache
 (`cache\pipeline_cache.bin`) and an empty `assets\scenes\`. If the folder is read-only, the game

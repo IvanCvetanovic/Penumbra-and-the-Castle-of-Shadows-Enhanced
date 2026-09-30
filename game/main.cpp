@@ -1,4 +1,4 @@
-// Penumbra e o Castelo das Sombras - Enhanced, on the Supersonic Engine.
+// Penumbra and the Castle of Shadows - Enhanced, on the Supersonic Engine.
 //
 // Game flags (taken out before the engine parses the rest):
 //   --start <scene>        skip the menu: start scenes/<scene>(.esc), e.g. level1 or pvp_lv2
@@ -43,6 +43,7 @@
 
 #include "PenumbraLayer.hpp"
 #include "eth/Paths.hpp"
+#include "eth/StartupErrors.hpp"
 #include "render/WindowMode.hpp"
 
 #include "core/GameRuntime.hpp"
@@ -145,22 +146,23 @@ bool ParseHold(const std::string& text, Penumbra::PenumbraLayer::DevHold& hold) 
     return hold.to >= hold.from;
 }
 
-// Logs where a root was found, or says on stderr why it was not. False when
-// it was not.
-bool ReportRoot(const char* what, const char* flag, const char* folder, const char* marker,
-                const Penumbra::Eth::FoundRoot& root) {
+enum class RootReport { Found, Unspellable, Missing };
+
+// Logs where a root was found, or says on stderr why it was not.
+RootReport ReportRoot(const char* what, const char* flag, const char* folder, const char* marker,
+                      const Penumbra::Eth::FoundRoot& root) {
     // The Eth layer opens files by narrow (code page) strings, as the original
     // did. A folder the code page cannot spell would come back as another
     // name, or '?', and every file under it would quietly fail to open.
     if (root.found && std::filesystem::path(root.path.string()) != root.path) {
         std::cerr << "[Penumbra] the " << what << " folder's name has characters this system's code page"
                   << " cannot spell; move it to a plain path or name one with " << flag << " <dir>." << std::endl;
-        return false;
+        return RootReport::Unspellable;
     }
     if (root.found) {
         SUPERSONIC_LOG_INFO("Penumbra") << what << ": " << root.path.string() << " ("
                                         << Penumbra::Eth::DescribeRootSource(root.source) << ")";
-        return true;
+        return RootReport::Found;
     }
     if (root.source == Penumbra::Eth::RootSource::Flag) {
         std::cerr << "[Penumbra] " << flag << " " << root.path.string() << ": there is no " << marker << " there"
@@ -170,7 +172,17 @@ bool ReportRoot(const char* what, const char* flag, const char* folder, const ch
                   << "/ beside the executable, nor at " << root.path.string() << ". Name its folder with " << flag
                   << " <dir>." << std::endl;
     }
-    return false;
+    return RootReport::Missing;
+}
+
+// A path for a message box, which takes UTF-8 whatever the code page spells.
+std::string Utf8(const std::filesystem::path& path) {
+    try {
+        const std::u8string text = path.u8string();
+        return std::string(text.begin(), text.end());
+    } catch (const std::exception&) {
+        return {};
+    }
 }
 
 } // namespace
@@ -315,6 +327,19 @@ int PenumbraMain(int argc, char** argv) {
         return EXIT_FAILURE;
     }
 
+    // A failure a player must be TOLD about (eth/StartupErrors.hpp): a message
+    // box when the game was started from Explorer, where stderr goes nowhere;
+    // never for a capture, a shell or a script, which read the stderr line as
+    // before.
+    const bool headless = options.maxFrames > 0 || !options.screenshotPath.empty() || options.fixedDelta > 0.0f;
+    const bool showDialogs = Penumbra::Eth::ShouldShowStartupDialog(headless, Penumbra::Eth::CurrentErrorStream());
+    std::filesystem::path logFile;   // once the log has one
+    const auto tellPlayer = [&](Penumbra::Eth::StartupProblem problem, const std::string& detail) {
+        if (!showDialogs) return;
+        Penumbra::Eth::ShowStartupDialog(Penumbra::Eth::StartupMessage(
+            problem, Penumbra::Render::Settings::SystemLanguageIsPortuguese(), detail, Utf8(logFile)));
+    };
+
     // WHERE THE GAME'S FILES ARE, before SupersonicApp moves the working
     // directory (a relative --original is the player's, from where they
     // launched). The original is required; without the port's data the game
@@ -323,13 +348,24 @@ int PenumbraMain(int argc, char** argv) {
         const std::filesystem::path exeDir = Supersonic::ExecutableDirectory();
         const Penumbra::Eth::FoundRoot original =
             Penumbra::Eth::FindOriginalRoot(originalFlag, exeDir, PENUMBRA_ORIGINAL_DIR);
-        if (!ReportRoot("original game", "--original", Penumbra::Eth::kPackagedOriginalFolder,
-                        Penumbra::Eth::kOriginalMarker, original)) {
+        const RootReport originalReport = ReportRoot("original game", "--original",
+                                                     Penumbra::Eth::kPackagedOriginalFolder,
+                                                     Penumbra::Eth::kOriginalMarker, original);
+        if (originalReport != RootReport::Found) {
+            // Not for a flag, which a developer typed: a player's copy without
+            // original/ beside it is one run from inside the zip (Explorer
+            // extracts the clicked exe alone) or never extracted whole.
+            if (original.source != Penumbra::Eth::RootSource::Flag) {
+                tellPlayer(originalReport == RootReport::Unspellable ? Penumbra::Eth::StartupProblem::FolderNameUnusable
+                                                                     : Penumbra::Eth::StartupProblem::GameFilesMissing,
+                           "Penumbra.exe is in " + Utf8(exeDir));
+            }
             return EXIT_FAILURE;
         }
         const Penumbra::Eth::FoundRoot data = Penumbra::Eth::FindDataRoot(dataFlag, exeDir, PENUMBRA_DATA_DIR);
         layerOptions.originalDir = original.path;
-        if (ReportRoot("port data", "--data", Penumbra::Eth::kPackagedDataFolder, Penumbra::Eth::kDataMarker, data)) {
+        if (ReportRoot("port data", "--data", Penumbra::Eth::kPackagedDataFolder, Penumbra::Eth::kDataMarker, data) ==
+            RootReport::Found) {
             layerOptions.dataDir = data.path;
         } else {
             if (data.source == Penumbra::Eth::RootSource::Flag) return EXIT_FAILURE;
@@ -339,6 +375,7 @@ int PenumbraMain(int argc, char** argv) {
         // path::string() throws on some names the code page cannot spell,
         // where others come back altered (ReportRoot).
         std::cerr << "[Penumbra] cannot use the game's folders: " << e.what() << std::endl;
+        tellPlayer(Penumbra::Eth::StartupProblem::FolderNameUnusable, e.what());
         return EXIT_FAILURE;
     }
 
@@ -360,6 +397,7 @@ int PenumbraMain(int argc, char** argv) {
         std::error_code ignored;
         std::filesystem::create_directories(layerOptions.userDir, ignored);
         Supersonic::Log::SetFileSink((layerOptions.userDir / "penumbra.log").string());
+        logFile = layerOptions.userDir / "penumbra.log";
     }
 
     std::string warning;
@@ -409,8 +447,29 @@ int PenumbraMain(int argc, char** argv) {
     layerOptions.startFullscreen =
         Supersonic::GameRuntime::ResolveFullscreen(manifest, options.fullscreen, options.windowed);
 
+    // Penumbra.exe delay-loads vulkan-1.dll (game/CMakeLists.txt), so a PC with
+    // no Vulkan driver at all gets here, not to a Windows error naming a DLL.
+    // Nothing has called Vulkan yet; nothing will without the loader.
+    if (!Penumbra::Eth::VulkanLoaderAvailable()) {
+        std::cerr << "[Penumbra] fatal: no Vulkan loader (vulkan-1.dll); a graphics driver with Vulkan 1.2 is needed"
+                  << std::endl;
+        tellPlayer(Penumbra::Eth::StartupProblem::NoGraphics, "vulkan-1.dll could not be loaded");
+        Supersonic::Log::CloseFileSink();
+        return EXIT_FAILURE;
+    }
+    // Whether the engine will find its shaders (the rule SupersonicApp anchors
+    // by): if it will not, a failed start below is missing files, not graphics.
+    std::error_code launchDirError;
+    const std::filesystem::path launchDir = std::filesystem::current_path(launchDirError);
+    const bool engineFilesFound =
+        Supersonic::ChooseAssetRoot(Supersonic::ExecutableDirectory(), launchDir, Supersonic::ConfiguredAssetRoot(),
+                                    Supersonic::HoldsEngineAssets)
+            .source != Supersonic::AssetRootSource::Unresolved;
+
+    bool started = false;   // the window and the Vulkan device exist
     try {
         Supersonic::SupersonicApp app(options, &manifest);
+        started = true;
         SUPERSONIC_LOG_INFO("Penumbra")
             << "Vulkan validation layers: "
             << (Supersonic::VulkanContext::ValidationLayersActive() ? "ACTIVE"
@@ -420,6 +479,10 @@ int PenumbraMain(int argc, char** argv) {
         app.Run();
     } catch (const std::exception& e) {
         std::cerr << "[Penumbra] fatal: " << e.what() << std::endl;
+        tellPlayer(started            ? Penumbra::Eth::StartupProblem::StoppedByError
+                   : engineFilesFound ? Penumbra::Eth::StartupProblem::NoGraphics
+                                      : Penumbra::Eth::StartupProblem::GameFilesMissing,
+                   e.what());
         Supersonic::Log::CloseFileSink();
         return EXIT_FAILURE;
     }

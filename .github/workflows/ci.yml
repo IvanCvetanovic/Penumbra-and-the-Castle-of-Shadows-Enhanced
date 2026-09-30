@@ -10,7 +10,11 @@ name: CI
 #            test_pn_all once. BEST-EFFORT for now (continue-on-error): the
 #            Windows build is gated on the development machine, and this job
 #            has yet to prove itself on the runner image. Take continue-on-error
-#            off once it has been green for a while.
+#            off once it has been green for a while. After the tests it also
+#            makes the Windows release (tools\make_release.bat) and uploads
+#            the release folder, unsigned, as the artifact
+#            Penumbra-Windows-unsigned: what is submitted for code signing
+#            (docs/code-signing.md).
 #
 # Neither job needs a GPU: test_pn_all's suites run the game's frames without a
 # window or a Vulkan device. No Vulkan driver is installed (lavapipe here would
@@ -149,6 +153,28 @@ jobs:
           set -o pipefail
           build/tests/test_pn_all.exe 2>&1 | tee out/logs/tests-windows.log
           grep -E '^test_pn_all: [0-9]+ suites in .* 0 failed, 0 skipped, 0 not run' out/logs/tests-windows.log
+
+      # The release a player downloads, made by the scripts a developer runs:
+      # package.bat, then make_release.py (the folder with HOW TO PLAY.txt
+      # beside Penumbra\, the deterministic zip, SHA256SUMS.txt). It fails
+      # rather than ship a package without the Visual C++ runtime.
+      - name: Release (Windows zip)
+        shell: cmd
+        run: tools\make_release.bat
+
+      # The release FOLDER, unsigned: the artifact a signing request submits
+      # (docs/code-signing.md). GitHub zips it, so the artifact is the release
+      # zip's layout - HOW TO PLAY.txt and Penumbra/ at its top - and signing
+      # Penumbra/Penumbra.exe inside it gives back the signed release zip. The
+      # id is for a signing step to name it (its outputs.artifact-id).
+      - name: Upload the release for signing
+        id: upload-unsigned
+        uses: actions/upload-artifact@v4
+        with:
+          name: Penumbra-Windows-unsigned
+          retention-days: 30
+          if-no-files-found: error
+          path: out/release/Penumbra-Windows/
 
       - name: Source tree untouched
         run: |

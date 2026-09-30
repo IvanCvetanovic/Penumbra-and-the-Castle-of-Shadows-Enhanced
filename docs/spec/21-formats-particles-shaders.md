@@ -6,7 +6,7 @@ Scope: `effects/*.par`, `data/*.cg`, `data/shadow.dds`, and the lighting and sha
 
 - **[2010 primary]** The `.cg` files that ship in `data/` are the 2010 shaders. The engine compiles them at run time: `machine.exe` references `/defaultVS.cg`, `/hPixelLight.cg`, `/vPixelLight.cg`, `/pixelLightVS.cg`, `/hVertexLightShader.cg`, `/vVertexLightShader.cg`, `/defaultStaticAmbientVS.cg`, `/dynaShadowVS.cg`, `/shadow.dds` and `/default_nm.png`, and the entry points `sprite_ppl`, `verticalSprite_ppl`, `mainSpecular`, `sprite_pvl`, `particle` and `vertical`.
 - **[2010 binary]** These are strings from `machine.exe` (VC++ 2008, x87, image base 0x400000) and `GameSpace.dll` (image base 0x10000000), plus targeted disassembly with `objdump -d -M intel` (Strawberry mingw objdump). Addresses are cited as `@0x…`.
-  - Method note for the other session: MSVC stores float literals such as `0.8f` and `2.2f` widened to double (`0.800000011920929`). A byte scan for the exact double `0.8` misses them. Scan for `struct.pack('<d', float32(x))`, or disassemble.
+  - Method note: MSVC stores float literals such as `0.8f` and `2.2f` widened to double (`0.800000011920929`). A byte scan for the exact double `0.8` misses them. Scan for `struct.pack('<d', float32(x))`, or disassemble.
 - **[2013 source]** C++ citations are relative to `toolkit/Source/src/`. Anything tagged **2013 only** is unverified for 2010.
 
 The game is a **side-view 2D platformer** drawn with Ethanon's top-down lighting model:
@@ -113,7 +113,7 @@ Per-file attribute table:
 |sword_hit|12|1|1|1|1|354|450|400|0|1|168|64|3.4|0|1000|0|360|
 |torch_fire|18|0|1|0|1|64|850|700|0|20|20|0|-0.5|0|1000|0|360|
 
-The child values per file are in the census script `reference/analysis/par.py` (session scratch, not in the repo). The ranges above are exact.
+The child values per file are in the census script `reference/analysis/par.py` (scratch work, not in the repo). The ranges above are exact.
 
 ### 1.3 Particle bitmaps (`particles/`)
 
@@ -555,7 +555,7 @@ The engine's `shadeSprite2D` (`assets/shaders/shader.frag:421-492`) already comp
 - per-light `clamp(T·tint·colour·(1 - d²/r²)·dot(L - P, N)/d)`, with P = (x, y, lighting height) and a `kNormalYDown` flag
 - 64 `Light2DComponent`s at most, with layers
 
-That matches Penumbra's horizontal diffuse model and composite. The mismatches are listed in `engineGaps` below. The other session is also changing the engine, so this report proposes no engine changes; every item is phrased as a gap.
+That matches Penumbra's horizontal diffuse model and composite. The mismatches are listed in `engineGaps` below. Another project is also changing the engine, so this report proposes no engine changes; every item is phrased as a gap.
 
 Things the port can do without the engine:
 - the offline lightmap baker

@@ -11,7 +11,7 @@
 // engine cannot:
 //
 //   Windows    the engine's decoder, as before; dr_mp3 only for an MP3 the
-//              engine refuses (a Windows "N" edition has no Media Foundation);
+//              engine refuses (a file Media Foundation cannot decode);
 //   elsewhere  dr_mp3 for every .mp3, the engine for everything else.
 //
 // The clip is the engine's AudioClip, 16-bit interleaved PCM, handed to

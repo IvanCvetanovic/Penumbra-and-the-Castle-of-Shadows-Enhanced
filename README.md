@@ -1,8 +1,17 @@
 <div align="center">
 
-# Penumbra e o Castelo das Sombras — Enhanced
+# Penumbra and the Castle of Shadows — Enhanced
 
 **The 2010 action platformer by André Santee, enhanced for modern systems.**
+
+<a href="https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/releases/latest/download/Penumbra-Windows.zip"><img alt="Download for Windows" height="56" src="https://img.shields.io/badge/Download%20for-Windows-D9531E?style=for-the-badge&labelColor=2F1F42&logo=data:image/svg%2bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0iI2ZmZiIgZD0iTTExIDNoMnY5LjZsMy4zLTMuMyAxLjQgMS40TDEyIDE2LjRsLTUuNy01LjcgMS40LTEuNCAzLjMgMy4zVjN6TTQgMThoMTZ2Mkg0eiIvPjwvc3ZnPg=="></a>&nbsp;&nbsp;<a href="https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/releases/latest/download/Penumbra-Android.apk"><img alt="Download for Android" height="56" src="https://img.shields.io/badge/Download%20for-Android-1E8C6E?style=for-the-badge&labelColor=2F1F42&logo=data:image/svg%2bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0iI2ZmZiIgZD0iTTExIDNoMnY5LjZsMy4zLTMuMyAxLjQgMS40TDEyIDE2LjRsLTUuNy01LjcgMS40LTEuNCAzLjMgMy4zVjN6TTQgMThoMTZ2Mkg0eiIvPjwvc3ZnPg=="></a>
+
+### [How to install: the download page](https://ivancvetanovic.github.io/Penumbra-and-the-Castle-of-Shadows-Enhanced/)
+
+Most players should just use that page: both downloads and simple install steps, in English
+and [Portuguese](https://ivancvetanovic.github.io/Penumbra-and-the-Castle-of-Shadows-Enhanced/?lang=pt).<br>
+Free. Windows 10 or 11 (64-bit), or Android 8 or newer, with Vulkan 1.2 graphics.<br>
+The Windows download is not code-signed yet: [Code signing policy](docs/code-signing.md).
 
 [![CI](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/actions/workflows/ci.yml/badge.svg)](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/actions/workflows/ci.yml)
 [![Apple](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/actions/workflows/apple.yml/badge.svg)](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/actions/workflows/apple.yml)
@@ -10,12 +19,6 @@
 ![Vulkan](https://img.shields.io/badge/Vulkan-1.2-AC162C?logo=vulkan&logoColor=white)
 [![Licence: MIT-0](https://img.shields.io/badge/licence-MIT--0-FF7A3D)](LICENSE.md)
 [![Built with Claude Code](https://img.shields.io/badge/built%20with-Claude%20Code-D97757?logo=anthropic&logoColor=white)](#how-it-was-made)
-
-![Windows: playtested](https://img.shields.io/badge/Windows-playtested-2ea44f)
-![Linux: tested](https://img.shields.io/badge/Linux-tested-1f6feb?logo=linux&logoColor=white)
-![Android: emulator](https://img.shields.io/badge/Android-emulator%20tested-d29922?logo=android&logoColor=white)
-![macOS: CI](https://img.shields.io/badge/macOS-CI%20tested-d29922?logo=apple&logoColor=white)
-![iOS: builds](https://img.shields.io/badge/iOS-builds%20only-8b949e?logo=apple&logoColor=white)
 
 <img src="docs/images/menu.jpg" alt="The main menu, filling a 16:9 window" width="860">
 
@@ -30,7 +33,7 @@
 
 ## About
 
-*Penumbra e o Castelo das Sombras* (2010) was made by André Santee (Asantee) on his Ethanon
+*Penumbra and the Castle of Shadows* (2010) was made by André Santee (Asantee) on his Ethanon
 Engine. You play a wizard with a sword, fireballs and a light spell, fighting through three levels
 to the castle's king, alone, in co-op, or in Versus.
 
@@ -54,7 +57,7 @@ Every change is listed with what the original did in [`docs/enhancements.md`](do
 
 | Platform | Status | What was checked |
 |---|---|---|
-| Windows | ![playtested](https://img.shields.io/badge/-playtested-2ea44f) | Played through by a person; 10,056 automated checks |
+| Windows | ![playtested](https://img.shields.io/badge/-playtested-2ea44f) | Played through by a person; over 10,000 automated checks |
 | Linux | ![tested](https://img.shields.io/badge/-tested-1f6feb) | Automated checks and headless rendering; not played by a person |
 | Android | ![emulator](https://img.shields.io/badge/-emulator%20only-d29922) | Scripted tests on an emulator; not run on a real phone |
 | macOS | ![CI](https://img.shields.io/badge/-CI%20only-d29922) | Builds, tests and renders on GitHub Actions; not played; unsigned |
@@ -64,7 +67,7 @@ Every change is listed with what the original did in [`docs/enhancements.md`](do
 > Only the Windows version has been played by a person. The others are verified by automated
 > tests only.
 
-## Quick start
+## Build from source
 
 ```bash
 git clone --recurse-submodules https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced.git
