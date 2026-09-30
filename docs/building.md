@@ -82,6 +82,9 @@ VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/lvp_icd.json xvfb-run -a -s "-screen 0 
     --screenshot "$HOME/level1.png"
 ```
 
+This build is for the machine it is built on. The Linux download is built another way, so that it
+runs on older systems too: see [The Linux release build](#the-linux-release-build).
+
 ## Android (arm64-v8a, x86_64)
 
 A debug APK is built on Windows from Git Bash (or `tools\build_android.bat` from `cmd`), without
@@ -114,12 +117,122 @@ passes them with `--original`/`--data`.
 
 Both are built on GitHub's macOS runners by `.github/workflows/apple.yml`, which can be run by hand
 from the repository's Actions tab (Apple, Run workflow). MoltenVK is linked into the program, so
-no Vulkan SDK or loader is needed.
+no Vulkan SDK or loader is needed. The Mac and iPhone/iPad downloads are built by another
+workflow, `release.yml` ([Release downloads](#release-downloads)).
 
-- **macOS (Apple Silicon).** The workflow builds every target, runs `test_pn_all` once, assembles
-  `Penumbra.app` (`tools/apple/make_app.sh`) and captures level 1 from inside it. Download the
-  run's `macos` artifact. The app is only ad-hoc signed and not notarised, so run
-  `xattr -dr com.apple.quarantine Penumbra.app` before opening it the first time.
+- **macOS.** The workflow builds every target for the runner's own Mac (Apple silicon), runs
+  `test_pn_all` once, assembles `Penumbra.app` (`tools/apple/make_app.sh`) and captures level 1
+  from inside it. Its `macos` artifact is that development build. To play the game on a Mac, use
+  the release's `Penumbra-macOS.zip` instead: one app for Apple silicon and Intel Macs, macOS 13.3
+  Ventura or newer. It is signed ad hoc and not notarised by Apple, so the first open takes one
+  extra step, which the `HOW TO PLAY.txt` beside the app describes (macOS 15 Sequoia and newer:
+  System Settings, Privacy & Security, Open Anyway; macOS 13 and 14: close the message, then Control-click the app, Open).
 - **iOS.** The simulator and device builds compile and link, but the game has never displayed a
   frame: the simulator's GPU cannot draw the engine's instanced batches (it has no base-instance
-  drawing), and no device build has been signed or run. iOS is untested.
+  drawing), and no device has run it. The release has the device build as an experimental
+  `Penumbra-iOS.ipa` (iOS and iPadOS 16.3 or newer), with no certificate (only the build's ad-hoc
+  seal), for a sideloading tool
+  (Sideloadly, AltStore or SideStore) to sign with the player's own Apple ID. It has never run on
+  an iPhone or iPad, and it may not start.
+
+## Release downloads
+
+A release on GitHub holds five downloads and `SHA256SUMS.txt`, their checksums. Two are made on
+the development machine: `Penumbra-Windows.zip` by `tools\make_release.bat` (after a build; it
+runs `tools\package.bat`, then `tools/make_release.py windows`), and `Penumbra-Android.apk` by
+`bash tools/build_android.sh --release`, signed with the release key, which is kept outside the
+repository ([code-signing.md](code-signing.md)). The other three are built on GitHub by
+`.github/workflows/release.yml` and added to the release: `Penumbra-Linux.tar.gz`,
+`Penumbra-macOS.zip` and `Penumbra-iOS.ipa`.
+
+### The release workflow
+
+It runs only by hand: Actions, Release, Run workflow, with the tag of the release to add the files
+to (`v1.0.0` by default). The "publish" box is off by default, and the run is then a dry run: it
+builds and checks everything and leaves the three files as the run's artifacts (`release-linux`,
+`release-macos`, `release-ios`), with the logs and captures beside them (`linux-logs`,
+`macos-logs`, `ios-logs`), to be looked at first. The files are built from the commit the run
+starts on, which may be later than the tag; the publish job's summary names that commit.
+
+| Job | Runs on | What it does |
+|---|---|---|
+| `linux` | an `ubuntu:22.04` container | builds every target ([below](#the-linux-release-build)), runs `test_pn_all` once, checks the program's libraries and glibc symbols, writes `Penumbra-Linux.tar.gz` and runs the package as a player gets it |
+| `macos` | `macos-15` | builds `Penumbra` for arm64 and x86_64 in one program (macOS 13.3 or newer, no validation layers, no suites: `apple.yml` runs those), writes `Penumbra-macOS.zip`, and runs the app from the unpacked zip on arm64, then its x86_64 half under Rosetta |
+| `ios` | `macos-15` | builds `Penumbra` for devices (iphoneos, arm64, iOS 16.3 or newer) and writes `Penumbra-iOS.ipa`; nothing runs it |
+| `publish` | `ubuntu-24.04` | only with "publish" on, and only when the other three passed: adds the files to the release |
+
+The publish job downloads every file the release has and checks each against the release's own
+`SHA256SUMS.txt`. It rewrites that file for all five downloads, with the Windows and Android lines
+first and compared byte for byte with the published ones, and uploads the three new files and
+`SHA256SUMS.txt` (a later publish replaces those four). It never uploads the Windows zip or the
+APK, so it never replaces them. Every check the workflow makes is listed in
+[testing.md](testing.md#the-release-workflow).
+
+### The Linux release build
+
+The Linux download is built in an Ubuntu 22.04 container, so the program needs no newer glibc than
+2.35 (most desktop Linux from about 2022 on). The container gets GCC 13 from the
+`ppa:ubuntu-toolchain-r/test` PPA and CMake 3.28 from PyPI (22.04's own is 3.22). The build is
+configured first, and `tools/build_linux.sh` then builds and tests it (it leaves a configured
+directory as it is):
+
+```bash
+cmake -S . -B /tmp/pn -G Ninja -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_C_COMPILER=gcc-13 -DCMAKE_CXX_COMPILER=g++-13 \
+    -DSUPERSONIC_ENABLE_VALIDATION=OFF -DGLFW_BUILD_WAYLAND=OFF -DGLSL_COMPILER=OFF \
+    -DVulkan_INCLUDE_DIR="$PWD/engine/third_party/Vulkan-Headers-1.3.290/include" \
+    -DCMAKE_EXE_LINKER_FLAGS="-static-libstdc++ -static-libgcc"
+bash tools/build_linux.sh --build-dir /tmp/pn --jobs 4 --test
+```
+
+- `-static-libstdc++ -static-libgcc`: the C++ runtime is linked into the program, so a player's
+  system needs none of its own.
+- The engine's vendored Vulkan headers, not the system's. The program still loads the system's
+  Vulkan loader, `libvulkan.so.1`.
+- No validation layers, no Wayland (the game runs under X11 or XWayland), and no shader compiler:
+  the engine's committed SPIR-V is used.
+
+Then the program itself is checked:
+
+- Its libraries (`readelf -d`, the NEEDED entries) must include `libvulkan.so.1`, `libasound.so.2`
+  and `libc.so.6`, and may name nothing else but `libm.so.6`, `libpthread.so.0`, `libdl.so.2` and
+  `ld-linux-x86-64.so.2`. ALSA is required because a build without `libasound2-dev` still
+  succeeds, silent. `ld-linux-x86-64.so.2` is glibc's own loader, which every glibc system has; the
+  program names it once libstdc++ is linked in statically.
+- Its newest glibc symbol version (`objdump -T`, `GLIBC_*`) must be 2.35 or older.
+
+Then it is stripped, packaged and run (see [testing.md](testing.md#the-release-workflow)).
+
+### The packaging scripts
+
+```bash
+python3 tools/make_release.py linux <build dir>                # out/release/Penumbra-Linux.tar.gz
+python3 tools/make_release.py sums <dir> <file>...             # <dir>/SHA256SUMS.txt over those files
+python3 tools/make_release.py check                            # the version check alone
+bash tools/apple/make_release.sh macos <build dir> <out dir>   # <out dir>/Penumbra-macOS.zip
+bash tools/apple/make_release.sh ios <build dir> <out dir>     # <out dir>/Penumbra-iOS.ipa
+```
+
+- **`make_release.py linux`** lays the build out as `tools\package.bat` lays out the Windows game
+  (the program with `assets/shaders`, `data/` and `original/` beside it, the README, docs and
+  licences) in `out/release/Penumbra-Linux/Penumbra/`, with `game/linux/how-to-play.txt` beside
+  that folder as `HOW TO PLAY.txt`, and writes the `.tar.gz`: a tar keeps the program's executable
+  bit, which a zip would lose. The same files always make the same archive: entries sorted, one
+  fixed time (the HEAD commit's, or `SOURCE_DATE_EPOCH`), owner 0, mode 0755 for the program and
+  the folders and 0644 for the rest, and a gzip header with no name or time. Like `windows`, it
+  refuses a release whose version differs between `CMakeLists.txt`, the Windows and Android
+  manifests and the Mac and iPhone `Info.plist`s.
+- **`make_release.py sums`** writes the checksums in the order the files are named. The release
+  workflow names the Windows zip and the APK first, so their lines stay as they were published.
+- **`make_release.sh macos`** puts `Penumbra.app` (`make_app.sh`, signed ad hoc) and
+  `HOW TO PLAY.txt` (`game/macos/how-to-play.txt`) in a folder `Penumbra/` and zips it with
+  `ditto`, Apple's own way to zip a signed app: it keeps the executable bit and the app's
+  signature seal, which a plain zip writer can lose ("is damaged and can't be opened" on the
+  player's Mac). No AppleDouble files, extended attributes or quarantine flags go in. It then
+  unpacks the zip again and verifies the app with `codesign --verify --deep --strict`.
+- **`make_release.sh ios`** assembles the device build as `Payload/Penumbra.app` and zips it into
+  the `.ipa`, signed ad hoc only. It refuses a program that links anything outside the system or
+  is encrypted, which no sideloading tool could install, and an `.ipa` that does not start with
+  `Payload/` or holds AppleDouble files.
+
+Neither script builds, runs or uploads anything. The only signature is `make_app.sh`'s ad-hoc one.

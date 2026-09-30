@@ -15,7 +15,9 @@ build/tests/test_pn_scenarios.exe             # one
 
 On Linux, `bash tools/build_linux.sh --test` builds everything and runs `test_pn_all` once. On
 GitHub, `.github/workflows/ci.yml` builds and runs it on Linux and Windows, and `apple.yml` on macOS
-(see [building.md](building.md#macos-and-ios)).
+(see [building.md](building.md#macos-and-ios)). `release.yml` runs it once more, in the Ubuntu
+22.04 container the Linux download is built in, and runs the Linux and Mac downloads
+([The release workflow](#the-release-workflow)).
 
 ## test_pn_all
 
@@ -60,3 +62,38 @@ executable, and a second registration would run each twice.
 | `test_pn_render_interp` | Smooth motion (E8): the blend between two ticks, whole pixels kept whole, never across a scene load, a frame gap or a jump |
 | `test_pn_render_pause` | The pause (E13): when it opens, the frozen ticks, the menu, the one-tick cancel to the main menu, focus loss, the overlay, the input held back after it |
 | `test_pn_render_touch` | The touch controls (E16): the key each control presses, the direction disc, several fingers at once, the pause opened and tapped, a tap in a menu as a click, the knob only while a direction is held, the corner button screen by screen, the layout on 4:3 and widescreen with a safe area, the manifest and its art, the setting; the combo buttons' key timelines, and the combos firing through the ported combo buffer and in level 1, where the first help sign is drawn in touch wording; a phone's Versus with one gamepad through the real game (the touchscreen moves the wizard only, the pad the princess only) and the co-op princess summoned with its Start (E22) |
+
+## The release workflow
+
+`.github/workflows/release.yml` ([building.md](building.md#release-downloads)) checks each download
+before it can be added to a release. A check that fails stops its job, and the files are published
+only when all three jobs passed.
+
+- **Linux**, in the Ubuntu 22.04 container the download is built in:
+  - `test_pn_all` once, whose summary must say "0 failed, 0 skipped, 0 not run".
+  - The program's libraries and its newest glibc symbol
+    ([building.md](building.md#the-linux-release-build)).
+  - The package as a player gets it: `Penumbra-Linux.tar.gz` unpacked into a folder that is then
+    made read-only, and run as an ordinary user (not root) on Mesa's lavapipe under Xvfb, for 300
+    ticks of level 1 with a capture. It must exit 0 and write the capture.
+  - The same package with no display at all: it must end at once with exit code 1 (the 30-second
+    `timeout` around it would give 124). A start that fails this way used to print its error and
+    never end, until `game/main.cpp` shut the job pool down in its `catch`.
+- **Mac**:
+  - `tools/apple/make_release.sh` unpacks the zip it wrote and verifies the app with
+    `codesign --verify --deep --strict`.
+  - The workflow unpacks the zip again as Finder would (`ditto -x -k`) and runs the app from there,
+    started from another folder, for 300 ticks of level 1 with a capture: on arm64, then its
+    x86_64 half under Rosetta (`arch -x86_64`). Both runs use the runner's Apple GPU, so they show
+    that the Intel half runs, not that an Intel Mac's graphics draw it.
+  - Only installing Rosetta may fail, because not every runner image can. Once it is installed,
+    the x86_64 run gates the job like the arm64 one.
+  - The suites are not run here: `apple.yml` runs them on macOS for every push.
+- **iPhone/iPad**: `make_release.sh` checks that the program links only the system's libraries and
+  is not encrypted, verifies its signature (`codesign --verify --strict`), and checks that the
+  `.ipa` starts with `Payload/` and holds no AppleDouble files. Nothing runs it: the simulator
+  cannot draw the game.
+- The Linux, Mac and iPhone/iPad jobs each check that `extracted/` and `engine/` are as the
+  checkout left them.
+- **Publishing** checks the release's existing files against its published `SHA256SUMS.txt`, and
+  the rewritten file's first two lines (Windows, Android) against the published ones.

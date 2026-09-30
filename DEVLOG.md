@@ -255,3 +255,66 @@ data (build_android.sh --release --package-only; apksigner: Verifies, v2 and v3,
 key's certificate), then tools\make_release.bat (490 files in the zip, 15.7 MB). The page rendered
 headless (Playwright, Chromium) in both languages at desktop and phone width: every
 Portuguese key present, no horizontal scroll, the icon loaded (out/shots/site/).
+
+---
+
+## 2026-09-30 — Linux, Mac and iPhone/iPad downloads
+
+**Built.** .github/workflows/release.yml, run by hand from the Actions tab and a dry run unless
+"publish" is on, builds three more downloads and adds them to an existing release, next to the
+Windows zip and the APK, which it never replaces: Penumbra-Linux.tar.gz (64-bit PCs; built in an
+Ubuntu 22.04 container for a glibc 2.35 floor, GCC 13, libstdc++ and libgcc linked statically, the
+engine's vendored Vulkan headers, no validation layers), Penumbra-macOS.zip (one app for Apple
+silicon and Intel Macs, macOS 13.3 or newer, signed ad hoc, not notarised) and Penumbra-iOS.ipa
+(the device build for iOS and iPadOS 16.3 or newer, signed ad hoc for a sideloading tool;
+experimental). tools/make_release.py gains `linux` (package.bat's layout, a reproducible tar that
+keeps the executable bit) and `sums`; tools/apple/make_release.sh makes the Mac zip (ditto,
+verified after unpacking) and the .ipa. Each new package carries its own HOW TO PLAY.txt in
+English and Portuguese (game/linux, game/macos). The publish job checks the release's files
+against its published checksums and keeps the Windows and Android lines of SHA256SUMS.txt first
+and unchanged. The files come from aae1a29, later than the tag's 2b5cdff: the same game, with the
+packaging and the start-up fix below.
+
+**Found.** A start that failed inside SupersonicApp's constructor (no display, no Vulkan driver)
+printed its fatal line and then never ended on Linux: exit() blocked destroying the job pool's
+condition variable while its workers still waited on it, because only ~SupersonicApp joins them.
+The catch in game/main.cpp now shuts the pool down (JobSystem::Shutdown, idempotent). Measured in
+WSL: with no DISPLAY, and with a missing ICD, the game ran into the 20 s timeout (exit 124)
+before, and now exits 1 at once. The workflow's review found three more. `ldd --version | head -1`
+could fail its step under pipefail: head stops reading while ldd, a script of several writes, is
+still writing, and ldd dies of SIGPIPE (measured: 2458 of 3000 runs in WSL); `sed -n 1p` reads to
+the end instead. The Apple bundles carried no licence texts; make_app.sh now copies the ones
+package.bat puts beside Penumbra.exe. The Rosetta step could hide a failing x86_64 run; now only
+installing Rosetta may fail, and once it is installed the x86_64 run gates the job like the arm64
+one. The first dry run (36715036864) stopped at the Linux library check: with libstdc++ linked in
+statically, the program names ld-linux-x86-64.so.2, glibc's own loader, which every glibc system
+has. It is on the allowed list since aae1a29.
+
+**Docs.** docs/building.md: the release downloads (the workflow and its jobs, the Linux release
+build with its library and glibc checks, make_release.py linux and sums, make_release.sh macos and
+ios); its Apple section now points to the release's Mac zip and the experimental .ipa instead of
+a CI artifact and a quarantine command. docs/testing.md: the release workflow's checks. The
+planning record: Step 29, and its Open list (the iOS item revised; a Linux playtest, a Mac
+playtest and notarisation added). The header comments of ci.yml and pages.yml name release.yml.
+README.md (a line for the other downloads, the platform table), docs/playing.md (the Linux, Mac
+and iPhone/iPad downloads, where each keeps its saves), docs/code-signing.md (what each download
+is signed with), CLAUDE.md's layout, and the download page: a section for Mac, Linux and
+iPhone/iPad, the Mac and Linux buttons marked for those visitors (not an iPad, which says
+Macintosh but has a touch screen, nor an Android tablet asking for the desktop site), and the
+line addressed to children about asking an adult removed. The HOW TO PLAY texts no longer claim
+the Linux version "draws the game correctly" (only level 1 on a software driver was seen).
+
+**Numbers.** Windows: zero warnings, test_pn_all 17 suites, 10129 checks, 0 failures. WSL: the
+Linux package byte-identical over two runs (480 files, 16.2 MB); unpacked into a read-only folder
+and run as an ordinary user it plays level 1 (exit 0, capture drawn). Dry run 36715036864: Linux
+test_pn_all 17 of 17 suites in the 22.04 container, 0 failed (the package itself was not built:
+the library check stopped the job first); the Mac app, run from the unpacked zip, drew level 1 on
+arm64 and on x86_64 under Rosetta; the .ipa holds 496 entries, Payload/ first. Nobody has played
+the Linux, Mac or iPhone/iPad download on a real machine; the .ipa has never run anywhere.
+Published: run 36721535557 (every job green: Linux test_pn_all 17 of 17 and the package run -
+level 1 drawn from a read-only folder as an ordinary user, and exit 1 at once with no display;
+the Mac app on arm64 and on x86_64 under Rosetta). SHA256SUMS.txt now lists all five files; the
+Windows and Android lines are unchanged, and every file fetched back through
+releases/latest/download matches it. In that run's 22.04 container, lavapipe (Mesa 23, LLVM 15)
+drew faint diagonal dotted lines by the torches at frame 300; the same published program on
+Mesa 25.2 in WSL draws the frame without them, so they are that driver's, not the game's.

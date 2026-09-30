@@ -3,14 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Penumbra and the Castle of Shadows - Download for Windows and Android</title>
-<meta name="description" content="A free 2D action platformer: a wizard with a sword, fireballs and a light spell against the king of the castle. Download it for Windows and Android.">
+<title>Penumbra and the Castle of Shadows - Download for Windows, Mac, Linux and Android</title>
+<meta name="description" content="A free 2D action platformer: a wizard with a sword, fireballs and a light spell against the king of the castle. Download it for Windows, Mac, Linux and Android.">
 <meta name="theme-color" content="#120b1a">
 <meta name="color-scheme" content="dark">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Penumbra and the Castle of Shadows">
 <meta property="og:title" content="Penumbra and the Castle of Shadows - Enhanced">
-<meta property="og:description" content="A free action platformer for Windows and Android. Um jogo de plataforma e ação grátis para Windows e Android.">
+<meta property="og:description" content="A free action platformer for Windows, Mac, Linux and Android. Um jogo de plataforma e ação grátis para Windows, Mac, Linux e Android.">
 <meta property="og:url" content="https://ivancvetanovic.github.io/Penumbra-and-the-Castle-of-Shadows-Enhanced/">
 <meta property="og:image" content="https://ivancvetanovic.github.io/Penumbra-and-the-Castle-of-Shadows-Enhanced/images/menu.jpg">
 <meta property="og:image:width" content="1600">
@@ -35,6 +35,8 @@
     --ember: #e2551f;
     --crystal: #5fe3cf;
     --crystal-2: #2fbf9f;
+    --sky: #8ec5ff;
+    --sky-2: #4f8fdc;
     --focus: #ffe08a;
     --radius: 22px;
     --serif: "Palatino Linotype", Palatino, "Book Antiqua", "URW Palladio L", "P052", Georgia, serif;
@@ -143,12 +145,16 @@ h1 .t2 { display: block; margin-top: 2px; font-size: clamp(1.45rem, 6.4vw, 2.3re
 .dl.is-rec .rec { display: block; }
 
 .after-dl { margin: 16px 0 0; color: var(--muted); }
-.after-dl a { font-weight: 700; }
-.apple-note {
+.after-dl a, .other-link a, .device-note a { font-weight: 700; }
+.other-link { margin: 6px 0 0; color: var(--muted); }
+/* A Mac, Linux, iPhone or iPad visitor gets a note pointing at their own
+   download further down instead of the general line. */
+.device-note {
     display: none; margin: 14px 0 0; padding: 12px 14px; max-width: 480px; border-radius: 14px;
     background: rgba(255, 194, 71, 0.1); border: 1px solid rgba(255, 194, 71, 0.5);
 }
-.is-apple .apple-note { display: block; }
+.is-mac .mac-note, .is-ios .ios-note, .is-linux .linux-note { display: block; }
+.is-mac .other-link, .is-ios .other-link, .is-linux .other-link { display: none; }
 /* In-app browsers (a link opened inside a social app) often ignore a tap on a
    download; shown in the hero on Android only, and always in Android step 1. */
 .inapp-note {
@@ -220,6 +226,50 @@ h2 {
 .card .dl { min-height: 70px; margin-bottom: 8px; padding: 12px 16px; }
 .card .dl .label { font-size: clamp(1.05rem, 4.6vw, 1.2rem); }
 .card .dl .ico { width: 36px; height: 36px; }
+
+/* ---------- Mac, Linux, iPhone and iPad ---------- */
+/* Its own grid, not .cards: the script reorders #cards on Android. */
+.more-cards { display: grid; gap: 22px; }
+.more-cards.linux-first .card.linux { order: -1; }
+.card { scroll-margin-top: 16px; }
+.card.mini { overflow-wrap: anywhere; }
+.card.mini h3 { font-size: 1.5rem; }
+.card.mini .steps { gap: 16px; }
+.card.mini .step-text { font-size: 1.05rem; }
+.card.mac { border-top-color: var(--sky); }
+.card.linux { border-top-color: var(--fire-2); }
+.card.ios { border-top-color: var(--muted); border-top-style: dashed; }
+.card.mac h3 svg { color: var(--sky); }
+.card.ios h3 svg { color: var(--muted); }
+.exp-tag {
+    display: inline-block; vertical-align: middle; margin-left: 2px; white-space: nowrap;
+    padding: 2px 10px; border-radius: 999px; border: 1px dashed var(--muted);
+    font-family: var(--sans); font-size: 0.8rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted);
+}
+.mac .steps li::before { color: #0a1a33; background: radial-gradient(circle at 35% 30%, #eef6ff, var(--sky) 50%, var(--sky-2) 100%); box-shadow: 0 0 18px rgba(142, 197, 255, 0.4); }
+.linux .steps li::before { background: radial-gradient(circle at 35% 30%, #fff6d6, var(--fire-2) 55%, #d99a1e 100%); box-shadow: 0 0 18px rgba(255, 194, 71, 0.4); }
+.ios .steps li::before { color: var(--bg); background: radial-gradient(circle at 35% 30%, #ffffff, var(--muted) 60%, #9d8bb8 100%); box-shadow: none; }
+.dl-mac {
+    color: #0a1a33;
+    background: linear-gradient(180deg, #e4f1ff 0%, var(--sky) 55%, var(--sky-2) 100%);
+    box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.55), inset 0 -3px 0 rgba(10, 40, 90, 0.35), 0 12px 32px -10px rgba(110, 170, 255, 0.6);
+}
+.dl-mac:hover { color: #0a1a33; }
+.dl-linux {
+    background: linear-gradient(180deg, #fff3c4 0%, var(--fire-2) 55%, #d99a1e 100%);
+    box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.55), inset 0 -3px 0 rgba(90, 50, 0, 0.35), 0 12px 32px -10px rgba(255, 194, 71, 0.55);
+}
+/* The experimental download is a plain outlined button, never the bright
+   style of a version that is ready to play. */
+.dl-plain {
+    color: var(--text); background: rgba(255, 255, 255, 0.05);
+    border: 2px dashed var(--muted); box-shadow: none;
+}
+.dl-plain:hover { color: var(--text); background: rgba(255, 255, 255, 0.1); filter: none; }
+code {
+    font-family: ui-monospace, "Cascadia Mono", Consolas, "DejaVu Sans Mono", "Liberation Mono", monospace; font-size: 0.9em;
+    padding: 1px 6px; border-radius: 6px; background: var(--stone-3); border: 1px solid var(--line);
+}
 
 .steps { list-style: none; counter-reset: step; margin: 18px 0 0; padding: 0; display: grid; gap: 22px; }
 .steps li { counter-increment: step; display: flow-root; }
@@ -294,6 +344,10 @@ footer p { margin: 6px 0; }
     .controls { grid-template-columns: 1fr 1fr 1fr; }
     .credits dl { grid-template-columns: 1fr 1fr; }
 }
+@media (min-width: 1000px) {
+    .more-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: start; }
+    .card.mini { padding: 24px 20px; }
+}
 
 @media (prefers-reduced-motion: reduce) {
     html { scroll-behavior: auto; }
@@ -338,7 +392,10 @@ footer p { margin: 6px 0; }
 
             <p class="after-dl" data-i18n="afterdl">Free. After downloading, follow the <a href="#install">easy steps below</a>.</p>
             <p class="inapp-note" data-i18n="inapp"><strong>Nothing happens when you tap Download?</strong> Open this page in Chrome: tap the menu (<strong>&#8942;</strong> or <strong>&middot;&middot;&middot;</strong>), then <strong>Open in browser</strong>.</p>
-            <p class="apple-note" data-i18n="apple">There's no version for iPhone, iPad or Mac yet. The game is for Windows PCs and for Android phones and tablets.</p>
+            <p class="other-link" data-i18n="otherlink">Mac, Linux, iPhone or iPad? <a href="#other">See below</a>.</p>
+            <p class="device-note mac-note" data-i18n="note.mac"><strong>On a Mac?</strong> The Mac version is <a href="#mac">further down this page</a>.</p>
+            <p class="device-note linux-note" data-i18n="note.linux"><strong>On Linux?</strong> The Linux version is <a href="#linux">further down this page</a>.</p>
+            <p class="device-note ios-note" data-i18n="note.ios"><strong>iPhone or iPad?</strong> There's only an <a href="#ios">experimental version</a> for them, further down this page. It has never been tried on a real iPhone or iPad, and it needs a computer to install.</p>
         </div>
         <figure class="hero-shot">
             <img src="images/menu.jpg" width="1600" height="900" fetchpriority="high"
@@ -598,7 +655,97 @@ footer p { margin: 6px 0; }
                         <li data-i18n="and.help1"><strong>The game closes as soon as it opens:</strong> the device's graphics probably don't support Vulkan 1.2, which the game needs.</li>
                         <li data-i18n="and.help4"><strong>A Samsung phone blocked the install:</strong> see the note for grown-ups in step 2 (Auto Blocker).</li>
                         <li data-i18n="and.help2"><strong>Downloaded it on a computer?</strong> Open this page on the phone and download it there.</li>
-                        <li data-i18n="and.help3"><strong>iPhone or iPad?</strong> There's no version for them yet.</li>
+                        <li data-i18n="and.help3"><strong>iPhone or iPad?</strong> There's only an <a href="#ios">experimental version</a> for them, further down this page.</li>
+                    </ul>
+                </details>
+            </article>
+        </div>
+    </section>
+
+    <section class="wrap section" id="other" aria-labelledby="other-title">
+        <h2 id="other-title" data-i18n="other.title">Mac, Linux, iPhone and iPad</h2>
+        <p class="lead" data-i18n="other.lead">The same game for more devices. The Mac and Linux versions are new, and the iPhone and iPad version is only an experiment.</p>
+
+        <div class="more-cards" id="more-cards">
+            <!-- Mac -->
+            <article class="card mini mac" id="mac" aria-labelledby="mac-title">
+                <h3 id="mac-title"><svg viewBox="0 0 48 48" aria-hidden="true" focusable="false"><rect x="8" y="8" width="32" height="23" rx="3" fill="none" stroke="currentColor" stroke-width="3.5"/><path d="M3 38h42" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"/><path d="M8 31l-4 7M40 31l4 7" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg><span data-i18n="mac.title">Mac</span></h3>
+                <p class="req" data-i18n="mac.req"><strong>You need:</strong> macOS 13.3 Ventura or newer. One app for Macs with Apple silicon (M1 or newer) and for Intel Macs.</p>
+                <p class="new-note" data-i18n="mac.new"><strong>New:</strong> the Mac version has only been tested automatically, on GitHub's Macs. Nobody has played it on a real Mac yet, and it has never been tried on an Intel Mac.</p>
+                <a class="dl dl-mac" href="https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/releases/latest/download/Penumbra-macOS.zip">
+                    <svg class="ico" viewBox="0 0 48 48" aria-hidden="true" focusable="false"><path d="M24 6v24m-9-9 9 9 9-9M8 40h32" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    <span><span class="label" data-i18n="dl.mac">Download for Mac</span><span class="sub" data-i18n="dl.mac.sub">zip file &middot; about 21&nbsp;MB</span></span>
+                    <span class="rec" data-i18n="dl.rec">For this device</span>
+                </a>
+                <ol class="steps">
+                    <li><div><p class="step-text" data-i18n="mac.s1"><strong>Unzip it.</strong> Safari does this by itself. If not, double-click <em>Penumbra-macOS.zip</em> in <em>Downloads</em>.</p></div></li>
+                    <li><div><p class="step-text" data-i18n="mac.s2"><strong>Open the Penumbra folder</strong> and drag <strong>Penumbra</strong> into <strong>Applications</strong>.</p></div></li>
+                    <li><div><p class="step-text" data-i18n="mac.s3"><strong>Double-click Penumbra.</strong> The first time, the Mac won't open it, because the game isn't from the App Store and isn't notarised by Apple.</p></div></li>
+                    <li>
+                        <div>
+                            <p class="step-text" data-i18n="mac.s4"><strong>Open it anyway, once.</strong> On macOS 15 Sequoia and newer: at <em>&ldquo;Penumbra&rdquo; Not Opened</em>, click <strong>Done</strong> (not <em>Move to Trash</em>). Then open the Apple menu, <strong>System Settings</strong>, <strong>Privacy &amp; Security</strong>, scroll down to <em>Security</em> and click <strong>Open Anyway</strong>. Enter the Mac's password and click <strong>Open Anyway</strong> again.</p>
+                            <p class="step-note" data-i18n="mac.s4.old">On macOS 13 or 14: close the message (don't choose <strong>Move to Trash</strong>), then Control-click (or right-click) Penumbra, choose <strong>Open</strong>, then click <strong>Open</strong>.</p>
+                            <p class="step-note" data-i18n="mac.s4.after">After that, Penumbra opens with a double-click like any other app.</p>
+                        </div>
+                    </li>
+                </ol>
+                <details class="help">
+                    <summary data-i18n="mac.help">It didn't start?</summary>
+                    <ul>
+                        <li data-i18n="mac.help1"><strong>&ldquo;Penumbra is damaged and can't be opened&rdquo;:</strong> download it again and unzip it with Finder (double-click the zip).</li>
+                        <li data-i18n="mac.help2"><strong>Can't find <em>Open Anyway</em>?</strong> Try to open Penumbra first, then look in System Settings, Privacy &amp; Security, under <em>Security</em> (scroll down).</li>
+                        <li data-i18n="mac.help3">Please don't turn Gatekeeper off just for this game.</li>
+                        <li data-i18n="mac.help4">The <em>HOW TO PLAY</em> file in the Penumbra folder you downloaded has more help. Progress and settings are kept in <em>~/Library/Application Support/Penumbra</em>.</li>
+                    </ul>
+                </details>
+            </article>
+
+            <!-- Linux -->
+            <article class="card mini linux" id="linux" aria-labelledby="linux-title">
+                <h3 id="linux-title"><svg viewBox="0 0 48 48" aria-hidden="true" focusable="false"><rect x="4" y="6" width="40" height="28" rx="4" fill="none" stroke="currentColor" stroke-width="3.5"/><path d="M17 42h14M24 34v8" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"/><path d="M12 14l6 5-6 5M22 25h12" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg><span data-i18n="linux.title">Linux PC</span></h3>
+                <p class="req" data-i18n="linux.req"><strong>You need:</strong> a 64&#8209;bit PC with an Intel or AMD processor (x86_64) and a Linux from about 2022 on (Ubuntu 22.04, Debian 12, Linux Mint 21 or newer, Fedora, Arch or SteamOS), a graphics driver with Vulkan 1.2, and an X11 desktop or Wayland with XWayland.</p>
+                <p class="new-note" data-i18n="linux.new"><strong>New:</strong> the Linux version passes all of the game's automated tests, but nobody has played it on a real Linux PC yet.</p>
+                <a class="dl dl-linux" href="https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/releases/latest/download/Penumbra-Linux.tar.gz">
+                    <svg class="ico" viewBox="0 0 48 48" aria-hidden="true" focusable="false"><path d="M24 6v24m-9-9 9 9 9-9M8 40h32" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    <span><span class="label" data-i18n="dl.linux">Download for Linux</span><span class="sub" data-i18n="dl.linux.sub">tar.gz file &middot; about 16&nbsp;MB</span></span>
+                    <span class="rec" data-i18n="dl.rec">For this device</span>
+                </a>
+                <ol class="steps">
+                    <li><div><p class="step-text" data-i18n="linux.s1"><strong>Extract it.</strong> Right-click <em>Penumbra-Linux.tar.gz</em> and choose <strong>Extract Here</strong>. (In a terminal: <code>tar xzf Penumbra-Linux.tar.gz</code>)</p></div></li>
+                    <li><div><p class="step-text" data-i18n="linux.s2"><strong>Open the Penumbra folder</strong> and double-click <strong>Penumbra</strong>. If the file manager asks, choose <strong>Run</strong>. (In a terminal: <code>cd Penumbra</code>, then <code>./Penumbra</code>)</p></div></li>
+                </ol>
+                <details class="help">
+                    <summary data-i18n="linux.help">It didn't start?</summary>
+                    <ul>
+                        <li data-i18n="linux.help1"><strong>Nothing happens:</strong> start it from a terminal (step 2) to see why. The game also writes a log to <em>~/.local/share/Penumbra</em>.</li>
+                        <li data-i18n="linux.help2"><strong>An error about Vulkan:</strong> install a Vulkan driver: <em>mesa-vulkan-drivers</em> on Ubuntu, Debian and Fedora (AMD and Intel graphics), <em>vulkan-radeon</em> or <em>vulkan-intel</em> on Arch. NVIDIA's own driver already has it.</li>
+                        <li data-i18n="linux.help3"><strong>No window opens:</strong> the game needs an X11 desktop, or Wayland with XWayland.</li>
+                        <li data-i18n="linux.help4">The <em>HOW TO PLAY</em> file beside the Penumbra folder has more help. Progress, settings and the log are kept in <em>~/.local/share/Penumbra</em>.</li>
+                    </ul>
+                </details>
+            </article>
+
+            <!-- iPhone and iPad -->
+            <article class="card mini ios" id="ios" aria-labelledby="ios-title">
+                <h3 id="ios-title"><svg viewBox="0 0 48 48" aria-hidden="true" focusable="false"><rect x="4" y="5" width="25" height="37" rx="4" fill="none" stroke="currentColor" stroke-width="3.5"/><rect x="33" y="17" width="12" height="25" rx="3" fill="none" stroke="currentColor" stroke-width="3.5"/></svg><span><span data-i18n="ios.title">iPhone and iPad</span> <span class="exp-tag" data-i18n="ios.tag">Experimental</span></span></h3>
+                <p class="req" data-i18n="ios.req"><strong>You need:</strong> iOS or iPadOS 16.3 or newer, a Windows PC or a Mac, and an Apple ID (a spare one is fine).</p>
+                <p class="new-note" data-i18n="ios.new"><strong>Experimental:</strong> this version has never run on any iPhone or iPad, so it may not start. It isn't on the App Store, and it can't be installed by tapping it.</p>
+                <a class="dl dl-plain dl-ios" href="https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/releases/latest/download/Penumbra-iOS.ipa">
+                    <svg class="ico" viewBox="0 0 48 48" aria-hidden="true" focusable="false"><path d="M24 6v24m-9-9 9 9 9-9M8 40h32" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    <span><span class="label" data-i18n="dl.ios">Download for iPhone and iPad</span><span class="sub" data-i18n="dl.ios.sub">Experimental &middot; IPA file &middot; about 16&nbsp;MB</span></span>
+                </a>
+                <ol class="steps">
+                    <li><div><p class="step-text" data-i18n="ios.s1"><strong>On the computer</strong>, download <em>Penumbra-iOS.ipa</em> and install it on the iPhone or iPad with a free sideloading tool: <strong>Sideloadly</strong>, <strong>AltStore</strong> or <strong>SideStore</strong>. It signs the game with your Apple ID.</p></div></li>
+                    <li><div><p class="step-text" data-i18n="ios.s2"><strong>Turn on Developer Mode</strong> on the iPhone or iPad: <strong>Settings</strong>, <strong>Privacy &amp; Security</strong>, <strong>Developer Mode</strong>. Then restart it.</p></div></li>
+                    <li><div><p class="step-text" data-i18n="ios.s3"><strong>Trust your Apple ID</strong> in <strong>Settings</strong>, <strong>General</strong>, <strong>VPN &amp; Device Management</strong>.</p></div></li>
+                    <li><div><p class="step-text" data-i18n="ios.s4"><strong>Open Penumbra</strong> and hold the device sideways. The game draws its own buttons on the screen, and a controller should work too.</p></div></li>
+                </ol>
+                <details class="help">
+                    <summary data-i18n="ios.help">Good to know</summary>
+                    <ul>
+                        <li data-i18n="ios.help1"><strong>With a free Apple ID</strong>, the app stops opening after 7 days. Then refresh it in AltStore or SideStore, or install it again with Sideloadly. Your progress stays, unless you delete the app.</li>
+                        <li data-i18n="ios.help2">A free Apple ID can have 3 sideloaded apps at a time.</li>
+                        <li data-i18n="ios.help3"><strong>It doesn't start, or it closes at once:</strong> this version has never been tried on a real iPhone or iPad, so it may not work yet.</li>
                     </ul>
                 </details>
             </article>
@@ -713,8 +860,8 @@ footer p { margin: 6px 0; }
     // English is the page's own text; Portuguese replaces it. Keys are the
     // elements' data-i18n (inner HTML) and data-i18n-alt (the alt text).
     var PT = {
-        "meta.title": "Penumbra and the Castle of Shadows - Baixe para Windows e Android",
-        "meta.desc": "Um jogo de plataforma e ação 2D gratuito: um mago com espada, bolas de fogo e um feitiço de luz contra o rei do castelo. Baixe para Windows e Android.",
+        "meta.title": "Penumbra and the Castle of Shadows - Baixe para Windows, Mac, Linux e Android",
+        "meta.desc": "Um jogo de plataforma e ação 2D gratuito: um mago com espada, bolas de fogo e um feitiço de luz contra o rei do castelo. Baixe para Windows, Mac, Linux e Android.",
         "skip": "Pular para os downloads",
         "eyebrow": "Edição aprimorada",
         "tagline": "Seja o mago: pegue a espada, lance bolas de fogo, ilumine a escuridão e derrote o rei que domina o castelo.",
@@ -724,7 +871,10 @@ footer p { margin: 6px 0; }
         "dl.and.sub": "Android 8 ou mais recente &middot; arquivo APK",
         "dl.rec": "Para este aparelho",
         "afterdl": "Grátis. Depois de baixar, siga os <a href=\"#install\">passos simples logo abaixo</a>.",
-        "apple": "Ainda não existe versão para iPhone, iPad ou Mac. O jogo é para computadores com Windows e para celulares e tablets Android.",
+        "otherlink": "Mac, Linux, iPhone ou iPad? <a href=\"#other\">Veja mais abaixo</a>.",
+        "note.mac": "<strong>Usando um Mac?</strong> A versão para Mac está <a href=\"#mac\">mais abaixo nesta página</a>.",
+        "note.linux": "<strong>Usando Linux?</strong> A versão para Linux está <a href=\"#linux\">mais abaixo nesta página</a>.",
+        "note.ios": "<strong>iPhone ou iPad?</strong> Para eles só existe uma <a href=\"#ios\">versão experimental</a>, mais abaixo nesta página. Ela nunca foi testada num iPhone ou iPad de verdade e precisa de um computador para ser instalada.",
         "inapp": "<strong>Nada acontece ao tocar em Baixar?</strong> Abra esta página no Chrome: toque no menu (<strong>&#8942;</strong> ou <strong>&middot;&middot;&middot;</strong>) e depois em <strong>Abrir no navegador</strong> (Open in browser).",
         "alt.menu": "O menu principal do jogo, em inglês: o logotipo de Penumbra entre duas estátuas iluminadas por tochas, com as opções Novo jogo, Versus, Como jogar, Melhores tempos, Configurações, Créditos e Sair.",
         "facts.title": "Bom saber sobre o jogo",
@@ -764,7 +914,51 @@ footer p { margin: 6px 0; }
         "and.help1": "<strong>O jogo fecha assim que abre:</strong> provavelmente os gráficos do aparelho não são compatíveis com Vulkan 1.2, que o jogo exige.",
         "and.help4": "<strong>Um celular Samsung bloqueou a instalação:</strong> veja o aviso para adultos no passo 2 (Bloqueador automático).",
         "and.help2": "<strong>Baixou no computador?</strong> Abra esta página no celular e baixe por lá.",
-        "and.help3": "<strong>iPhone ou iPad?</strong> Ainda não existe versão para eles.",
+        "and.help3": "<strong>iPhone ou iPad?</strong> Para eles só existe uma <a href=\"#ios\">versão experimental</a>, mais abaixo nesta página.",
+        "other.title": "Mac, Linux, iPhone e iPad",
+        "other.lead": "O mesmo jogo para mais aparelhos. As versões para Mac e Linux são novas, e a versão para iPhone e iPad ainda é só um experimento.",
+        "mac.title": "Mac",
+        "mac.req": "<strong>Você precisa de:</strong> macOS 13.3 Ventura ou mais recente. Um só app para Macs com Apple silicon (M1 ou mais novo) e para Macs com Intel.",
+        "mac.new": "<strong>Novidade:</strong> a versão para Mac só foi testada automaticamente, nos Macs do GitHub. Ninguém jogou ainda num Mac de verdade, e ela nunca foi testada num Mac com Intel.",
+        "dl.mac": "Baixar para Mac",
+        "dl.mac.sub": "arquivo zip &middot; cerca de 21&nbsp;MB",
+        "mac.s1": "<strong>Descompacte o download.</strong> O Safari faz isso sozinho. Se não fizer, clique duas vezes em <em>Penumbra-macOS.zip</em> na pasta <em>Downloads</em>.",
+        "mac.s2": "<strong>Abra a pasta Penumbra</strong> e arraste o <strong>Penumbra</strong> para a pasta <strong>Aplicativos</strong> (Applications).",
+        "mac.s3": "<strong>Clique duas vezes no Penumbra.</strong> Na primeira vez, o Mac não deixa abrir, porque o jogo não vem da App Store e não é autenticado (notarised) pela Apple.",
+        "mac.s4": "<strong>Abra mesmo assim, só uma vez.</strong> No macOS 15 Sequoia ou mais recente: na mensagem <em>&ldquo;Penumbra&rdquo; Não Aberto</em>, clique em <strong>OK</strong> ou <strong>Concluído</strong> (não em <em>Mover para o Lixo</em>). Depois abra o menu Apple, <strong>Ajustes do Sistema</strong>, <strong>Privacidade e Segurança</strong>, role até <em>Segurança</em> e clique em <strong>Abrir Mesmo Assim</strong>. Digite a senha do Mac e clique em <strong>Abrir Mesmo Assim</strong> de novo.",
+        "mac.s4.old": "No macOS 13 ou 14: feche a mensagem (não escolha <strong>Mover para o Lixo</strong>) e depois clique com a tecla Control pressionada (ou com o botão direito) no Penumbra, escolha <strong>Abrir</strong> e clique em <strong>Abrir</strong>.",
+        "mac.s4.after": "Depois disso, o Penumbra abre com dois cliques, como qualquer outro app.",
+        "mac.help": "Não abriu?",
+        "mac.help1": "<strong>&ldquo;O Penumbra está danificado e não pode ser aberto&rdquo;:</strong> baixe de novo e descompacte com o Finder (dois cliques no zip).",
+        "mac.help2": "<strong>Não achou o <em>Abrir Mesmo Assim</em>?</strong> Tente abrir o Penumbra primeiro e depois procure em Ajustes do Sistema, Privacidade e Segurança, na parte <em>Segurança</em> (role para baixo).",
+        "mac.help3": "Por favor, não desligue o Gatekeeper só por causa deste jogo.",
+        "mac.help4": "O arquivo <em>HOW TO PLAY</em>, na pasta Penumbra que você baixou, tem mais ajuda. O progresso e as configurações ficam em <em>~/Library/Application Support/Penumbra</em>.",
+        "linux.title": "Computador com Linux",
+        "linux.req": "<strong>Você precisa de:</strong> um PC de 64&nbsp;bits com processador Intel ou AMD (x86_64) e um Linux de 2022 para cá (Ubuntu 22.04, Debian 12, Linux Mint 21 ou mais recente, Fedora, Arch ou SteamOS), um driver de vídeo com Vulkan 1.2 e uma área de trabalho X11, ou Wayland com XWayland.",
+        "linux.new": "<strong>Novidade:</strong> a versão para Linux passa em todos os testes automáticos do jogo, mas ninguém jogou ainda num PC com Linux de verdade.",
+        "dl.linux": "Baixar para Linux",
+        "dl.linux.sub": "arquivo tar.gz &middot; cerca de 16&nbsp;MB",
+        "linux.s1": "<strong>Extraia o arquivo.</strong> Clique com o botão direito em <em>Penumbra-Linux.tar.gz</em> e escolha <strong>Extrair aqui</strong> (Extract Here). (Num terminal: <code>tar xzf Penumbra-Linux.tar.gz</code>)",
+        "linux.s2": "<strong>Abra a pasta Penumbra</strong> e clique duas vezes em <strong>Penumbra</strong>. Se o gerenciador de arquivos perguntar, escolha <strong>Executar</strong> (Run). (Num terminal: <code>cd Penumbra</code> e depois <code>./Penumbra</code>)",
+        "linux.help": "Não abriu?",
+        "linux.help1": "<strong>Nada acontece:</strong> abra o jogo pelo terminal (passo 2) para ver o motivo. O jogo também escreve um log em <em>~/.local/share/Penumbra</em>.",
+        "linux.help2": "<strong>Um erro sobre Vulkan:</strong> instale um driver Vulkan: <em>mesa-vulkan-drivers</em> no Ubuntu, Debian e Fedora (placas AMD e Intel), <em>vulkan-radeon</em> ou <em>vulkan-intel</em> no Arch. O driver da própria NVIDIA já inclui.",
+        "linux.help3": "<strong>Nenhuma janela abre:</strong> o jogo precisa de uma área de trabalho X11, ou Wayland com XWayland.",
+        "linux.help4": "O arquivo <em>HOW TO PLAY</em>, ao lado da pasta Penumbra, tem mais ajuda. O progresso, as configurações e o log ficam em <em>~/.local/share/Penumbra</em>.",
+        "ios.title": "iPhone e iPad",
+        "ios.tag": "Experimental",
+        "ios.req": "<strong>Você precisa de:</strong> iOS ou iPadOS 16.3 ou mais recente, um computador com Windows ou um Mac e um Apple ID (pode ser um Apple ID extra).",
+        "ios.new": "<strong>Experimental:</strong> esta versão nunca rodou em nenhum iPhone ou iPad, então pode não abrir. Ela não está na App Store e não dá para instalar só tocando nela.",
+        "dl.ios": "Baixar para iPhone e iPad",
+        "dl.ios.sub": "Experimental &middot; arquivo IPA &middot; cerca de 16&nbsp;MB",
+        "ios.s1": "<strong>No computador</strong>, baixe o <em>Penumbra-iOS.ipa</em> e instale no iPhone ou iPad com uma ferramenta gratuita de sideload: <strong>Sideloadly</strong>, <strong>AltStore</strong> ou <strong>SideStore</strong>. Ela assina o jogo com o seu Apple ID.",
+        "ios.s2": "<strong>Ative o Modo de Desenvolvedor</strong> (Developer Mode) no iPhone ou iPad: <strong>Ajustes</strong>, <strong>Privacidade e Segurança</strong>, <strong>Modo de Desenvolvedor</strong>. Depois reinicie o aparelho.",
+        "ios.s3": "<strong>Confie no seu Apple ID</strong> em <strong>Ajustes</strong>, <strong>Geral</strong>, <strong>VPN e Gerenciamento de Dispositivos</strong> (VPN &amp; Device Management).",
+        "ios.s4": "<strong>Abra o Penumbra</strong> e segure o aparelho deitado. O jogo mostra os próprios botões na tela, e um controle também deve funcionar.",
+        "ios.help": "Bom saber",
+        "ios.help1": "<strong>Com um Apple ID gratuito</strong>, o app para de abrir depois de 7 dias. Aí é só atualizar no AltStore ou no SideStore, ou instalar de novo com o Sideloadly. O seu progresso continua lá, a não ser que você apague o app.",
+        "ios.help2": "Um Apple ID gratuito pode ter 3 apps instalados por sideload ao mesmo tempo.",
+        "ios.help3": "<strong>Não abre, ou fecha na mesma hora:</strong> esta versão nunca foi testada num iPhone ou iPad de verdade, então talvez ainda não funcione.",
         "ill.edge.warn": "não é baixado com frequência",
         "ill.edge.delete": "Excluir",
         "ill.edge.keep": "Manter",
@@ -936,9 +1130,18 @@ footer p { margin: 6px 0; }
     var ua = navigator.userAgent || "";
     var device = "";
     if (/Android/i.test(ua)) device = "android";
-    else if (/iPhone|iPad|iPod/i.test(ua) || (/Macintosh/i.test(ua) && navigator.maxTouchPoints > 1)) device = "apple";
-    else if (/Macintosh|Mac OS X/i.test(ua)) device = "apple";
+    // iPadOS Safari says "Macintosh"; only its touch screen tells it from a Mac.
+    else if (/iPhone|iPad|iPod/i.test(ua) || (/Macintosh/i.test(ua) && navigator.maxTouchPoints > 1)) device = "ios";
+    else if (/Macintosh|Mac OS X/i.test(ua)) device = "mac";
     else if (/Windows/i.test(ua)) device = "windows";
+    // The Linux download is for x86_64 PCs. An Android tablet asking for the desktop site says
+    // "X11; Linux x86_64" too, and has a touch screen, so a touch screen is left unmarked (a
+    // touch-screen Linux laptop just gets the general line). Chrome reports x86_64 on every
+    // Linux CPU; navigator.platform, where it still names the CPU, and Firefox's user agent
+    // leave an ARM one (a Raspberry Pi) unmarked.
+    // A TV's browser (Tizen, webOS) says Linux as well.
+    else if (/Linux/i.test(ua) && !/CrOS|SMART-TV|Tizen|Web0S|webOS/i.test(ua) && !/aarch64|arm64|armv\d/i.test(ua)
+             && !/arm|aarch64/i.test(navigator.platform || "") && !(navigator.maxTouchPoints > 0)) device = "linux";
     if (device === "android") {
         root.classList.add("is-android");
         document.getElementById("download").classList.add("android-first");
@@ -946,8 +1149,14 @@ footer p { margin: 6px 0; }
         document.querySelectorAll(".dl-row .dl-android").forEach(function (a) { a.classList.add("is-rec"); });
     } else if (device === "windows") {
         document.querySelectorAll(".dl-row .dl-win").forEach(function (a) { a.classList.add("is-rec"); });
-    } else if (device === "apple") {
-        root.classList.add("is-apple");
+    } else if (device === "mac" || device === "linux") {
+        root.classList.add("is-" + device);
+        if (device === "linux") document.getElementById("more-cards").classList.add("linux-first");
+        document.querySelectorAll("#other .dl-" + device).forEach(function (a) { a.classList.add("is-rec"); });
+    } else if (device === "ios") {
+        // Pointed at the experimental version, but never marked as the one
+        // for this device: it has not run on an iPhone or iPad yet.
+        root.classList.add("is-ios");
     }
 
     window.PENUMBRA_I18N = { pt: PT, en: EN, apply: apply };

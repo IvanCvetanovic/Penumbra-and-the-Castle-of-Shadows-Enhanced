@@ -20,8 +20,8 @@ HOW TO PLAY
      Settings, Privacy & Security, scroll down to Security, and click
      "Open Anyway" next to the message about Penumbra. Enter the Mac's
      password and click "Open Anyway" again.
-   - On macOS 13 Ventura and 14 Sonoma: click "OK" (not "Move to Trash").
-     Then Control-click (or right-click) Penumbra in Applications, choose
+   - On macOS 13 Ventura and 14 Sonoma: close the message (don't choose
+     "Move to Trash"). Then Control-click (or right-click) Penumbra in Applications, choose
      "Open", and click "Open".
    After that, Penumbra opens with a double-click like any other app.
 
@@ -76,8 +76,8 @@ COMO JOGAR
      role até Segurança e clique em "Abrir Mesmo Assim" ao lado da mensagem
      sobre o Penumbra. Digite a senha do Mac e clique em "Abrir Mesmo Assim"
      de novo.
-   - No macOS 13 Ventura e 14 Sonoma: clique em "OK" (não em "Mover para o
-     Lixo"). Depois clique com a tecla Control pressionada (ou com o botão
+   - No macOS 13 Ventura e 14 Sonoma: feche a mensagem (não escolha "Mover
+     para o Lixo"). Depois clique com a tecla Control pressionada (ou com o botão
      direito) no Penumbra em Aplicativos, escolha "Abrir" e clique em
      "Abrir".
    Depois disso, o Penumbra abre com dois cliques como qualquer outro app.

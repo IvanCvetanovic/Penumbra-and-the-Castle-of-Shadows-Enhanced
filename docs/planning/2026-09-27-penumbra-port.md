@@ -1195,6 +1195,62 @@ one rate.
   engine/ are untouched. No GPU or Vulkan driver on either. Neither has run yet: the first push after
   the engine is public is their first test.
 
+### Step 29 - Linux, Mac and iPhone/iPad downloads (2026-09-30)
+- **Why.** Release v1.0.0 offered Windows and Android only, both made on the development machine
+  (tools/make_release.bat; tools/build_android.sh --release with the offline key). Three more
+  downloads are added to it, built on GitHub: Penumbra-Linux.tar.gz, Penumbra-macOS.zip and
+  Penumbra-iOS.ipa, from aae1a29, later than the tag's 2b5cdff: the same game, with the packaging
+  and the start-up fix below. The Windows zip and the APK are unchanged.
+- **The workflow.** `.github/workflows/release.yml`, by hand only (Actions, Release, Run workflow,
+  the release's tag); a dry run unless "publish" is on, which leaves the files as the run's
+  artifacts. Jobs linux, macos and ios, then publish when all three passed: the release's files
+  checked against its published SHA256SUMS.txt, that file rewritten for all five with the Windows
+  and Android lines first and unchanged (cmp), and the three new files and SHA256SUMS.txt uploaded.
+  The Windows zip and the APK are never uploaded, so never replaced. docs/building.md
+  (Release downloads) and docs/testing.md (The release workflow).
+- **Linux: Penumbra-Linux.tar.gz** (about 16 MB, x86_64). Built in an ubuntu:22.04 container, so
+  it needs glibc 2.35 or newer: GCC 13 from the toolchain PPA, libstdc++ and libgcc linked
+  statically, the engine's vendored Vulkan headers, no validation layers, GLFW without Wayland (X11
+  or XWayland). Gates: test_pn_all once; the NEEDED libraries only libvulkan.so.1, libasound.so.2,
+  libc.so.6, libm.so.6, libpthread.so.0, libdl.so.2 and ld-linux-x86-64.so.2, the first three
+  required; no GLIBC_ symbol newer than 2.35; the package unpacked into a read-only folder and run
+  as an ordinary user on lavapipe under Xvfb (300 ticks of level 1: exit 0 and a capture), and
+  with no display (exit 1 at once). tools/make_release.py linux lays it out as package.bat does,
+  with game/linux/how-to-play.txt beside it, in a reproducible tar that keeps the executable bit;
+  `sums` writes the checksums. Saves and log: ~/.local/share/Penumbra.
+- **Mac: Penumbra-macOS.zip** (about 21 MB). arm64 and x86_64 in one program, macOS 13.3 or newer;
+  signed ad hoc, not notarised, so the first open takes Privacy & Security's Open Anyway (macOS 15
+  and newer) or Control-click, Open (13 and 14), as game/macos/how-to-play.txt says.
+  tools/apple/make_release.sh macos puts the app and HOW TO PLAY.txt in Penumbra/, zips it with
+  ditto, unpacks it again and verifies it (codesign --verify --deep --strict). The workflow runs
+  the app from the unpacked zip on the runner: arm64, then x86_64 under Rosetta, both on the
+  runner's Apple GPU. make_app.sh now copies the licence texts into both Apple bundles, as
+  package.bat puts them beside Penumbra.exe; both Info.plists say 1.0.0, which make_release.py
+  checks.
+- **iPhone/iPad: Penumbra-iOS.ipa** (about 16 MB), experimental. The device build (iphoneos, arm64,
+  iOS and iPadOS 16.3 or newer), with no certificate (only the build's ad-hoc seal), for Sideloadly,
+  AltStore or SideStore to sign
+  with the player's Apple ID; not on the App Store. make_release.sh ios refuses a program that
+  links outside the system or is encrypted, and an .ipa without Payload/ first or with AppleDouble
+  files. Never run: the simulator cannot draw the game, and no device has tried it.
+- **A failed start no longer hangs (Linux).** A throw from SupersonicApp's constructor (no
+  display, no Vulkan driver) skipped its destructor, the one place the job workers are joined, and
+  exit() then blocked for ever destroying the pool's condition variable. game/main.cpp's catch now
+  calls Supersonic::JobSystem::Shutdown() (idempotent). WSL: no DISPLAY and a missing ICD both ended
+  at the 20 s timeout (exit 124) before, and exit 1 at once after.
+- **Review.** `ldd --version | head -1` in the container's first step could die of SIGPIPE and
+  fail it under pipefail (2458 of 3000 runs in WSL): `sed -n 1p` reads to the end. The Apple
+  bundles carried no licence texts (above). The Rosetta step's continue-on-error could hide a
+  failing x86_64 run: only the install may fail now, and the x86_64 run gates the job.
+- **Runs.** Windows: zero warnings, test_pn_all 17 suites, 10129 checks, 0 failures. WSL: the
+  Linux package byte-identical over two runs (480 files, 16.2 MB), and level 1 played from a
+  read-only folder as an ordinary user (exit 0, capture drawn). Dry run 36715036864: Linux
+  test_pn_all 17 of 17 in the 22.04 container, then the library check stopped the job on
+  ld-linux-x86-64.so.2, glibc's own loader, which every glibc system has (allowed since aae1a29;
+  the package was not built in that run); the Mac app drew level 1 from the unpacked zip on arm64
+  and on x86_64 under Rosetta; the .ipa holds 496 entries, Payload/ first. Not played by a person
+  on Linux, a Mac or an iPhone/iPad.
+
 ### Open
 - **E23 on Windows, live (not run: the desktop was not to be touched).** Flags and the log lines to
   expect are in Step 27's report; on the development laptop's panel (one 60 Hz mode) automatic switches nothing.
@@ -1204,8 +1260,20 @@ one rate.
   (explicit, from a Step 23 pick), larger than its work area: kept as the file says, so Alt+Enter gives that window
   until "Automático (melhor)" is picked in a window once. Every version-1 file holds a windowed
   size (1366x768 was the default written into all of them); kept too, not guessed to be automatic.
-- **iOS: builds, untested** (decided 2026-09-28: it only needs to build). No frame
-  in the simulator (base-instance drawing); no signed device run. Not to be worked on unless that decision changes.
+- **iOS: an experimental download, never run** (decided 2026-09-28: it only needed to build).
+  Since Step 29 the release has Penumbra-iOS.ipa, the device build signed ad hoc, for a
+  sideloading tool to sign with the player's Apple ID. No frame in the simulator (base-instance
+  drawing), and it has never run on an iPhone or iPad, so it may not start. Open: a first run on a
+  real device.
+- **Linux: played on a real PC.** The download passes every suite in its 22.04 container and plays
+  level 1 on lavapipe under Xvfb (Step 29); nobody has played it on a real Linux PC, with a
+  hardware Vulkan driver, a desktop session and sound.
+- **Mac: played on a real Mac, and on an Intel Mac.** The zip's app drew level 1 on GitHub's Apple
+  silicon runners, and its x86_64 half under Rosetta there (Step 29); nobody has played it on a
+  Mac, and the x86_64 half has never run on an Intel Mac's graphics.
+- **Mac: notarisation.** The app is signed ad hoc and not notarised, so the first open takes an
+  extra step (Open Anyway in Privacy & Security, or Control-click, Open). Notarising it needs a
+  paid Apple Developer membership.
 - **Light, still not modelled** (Step 16; the baked shadows are Step 21's, which lists what they
   still miss): baked light on static sprites' soft edges went through the sprite's own blend;
   a translucent texel's depth write blocked fog drawn behind it; the bake used every static light

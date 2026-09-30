@@ -35,6 +35,7 @@ game/
   data/              the port's own JSON (translations, settings defaults, touch layout), fonts, images
   android/           AndroidMain.cpp (unpack, flags, locale) and the manifest
   macos/ ios/        MacMain.mm (main on a Mac) and IOSMain.mm (SupersonicMain on iOS), Info.plists
+  windows/ linux/ macos/  how-to-play.txt: the "HOW TO PLAY.txt" each release download carries
   PenumbraLayer.*    the EngineLayer that runs the Eth frame on the tick and draws it
   main.cpp
 tests/               test_pn_*.cpp suites (supersonic_add_test)
@@ -43,10 +44,16 @@ tools/build.bat      configure + build with MSVC (Build Tools 18, found by tools
 tools/check.bat      lock-free compile check of single files (parallel agents)
 tools/package.bat    a playable folder in out/package/Penumbra (never committed)
 tools/build_linux.sh Linux (WSL Ubuntu-24.04) build in ~/pn-build-linux, --test runs test_pn_all
-tools/build_android.sh  debug APK without Gradle (android_package.py): out/android/Penumbra-debug.apk
-tools/apple/         make_app.sh (Penumbra.app for macOS or iOS); Apple builds run only in CI:
-                     .github/workflows/apple.yml (this laptop has no Apple SDK)
-.github/workflows/   ci.yml (Linux, the gate; Windows, best-effort) and apple.yml: on pushes to main, PRs, by hand
+tools/build_android.sh  debug APK without Gradle (android_package.py): out/android/Penumbra-debug.apk;
+                     --release signs with the offline release key (never in the repository)
+tools/make_release.* the release files: `windows` (the zip, from make_release.bat), `linux` (the tar.gz),
+                     `sums` (SHA256SUMS.txt)
+tools/apple/         make_app.sh (Penumbra.app for macOS or iOS), make_release.sh (the Mac zip, the .ipa);
+                     Apple builds run only in CI (this laptop has no Apple SDK)
+.github/workflows/   ci.yml (Linux, the gate; Windows, best-effort) and apple.yml: on pushes to main, PRs,
+                     by hand; release.yml (by hand): the Linux, Mac and iPhone/iPad downloads, added to a
+                     release; pages.yml: site/, the download page
+site/                the download page (EN/PT) on GitHub Pages
 tools/art/           make_english_art.py: the English image variants in game/data/images/en
 docs/spec/           what the original is and does (read-only knowledge base, cited)
 docs/planning/       the port's step record

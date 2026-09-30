@@ -1,7 +1,7 @@
 # Playing
 
-How to run the game once it is built ([building.md](building.md)), where it looks for its files,
-what it saves, and its command line. The controls are in [controls.md](controls.md).
+How to run the game once it is built ([building.md](building.md)) or downloaded, where it looks
+for its files, what it saves, and its command line. The controls are in [controls.md](controls.md).
 
 ## The packaged game (Windows)
 
@@ -50,6 +50,92 @@ Text is drawn with the Windows fonts in `%WINDIR%\Fonts`. The original used Aria
 comes with Microsoft Office rather than Windows. When a face is missing, the bundled stand-in drawn
 at its metrics is used instead (E17, `game/render/FontAtlas.cpp`).
 
+## The Linux download
+
+`Penumbra-Linux.tar.gz` ([download](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/releases/latest/download/Penumbra-Linux.tar.gz))
+is made by the release workflow (`.github/workflows/release.yml`, `tools/make_release.py linux`)
+in an Ubuntu 22.04 container. It holds the Windows package's layout, with the Linux program:
+
+```
+HOW TO PLAY.txt            game/linux/how-to-play.txt, English and Portuguese
+Penumbra/
+  Penumbra                 the program
+  assets/shaders/*.spv     the engine's shaders
+  data/                    the enhanced edition's own data
+  original/                the original game's data files
+  README.md, LICENSE.txt, docs/, licenses/
+```
+
+Extract it (the file manager's Extract Here, or `tar xzf Penumbra-Linux.tar.gz`), open the
+`Penumbra` folder and double-click `Penumbra` (choose Run if the file manager asks), or run
+`./Penumbra` there in a terminal.
+
+You need:
+
+- A 64-bit PC (x86_64) with glibc 2.35 or newer. The program is built in Ubuntu 22.04, so this is
+  most desktop Linux from about 2022 on: Ubuntu 22.04+, Debian 12+, Fedora, Arch, Linux Mint 21+,
+  SteamOS.
+- A graphics driver with Vulkan 1.2: `mesa-vulkan-drivers` on Ubuntu, Debian and Fedora (AMD and
+  Intel graphics), `vulkan-radeon` or `vulkan-intel` on Arch. NVIDIA's own driver includes it.
+- An X11 desktop, or Wayland with XWayland.
+
+Every test suite passes in the release build, and the package itself, unpacked into a read-only
+folder and run as an ordinary user, plays level 1 on a software Vulkan driver (lavapipe) under a
+virtual screen. With no screen it exits with an error at once. Nobody has played it on a real Linux
+PC yet. Settings, saves and the log go to `~/.local/share/Penumbra` ([below](#settings-and-saves)).
+
+## The Mac download
+
+`Penumbra-macOS.zip` ([download](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/releases/latest/download/Penumbra-macOS.zip))
+is made by the release workflow (`tools/apple/make_release.sh macos`). It holds one folder:
+
+```
+Penumbra/
+  Penumbra.app             the game, one program for Apple silicon and Intel Macs, with its data inside
+  HOW TO PLAY.txt          game/macos/how-to-play.txt, English and Portuguese
+```
+
+It needs macOS 13.3 Ventura or newer. Safari unzips the download by itself; otherwise double-click
+the zip. Open the `Penumbra` folder and drag the `Penumbra` app into Applications.
+
+The app is signed ad hoc only and not notarised by Apple ([code-signing.md](code-signing.md)), so
+the first open takes one more step:
+
+- macOS 15 Sequoia and newer: double-click it, and at "Penumbra" Not Opened click Done (not Move to
+  Trash). Then Apple menu, System Settings, Privacy & Security, scroll down to Security, click Open
+  Anyway, enter the Mac's password, and click Open Anyway again.
+- macOS 13 Ventura and 14 Sonoma: close the message (don't choose Move to Trash), then Control-click
+  (or right-click) the app, choose Open, then Open.
+
+After that it opens with a double-click. If macOS says it "is damaged and can't be opened",
+download it again and unzip it with Finder.
+
+It has been built and run from the unpacked zip on GitHub's Apple silicon Macs (level 1 drawn),
+and its Intel half run there through Rosetta (level 1 drawn); the automated suites pass on macOS
+in CI. Nobody has played it on a real Mac, and it has never run on a real Intel Mac's graphics.
+
+## iPhone and iPad (experimental)
+
+`Penumbra-iOS.ipa` ([download](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/releases/latest/download/Penumbra-iOS.ipa))
+is the device build (arm64) for iOS and iPadOS 16.3 or newer, made by the release workflow
+(`tools/apple/make_release.sh ios`). **It has never run on any iPhone or iPad**: Apple's simulator
+cannot draw it, and real devices should be able to, but nobody has tried, so it may not start.
+
+It is not on the App Store and cannot be installed by tapping it. It needs a Windows PC or a Mac
+and a free sideloading tool, Sideloadly (on the computer) or AltStore or SideStore, which signs it
+with the player's Apple ID (a spare Apple ID is fine):
+
+1. Download the `.ipa` on the computer.
+2. Install it with the tool.
+3. On the device, turn on Settings, Privacy & Security, Developer Mode, and restart.
+4. Trust the Apple ID under Settings, General, VPN & Device Management.
+5. Open Penumbra and hold the device sideways. The game draws its own buttons on the screen; a
+   controller should work too.
+
+With a free Apple ID the app stops opening after 7 days, until it is refreshed (AltStore,
+SideStore) or installed again (Sideloadly). Progress stays unless the app is deleted. A free Apple
+ID can have 3 sideloaded apps at a time.
+
 ## From a build
 
 ```bash
@@ -95,7 +181,9 @@ ever written into the original's folder.
 The first language follows the system: Portuguese on a Portuguese Windows, or where the POSIX
 locale (`LC_ALL`, `LC_MESSAGES`, `LANG`) starts with `pt`. It is English otherwise. On Linux the
 files go to `$XDG_DATA_HOME/Penumbra`, else `~/.local/share/Penumbra`. On macOS they go to
-`~/Library/Application Support/Penumbra`.
+`~/Library/Application Support/Penumbra`, and the graphics cache to
+`~/Library/Caches/com.ivancvetanovic.penumbra`. On an iPhone or iPad they are inside the app's own
+container: deleting the app deletes them.
 
 ## Command line
 

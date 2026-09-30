@@ -1,6 +1,8 @@
 name: CI
 
-# The port built and tested on Linux and Windows (macOS and iOS: apple.yml).
+# The port built and tested on Linux and Windows (macOS and iOS: apple.yml;
+# the Linux, Mac and iPhone/iPad downloads added to a release: release.yml,
+# by hand).
 #
 #   linux    Ubuntu 24.04, GCC 13: tools/build_linux.sh builds every target,
 #            then test_pn_all runs every suite once. THE GATE.

@@ -25,8 +25,8 @@ The game needs:
 - an X11 desktop, or a Wayland desktop with XWayland (almost all have it).
 - a Linux from about 2022 or newer (glibc 2.35, as in Ubuntu 22.04).
 
-This version passes all of the game's automated tests and draws the game
-correctly, but nobody has played it on a real Linux PC yet.
+This version passes all of the game's automated tests, but nobody has played
+it on a real Linux PC yet.
 
 If nothing happens, start it from a terminal (step 2) to see why:
 - "error while loading shared libraries: libvulkan.so.1": install the Vulkan
@@ -75,8 +75,8 @@ O jogo precisa de:
 - uma área de trabalho X11, ou Wayland com XWayland (quase todas têm).
 - um Linux de 2022 ou mais recente (glibc 2.35, como no Ubuntu 22.04).
 
-Esta versão passa em todos os testes automáticos do jogo e desenha o jogo
-corretamente, mas ninguém jogou ainda num PC com Linux de verdade.
+Esta versão passa em todos os testes automáticos do jogo, mas ninguém jogou
+ainda num PC com Linux de verdade.
 
 Se nada acontecer, abra o jogo pelo terminal (passo 2) para ver o motivo:
 - "error while loading shared libraries: libvulkan.so.1": instale o

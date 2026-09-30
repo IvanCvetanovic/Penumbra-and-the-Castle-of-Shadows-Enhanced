@@ -5,8 +5,10 @@ name: Pages
 #
 # The page is one self-contained HTML file and its screenshots; nothing is
 # built. Its download buttons point at the latest release's assets
-# (releases/latest/download/Penumbra-Windows.zip and Penumbra-Android.apk), so
-# a new release needs no new deployment of the page.
+# (releases/latest/download/<file>), so a new release needs no new deployment
+# of the page. A release holds Penumbra-Windows.zip and Penumbra-Android.apk,
+# made on the development machine, and Penumbra-Linux.tar.gz,
+# Penumbra-macOS.zip and Penumbra-iOS.ipa, which release.yml builds and adds.
 #
 # Runs when site/ or this file changes on main, and by hand (Actions -> Pages
 # -> Run workflow). Needs the repository's Pages source set to "GitHub
