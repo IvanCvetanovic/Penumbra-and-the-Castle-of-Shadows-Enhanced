@@ -2,7 +2,7 @@
 
 The PNGs in this folder are the on-screen buttons of **Magic Rampage 7.8.7 (Asantee Games)**, taken
 from its Android package `com.asanteegames.magicrampage.apk` (the base APK inside the APKPure
-`.xapk`). They are used here with the authors' permission, as Ivan stated it. Asantee also made the
+`.xapk`). Asantee also made the
 original Penumbra.
 
 `tools/art/make_mr_touch_art.py` makes them from that package and only reads it:

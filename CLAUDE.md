@@ -13,7 +13,7 @@ Engine 0.7.12** (D3D9 + NVIDIA Cg, AngelScript gameplay). The enhanced edition r
 Ivan's rulings (2026-09-27): **enhanced from the start** — the original's scripts are the gameplay
 spec, but visuals, controls, resolution and balance may be modernised freely; **Portuguese and
 English** text, selectable in the game; the original's assets are **read in place** from
-`extracted/app` (committed and, since 2026-09-30, public with the authors' permission) and never copied or converted into
+`extracted/app` (committed, and public since 2026-09-30) and never copied or converted into
 the repository.
 
 The original's AngelScript SOURCE is in `extracted/app/*.as` (LGPL-3). It is ported to C++ close to

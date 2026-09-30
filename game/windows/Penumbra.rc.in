@@ -30,7 +30,7 @@ BEGIN
             VALUE "FileDescription", "@PENUMBRA_RC_DESCRIPTION@"
             VALUE "FileVersion", "0.1.0.0"
             VALUE "InternalName", "@PENUMBRA_RC_NAME@"
-            VALUE "LegalCopyright", "Original game (c) Andre Santee / Asantee; enhanced edition, with permission"
+            VALUE "LegalCopyright", "Original game (c) Andre Santee / Asantee; enhanced edition by Ivan Cvetanovic"
             VALUE "OriginalFilename", "@PENUMBRA_RC_NAME@.exe"
             VALUE "ProductName", "Penumbra e o Castelo das Sombras - Enhanced"
             VALUE "ProductVersion", "0.1.0.0"

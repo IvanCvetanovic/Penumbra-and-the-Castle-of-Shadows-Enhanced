@@ -113,7 +113,7 @@ the mouse, held down, is the finger.
   keyboard lines become the buttons. (A player on a pad turns the touch controls off in the
   options and reads the original.) These texts are the `touch` section of
   `game/data/strings.json`; with the touch controls off, every text is the original's.
-- The buttons are Magic Rampage's (Asantee Games, used with the authors' permission), taken from
+- The buttons are Magic Rampage's (Asantee Games), taken from
   its Android package by `tools/art/make_mr_touch_art.py`. The ones it has no equivalent for (down,
   fire, light, the two combos) are made in its style from its parts: its blank button with one of
   its glyphs or rune gems (`game/data/images/touch/README.md` says which is which). The images and

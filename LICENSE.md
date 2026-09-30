@@ -23,7 +23,7 @@ This repository holds several things under different terms. In short: the code w
 enhanced edition, and the Supersonic Engine, are free to use under the **MIT No Attribution**
 licence (MIT-0), with no conditions; the port of the original's scripts and the Ethanon runtime
 emulation stay **LGPL-3.0-or-later**, as the code they derive from is; the original game's files
-and the Magic Rampage art **belong to their authors** and are published here with their permission.
+and the Magic Rampage art **belong to their authors**.
 
 | What | Where | Terms |
 |---|---|---|
@@ -31,11 +31,11 @@ and the Magic Rampage art **belong to their authors** and are published here wit
 | The Supersonic Engine | `engine/` (git submodule) | **MIT No Attribution** (MIT-0), Copyright (c) 2026 Ivan Cvetanovic; see `engine/LICENSE`. Its vendored third-party components keep their own licences, listed in `engine/THIRD_PARTY_LICENSES.md`. |
 | The port of the original's scripts to C++ | `game/script/` | LGPL-3.0-or-later, as a work derived from them |
 | The emulation of the Ethanon 0.7.12 runtime, parts of it ported from Ethanon's source (e.g. `ETHParticleManager`, `enml.h`) | `game/eth/` | LGPL-3.0-or-later, as a work derived from Ethanon (LGPL) |
-| The original game, *Penumbra e o Castelo das Sombras* (2010), by André Santee / Asantee: its art, music, sounds, scenes, data, scripts and executables, and its installer | `extracted/`, `penumbra_setup.exe` | **The original authors' property.** Published in this repository with their permission, given to Ivan Cvetanovic. No other licence to them is granted here. |
+| The original game, *Penumbra e o Castelo das Sombras* (2010), by André Santee / Asantee: its art, music, sounds, scenes, data, scripts and executables, and its installer | `extracted/`, `penumbra_setup.exe` | **The original authors' property.** No licence to them is granted here. |
 | The original's scripts' own licence | `extracted/app/*.as` (header) | LGPL-3.0-or-later |
 | The runtime libraries the original shipped with: D3DX9 (`d3dx9_42.dll`, Microsoft), NVIDIA Cg (`cg.dll`, `cgD3D9.dll`) and Audiere (`audiere.dll`, LGPL) | `extracted/app/` | Their makers' redistribution terms, included as the original's installer distributed them. The enhanced edition neither uses them nor puts them in its packages. |
-| The English variants of the original's menu and interface images (the original's art with English lettering, made by `tools/art/make_english_art.py`) | `game/data/images/en/` | Derived from the original authors' art and covered by their permission, like the art itself. The script that makes them is MIT-0. |
-| Magic Rampage's on-screen buttons (Magic Rampage 7.8.7, Asantee Games, from its Android package), some composed from its parts, for the touch controls | `game/data/images/touch/*.png` (not `placeholder/`), made by `tools/art/make_mr_touch_art.py` | **Asantee Games' property.** Used and published with the authors' permission; `game/data/images/touch/README.md` says which of its files each image is and what was composed. The placeholder buttons in `placeholder/` are Ivan's (MIT-0). |
+| The English variants of the original's menu and interface images (the original's art with English lettering, made by `tools/art/make_english_art.py`) | `game/data/images/en/` | Derived from the original authors' art, which stays theirs. The script that makes them is MIT-0. |
+| Magic Rampage's on-screen buttons (Magic Rampage 7.8.7, Asantee Games, from its Android package), some composed from its parts, for the touch controls | `game/data/images/touch/*.png` (not `placeholder/`), made by `tools/art/make_mr_touch_art.py` | **Asantee Games' property.** `game/data/images/touch/README.md` says which of its files each image is and what was composed. The placeholder buttons in `placeholder/` are Ivan's (MIT-0). |
 | TinyXML 2.5 | `game/third_party/tinyxml/` | zlib (notice in each file) |
 | dr_mp3 (David Reid, based on minimp3), for MP3 where the engine has no decoder | `game/third_party/dr_mp3/` | Public domain (Unlicense) or MIT No Attribution, the user's choice (end of `dr_mp3.h`) |
 | Liberation Sans Bold 2.1.5, stand-in for Arial and Arial Narrow | `game/data/fonts/LiberationSans-Bold.ttf` | SIL Open Font License 1.1 (`game/data/fonts/LICENSE-LiberationFonts.txt`) |
@@ -44,8 +44,7 @@ and the Magic Rampage art **belong to their authors** and are published here wit
 Where a file of Ivan's quotes, translates or shows the original (the English text in
 `game/data/strings.json`, the specification in `docs/spec/`, the screenshots in `docs/images/`),
 the MIT-0 grant covers his own work only. The original's words and art in it stay the authors',
-and so do the Magic Rampage buttons in the touch-controls screenshot; they are published under the
-same permission as the rest.
+and so do the Magic Rampage buttons in the touch-controls screenshot.
 
 **A built game combines both.** `Penumbra` links the LGPL parts (`game/script/`, `game/eth/`) with
 the MIT-0 parts and the engine. Anyone who distributes a build distributes those LGPL parts too, and
