@@ -36,8 +36,7 @@ to the castle's king, alone, in co-op, or in Versus.
 
 This is an **enhanced edition**, not a remake: the original's own scripts are ported to C++ line by
 line and read the original's own files, so the game plays exactly as it did. It runs on Ivan
-Cvetanović's [Supersonic Engine](https://github.com/IvanCvetanovic/Supersonic-Engine), and is
-published with the original authors' permission.
+Cvetanović's [Supersonic Engine](https://github.com/IvanCvetanovic/Supersonic-Engine).
 
 ## What's enhanced
 
@@ -120,8 +119,7 @@ headless ([`docs/testing.md`](docs/testing.md)).
 - **Ivan Cvetanović's code and the Supersonic Engine:** [MIT No Attribution](LICENSE), completely
   free to use.
 - **The ported scripts** (`game/script/`) **and the Ethanon runtime** (`game/eth/`): LGPL-3.0.
-- **The original game's files and the Magic Rampage buttons:** their authors' property, published
-  with permission.
+- **The original game's files and the Magic Rampage buttons:** their authors' property.
 
 > [!WARNING]
 > Provided **as is, without any warranty**. Ivan Cvetanović is not responsible for anything that
