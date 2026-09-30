@@ -1,6 +1,6 @@
 # What Magic Portals already solved, and what a Penumbra port should reuse
 
-Scope: read-only survey of `C:\Users\icvet\Desktop\Magic-Portals-Remake` (MPR). It is set against the engine at `C:\Users\icvet\Desktop\Supersonic-Engine` (SE) and the extracted Penumbra original at `...\Penumbra-and-the-Castle-of-Shadows-Enhanced\extracted\app` (PEN). Nothing was modified. Snapshot taken 2026-09-27, about 18:10.
+Scope: read-only survey of `<Desktop>\Magic-Portals-Remake` (MPR). It is set against the engine at `<Desktop>\Supersonic-Engine` (SE) and the extracted Penumbra original at `...\Penumbra-and-the-Castle-of-Shadows-Enhanced\extracted\app` (PEN). Nothing was modified. Snapshot taken 2026-09-27, about 18:10.
 
 ## 0. The main finding
 
@@ -122,7 +122,7 @@ Consumed in `MagicPortalsLayer::Paths` as defaults, e.g. `std::string levels = M
 - Before any commit, `git diff --cached --name-only | grep -iE '\.(png|bmp|jpg|jpeg|mp3|ogg|wav|esc|ent|enml|par|fnt)$'` must print nothing, and nothing from `reference/` or `out/` may be staged.
 - Never force-push or `reset --hard`. An engine gap is fixed in SE first; `engine/` then moves to that commit in a separate commit (`CLAUDE.md:208-211`, rule 5).
 - **Divergences in Penumbra, which Ivan must decide:**
-  - Commit `89a684b` in the Penumbra repo is authored `Ivan Cvetanovic <a12029594@unet.univie.at.ac>`.
+  - Commit `89a684b` in the Penumbra repo is authored with Ivan's university address.
   - This session's harness asks for a `Co-Authored-By` trailer, but it also says a user CLAUDE.md rule takes precedence. MPR's CLAUDE.md forbids trailers; Penumbra has no CLAUDE.md yet.
 
 ### 2.2 DEVLOG (`DEVLOG.md:1-80`)
@@ -397,7 +397,7 @@ Hedged: the doc cites 2013 source, and 2010 must be re-checked.
 - Does machine.exe (D3D9 + Cg + audiere) run natively on Windows 11? If so, parity captures need no emulator rig, unlike MPR's docs/parity.md.
 - What are the viewport and virtual resolution under videoModes.as (no app.enml; Penumbra.ethproj is the 27-byte marker)? How does the original scale to modern resolutions?
 - Pipeline choice: keep MPR's Python converter to .tscn (or JSON) intermediate, or parse .esc/.ent/.par/.enml directly in C++ (which needs an XML parser)?
-- Legal and repo policy: MPR's hard rule forbids committing originals, but Penumbra's repo has extracted/ and penumbra_setup.exe committed and pushed to origin (visibility not checked). Is there a written grant for Penumbra, and should MPR's reference/-gitignore model apply?
-- Commit identity and trailers: MPR uses IvanCvetanovic <icvetanovic99@gmail.com> with no AI trailers; Penumbra commit 89a684b uses a univie address; this session's harness requests Co-Authored-By. Penumbra has no CLAUDE.md yet to settle this.
+- Legal and repo policy: MPR's hard rule forbids committing originals, but Penumbra's repo has extracted/ and penumbra_setup.exe committed and pushed to origin (visibility not checked). Is there a written grant for Penumbra, and should MPR's reference/-gitignore model apply? **Resolved (2026-09-30): Ivan holds the original authors' permission, which covers publishing their files; the repository is public with them.**
+- Commit identity and trailers: MPR uses IvanCvetanovic <icvetanovic99@gmail.com> with no AI trailers; Penumbra commit 89a684b uses his university address; this session's harness requests Co-Authored-By. Penumbra has no CLAUDE.md yet to settle this. **Resolved: commits carry no AI trailers (CLAUDE.md rule 3); the use of Claude Code is disclosed in README.md.**
 - Engine coordination: SE is being edited by another session. Should Penumbra's engine gaps (OGG, TTF, DDS, modulate, specular, vertical lighting, shadows) go to SE on a branch and be pinned later, as MPR did with games-out, or be solved port-side where possible (AddClip, UploadRGBA)?
 - Does the 60 Hz fixed tick with a floored-millisecond script clock (Ethanon Update(float) truncation, which made MPR's port 4.17% fast) also apply to the 2010 PC engine?

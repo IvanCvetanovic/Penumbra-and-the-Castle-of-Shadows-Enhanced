@@ -1,8 +1,8 @@
 # Penumbra e o Castelo das Sombras: player characters and combat porting spec
 
-**Scope.** This covers `controlCharacters.as` (732 lines), `playerInput.as` (441), `combo.as` (154), `swords.as` (136), `spells.as` (152), `potions.as` (75), `doDamage.as` (243) and `constants.as` (96), all in `C:\Users\icvet\Desktop\Penumbra-and-the-Castle-of-Shadows-Enhanced\extracted\app\`. I read every file in full. It also covers the helpers those files call that live elsewhere: `util.as`, `interface.as`, `eth_util.as` (frameTimer), `main.as`, `setupScene.as` (spawn and doLoop), `messageManager.as` and `cameraManager.as`. It also covers the relevant `.ent` and `.esc` data and the `data.enml` numbers.
+**Scope.** This covers `controlCharacters.as` (732 lines), `playerInput.as` (441), `combo.as` (154), `swords.as` (136), `spells.as` (152), `potions.as` (75), `doDamage.as` (243) and `constants.as` (96), all in `<Desktop>\Penumbra-and-the-Castle-of-Shadows-Enhanced\extracted\app\`. I read every file in full. It also covers the helpers those files call that live elsewhere: `util.as`, `interface.as`, `eth_util.as` (frameTimer), `main.as`, `setupScene.as` (spawn and doLoop), `messageManager.as` and `cameraManager.as`. It also covers the relevant `.ent` and `.esc` data and the `data.enml` numbers.
 
-**Where the engine semantics come from.** They are taken from the Dec-2013 Ethanon source at `C:\Users\icvet\Desktop\Magic-Portals-Remake\reference\ethanon\toolkit\Source\src`. Anything derived only from that source is labelled **[2013]**, because the game ran on a 2010 engine. I cross-checked the 2010 `machine.exe` API strings wherever possible.
+**Where the engine semantics come from.** They are taken from the Dec-2013 Ethanon source at `<Desktop>\Magic-Portals-Remake\reference\ethanon\toolkit\Source\src`. Anything derived only from that source is labelled **[2013]**, because the game ran on a 2010 engine. I cross-checked the 2010 `machine.exe` API strings wherever possible.
 
 **File encoding.** Text files are Latin-1. Every Portuguese string below is given with its accents; the port must keep them.
 

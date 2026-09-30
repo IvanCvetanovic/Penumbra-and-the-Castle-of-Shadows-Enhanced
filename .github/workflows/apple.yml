@@ -17,23 +17,32 @@ name: Apple
 # MoltenVK is linked into the program (SUPERSONIC_MOLTENVK_LIBRARY), from the
 # KhronosGroup/MoltenVK release's static xcframework: no Vulkan loader, no SDK.
 #
-# PRIVATE REPOSITORY, BILLED MINUTES, macOS at ten times the Linux rate: runs
-# only on a push to the apple-port branch or by hand, never on main, and a newer
-# push cancels the run it supersedes.
+# Runs on every push to main, on every pull request and by hand (Actions ->
+# Apple -> Run workflow). The repository and the engine are public, so Actions
+# minutes cost nothing, macOS runners included, and the engine submodule clones
+# over https with no key. A newer push to a pull request cancels the run it
+# supersedes; runs of main are grouped by commit, so every push keeps its own
+# (one group per branch would hold one pending run and cancel the ones between).
 on:
   push:
-    branches: [apple-port]
+    branches: [main]
+  pull_request:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 concurrency:
-  group: apple-${{ github.ref }}
-  cancel-in-progress: true
+  group: apple-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 # GLSL_COMPILER=GLSL_COMPILER-NOTFOUND in every configure: the engine writes
 # compiled SPIR-V into its SOURCE tree when it finds a compiler, and a blob
 # from any compiler but the Windows Vulkan SDK's glslc differs byte for byte.
-# The runners have none today; this keeps it so, and nothing a runner builds is
-# ever committed.
+# The runners have none today, and the flag holds for the one configure a run
+# makes (find_program searches again for a NOTFOUND value on a later configure;
+# OFF, as tools/build_linux.sh passes, is never searched). Nothing a runner
+# builds is ever committed.
 defaults:
   run:
     # bash -eo pipefail: without pipefail, `build | tee log` passes whatever the build did.
@@ -54,17 +63,12 @@ jobs:
     env:
       CCACHE_DIR: ${{ github.workspace }}/.ccache
     steps:
+      # The engine submodule with it, over https: the engine is public.
       - uses: actions/checkout@v4
-
-      # The engine is a private submodule; ENGINE_DEPLOY_KEY is a read-only
-      # deploy key on it. Loaded into an agent, never printed.
-      - uses: webfactory/ssh-agent@v0.9.0
         with:
-          ssh-private-key: ${{ secrets.ENGINE_DEPLOY_KEY }}
+          submodules: recursive
       - name: Engine submodule
-        run: |
-          git -c url."git@github.com:".insteadOf="https://github.com/" submodule update --init engine
-          git -C engine log --oneline -1
+        run: git -C engine log --oneline -1
 
       # The newest release Xcode the image has: MoltenVK's release is built with
       # a recent one, and its static library names Metal symbols an older SDK
@@ -217,14 +221,10 @@ jobs:
       BUNDLE_ID: com.ivancvetanovic.penumbra
     steps:
       - uses: actions/checkout@v4
-
-      - uses: webfactory/ssh-agent@v0.9.0
         with:
-          ssh-private-key: ${{ secrets.ENGINE_DEPLOY_KEY }}
+          submodules: recursive
       - name: Engine submodule
-        run: |
-          git -c url."git@github.com:".insteadOf="https://github.com/" submodule update --init engine
-          git -C engine log --oneline -1
+        run: git -C engine log --oneline -1
 
       # The newest release Xcode the image has: MoltenVK's release is built with
       # a recent one, and its static library names Metal symbols an older SDK

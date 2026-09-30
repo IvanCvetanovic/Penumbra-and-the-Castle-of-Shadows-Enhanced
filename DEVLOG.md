@@ -177,3 +177,37 @@ SwiftShader refused it at startup, desktop drivers did not notice; caught on the
 the push, now sized from the layout and guarded. Smart App Control refused one freshly linked
 Penumbra.exe (one notification). The live test's first arrow keys were sent without scan codes.
 
+---
+
+## 2026-09-30 — the public release: the README, the licences, screenshots
+
+**Asked.** Ivan: prepare the repository for its public release; a professional README that says
+Claude Code was used in the development and which platforms were playtested and which only built.
+His rulings: publish everything, the original's files and the Magic Rampage art included by the
+authors' permission (they stay theirs); the engine goes public too; his own code and the engine
+become free to use (MIT No Attribution, the orchestrator's choice); the full history stays.
+
+**Built.** README.md rewritten for readers outside the project: the pitch, four screenshots, About
+(the original, its authors, their permission, how the port works), highlights grouped from E1-E23,
+a platform status table (build, automated tests, playtested: only Windows was played by a person),
+getting started per platform, short controls and settings, testing, the layout, how this was made
+(directed and reviewed by Ivan, done with Claude Code), credits and a licence summary. Its long
+reference moved to docs/: enhancements.md (the player's table, now with E15 and E17-E20),
+controls.md, playing.md, building.md, testing.md. Licences: a top-level LICENSE (MIT-0 for Ivan's
+code); LICENSE.md's table with Ivan's code and the engine as MIT-0, game/script and game/eth
+LGPL-3.0-or-later, the English art as derived from the original's, and the original's runtime DLLs
+under their makers' terms; the engine's LICENSE, README (badge, licence section) and CONTRIBUTING
+from MIT to MIT-0. Screenshots in docs/images as JPEG (114-319 KB): the widescreen menu (Step 25's
+Linux capture), the Android emulator's touch controls (Step 21), and two new Linux captures from
+the existing ~/pn-build-linux binary on lavapipe, level 2 with a fireball and the options screen at
+1920x1080 (out/readme_captures.sh).
+
+**Numbers.** No code changed; nothing was built or launched on Windows. The platform facts are the
+orchestrator's: Windows test_pn_all 17 suites, 10056 checks, 0 failures; Linux 9967 checks.
+
+**Found.** extracted/app holds the original's runtime DLLs (D3DX9, NVIDIA Cg, Audiere), which are
+not the original authors' and which no package carries; LICENSE.md says whose they are. The old
+README's font fallback (Arial Bold for a missing Arial Narrow) predated E17: FontAtlas tries the
+face's own file, then the bundled stand-in. Left for the release: CLAUDE.md and planning R4 still
+call the repository private; tools/package.bat copies LICENSE.md but not LICENSE; the engine's
+THIRD_PARTY_LICENSES.md asks for the provenance of assets/audio/ambient.wav before a public release.

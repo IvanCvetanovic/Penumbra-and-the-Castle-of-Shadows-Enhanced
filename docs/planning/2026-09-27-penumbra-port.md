@@ -9,9 +9,11 @@ in this repository, with the engine improved where the game needs it.
   may be modernised freely. The scripts remain the gameplay spec.
 - **R2 Portuguese + English**, selectable in the game.
 - **R3 The original may be run** (from a scratch copy) for reference captures.
-- **R4 Assets are read in place** from `extracted/app` (committed; the repository is private). No
+- **R4 Assets are read in place** from `extracted/app` (committed; the repository was private until
+  the public release, Step 28, with the authors' permission to publish them). No
   converted copies are committed.
 - **R5 Commits as Ivan, no AI trailers**, here and in the engine; checkpoints at Claude's discretion.
+  The use of Claude Code is disclosed in README.md ("How this was made").
 - **R6 A second Claude session (Magic Portals) also edits Supersonic.** Engine changes are additive,
   made from this repo's `engine/`, rebased before push, announced to that session. Agreed with it on
   2026-09-27: keep existing enum values and their order (append new ones).
@@ -1158,6 +1160,44 @@ one rate.
   Script::g_refreshRateRow leaves it out on iOS, whose backend sets no rate (scenario 22 checks
   the row goes and comes back with the flag). A list line must end inside its 200 px hit column.
 
+### Step 28 - public release (2026-09-30)
+- **Any clone builds.** The CMake defaults were already the source tree's (PENUMBRA_ORIGINAL_DIR
+  <repo>/extracted/app, PENUMBRA_DATA_DIR game/data, the engine's asset root engine/; each a cache
+  path one -D moves). What named this laptop was the Windows scripts. build.bat, check.bat and
+  package.bat called Build Tools 18's vcvars64.bat by its path; they now go through
+  tools/msvc_env.bat (%PENUMBRA_VCVARS%, else the newest Visual Studio or Build Tools vswhere
+  reports: here the same Build Tools 18). check.bat baked this clone's path into its
+  PENUMBRA_ORIGINAL_DIR/PENUMBRA_DATA_DIR and the SDK's include folder: now the repository it runs
+  from (each define quoted whole, for a path with spaces) and %VULKAN_SDK%\Include, else the
+  engine's vendored headers. build.bat's glslc: %PENUMBRA_GLSLC%, else the SDK 1.4.357.0's at
+  C:\VulkanSDK (this laptop: unchanged), else GLSL_COMPILER=OFF. build_android.bat: Git Bash from
+  %PENUMBRA_GIT_BASH%, else %ProgramFiles%\Git; build_android.sh also takes ANDROID_HOME and
+  ANDROID_SDK_ROOT (on this laptop all three name the same SDK). make_mr_touch_art.py always took
+  --xapk/--assets; run bare or given a missing file it now says what it needs, and that nobody
+  needs it (its PNGs are committed).
+- **GLSL_COMPILER=OFF, not -NOTFOUND** (measured, CMake 3.28): find_program searches again for a
+  NOTFOUND value on the next configure, which a build runs by itself when a CMakeLists.txt changes;
+  OFF is never searched. build_linux.sh now configures with OFF, so a glslc on PATH no longer stops
+  it; its guard stays for directories configured before.
+- **A fresh clone on Linux** (WSL Ubuntu 24.04): cloned to /root/pn-fresh, the engine from the local
+  checkout at a733ca0, this step's build_linux.sh change applied (nothing else it changed is read by
+  a Linux build), then `bash /root/pn-fresh/tools/build_linux.sh
+  --build-dir /root/pn-fresh-build --test`: 279 s to build and test with 6 jobs; test_pn_all 17
+  suites, 9967 checks, 0 failures, 0 skipped; no game-code warning. No /mnt/c in CMakeCache.txt,
+  build.ninja, any .cmake file or the Penumbra and test_pn_all binaries (baked:
+  /root/pn-fresh/extracted/app, /root/pn-fresh/game/data, /root/pn-fresh/engine); the clone's engine
+  tree clean afterwards. Windows: check.bat through msvc_env.bat (which picked the same vcvars64.bat
+  as before) clean on eth/Paths, eth/EthApi, render/FontAtlas and render/Localization, which use both
+  defines; build.bat and package.bat read, not run (the desktop was not to be touched).
+- **CI.** apple.yml: no deploy key (actions/checkout, submodules: recursive; the engine is public),
+  on pushes to main, pull requests and by hand, the apple-port trigger gone, the GLSL guard and the
+  timeouts kept, `contents: read`. New ci.yml: Linux (ubuntu-24.04, GCC, build_linux.sh --jobs 4,
+  ccache) is the gate; Windows (tools\build.bat on windows-latest; Vulkan from the vendored headers
+  and the runner's vulkan-1.dll, as the engine's own CI found it) is best-effort, continue-on-error.
+  Each runs test_pn_all once, wants "0 failed, 0 skipped, 0 not run", and checks extracted/ and
+  engine/ are untouched. No GPU or Vulkan driver on either. Neither has run yet: the first push after
+  the engine is public is their first test.
+
 ### Open
 - **E23 on Windows, live (not run: the desktop was not to be touched).** Flags and the log lines to
   expect are in Step 27's report; on Ivan's panel (one 60 Hz mode) automatic switches nothing.
@@ -1196,3 +1236,15 @@ one rate.
 - **test_pn_all's child processes** (17 starts of one file per run) against rule 5's "once per
   build": run once this build as instructed, every start accepted. A full build now compiles every
   suite twice.
+- **The public release (Ivan, 2026-09-30).** This repository goes public with its full history,
+  the original's files (`extracted/`, `penumbra_setup.exe`) and the Magic Rampage buttons included
+  by the authors' permission (they stay theirs); the engine goes public too. Ivan's own code and
+  the engine are MIT No Attribution (`LICENSE`, `engine/LICENSE`); `game/script/` and `game/eth/`
+  stay LGPL-3.0-or-later; `LICENSE.md` lists every part. README.md rewritten for the public (the
+  platform status says only Windows was played by a person, and that the work was done with
+  Claude Code); its long reference moved to `docs/` (enhancements, controls, playing, building,
+  testing), screenshots in `docs/images/`. Left for the release itself: R4 above and CLAUDE.md
+  still call the repository private; `tools/package.bat` copies `LICENSE.md` but not `LICENSE`, and
+  the README it copies links to `docs/`; `engine/THIRD_PARTY_LICENSES.md` asks for the provenance
+  of the engine's `assets/audio/ambient.wav` before a public release; `extracted/app` holds the
+  original's runtime DLLs (D3DX9, NVIDIA Cg, Audiere), under their makers' terms (`LICENSE.md`).

@@ -1,6 +1,6 @@
 # Penumbra (2010 Ethanon): particles, lighting, shadows and lightmaps, decoded
 
-Scope: `effects/*.par`, `data/*.cg`, `data/shadow.dds`, and the lighting and shadow fields of `.ent`/`.esc`, all from `C:\Users\icvet\Desktop\Penumbra-and-the-Castle-of-Shadows-Enhanced\extracted\app`. Cross-checked against the Dec 2013 Ethanon source in `C:\Users\icvet\Desktop\Magic-Portals-Remake\reference\ethanon\toolkit\Source\src` and against the Magic Portals (MP) port.
+Scope: `effects/*.par`, `data/*.cg`, `data/shadow.dds`, and the lighting and shadow fields of `.ent`/`.esc`, all from `<Desktop>\Penumbra-and-the-Castle-of-Shadows-Enhanced\extracted\app`. Cross-checked against the Dec 2013 Ethanon source in `<Desktop>\Magic-Portals-Remake\reference\ethanon\toolkit\Source\src` and against the Magic Portals (MP) port.
 
 ## 0. Evidence levels and method
 

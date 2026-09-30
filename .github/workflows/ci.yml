@@ -1,0 +1,165 @@
+name: CI
+
+# The port built and tested on Linux and Windows (macOS and iOS: apple.yml).
+#
+#   linux    Ubuntu 24.04, GCC 13: tools/build_linux.sh builds every target,
+#            then test_pn_all runs every suite once. THE GATE.
+#   windows  MSVC, through tools\build.bat exactly as a developer runs it (the
+#            newest Visual Studio vswhere finds; Vulkan from the engine's
+#            vendored headers and the runner's own vulkan-1.dll), then
+#            test_pn_all once. BEST-EFFORT for now (continue-on-error): the
+#            Windows build is gated on the development machine, and this job
+#            has yet to prove itself on the runner image. Take continue-on-error
+#            off once it has been green for a while.
+#
+# Neither job needs a GPU: test_pn_all's suites run the game's frames without a
+# window or a Vulkan device. No Vulkan driver is installed (lavapipe here would
+# hide a suite that came to need one). The suites read the original game's files
+# from extracted/app, which the checkout brings; a suite that cannot find them
+# exits 77 (skipped), so the summary line is checked for "0 skipped" as well as
+# "0 failed".
+#
+# No shader compiler anywhere: tools/build_linux.sh always configures
+# GLSL_COMPILER=OFF, and tools\build.bat does when no Vulkan SDK 1.4.357.0 is at
+# C:\VulkanSDK (none is installed here), so the engine's committed SPIR-V is used.
+#
+# Public repository: Actions minutes cost nothing. Every push to main and every
+# pull request; a newer push to a pull request cancels the run it supersedes.
+# Runs of main are grouped by commit, so each push keeps its own run (one group
+# per branch would hold one pending run and cancel the pushes between).
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  linux:
+    name: Linux (GCC) - build, test_pn_all
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      CCACHE_DIR: ${{ github.workspace }}/.ccache
+      CCACHE_MAXSIZE: 600M
+      # CMake takes these as every target's compiler launcher (CMAKE_<LANG>_COMPILER_LAUNCHER).
+      CMAKE_C_COMPILER_LAUNCHER: ccache
+      CMAKE_CXX_COMPILER_LAUNCHER: ccache
+    steps:
+      # The engine submodule with it, over https: the engine is public.
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Engine submodule
+        run: git -C engine log --oneline -1
+
+      # The README's packages for a build; not xvfb, mesa-vulkan-drivers or
+      # vulkan-tools, which only a headless capture needs.
+      - name: Packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends cmake ninja-build g++ pkg-config libvulkan-dev \
+            libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libxkbcommon-dev \
+            libasound2-dev ccache
+
+      - name: ccache (restore)
+        uses: actions/cache/restore@v4
+        with:
+          path: .ccache
+          key: ccache-linux-${{ github.sha }}
+          restore-keys: ccache-linux-
+
+      # Four jobs: the runner's four cores and 16 GB. An unbounded -j runs out of
+      # memory on the translation units that include vulkan.hpp.
+      - name: Build
+        run: |
+          mkdir -p out/logs
+          set -o pipefail
+          bash tools/build_linux.sh --build-dir "$RUNNER_TEMP/pn-build" --jobs 4 2>&1 | tee out/logs/build-linux.log
+          echo "warnings: $(grep -c 'warning:' out/logs/build-linux.log || true)"
+          ccache -s || true
+
+      - name: Test (test_pn_all, once)
+        run: |
+          set -o pipefail
+          "$RUNNER_TEMP/pn-build/tests/test_pn_all" 2>&1 | tee out/logs/tests-linux.log
+          grep -E '^test_pn_all: [0-9]+ suites in .* 0 failed, 0 skipped, 0 not run$' out/logs/tests-linux.log
+
+      # The build and the suites leave the original game and the engine as they
+      # were: nothing writes into extracted/, and no shader compiler rewrote the
+      # engine's committed SPIR-V.
+      - name: Source tree untouched
+        run: |
+          git status --short -- extracted engine
+          test -z "$(git status --porcelain -- extracted engine)"
+
+      - name: ccache (save)
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: .ccache
+          key: ccache-linux-${{ github.sha }}
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-logs
+          retention-days: 7
+          if-no-files-found: ignore
+          path: out/logs
+
+  windows:
+    name: Windows (MSVC) - build, test_pn_all (best-effort)
+    runs-on: windows-latest
+    timeout-minutes: 90
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Engine submodule
+        run: git -C engine log --oneline -1
+
+      # build.bat configures with Ninja from PATH: Chocolatey's when the image
+      # has none there.
+      - name: Ninja
+        shell: pwsh
+        run: |
+          if (-not (Get-Command ninja -ErrorAction SilentlyContinue)) { choco install ninja --no-progress -y }
+          cmake --version
+
+      - name: Build
+        shell: cmd
+        run: tools\build.bat
+
+      - name: Test (test_pn_all, once)
+        run: |
+          mkdir -p out/logs
+          set -o pipefail
+          build/tests/test_pn_all.exe 2>&1 | tee out/logs/tests-windows.log
+          grep -E '^test_pn_all: [0-9]+ suites in .* 0 failed, 0 skipped, 0 not run' out/logs/tests-windows.log
+
+      - name: Source tree untouched
+        run: |
+          git status --short -- extracted engine
+          test -z "$(git status --porcelain -- extracted engine)"
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-logs
+          retention-days: 7
+          if-no-files-found: ignore
+          path: out/logs

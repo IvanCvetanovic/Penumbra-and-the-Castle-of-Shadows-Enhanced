@@ -1,10 +1,10 @@
 # Penumbra e o Castelo das Sombras: game flow, scenes and UI porting spec
 
-Scope: `main.as`, `setupScene.as`, `menu.as`, `videoModes.as`, `gameover.as`, `scores.as`, `timer.as`, `interface.as`, `messageManager.as`, `cameraManager.as`, `events.as`, `environment.as`. I also read the helpers they depend on: `util.as`, `playerInput.as`, `switch.as`, `constants.as`, `eth_util.as`, and `controlCharacters.as:270-469` and `:645-732` (death, lives, respawn, king). All paths are relative to `C:\Users\icvet\Desktop\Penumbra-and-the-Castle-of-Shadows-Enhanced\extracted\app`. Lines 1-41 of every file are the LGPL header. I checked that line 41 is `*/` in all 16 files.
+Scope: `main.as`, `setupScene.as`, `menu.as`, `videoModes.as`, `gameover.as`, `scores.as`, `timer.as`, `interface.as`, `messageManager.as`, `cameraManager.as`, `events.as`, `environment.as`. I also read the helpers they depend on: `util.as`, `playerInput.as`, `switch.as`, `constants.as`, `eth_util.as`, and `controlCharacters.as:270-469` and `:645-732` (death, lives, respawn, king). All paths are relative to `<Desktop>\Penumbra-and-the-Castle-of-Shadows-Enhanced\extracted\app`. Lines 1-41 of every file are the LGPL header. I checked that line 41 is `*/` in all 16 files.
 
 **How each engine claim is sourced:**
 - **[2010-bin]**: from the string and signature table of `machine.exe` or `GameSpace.dll`, which is the shipped 2010 runtime.
-- **[2013-src]**: from `C:\Users\icvet\Desktop\Magic-Portals-Remake\reference\ethanon` (Dec 2013). It may differ from 2010.
+- **[2013-src]**: from `<Desktop>\Magic-Portals-Remake\reference\ethanon` (Dec 2013). It may differ from 2010.
 - **[data]**: inferred from the scenes and scripts.
 - **[script]**: read directly from the `.as` files.
 

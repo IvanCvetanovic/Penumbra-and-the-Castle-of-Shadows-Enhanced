@@ -31,9 +31,13 @@
 #   xvfb mesa-vulkan-drivers vulkan-tools        (headless captures on lavapipe, see CLAUDE.md)
 # No glslc is needed: without one the engine uses its committed SPIR-V, and with one a build of the
 # engine's Shaders target would rewrite those blobs inside the submodule - with bytes that differ
-# from the Vulkan SDK glslc's the blobs were made with (it happened once: every .spv changed). So a
-# build that finds a shader compiler stops before building; compile shader edits on Windows with
-# the SDK's glslc (engine/assets/shaders, `glslc <src> -o <out>`, as engine/CMakeLists.txt does).
+# from the Vulkan SDK glslc's the blobs were made with (it happened once: every .spv changed). So
+# the configure sets GLSL_COMPILER=OFF, which the engine's find_program never searches past - a
+# glslc on PATH or under $VULKAN_SDK is not used. (Not GLSL_COMPILER-NOTFOUND: find_program searches
+# again for a NOTFOUND value on the next configure, which a build re-runs by itself when a
+# CMakeLists.txt changes.) A directory configured before this with a compiler cached stops before
+# building. Compile shader edits on Windows with the SDK's glslc (engine/assets/shaders,
+# `glslc <src> -o <out>`, as engine/CMakeLists.txt does).
 set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -72,15 +76,16 @@ if [ ! -f "$BUILD/CMakeCache.txt" ]; then
         CC_ARGS=(-DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++)
     fi
     cmake -S "$REPO" -B "$BUILD" -G Ninja -DCMAKE_BUILD_TYPE=Release -DSUPERSONIC_ENABLE_VALIDATION=ON \
-        -DGLFW_BUILD_WAYLAND=OFF "${CC_ARGS[@]}"
+        -DGLFW_BUILD_WAYLAND=OFF -DGLSL_COMPILER=OFF "${CC_ARGS[@]}"
 fi
 
-# The engine's find_program caches what it found; a path there means the build would rewrite the
-# committed SPIR-V (see the top of this file).
+# The engine's find_program caches what it found; a path there (a directory configured before
+# GLSL_COMPILER=OFF was passed) means the build would rewrite the committed SPIR-V (see the top of
+# this file).
 if grep -q '^GLSL_COMPILER:FILEPATH=/' "$BUILD/CMakeCache.txt"; then
     echo "A shader compiler is configured in $BUILD ($(grep '^GLSL_COMPILER:FILEPATH=' "$BUILD/CMakeCache.txt"))." >&2
-    echo "It would rewrite engine/assets/shaders/*.spv. Remove it (apt-get remove glslc glslang-tools), then" >&2
-    echo "  cmake -DGLSL_COMPILER=GLSL_COMPILER-NOTFOUND \"$BUILD\"" >&2
+    echo "It would rewrite engine/assets/shaders/*.spv. Configure it without one:" >&2
+    echo "  cmake -DGLSL_COMPILER=OFF \"$BUILD\"" >&2
     exit 1
 fi
 

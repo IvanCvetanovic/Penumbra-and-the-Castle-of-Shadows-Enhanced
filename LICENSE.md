@@ -1,28 +1,85 @@
 # Licences
 
-This repository holds several things under different terms.
+## No warranty, no liability
+
+Everything in this repository - the code, the data, the original game's files, the art, and any
+build or package made from it - is provided **as is, without warranty of any kind**, express or
+implied, including the warranties of merchantability, fitness for a particular purpose and
+non-infringement. **Ivan Cvetanović is not responsible for anything that happens through its
+use.** In no event shall he, or any other author or copyright holder of any part, be liable for
+any claim, damages or other liability - including loss of data, damage to hardware, problems with
+displays or drivers (the game can change a monitor's resolution and refresh rate), or any other
+harm - whether in an action of contract, tort or otherwise, arising from, out of or in connection
+with this repository or its use. You use it entirely at your own risk.
+
+The licences of the individual parts carry their own disclaimers as well: MIT-0 (`LICENSE`), the
+GNU LGPL and GPL (sections 15 and 16 of `licenses/GPL-3.0.txt`), and each third-party licence.
+
+The top-level `LICENSE` file is the MIT No Attribution licence for the parts written by Ivan
+Cvetanović for the enhanced edition; the table below says which parts those are and which parts are
+under other terms.
+
+This repository holds several things under different terms. In short: the code written for the
+enhanced edition, and the Supersonic Engine, are free to use under the **MIT No Attribution**
+licence (MIT-0), with no conditions; the port of the original's scripts and the Ethanon runtime
+emulation stay **LGPL-3.0-or-later**, as the code they derive from is; the original game's files
+and the Magic Rampage art **belong to their authors** and are published here with their permission.
 
 | What | Where | Terms |
 |---|---|---|
-| The original game, *Penumbra e o Castelo das Sombras* (2010), by Andre Santee / Asantee: its art, sounds, scenes, data and scripts | `extracted/`, `penumbra_setup.exe` | The original authors'. Remade here with their permission, given to Ivan Cvetanovic; its terms are his to state. |
-| The original's scripts' own licence | `extracted/app/*.as` (header) | LGPL-3.0-or-later |
-| The port of those scripts to C++ | `game/script/` | LGPL-3.0-or-later, as a work derived from them |
+| Everything written for this remake by Ivan Cvetanovic: the drawing, input, audio and platform code (`game/render/`, `PenumbraLayer.*`, `main.cpp`, `game/android/`, `game/ios/`, `game/macos/`, `game/windows/`), the port's own data (`game/data/*.json`), the tools, the tests and the documentation | | **MIT No Attribution** (MIT-0), Copyright (c) 2026 Ivan Cvetanovic. The text is in [`LICENSE`](LICENSE) and at the end of this file. |
+| The Supersonic Engine | `engine/` (git submodule) | **MIT No Attribution** (MIT-0), Copyright (c) 2026 Ivan Cvetanovic; see `engine/LICENSE`. Its vendored third-party components keep their own licences, listed in `engine/THIRD_PARTY_LICENSES.md`. |
+| The port of the original's scripts to C++ | `game/script/` | LGPL-3.0-or-later, as a work derived from them |
 | The emulation of the Ethanon 0.7.12 runtime, parts of it ported from Ethanon's source (e.g. `ETHParticleManager`, `enml.h`) | `game/eth/` | LGPL-3.0-or-later, as a work derived from Ethanon (LGPL) |
+| The original game, *Penumbra e o Castelo das Sombras* (2010), by André Santee / Asantee: its art, music, sounds, scenes, data, scripts and executables, and its installer | `extracted/`, `penumbra_setup.exe` | **The original authors' property.** Published in this repository with their permission, given to Ivan Cvetanovic. No other licence to them is granted here. |
+| The original's scripts' own licence | `extracted/app/*.as` (header) | LGPL-3.0-or-later |
+| The runtime libraries the original shipped with: D3DX9 (`d3dx9_42.dll`, Microsoft), NVIDIA Cg (`cg.dll`, `cgD3D9.dll`) and Audiere (`audiere.dll`, LGPL) | `extracted/app/` | Their makers' redistribution terms, included as the original's installer distributed them. The remake neither uses them nor puts them in its packages. |
+| The English variants of the original's menu and interface images (the original's art with English lettering, made by `tools/art/make_english_art.py`) | `game/data/images/en/` | Derived from the original authors' art and covered by their permission, like the art itself. The script that makes them is MIT-0. |
+| Magic Rampage's on-screen buttons (Magic Rampage 7.8.7, Asantee Games, from its Android package), some composed from its parts, for the touch controls | `game/data/images/touch/*.png` (not `placeholder/`), made by `tools/art/make_mr_touch_art.py` | **Asantee Games' property.** Used and published with the authors' permission; `game/data/images/touch/README.md` says which of its files each image is and what was composed. The placeholder buttons in `placeholder/` are Ivan's (MIT-0). |
 | TinyXML 2.5 | `game/third_party/tinyxml/` | zlib (notice in each file) |
 | dr_mp3 (David Reid, based on minimp3), for MP3 where the engine has no decoder | `game/third_party/dr_mp3/` | Public domain (Unlicense) or MIT No Attribution, the user's choice (end of `dr_mp3.h`) |
 | Liberation Sans Bold 2.1.5, stand-in for Arial and Arial Narrow | `game/data/fonts/LiberationSans-Bold.ttf` | SIL Open Font License 1.1 (`game/data/fonts/LICENSE-LiberationFonts.txt`) |
 | DejaVu Sans Bold 2.37, stand-in for Arial Black and Verdana | `game/data/fonts/DejaVuSans-Bold.ttf` | Bitstream Vera and Arev font licences, DejaVu changes public domain (`game/data/fonts/LICENSE-DejaVuFonts.txt`) |
-| Magic Rampage's on-screen buttons (Magic Rampage 7.8.7, Asantee Games, from its Android package), some composed from its parts, for the touch controls | `game/data/images/touch/*.png` (not `placeholder/`), made by `tools/art/make_mr_touch_art.py` | Asantee Games'. Used with the authors' permission, as Ivan states it; `game/data/images/touch/README.md` says which of its files each image is and what was composed. |
-| The Supersonic Engine | `engine/` (submodule) | MIT, see `engine/LICENSE` and `engine/THIRD_PARTY_LICENSES.md` |
-| Everything else written for this remake (`game/render/`, the layer, tools, tests, docs, the generated English art) | | © Ivan Cvetanovic. No licence chosen yet - that is his decision. |
 
-The GNU licence texts are in `licenses/LGPL-3.0.txt` and `licenses/GPL-3.0.txt` (the LGPL is a set
-of additional permissions on top of the GPL, so both are needed). A packaged build
-(`tools/package.bat`) carries them in its `licenses/` folder.
+Where a file of Ivan's quotes, translates or shows the original (the English text in
+`game/data/strings.json`, the specification in `docs/spec/`, the screenshots in `docs/images/`),
+the MIT-0 grant covers his own work only. The original's words and art in it stay the authors',
+and so do the Magic Rampage buttons in the touch-controls screenshot; they are published under the
+same permission as the rest.
 
-Fonts: on Windows the game draws text with the Microsoft fonts installed there (Arial, Arial
+**A built game combines both.** `Penumbra` links the LGPL parts (`game/script/`, `game/eth/`) with
+the MIT-0 parts and the engine. Anyone who distributes a build distributes those LGPL parts too, and
+must meet the LGPL's conditions for them; the source is this repository. The GNU licence texts are
+in `licenses/LGPL-3.0.txt` and `licenses/GPL-3.0.txt` (the LGPL is a set of additional permissions
+on top of the GPL, so both are needed). A packaged build (`tools/package.bat`) carries them in its
+`licenses/` folder.
+
+**Fonts.** On Windows the game draws text with the Microsoft fonts installed there (Arial, Arial
 Narrow, Arial Black, Verdana) and never ships them. Where a face is missing, and on every other
 platform, it draws two open-licence stand-ins bundled in `game/data/fonts/`. That folder's
 README.md gives their sources, versions and checksums, and each licence text sits beside its font
 there. A packaged build carries that folder whole. The generated English menu art was rendered from
 Courier New and Matura MT Script Capitals; the images, not the fonts, are in the repository.
+
+## MIT No Attribution
+
+```
+MIT No Attribution
+
+Copyright (c) 2026 Ivan Cvetanovic
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+of the Software, and to permit persons to whom the Software is furnished to do
+so.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```

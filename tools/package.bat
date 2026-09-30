@@ -63,8 +63,9 @@ if errorlevel 8 goto :copyFailed
 robocopy "%REPO%\extracted\app" "%PKG%\original" /E /XF *.exe *.dll *.as *.cg *.ethproj readme.txt %QUIET%
 if errorlevel 8 goto :copyFailed
 
-REM The Visual C++ runtime, from the Build Tools' redistributable folder (VCToolsRedistDir, set by vcvars).
-call "C:\Program Files (x86)\Microsoft Visual Studio\18\BuildTools\VC\Auxiliary\Build\vcvars64.bat" >nul 2>&1
+REM The Visual C++ runtime, from the Build Tools' redistributable folder (VCToolsRedistDir, set by vcvars,
+REM which tools\msvc_env.bat finds as build.bat does). Without it, the warning below.
+call "%~dp0msvc_env.bat" >nul 2>&1
 set "CRT="
 if defined VCToolsRedistDir (
     for /d %%D in ("%VCToolsRedistDir%x64\Microsoft.VC*.CRT") do set "CRT=%%~fD"
@@ -77,6 +78,12 @@ if defined CRT (
 )
 
 copy /y "%REPO%\README.md" "%PKG%\README.md" >nul || exit /b 1
+copy /y "%REPO%\LICENSE" "%PKG%\LICENSE.txt" >nul || exit /b 1
+REM The README links docs/*.md and shows docs/images: they travel with it.
+robocopy "%REPO%\docs" "%PKG%\docs" *.md %QUIET%
+if errorlevel 8 goto :copyFailed
+robocopy "%REPO%\docs\images" "%PKG%\docs\images" /E %QUIET%
+if errorlevel 8 goto :copyFailed
 mkdir "%PKG%\licenses" || exit /b 1
 copy /y "%REPO%\engine\LICENSE" "%PKG%\licenses\Supersonic-Engine-LICENSE.txt" >nul || exit /b 1
 copy /y "%REPO%\engine\THIRD_PARTY_LICENSES.md" "%PKG%\licenses\Supersonic-Engine-THIRD_PARTY_LICENSES.md" >nul || exit /b 1

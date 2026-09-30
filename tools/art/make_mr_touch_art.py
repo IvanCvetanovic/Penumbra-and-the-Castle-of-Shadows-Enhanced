@@ -7,10 +7,12 @@ it. This reads the pad's PNGs from Magic Rampage 7.8.7's own package, read only 
 (its base APK, com.asanteegames.magicrampage.apk, is a zip inside it) or a folder the base APK's
 assets/ were extracted to:
 
-    python tools/art/make_mr_touch_art.py --xapk "C:/Users/<you>/Downloads/Magic+Rampage_7.8.7_APKPure.xapk"
+    python tools/art/make_mr_touch_art.py --xapk "<path>/Magic+Rampage_7.8.7_APKPure.xapk"
     python tools/art/make_mr_touch_art.py --assets out/mr_extract/assets
 
-and writes game/data/images/touch/*.png. Needs Pillow and numpy. Magic Rampage's art is palette
+and writes game/data/images/touch/*.png. Those PNGs are committed: building and playing the game
+never need this script or Magic Rampage's package; it records how they were made, and remakes
+them for whoever has the package. Needs Pillow and numpy. Magic Rampage's art is palette
 PNG with a tRNS chunk; what is written is straight-alpha RGBA, with no colour under full
 transparency (a filtered, magnified sprite would bleed it in) and no pixel of exact magenta
 #FF00FF, which the HUD's TextureCache keys out.
@@ -104,17 +106,31 @@ class Source:
         self.apk = None
         self.assets = None
         if xapk:
+            xapk = pathlib.Path(xapk)
+            if not xapk.is_file():
+                raise SystemExit(f"--xapk: no file at {xapk}")
             # Opened for reading only.
-            with zipfile.ZipFile(xapk, "r") as outer:
-                self.apk = zipfile.ZipFile(io.BytesIO(outer.read(BASE_APK)), "r")
+            try:
+                with zipfile.ZipFile(xapk, "r") as outer:
+                    self.apk = zipfile.ZipFile(io.BytesIO(outer.read(BASE_APK)), "r")
+            except zipfile.BadZipFile:
+                raise SystemExit(f"--xapk: {xapk} is not a zip archive, which an .xapk is") from None
+            except KeyError:
+                raise SystemExit(f"--xapk: {xapk} holds no {BASE_APK}; is it Magic Rampage's .xapk?") from None
         else:
             self.assets = pathlib.Path(assets)
+            if not (self.assets / "sprites" / "dpad-frame.png").is_file():
+                raise SystemExit(f"--assets: {self.assets} has no sprites/dpad-frame.png; "
+                                 "give the folder holding the base APK's assets/ contents")
 
     def image(self, rel):
-        if self.apk is not None:
-            data = self.apk.read("assets/" + rel)
-        else:
-            data = (self.assets / rel).read_bytes()
+        try:
+            if self.apk is not None:
+                data = self.apk.read("assets/" + rel)
+            else:
+                data = (self.assets / rel).read_bytes()
+        except (KeyError, FileNotFoundError):
+            raise SystemExit(f"Magic Rampage's assets/{rel} is missing; this script reads version 7.8.7") from None
         return straight_rgba(Image.open(io.BytesIO(data)))
 
 
@@ -293,11 +309,15 @@ def check_no_magenta(path):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    where = parser.add_mutually_exclusive_group(required=True)
-    where.add_argument("--xapk", help="Magic Rampage's .xapk (read only)")
+    where = parser.add_mutually_exclusive_group()
+    where.add_argument("--xapk", help="Magic Rampage 7.8.7's .xapk (read only)")
     where.add_argument("--assets", help="a folder holding the base APK's assets/ contents")
     parser.add_argument("--out", default=str(OUT), help="where to write (default game/data/images/touch)")
     args = parser.parse_args()
+    if not args.xapk and not args.assets:
+        parser.error("Magic Rampage 7.8.7's package is needed: --xapk <its .xapk> or --assets <a folder of "
+                     "its base APK's assets/>.\nThe PNGs this writes are committed in game/data/images/touch/: "
+                     "building and playing the game never need this script.")
     out = pathlib.Path(args.out).resolve()
     mr = Source(xapk=args.xapk, assets=args.assets)
 

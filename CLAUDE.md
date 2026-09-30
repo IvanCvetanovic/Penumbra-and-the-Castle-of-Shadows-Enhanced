@@ -1,5 +1,7 @@
 # PENUMBRA E O CASTELO DAS SOMBRAS — Enhanced, on the Supersonic Engine
 
+> The working brief for Claude Code sessions on the author's machine: its absolute paths, emulator names and rules are that machine's. To build from any clone, see README.md.
+
 ## What this is
 
 A remake of **Penumbra e o Castelo das Sombras** (2010, PC, by Andre Santee / Asantee), a 2D
@@ -11,7 +13,7 @@ Engine 0.7.12** (D3D9 + NVIDIA Cg, AngelScript gameplay). The remake runs on Iva
 Ivan's rulings (2026-09-27): **enhanced from the start** — the original's scripts are the gameplay
 spec, but visuals, controls, resolution and balance may be modernised freely; **Portuguese and
 English** text, selectable in the game; the original's assets are **read in place** from
-`extracted/app` (already committed; this repository is PRIVATE) and never copied or converted into
+`extracted/app` (committed and, since 2026-09-30, public with the authors' permission) and never copied or converted into
 the repository.
 
 The original's AngelScript SOURCE is in `extracted/app/*.as` (LGPL-3). It is ported to C++ close to
@@ -37,13 +39,14 @@ game/
   main.cpp
 tests/               test_pn_*.cpp suites (supersonic_add_test)
 tests/all/           test_pn_all: RunAll.cpp (the runner), WrapSuite.cmake (writes each suite's wrapper), SuiteRegistry.hpp
-tools/build.bat      configure + build with MSVC (Build Tools 18) and the Vulkan SDK's glslc
+tools/build.bat      configure + build with MSVC (Build Tools 18, found by tools/msvc_env.bat) and the Vulkan SDK's glslc
 tools/check.bat      lock-free compile check of single files (parallel agents)
 tools/package.bat    a playable folder in out/package/Penumbra (never committed)
 tools/build_linux.sh Linux (WSL Ubuntu-24.04) build in ~/pn-build-linux, --test runs test_pn_all
 tools/build_android.sh  debug APK without Gradle (android_package.py): out/android/Penumbra-debug.apk
 tools/apple/         make_app.sh (Penumbra.app for macOS or iOS); Apple builds run only in CI:
-                     .github/workflows/apple.yml on the apple-port branch (this laptop has no Apple SDK)
+                     .github/workflows/apple.yml (this laptop has no Apple SDK)
+.github/workflows/   ci.yml (Linux, the gate; Windows, best-effort) and apple.yml: on pushes to main, PRs, by hand
 tools/art/           make_english_art.py: the English image variants in game/data/images/en
 docs/spec/           what the original is and does (read-only knowledge base, cited)
 docs/planning/       the port's step record
@@ -56,15 +59,16 @@ reference/           gitignored: Ethanon 0.7.12 source (eth-0.7.12), GS2D r485, 
 
 1. **Never write into `extracted/`.** The game reads it in place; saves (high scores, checkpoint
    scene, settings) go to `Supersonic::UserDataDirectory("Penumbra")`.
-2. **Never touch `C:\Users\icvet\Desktop\Supersonic-Engine`** — another Claude session (Magic
+2. **Never touch the `Supersonic-Engine` checkout on the author's Desktop** — another Claude session (Magic
    Portals) works from it. Engine changes are made in THIS repo's `engine/` checkout: `git -C engine
    pull --ff-only` first, keep changes additive (new values/APIs/opt-in flags; never change existing
    behaviour), add checks to an existing engine suite rather than a new suite where possible (CI
    checks the documented suite counts), build and run the touched engine suites, `git pull --rebase`
    right before `git push`, then commit the new pin here (`git add engine`) in a separate commit.
    Tell the Magic Portals session (SendMessage to `magic-portals-remake-93`) before each engine push.
-3. **Commits and pushes as `IvanCvetanovic <icvetanovic99@gmail.com>`, with NO AI trailers** (no
-   Co-Authored-By, no session lines, no mention of AI) — here and in the engine. Never force-push,
+3. **Commits and pushes as `IvanCvetanovic <icvetanovic99@gmail.com>`, with no AI trailers** (no
+   Co-Authored-By, no session lines) — here and in the engine. The use of Claude Code is disclosed
+   once, in README.md's "How this was made", not per commit. Never force-push,
    rewrite history, or `reset --hard` / `checkout --` over uncommitted work. Commit title
    `Penumbra: <what changed>`; body says what was wrong before and what was measured.
 4. **Paths are absolute.** A game built on the engine changes its working directory at startup
@@ -123,7 +127,7 @@ Shader edits are compiled on Windows with the Vulkan SDK's glslc (`glslc <src> -
 reproduces the committed blobs; tools/build_linux.sh stops if a build dir has a compiler cached.
 
 ```bash
-MSYS_NO_PATHCONV=1 wsl -d Ubuntu-24.04 -u root -- bash /mnt/c/Users/icvet/Desktop/Penumbra-and-the-Castle-of-Shadows-Enhanced/tools/build_linux.sh --test
+MSYS_NO_PATHCONV=1 wsl -d Ubuntu-24.04 -u root -- bash /mnt/c/<path to the repository>/tools/build_linux.sh --test
 # headless capture on lavapipe (from the build's game/ folder; absolute --screenshot path):
 cd ~/pn-build-linux/game && VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/lvp_icd.json xvfb-run -a -s "-screen 0 1920x1080x24" \
     ./Penumbra --start level1 --window 1280x720 --fixed-step --frames 300 --screenshot /mnt/c/.../out/shots/linux/level1.png

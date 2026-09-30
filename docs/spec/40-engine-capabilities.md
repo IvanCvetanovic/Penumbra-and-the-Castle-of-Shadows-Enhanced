@@ -1,8 +1,8 @@
 # What Supersonic Engine offers the Penumbra port, and what it lacks
 
-Everything below was read at engine commit `4bfcf67` ("The games moved to their own repositories"). The working tree at `C:\Users\icvet\Desktop\Supersonic-Engine` was clean on 2026-09-27. Magic Portals' `engine/` submodule is pinned to the same commit.
+Everything below was read at engine commit `4bfcf67` ("The games moved to their own repositories"). The working tree at `<Desktop>\Supersonic-Engine` was clean on 2026-09-27. Magic Portals' `engine/` submodule is pinned to the same commit.
 
-All engine citations are relative to `C:\Users\icvet\Desktop\Supersonic-Engine`. Citations prefixed `MPR:` are relative to `C:\Users\icvet\Desktop\Magic-Portals-Remake`. Citations prefixed `PEN:` are relative to `...\Penumbra-and-the-Castle-of-Shadows-Enhanced\extracted\app`.
+All engine citations are relative to `<Desktop>\Supersonic-Engine`. Citations prefixed `MPR:` are relative to `<Desktop>\Magic-Portals-Remake`. Citations prefixed `PEN:` are relative to `...\Penumbra-and-the-Castle-of-Shadows-Enhanced\extracted\app`.
 
 **Coordination note.** Another Claude session is editing this engine for a different game. Every gap below is therefore split into two groups:
 - **ENGINE CHANGE REQUIRED**: this needs a change in Supersonic (C++ and/or shader SPIR-V), and the change must not break Magic Portals or the other game.

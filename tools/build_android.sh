@@ -17,7 +17,8 @@
 #                                 adb exec-out run-as com.ivancvetanovic.penumbra cat files/<name>.png
 #   --package-only               skip configure and build; repackage what is built
 #
-# Uses the SDK at $ANDROID_SDK (default %LOCALAPPDATA%/Android/Sdk): NDK 28.2.13676358's
+# Uses the SDK at $ANDROID_SDK, else $ANDROID_HOME, else $ANDROID_SDK_ROOT, else Android Studio's
+# default %LOCALAPPDATA%/Android/Sdk (Windows paths are taken either way): NDK 28.2.13676358's
 # toolchain file, its cmake 3.22.1 and ninja, build-tools 35.0.0 (aapt2, d8, zipalign,
 # apksigner) and platform 35's android.jar; a JDK 17 for javac, keytool and apksigner; Python 3
 # with Pillow (tools/android_package.py). Build trees: build-android-<abi>/ at the repo
@@ -25,7 +26,8 @@
 set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SDK="${ANDROID_SDK:-$(cygpath -u "${LOCALAPPDATA:-C:/Users/$USERNAME/AppData/Local}")/Android/Sdk}"
+SDK="${ANDROID_SDK:-${ANDROID_HOME:-${ANDROID_SDK_ROOT:-${LOCALAPPDATA:-C:/Users/$USERNAME/AppData/Local}/Android/Sdk}}}"
+SDK="$(cygpath -u "$SDK")"
 NDK="$SDK/ndk/28.2.13676358"
 CMAKE="$SDK/cmake/3.22.1/bin/cmake.exe"
 NINJA="$SDK/cmake/3.22.1/bin/ninja.exe"
