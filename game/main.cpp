@@ -47,6 +47,7 @@
 #include "render/WindowMode.hpp"
 
 #include "core/GameRuntime.hpp"
+#include "core/JobSystem.hpp"
 #include "core/LaunchOptions.hpp"
 #include "core/Log.hpp"
 #include "core/SupersonicApp.hpp"
@@ -478,6 +479,11 @@ int PenumbraMain(int argc, char** argv) {
         app.PushLayer(std::make_unique<Penumbra::PenumbraLayer>(layerOptions));
         app.Run();
     } catch (const std::exception& e) {
+        // A throw from SupersonicApp's constructor skips its destructor, the
+        // one place the job workers are joined: on glibc, exit() then blocks
+        // for ever destroying the pool's condition variable while they wait on
+        // it, and the player's failed start never ends. Shutdown is idempotent.
+        Supersonic::JobSystem::Shutdown();
         std::cerr << "[Penumbra] fatal: " << e.what() << std::endl;
         tellPlayer(started            ? Penumbra::Eth::StartupProblem::StoppedByError
                    : engineFilesFound ? Penumbra::Eth::StartupProblem::NoGraphics

@@ -1,0 +1,418 @@
+name: Release
+
+# The Linux, Mac and iPhone/iPad downloads, built here and added to a GitHub
+# release that already holds the Windows zip and the Android APK (those two are
+# made on the development machine: tools/make_release.bat, and
+# tools/build_android.sh --release with the offline release key).
+#
+#   linux    in an Ubuntu 22.04 container, so the program needs no newer glibc
+#            than 2.35 (most desktop Linux from 2022 on): GCC 13 from the
+#            toolchain PPA with libstdc++ and libgcc linked in statically, the
+#            engine's vendored Vulkan headers, no validation layers. Every
+#            suite runs once (test_pn_all), the program's libraries and glibc
+#            symbols are checked, tools/make_release.py writes
+#            Penumbra-Linux.tar.gz, and the PACKAGE is run: unpacked into a
+#            read-only folder, as an ordinary user, on lavapipe under Xvfb, for
+#            300 ticks of level 1 with a capture, and once with no display,
+#            which must end at once with exit code 1.
+#   macos    Penumbra for arm64 and x86_64 in one program, Penumbra.app and
+#            Penumbra-macOS.zip (tools/apple/make_release.sh), the zip
+#            unpacked and the app run from it on the runner (arm64, then the
+#            x86_64 half under Rosetta where the runner can install it).
+#   ios      the device build (iphoneos, arm64) as Penumbra-iOS.ipa, signed ad
+#            hoc only: a sideloading tool signs it with the player's Apple ID.
+#            Nothing runs it.
+#   publish  only when the run is asked to: the release's files are fetched,
+#            the published checksums checked against them, SHA256SUMS.txt
+#            rewritten for all five files (the Windows and Android lines first
+#            and unchanged), and the three new files and SHA256SUMS.txt
+#            uploaded. The Windows zip and the APK are never replaced.
+#
+# By hand only: Actions -> Release -> Run workflow, with the release's tag. Off
+# by default, "publish" leaves the files as the run's artifacts to look at
+# first. The files are built from the commit the run starts on, which may be
+# later than the tag; the job summary names it.
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: The release to add the files to (its tag)
+        required: true
+        default: v1.0.0
+      publish:
+        description: Upload the files to that release (off - build and check only)
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ inputs.tag }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  MOLTENVK_VERSION: v1.4.2
+  HOMEBREW_NO_AUTO_UPDATE: "1"
+  HOMEBREW_NO_INSTALL_CLEANUP: "1"
+
+jobs:
+  linux:
+    name: Linux - Ubuntu 22.04 build, test, package, run
+    runs-on: ubuntu-24.04
+    container: ubuntu:22.04
+    timeout-minutes: 120
+    steps:
+      # Before the checkout: without git in the container, actions/checkout
+      # downloads a tarball with no submodules and engine/ is empty. CMake from
+      # PyPI at the version the CI gate builds with (jammy's own is 3.22).
+      - name: Packages
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends ca-certificates git gpg-agent software-properties-common
+          add-apt-repository -y ppa:ubuntu-toolchain-r/test
+          apt-get update
+          apt-get install -y --no-install-recommends g++-13 ninja-build pkg-config python3 python3-pip binutils \
+            libvulkan-dev libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libxext-dev \
+            libxkbcommon-dev libasound2-dev xvfb xauth mesa-vulkan-drivers
+          pip3 install --no-cache-dir 'cmake==3.28.*'
+          git config --global --add safe.directory '*'
+          cmake --version
+          # sed reads to the end: head would leave ldd (a script of several
+          # writes) to die of SIGPIPE, failing the step under pipefail.
+          g++-13 --version | sed -n 1p
+          ldd --version | sed -n 1p
+
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Engine submodule
+        run: git -C engine log --oneline -1
+
+      - name: Configure
+        run: |
+          cmake -S . -B /tmp/pn -G Ninja -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_C_COMPILER=gcc-13 -DCMAKE_CXX_COMPILER=g++-13 \
+            -DSUPERSONIC_ENABLE_VALIDATION=OFF -DGLFW_BUILD_WAYLAND=OFF -DGLSL_COMPILER=OFF \
+            -DVulkan_INCLUDE_DIR="$PWD/engine/third_party/Vulkan-Headers-1.3.290/include" \
+            -DCMAKE_EXE_LINKER_FLAGS="-static-libstdc++ -static-libgcc"
+
+      - name: Build and test (test_pn_all, once)
+        run: |
+          mkdir -p out/logs
+          set -o pipefail
+          bash tools/build_linux.sh --build-dir /tmp/pn --jobs 4 --test 2>&1 | tee out/logs/build-test-linux.log
+          grep -E '^test_pn_all: [0-9]+ suites in .* 0 failed, 0 skipped, 0 not run$' out/logs/build-test-linux.log
+
+      # What a player's system must provide: the Vulkan loader, ALSA and libc,
+      # nothing newer than glibc 2.35, and no C++ runtime of its own. Without
+      # libasound2-dev the build still succeeds, silent, so ALSA is required.
+      - name: Libraries and glibc
+        run: |
+          BIN=/tmp/pn/game/Penumbra
+          needed="$(readelf -d "$BIN" | sed -n 's/.*Shared library: \[\(.*\)\]/\1/p' | sort)"
+          echo "NEEDED:"; echo "$needed"
+          for lib in libvulkan.so.1 libasound.so.2 libc.so.6; do
+            echo "$needed" | grep -qx "$lib" || { echo "does not link $lib"; exit 1; }
+          done
+          for lib in $needed; do
+            case "$lib" in
+              libvulkan.so.1|libasound.so.2|libc.so.6|libm.so.6|libpthread.so.0|libdl.so.2) ;;
+              *) echo "links $lib, which a player's system may not have"; exit 1 ;;
+            esac
+          done
+          newest="$(objdump -T "$BIN" | grep -o 'GLIBC_[0-9.]*' | sed 's/GLIBC_//' | sort -Vu | tail -1)"
+          echo "newest glibc symbol: $newest"
+          test "$(printf '%s\n2.35\n' "$newest" | sort -V | tail -1)" = 2.35
+          strip "$BIN"
+
+      - name: Package
+        run: python3 tools/make_release.py linux /tmp/pn
+
+      # The package as a player gets it: unpacked, read-only, an ordinary user.
+      - name: Run the package
+        run: |
+          mkdir -p /tmp/player out/shots
+          tar xzf out/release/Penumbra-Linux.tar.gz -C /tmp/player
+          ls -la /tmp/player /tmp/player/Penumbra
+          chmod -R a-w /tmp/player
+          useradd -m player
+          chmod 777 out/shots out/logs
+          ICD="$(ls /usr/share/vulkan/icd.d/lvp_icd*.json | head -1)"
+          echo "lavapipe: $ICD"
+          set +e
+          runuser -u player -- env VK_ICD_FILENAMES="$ICD" timeout 300 \
+            xvfb-run -a -s "-screen 0 1280x800x24" /tmp/player/Penumbra/Penumbra --start level1 --window 1024x768 \
+            --fixed-step --frames 300 --screenshot "$PWD/out/shots/level1-linux-package.png" \
+            > out/logs/run-linux-package.log 2>&1
+          code=$?
+          runuser -u player -- env -u DISPLAY -u WAYLAND_DISPLAY timeout 30 /tmp/player/Penumbra/Penumbra \
+            > out/logs/run-linux-no-display.log 2>&1
+          nodisplay=$?
+          set -e
+          tail -20 out/logs/run-linux-package.log
+          cat out/logs/run-linux-no-display.log
+          cp /home/player/.local/share/Penumbra/penumbra.log out/logs/penumbra-linux-package.log || true
+          echo "level 1: exit $code; no display: exit $nodisplay"
+          test "$code" -eq 0
+          test -s out/shots/level1-linux-package.png
+          test "$nodisplay" -eq 1
+
+      - name: Source tree untouched
+        run: |
+          git status --short -- extracted engine
+          test -z "$(git status --porcelain -- extracted engine)"
+
+      - name: Upload the file
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-linux
+          if-no-files-found: error
+          path: out/release/Penumbra-Linux.tar.gz
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-logs
+          retention-days: 14
+          if-no-files-found: ignore
+          path: |
+            out/logs
+            out/shots
+
+  macos:
+    name: macOS - universal build, app, zip, run
+    runs-on: macos-15
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Engine submodule
+        run: git -C engine log --oneline -1
+
+      # The newest release Xcode the image has (as apple.yml): MoltenVK's release
+      # is built with a recent one.
+      - name: Xcode
+        run: |
+          XCODE="$(ls -d /Applications/Xcode_[0-9]*.app | grep -v -i -e beta -e release_candidate | sort -V | tail -1)"
+          sudo xcode-select -s "$XCODE/Contents/Developer"
+          xcodebuild -version
+          sw_vers
+
+      - name: MoltenVK
+        run: |
+          mkdir -p ~/moltenvk
+          curl -fsSL -o "$RUNNER_TEMP/mvk.tar" \
+            "https://github.com/KhronosGroup/MoltenVK/releases/download/$MOLTENVK_VERSION/MoltenVK-all.tar"
+          tar -xf "$RUNNER_TEMP/mvk.tar" -C ~/moltenvk \
+            MoltenVK/MoltenVK/static/MoltenVK.xcframework/macos-arm64_x86_64/libMoltenVK.a MoltenVK/LICENSE
+          rm "$RUNNER_TEMP/mvk.tar"
+          lipo -archs ~/moltenvk/MoltenVK/MoltenVK/static/MoltenVK.xcframework/macos-arm64_x86_64/libMoltenVK.a
+
+      - name: Tools
+        run: brew install ninja
+
+      # Both architectures in one program, the game only (apple.yml builds and
+      # runs the suites for every push).
+      - name: Configure
+        run: |
+          cmake -S . -B build-release -G Ninja -DCMAKE_BUILD_TYPE=Release -DSUPERSONIC_ENABLE_VALIDATION=OFF \
+            -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" -DCMAKE_OSX_DEPLOYMENT_TARGET=13.3 \
+            -DPENUMBRA_BUILD_TESTS=OFF -DGLSL_COMPILER=GLSL_COMPILER-NOTFOUND \
+            -DSUPERSONIC_MOLTENVK_LIBRARY="$HOME/moltenvk/MoltenVK/MoltenVK/static/MoltenVK.xcframework/macos-arm64_x86_64/libMoltenVK.a"
+
+      - name: Build
+        run: |
+          mkdir -p out/logs
+          set -o pipefail
+          cmake --build build-release --target Penumbra --parallel 5 2>&1 | tee out/logs/build-macos-release.log | tail -5
+          archs="$(lipo -archs build-release/game/Penumbra)"
+          echo "architectures: $archs"
+          case " $archs " in *" arm64 "*) ;; *) echo "no arm64"; exit 1 ;; esac
+          case " $archs " in *" x86_64 "*) ;; *) echo "no x86_64"; exit 1 ;; esac
+
+      - name: Package
+        run: bash tools/apple/make_release.sh macos build-release out/release
+
+      # From the zip, unpacked as Finder would, and started from an unrelated
+      # folder. The runner starts it without Gatekeeper's first-open prompt.
+      - name: Run the app (arm64)
+        run: |
+          mkdir -p "$RUNNER_TEMP/player" out/shots
+          ditto -x -k out/release/Penumbra-macOS.zip "$RUNNER_TEMP/player"
+          cd "$RUNNER_TEMP"
+          perl -e 'alarm shift; exec @ARGV' 300 \
+            "$RUNNER_TEMP/player/Penumbra/Penumbra.app/Contents/MacOS/Penumbra" --start level1 --window 1024x768 \
+            --fixed-step --frames 300 --screenshot "$GITHUB_WORKSPACE/out/shots/level1-macos-arm64.png" \
+            > "$GITHUB_WORKSPACE/out/logs/run-macos-arm64.log" 2>&1
+          tail -10 "$GITHUB_WORKSPACE/out/logs/run-macos-arm64.log"
+          test -s "$GITHUB_WORKSPACE/out/shots/level1-macos-arm64.png"
+
+      # The Intel half, through Rosetta, on the runner's Apple GPU: evidence
+      # that it runs, not that an Intel Mac's GPU does. Not every image can
+      # install Rosetta, and only that may fail: once it is there, the x86_64
+      # run gates the job like the arm64 one.
+      - name: Rosetta
+        id: rosetta
+        continue-on-error: true
+        run: sudo softwareupdate --install-rosetta --agree-to-license
+
+      - name: Run the app (x86_64 under Rosetta)
+        if: ${{ steps.rosetta.outcome == 'success' }}
+        run: |
+          cd "$RUNNER_TEMP"
+          perl -e 'alarm shift; exec @ARGV' 300 \
+            arch -x86_64 "$RUNNER_TEMP/player/Penumbra/Penumbra.app/Contents/MacOS/Penumbra" --start level1 \
+            --window 1024x768 --fixed-step --frames 300 \
+            --screenshot "$GITHUB_WORKSPACE/out/shots/level1-macos-x86_64.png" \
+            > "$GITHUB_WORKSPACE/out/logs/run-macos-x86_64.log" 2>&1
+          tail -10 "$GITHUB_WORKSPACE/out/logs/run-macos-x86_64.log"
+          test -s "$GITHUB_WORKSPACE/out/shots/level1-macos-x86_64.png"
+
+      - name: Source tree untouched
+        run: |
+          git status --short -- extracted engine
+          test -z "$(git status --porcelain -- extracted engine)"
+
+      - name: Upload the file
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-macos
+          if-no-files-found: error
+          path: out/release/Penumbra-macOS.zip
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-logs
+          retention-days: 14
+          if-no-files-found: ignore
+          path: |
+            out/logs
+            out/shots
+
+  ios:
+    name: iOS - device build, ipa
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Engine submodule
+        run: git -C engine log --oneline -1
+
+      - name: Xcode
+        run: |
+          XCODE="$(ls -d /Applications/Xcode_[0-9]*.app | grep -v -i -e beta -e release_candidate | sort -V | tail -1)"
+          sudo xcode-select -s "$XCODE/Contents/Developer"
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-version
+
+      - name: MoltenVK
+        run: |
+          mkdir -p ~/moltenvk
+          curl -fsSL -o "$RUNNER_TEMP/mvk.tar" \
+            "https://github.com/KhronosGroup/MoltenVK/releases/download/$MOLTENVK_VERSION/MoltenVK-all.tar"
+          tar -xf "$RUNNER_TEMP/mvk.tar" -C ~/moltenvk \
+            MoltenVK/MoltenVK/static/MoltenVK.xcframework/ios-arm64/libMoltenVK.a MoltenVK/LICENSE
+          rm "$RUNNER_TEMP/mvk.tar"
+
+      - name: Tools
+        run: brew install ninja
+
+      - name: Configure
+        run: |
+          cmake -S . -B build-ios-device -G Ninja -DCMAKE_BUILD_TYPE=Release -DSUPERSONIC_ENABLE_VALIDATION=OFF \
+            -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_SYSROOT=iphoneos -DCMAKE_OSX_ARCHITECTURES=arm64 \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=16.3 -DPENUMBRA_BUILD_TESTS=OFF -DGLSL_COMPILER=GLSL_COMPILER-NOTFOUND \
+            -DSUPERSONIC_MOLTENVK_LIBRARY="$HOME/moltenvk/MoltenVK/MoltenVK/static/MoltenVK.xcframework/ios-arm64/libMoltenVK.a"
+
+      - name: Build
+        run: |
+          mkdir -p out/logs
+          set -o pipefail
+          cmake --build build-ios-device --target Penumbra --parallel 5 2>&1 | tee out/logs/build-ios-release.log | tail -5
+
+      - name: Package
+        run: bash tools/apple/make_release.sh ios build-ios-device out/release
+
+      - name: Source tree untouched
+        run: |
+          git status --short -- extracted engine
+          test -z "$(git status --porcelain -- extracted engine)"
+
+      - name: Upload the file
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-ios
+          if-no-files-found: error
+          path: out/release/Penumbra-iOS.ipa
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-logs
+          retention-days: 14
+          if-no-files-found: ignore
+          path: out/logs
+
+  publish:
+    name: Publish to the release
+    needs: [linux, macos, ios]
+    if: ${{ inputs.publish }}
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ inputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: The new files
+        uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          merge-multiple: true
+          path: out/new
+
+      # Every file the release has now, checked against the checksums it
+      # publishes: the Windows zip and the APK are carried over as they are.
+      - name: The release's files
+        run: |
+          mkdir -p out/release
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --dir out/release
+          ls -la out/release out/new
+          (cd out/release && sha256sum -c SHA256SUMS.txt)
+          head -2 out/release/SHA256SUMS.txt > out/published-first-two.txt
+
+      - name: Checksums
+        run: |
+          cp out/new/Penumbra-Linux.tar.gz out/new/Penumbra-macOS.zip out/new/Penumbra-iOS.ipa out/release/
+          python3 tools/make_release.py sums out/release Penumbra-Windows.zip Penumbra-Android.apk \
+            Penumbra-Linux.tar.gz Penumbra-macOS.zip Penumbra-iOS.ipa
+          head -2 out/release/SHA256SUMS.txt | cmp - out/published-first-two.txt
+
+      - name: Upload
+        run: |
+          gh release upload "$TAG" --repo "$GITHUB_REPOSITORY" --clobber \
+            out/release/Penumbra-Linux.tar.gz out/release/Penumbra-macOS.zip out/release/Penumbra-iOS.ipa \
+            out/release/SHA256SUMS.txt
+          {
+            echo "### Added to $TAG"
+            echo "Built from $GITHUB_SHA."
+            echo '```'
+            cat out/release/SHA256SUMS.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

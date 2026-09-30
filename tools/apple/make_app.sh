@@ -19,6 +19,8 @@
 #                      where it runs, and a bundle is read-only. The game's entry copies them to a
 #                      folder it may write in and runs from there (game/macos/MacMain.mm,
 #                      game/ios/IOSMain.mm).
+#   LICENSE.txt, licenses/
+#                      the licence texts, as tools/package.bat puts them beside Penumbra.exe.
 #   the icon           the original's penumbra.ico (48 px at most), scaled up: Penumbra.icns on a
 #                      Mac, AppIcon*.png on iOS.
 # In Contents/Resources on a Mac; at the root of the bundle on iOS, which is flat.
@@ -88,6 +90,13 @@ if [ "$PLATFORM" = ios ]; then
     else
         plutil -replace CFBundleSupportedPlatforms -json '["iPhoneOS"]' "$PLIST"
     fi
+    # The build facts Xcode records in every app it builds, which a bundle made without Xcode
+    # lacks; installers and sideloading tools may look for them.
+    SDK_VERSION="$(xcrun --sdk "$SDK" --show-sdk-version)"
+    plutil -replace DTPlatformName -string "$SDK" "$PLIST"
+    plutil -replace DTPlatformVersion -string "$SDK_VERSION" "$PLIST"
+    plutil -replace DTSDKName -string "$SDK$SDK_VERSION" "$PLIST"
+    plutil -replace DTSDKBuild -string "$(xcrun --sdk "$SDK" --show-sdk-build-version)" "$PLIST"
 fi
 plutil -lint "$PLIST" >/dev/null
 
@@ -96,6 +105,16 @@ rsync -a --exclude '*.exe' --exclude '*.dll' --exclude '*.as' --exclude '*.cg' -
 rsync -a "$REPO/game/data/" "$RES/data/"
 mkdir -p "$RES/engine/assets/shaders"
 cp "$REPO"/engine/assets/shaders/*.spv "$RES/engine/assets/shaders/"
+
+# The licences, as tools/package.bat puts them beside Penumbra.exe: the program carries LGPL-3.0
+# code (game/script, game/eth) and the engine's third-party code, whose notices travel with it.
+mkdir -p "$RES/licenses"
+cp "$REPO/LICENSE" "$RES/LICENSE.txt"
+cp "$REPO/engine/LICENSE" "$RES/licenses/Supersonic-Engine-LICENSE.txt"
+cp "$REPO/engine/THIRD_PARTY_LICENSES.md" "$RES/licenses/Supersonic-Engine-THIRD_PARTY_LICENSES.md"
+cp "$REPO/LICENSE.md" "$RES/licenses/LICENSE.md"
+cp "$REPO/licenses/LGPL-3.0.txt" "$RES/licenses/LGPL-3.0.txt"
+cp "$REPO/licenses/GPL-3.0.txt" "$RES/licenses/GPL-3.0.txt"
 
 # The icon, from the original's largest image. Not fatal: an app without an icon still runs.
 ICONWORK="$(mktemp -d)"

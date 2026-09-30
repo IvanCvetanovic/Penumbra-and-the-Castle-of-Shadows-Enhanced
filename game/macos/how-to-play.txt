@@ -1,0 +1,115 @@
+PENUMBRA AND THE CASTLE OF SHADOWS - ENHANCED
+for Mac
+
+(Português mais abaixo.)
+
+
+HOW TO PLAY
+===========
+
+1. Unzip the download. Safari does this by itself; otherwise double-click
+   Penumbra-macOS.zip in Downloads. (If you are reading this, this step is
+   already done.)
+
+2. Drag Penumbra (the app beside this file) into the Applications folder.
+
+3. Double-click Penumbra. The first time, the Mac stops it, because the game
+   is not from the App Store and is not notarised by Apple yet:
+   - On macOS 15 Sequoia and newer, the message is "Penumbra" Not Opened.
+     Click "Done" (not "Move to Trash"). Then open the Apple menu, System
+     Settings, Privacy & Security, scroll down to Security, and click
+     "Open Anyway" next to the message about Penumbra. Enter the Mac's
+     password and click "Open Anyway" again.
+   - On macOS 13 Ventura and 14 Sonoma: click "OK" (not "Move to Trash").
+     Then Control-click (or right-click) Penumbra in Applications, choose
+     "Open", and click "Open".
+   After that, Penumbra opens with a double-click like any other app.
+
+The game needs macOS 13.3 Ventura or newer. It is made for Macs with Apple
+silicon (M1 or newer) and for Intel Macs, but it has only been tested
+automatically on GitHub's Apple silicon Macs: nobody has played it on a real
+Mac yet, and Intel Macs have not been tested at all.
+
+If the Mac says Penumbra "is damaged and can't be opened", download it again
+and unzip it with Finder (double-click the zip).
+
+Please do not turn Gatekeeper off just for this game.
+
+If the game jumps in the Dock and closes, the Mac's graphics could not start
+it. What happened is written to
+~/Library/Application Support/Penumbra/penumbra.log.
+
+Controls: arrow keys to walk, Up or Ctrl to jump, S sword, D fireball,
+Space light, Esc pause. Gamepads work too (A jump, X sword, B fireball,
+Y light). Combos: Left Left S, and Down Left D.
+
+For parents:
+- The game is free. It works offline. It has no ads, no purchases and no
+  accounts, and it collects no data: it never connects to the internet.
+- Settings, high scores and a log file are kept in
+  ~/Library/Application Support/Penumbra, and a graphics cache in
+  ~/Library/Caches/com.ivancvetanovic.penumbra.
+- To remove the game, move Penumbra from Applications to the Trash (and
+  delete those two folders).
+- In fullscreen the game may switch the display to another resolution or
+  refresh rate while it runs.
+- Source code, help and the licence:
+  https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced
+
+
+COMO JOGAR
+==========
+
+1. Descompacte o download. O Safari faz isso sozinho; se não, clique duas
+   vezes em Penumbra-macOS.zip em Downloads. (Se você está lendo isto, este
+   passo já foi feito.)
+
+2. Arraste o Penumbra (o app ao lado deste arquivo) para a pasta Aplicativos
+   (Applications).
+
+3. Clique duas vezes no Penumbra. Na primeira vez, o Mac não deixa abrir,
+   porque o jogo não vem da App Store e ainda não é autenticado (notarised)
+   pela Apple:
+   - No macOS 15 Sequoia ou mais recente, a mensagem é "Penumbra" Não
+     Aberto. Clique em "OK" ou "Concluído" (não em "Mover para o Lixo").
+     Depois abra o menu Apple, Ajustes do Sistema, Privacidade e Segurança,
+     role até Segurança e clique em "Abrir Mesmo Assim" ao lado da mensagem
+     sobre o Penumbra. Digite a senha do Mac e clique em "Abrir Mesmo Assim"
+     de novo.
+   - No macOS 13 Ventura e 14 Sonoma: clique em "OK" (não em "Mover para o
+     Lixo"). Depois clique com a tecla Control pressionada (ou com o botão
+     direito) no Penumbra em Aplicativos, escolha "Abrir" e clique em
+     "Abrir".
+   Depois disso, o Penumbra abre com dois cliques como qualquer outro app.
+
+O jogo precisa do macOS 13.3 Ventura ou mais recente. Ele é feito para Macs
+com Apple silicon (M1 ou mais novo) e para Macs com Intel, mas só foi testado
+automaticamente nos Macs com Apple silicon do GitHub: ninguém jogou ainda num
+Mac de verdade, e os Macs com Intel não foram testados.
+
+Se o Mac disser que o Penumbra "está danificado e não pode ser aberto",
+baixe de novo e descompacte com o Finder (dois cliques no zip).
+
+Por favor, não desligue o Gatekeeper só por causa deste jogo.
+
+Se o jogo pular no Dock e fechar, os gráficos do Mac não conseguiram
+iniciá-lo. O que aconteceu fica escrito em
+~/Library/Application Support/Penumbra/penumbra.log.
+
+Controles: setas para andar, Cima ou Ctrl para pular, S espada, D bola de
+fogo, Espaço luz, Esc pausa. Controles de videogame (gamepads) também
+funcionam (A pular, X espada, B bola de fogo, Y luz). Combos: Esquerda
+Esquerda S, e Baixo Esquerda D.
+
+Para os pais:
+- O jogo é grátis. Ele funciona offline. Não tem anúncios, compras nem
+  contas, e não coleta nenhum dado: ele nunca se conecta à internet.
+- Configurações, recordes e um arquivo de log ficam em
+  ~/Library/Application Support/Penumbra, e um cache de gráficos em
+  ~/Library/Caches/com.ivancvetanovic.penumbra.
+- Para remover o jogo, mova o Penumbra de Aplicativos para o Lixo (e apague
+  essas duas pastas).
+- Em tela cheia, o jogo pode mudar a resolução ou a taxa de atualização da
+  tela enquanto está aberto.
+- Código-fonte, ajuda e a licença:
+  https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced

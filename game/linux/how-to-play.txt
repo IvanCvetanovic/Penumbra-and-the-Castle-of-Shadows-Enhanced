@@ -1,0 +1,105 @@
+PENUMBRA AND THE CASTLE OF SHADOWS - ENHANCED
+for Linux (64-bit PCs)
+
+(Português mais abaixo.)
+
+
+HOW TO PLAY
+===========
+
+1. Extract the download. Right-click Penumbra-Linux.tar.gz and choose
+   "Extract Here", or in a terminal:
+       tar xzf Penumbra-Linux.tar.gz
+   (If you are reading this, this step is already done.)
+
+2. Open the "Penumbra" folder and double-click Penumbra. If the file manager
+   asks what to do, choose "Run". Or, in a terminal:
+       cd Penumbra
+       ./Penumbra
+
+The game needs:
+- a graphics driver with Vulkan 1.2. Most PCs from about the last eight
+  years have one. On Ubuntu, Debian and Fedora the package is
+  mesa-vulkan-drivers (AMD and Intel graphics); on Arch it is vulkan-radeon
+  or vulkan-intel; NVIDIA's own driver includes it.
+- an X11 desktop, or a Wayland desktop with XWayland (almost all have it).
+- a Linux from about 2022 or newer (glibc 2.35, as in Ubuntu 22.04).
+
+This version passes all of the game's automated tests and draws the game
+correctly, but nobody has played it on a real Linux PC yet.
+
+If nothing happens, start it from a terminal (step 2) to see why:
+- "error while loading shared libraries: libvulkan.so.1": install the Vulkan
+  loader (libvulkan1 on Ubuntu and Debian, vulkan-loader on Fedora,
+  vulkan-icd-loader on Arch) and a Vulkan driver (see above).
+- "could not report the required Vulkan instance extensions": install a
+  Vulkan driver for your graphics (see above).
+- "Failed to initialize GLFW": the game could not open a window. It needs an
+  X11 or XWayland desktop session.
+The game also writes what happened to ~/.local/share/Penumbra/penumbra.log.
+
+Controls: arrow keys to walk, Up or Ctrl to jump, S sword, D fireball,
+Space light, Esc pause. Gamepads work too (A jump, X sword, B fireball,
+Y light). Combos: Left Left S, and Down Left D.
+
+For parents:
+- The game is free. It works offline. It has no ads, no purchases and no
+  accounts, and it collects no data: it never connects to the internet.
+- Settings, high scores and a log file are kept in ~/.local/share/Penumbra.
+- To remove the game, delete its folder (and ~/.local/share/Penumbra).
+- In fullscreen the game may switch the monitor to another resolution or
+  refresh rate while it runs.
+- Source code, help and the licence:
+  https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced
+
+
+COMO JOGAR
+==========
+
+1. Extraia o download. Clique com o botão direito em Penumbra-Linux.tar.gz e
+   escolha "Extrair aqui" (Extract Here), ou, num terminal:
+       tar xzf Penumbra-Linux.tar.gz
+   (Se você está lendo isto, este passo já foi feito.)
+
+2. Abra a pasta "Penumbra" e clique duas vezes em Penumbra. Se o gerenciador
+   de arquivos perguntar o que fazer, escolha "Executar" (Run). Ou, num
+   terminal:
+       cd Penumbra
+       ./Penumbra
+
+O jogo precisa de:
+- um driver de vídeo com Vulkan 1.2. A maioria dos PCs dos últimos oito anos
+  tem um. No Ubuntu, Debian e Fedora o pacote é mesa-vulkan-drivers (placas
+  AMD e Intel); no Arch é vulkan-radeon ou vulkan-intel; o driver da NVIDIA
+  já inclui.
+- uma área de trabalho X11, ou Wayland com XWayland (quase todas têm).
+- um Linux de 2022 ou mais recente (glibc 2.35, como no Ubuntu 22.04).
+
+Esta versão passa em todos os testes automáticos do jogo e desenha o jogo
+corretamente, mas ninguém jogou ainda num PC com Linux de verdade.
+
+Se nada acontecer, abra o jogo pelo terminal (passo 2) para ver o motivo:
+- "error while loading shared libraries: libvulkan.so.1": instale o
+  carregador do Vulkan (libvulkan1 no Ubuntu e Debian, vulkan-loader no
+  Fedora, vulkan-icd-loader no Arch) e um driver Vulkan (veja acima).
+- "could not report the required Vulkan instance extensions": instale um
+  driver Vulkan para a sua placa de vídeo (veja acima).
+- "Failed to initialize GLFW": o jogo não conseguiu abrir uma janela. Ele
+  precisa de uma sessão X11 ou XWayland.
+O jogo também escreve o que aconteceu em ~/.local/share/Penumbra/penumbra.log.
+
+Controles: setas para andar, Cima ou Ctrl para pular, S espada, D bola de
+fogo, Espaço luz, Esc pausa. Controles de videogame (gamepads) também
+funcionam (A pular, X espada, B bola de fogo, Y luz). Combos: Esquerda
+Esquerda S, e Baixo Esquerda D.
+
+Para os pais:
+- O jogo é grátis. Ele funciona offline. Não tem anúncios, compras nem
+  contas, e não coleta nenhum dado: ele nunca se conecta à internet.
+- Configurações, recordes e um arquivo de log ficam em
+  ~/.local/share/Penumbra.
+- Para remover o jogo, apague a pasta dele (e ~/.local/share/Penumbra).
+- Em tela cheia, o jogo pode mudar a resolução ou a taxa de atualização do
+  monitor enquanto está aberto.
+- Código-fonte, ajuda e a licença:
+  https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced
