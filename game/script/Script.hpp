@@ -461,7 +461,7 @@ extern Switch g_controls;                             // videoModes.as:45
 // settings when it attaches and, every tick, saves and applies what changed.    // E10
 extern Switch g_keyboardP2;                           // E10: 0 = keyboard player 2 on (E4), 1 = off
 extern Switch g_widescreen;                           // E10: 0 = widescreen levels (E1), 1 = 4:3
-extern Switch g_language;                             // E10: 0 = Portuguese, 1 = English (E5)
+extern Chooser g_language;                            // E24: one of the layer's languages (E10's switch had two, E5)
 extern Stepper g_musicVolume;                         // E10: tenths of the music's master volume
 extern Stepper g_effectsVolume;                       // E10: tenths of the effects' master volume
 extern Switch g_smoothMotion;                         // E10: 0 = smooth motion on (E8), 1 = off

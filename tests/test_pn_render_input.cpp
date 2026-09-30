@@ -11,6 +11,7 @@
 #include <fstream>
 #include <iterator>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <GLFW/glfw3.h>
@@ -21,6 +22,7 @@
 #include "render/AudioOutEngine.hpp"
 #include "render/CameraRig.hpp"
 #include "render/InputMapper.hpp"
+#include "render/Languages.hpp"
 #include "render/Settings.hpp"
 #include "render/WideMenus.hpp"
 #include "render/WindowMode.hpp"
@@ -43,7 +45,7 @@ using Penumbra::Render::WindowAction;
 namespace Pad = Supersonic::Pad;
 namespace fs = std::filesystem;
 
-ControlSettings Defaults() { return Settings::Defaults(false).controls; }
+ControlSettings Defaults() { return Settings::Defaults("en").controls; }
 
 // The original's controls: no keyboard player 2, and pads in winmm's order
 // (the first is joystick 0, player 2's under the default g_controls).
@@ -733,19 +735,51 @@ void testSystemLocale() {
     for (const char* no : {"", "p", "C", "POSIX", "C.UTF-8", "en_US.UTF-8", "es_ES", "ptx", "pta_XX", "de-pt"}) {
         CHECK_MSG(!Settings::LocaleIsPortuguese(no), no);
     }
+    // E24: a locale's language, when the game speaks it; English otherwise.
+    const std::pair<const char*, const char*> locales[] = {
+        {"pt_BR", "pt"}, {"pt-PT", "pt"}, {"PT", "pt"}, {"en_GB", "en"}, {"en-US", "en"}, {"en", "en"},
+        {"de_DE.UTF-8", "de"}, {"de-AT", "de"}, {"es_ES", "es"}, {"es-419", "es"}, {"fr_CA", "fr"},
+        {"fr.UTF-8", "fr"}, {"it_IT@euro", "it"}, {"ru_RU", "ru"}, {"RU", "ru"}, {"tr_TR", "tr"},
+        {"uk_UA", "uk"}, {"uk-UA", "uk"}, {"ja_JP.UTF-8", "ja"}, {"ja", "ja"}, {"ar_EG", "ar"},
+        {"ar-SA", "ar"}, {"zh_CN", "en"}, {"ko-KR", "en"}, {"C", "en"}, {"POSIX", "en"},
+        {"C.UTF-8", "en"}, {"", "en"}, {"ptx", "en"}, {"deu", "en"}, {"u", "en"},
+    };
+    for (const auto& [locale, id] : locales) {
+        CHECK_MSG(Settings::LanguageOfLocale(locale) == id,
+                  std::string(locale) + " -> " + Settings::LanguageOfLocale(locale) + ", not " + id);
+    }
+    // Windows' primary language ids (winnt.h), which Settings.cpp checks
+    // against LANG_* where it is built for Windows.
+    const std::pair<unsigned, const char*> langIds[] = {
+        {0x09, "en"}, {0x07, "de"}, {0x0A, "es"}, {0x0C, "fr"}, {0x10, "it"}, {0x16, "pt"}, {0x19, "ru"},
+        {0x1F, "tr"}, {0x22, "uk"}, {0x11, "ja"}, {0x01, "ar"}, {0x04, "en"}, {0x12, "en"}, {0x00, "en"},
+    };
+    for (const auto& [langId, id] : langIds) {
+        CHECK_MSG(Settings::LanguageOfPrimaryLangId(langId) == id, std::to_string(langId) + " -> " + id);
+    }
     Settings::SetSystemLocale("pt-BR");
     CHECK(Settings::SystemLanguageIsPortuguese());
-    CHECK(Settings::Defaults(Settings::SystemLanguageIsPortuguese()).language == "pt");
+    CHECK(Settings::SystemLanguage() == "pt");
+    CHECK(Settings::Defaults(Settings::SystemLanguage()).language == "pt");
+    Settings::SetSystemLocale("uk_UA");
+    CHECK(Settings::SystemLanguage() == "uk");
+    CHECK(!Settings::SystemLanguageIsPortuguese());
+    CHECK(Settings::Defaults(Settings::SystemLanguage()).language == "uk");
+    Settings::SetSystemLocale("zh-Hans-CN");
+    CHECK(Settings::Defaults(Settings::SystemLanguage()).language == "en");
     Settings::SetSystemLocale("en-GB");
     CHECK(!Settings::SystemLanguageIsPortuguese());
     Settings::SetSystemLocale("");   // back to the system's own answer, whatever it is
 }
 
 void testSettings() {
-    const Settings pt = Settings::Defaults(true);
-    const Settings en = Settings::Defaults(false);
+    const Settings pt = Settings::Defaults("pt");
+    const Settings en = Settings::Defaults("en");
     CHECK(pt.language == "pt");
     CHECK(en.language == "en");
+    CHECK(Settings::Defaults().language == "en");
+    CHECK(Settings::Defaults("xx").language == "en");   // not a language the game speaks
+    CHECK(Settings::Defaults("JA").language == "ja");
     CHECK(en.controls.keyboardPlayer2);
     CHECK(en.controls.firstPadIsPlayer1);    // E12
     CHECK_EQ(en.controls.joystickLayout, 0);
@@ -935,7 +969,28 @@ void testSettings() {
     CHECK(changed.ToJson().find("\"fullscreenRefresh\": 144") != std::string::npos);
     CHECK(en.ToJson().find("\"version\": 2") != std::string::npos);
     CHECK(en.ToJson().find("\"width\": 0, \"height\": 0, \"fullscreen\": true") != std::string::npos);
-    CHECK(Settings::FromJson(en.ToJson(), Settings::Defaults(true)) == en);
+    CHECK(Settings::FromJson(en.ToJson(), Settings::Defaults("pt")) == en);
+
+    // E24: every language the game speaks is saved and read back; a file from
+    // before E24 ("pt", "en") reads as it did; anything else keeps the default.
+    for (const Penumbra::Render::LanguageInfo& info : Penumbra::Render::kLanguages) {
+        Settings speaking = en;
+        speaking.language = info.id;
+        warning.clear();
+        const Settings back = Settings::FromJson(speaking.ToJson(), Settings::Defaults("pt"), &warning);
+        CHECK_MSG(back == speaking, info.id);
+        CHECK_MSG(warning.empty(), info.id);
+        CHECK_MSG(Settings::Defaults(info.id).language == info.id, info.id);
+    }
+    CHECK(Settings::FromJson(R"({"language": "pt"})", en).language == "pt");
+    CHECK(Settings::FromJson(R"({"language": "en"})", pt).language == "en");
+    CHECK(Settings::FromJson(R"({"language": "Uk"})", en).language == "uk");
+    for (const char* unknown : {"zh", "xx", "", "english", "pt-BR"}) {
+        warning.clear();
+        const std::string json = std::string("{\"language\": \"") + unknown + "\"}";
+        CHECK_MSG(Settings::FromJson(json, pt, &warning).language == "pt", unknown);
+        CHECK_MSG(!warning.empty(), unknown);
+    }
 
     // Nowhere to save.
     CHECK(!en.Save(fs::path(), &error));

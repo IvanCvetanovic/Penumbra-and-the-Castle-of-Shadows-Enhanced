@@ -61,6 +61,27 @@
 // kFullAtlasMaxPx only the characters actually drawn are baked (the 256-pixel
 // clock is digits and ':'), and a new character rebakes that atlas. An atlas
 // unused for a few seconds - a size left behind by a window resize - is freed.
+//
+// CODE POINTS (ENHANCEMENT E24). Text is laid out by Unicode code point: the
+// translations of E24's languages are UTF-8 (render/Localization.hpp). A code
+// point cp1252 has is drawn from its byte's slot, exactly as before, so
+// Portuguese and English come out pixel for pixel as they did; any other is
+// baked on demand into the same atlas, beside them - the whole of a string's
+// new characters at once, the first time it is drawn, so a sign costs one
+// rebake, and the new characters of every text of a frame at once when they
+// are handed to Prepare first (HudRenderer does), so a screen costs one. A
+// glyph that no longer fits the atlas's 4096x4096 is logged, not silently
+// dropped.
+//
+// FONTS BY SCRIPT, the same on every platform: hiragana, katakana, CJK
+// ideographs, CJK punctuation and the full-width forms from the bundled
+// NotoSansJP-Bold.ttf, Arabic from the bundled NotoSansArabic-Bold.ttf (subsets
+// of Noto made by tools/l10n/make_fonts.py; game/data/fonts/README.md), since
+// no Windows face the scripts name has Japanese and only one has Arabic.
+// Everything else - Latin, Turkish, Cyrillic - comes from the face itself as
+// above. A glyph from one of the two is scaled em to em to the line's face
+// (the same em, whatever the files' units), sits on its baseline, and is not
+// condensed as Arial Narrow's stand-in is: its advances are its own.
 
 #include <cstddef>
 #include <cstdint>
@@ -85,7 +106,8 @@ struct TextGlyph {
     glm::vec2 max{0.0f};
     glm::vec2 uvMin{0.0f};
     glm::vec2 uvMax{0.0f};
-    unsigned char byte = 0;    // the cp1252 byte drawn
+    unsigned char byte = 0;    // the cp1252 byte drawn (0 for a code point cp1252 does not have)
+    char32_t codePoint = 0;    // the code point drawn
     int line = 0;              // 0-based
     glm::vec2 pen{0.0f};       // x: the glyph's pen position; y: its line's baseline
 };
@@ -99,12 +121,26 @@ struct TextLayout {
     float width = 0.0f;              // the widest line's advance, logical px
 };
 
+// E24: where each line of a block starts. Right: each line flush with the
+// right end of the block's widest line, which starts at the text's position -
+// how a right-to-left paragraph is drawn at the left-anchored places the
+// scripts give (render/ArabicShaping.hpp).
+enum class LineAlign { Left, Right };
+
 class FontAtlas {
 public:
     // Characters baked on demand above this raster cell height.
     static constexpr int kFullAtlasMaxPx = 128;
     // Frames (BeginFrame calls) an atlas may go unused before it is freed.
     static constexpr std::uint64_t kEvictAfterFrames = 600;
+    // E24's bundled faces, in the bundled fonts folder.
+    static constexpr const char* kJapaneseFile = "NotoSansJP-Bold.ttf";
+    static constexpr const char* kArabicFile = "NotoSansArabic-Bold.ttf";
+
+    // E24: which face a code point is drawn from: the text's own, or one of
+    // the two above (CODE POINTS and FONTS BY SCRIPT at the top).
+    enum class Script { Face, Japanese, Arabic };
+    static Script ScriptOf(char32_t codePoint);
 
     FontAtlas();
     ~FontAtlas();
@@ -126,10 +162,26 @@ public:
     // (not at once: quads already queued this frame still name them).
     void BeginFrame();
 
-    // Lays a cp1252 string out as DrawText did, top-left at (int)pos, in the
-    // named face at `size` (the GDI cell height, logical px). Bakes and
-    // uploads what it needs.
-    TextLayout Layout(const std::string& cp1252, const std::string& face, float size, glm::vec2 pos);
+    // Lays text out as DrawText did, top-left at (int)pos, in the named face
+    // at `size` (the GDI cell height, logical px). Bakes and uploads what it
+    // needs. The code points in the order they are drawn (left to right: an
+    // Arabic line is shaped and reordered first, render/ArabicShaping.hpp).
+    TextLayout LayoutCodePoints(const std::u32string& text, const std::string& face, float size, glm::vec2 pos,
+                                LineAlign align = LineAlign::Left);
+    // The same for UTF-8 (a translation), read as it is: no shaping.
+    TextLayout LayoutUtf8(const std::string& utf8, const std::string& face, float size, glm::vec2 pos);
+    // The same for the scripts' cp1252 (0x8D as U+0107, E21).
+    TextLayout LayoutCp1252(const std::string& cp1252, const std::string& face, float size, glm::vec2 pos);
+
+    // E24: the characters a text will need, wanted now and baked by the next
+    // Layout of that face and size. HudRenderer hands every text of a frame
+    // here before laying any out, so an atlas the frame's texts grow is baked
+    // (and uploaded) once, not once per text: the first frame of a Japanese
+    // screen brings a dozen texts of new characters into one atlas. The code
+    // points as LayoutCodePoints will get them (an Arabic line shaped first).
+    void Prepare(const std::u32string& text, const std::string& face, float size);
+    // For the suites: the bakes so far, each one an atlas rasterised and uploaded.
+    std::uint64_t BakeCount() const { return m_serial; }
 
     // The font file a face resolves to on this machine ("" when none of its
     // candidates exist, in which case Layout returns no glyphs).
@@ -143,6 +195,11 @@ public:
     // 0x8D drawn as U+0107 in whichever file the face resolved to.
     int GlyphForByte(const std::string& face, unsigned char byte);
     int GlyphForCodePoint(const std::string& face, unsigned codePoint);
+    // E24: the glyph a code point is drawn with in text of this face - from
+    // the face, or from the bundled face its script goes to - and that file
+    // ("" when there is none); 0 when the file has no glyph for it.
+    int RoutedGlyph(const std::string& face, char32_t codePoint);
+    std::string RoutedFile(const std::string& face, char32_t codePoint);
 
     // %WINDIR%\Fonts on Windows; "" elsewhere, where no system face is looked
     // for and the bundled stand-ins are the only candidates.
@@ -176,7 +233,18 @@ private:
 
     const FaceChoice& choiceFor(const std::string& face);
     Font* fontFor(const std::string& face);
+    // E24: the bundled face for a script (null for Script::Face, or when the
+    // file is missing, which is logged once).
+    Font* scriptFont(Script script);
+    Font* loadFont(const std::string& file, const std::string& id, const std::string& stem);
     Atlas& atlasFor(Font& font, int rasterPx);
+    // The raster cell a text of `size` logical px is drawn at.
+    int rasterPxFor(float size) const;
+    // E24: a slot for a code point cp1252 does not have, measured.
+    void addExtra(Font& font, Atlas& atlas, char32_t codePoint);
+    // E24: marks what `text` needs that the atlas lacks as wanted (and
+    // measures the new extras); true when that was anything.
+    bool want(Font& font, Atlas& atlas, const std::u32string& text);
     void bake(Font& font, Atlas& atlas);
     void retire(const std::string& key);
 
@@ -187,6 +255,7 @@ private:
     std::string m_bundledDir;
     bool m_systemFonts = true;
     std::map<std::string, FaceChoice> m_faceChoices;            // lower-case face -> what it resolved to
+    std::map<Script, std::string> m_scriptFiles;                 // E24: the bundled file each script resolved to
     std::map<std::string, std::unique_ptr<Font>> m_fonts;       // by file + "#" + stand-in name
     std::map<std::string, std::unique_ptr<Atlas>> m_atlases;    // by that + "|" + raster px
     std::vector<std::string> m_retired;                          // keys to free at the next BeginFrame

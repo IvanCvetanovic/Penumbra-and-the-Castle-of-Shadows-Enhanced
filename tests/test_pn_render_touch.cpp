@@ -40,6 +40,7 @@
 #include "eth/Input.hpp"
 #include "eth/Machine.hpp"
 #include "eth/Snapshot.hpp"
+#include "eth/Text.hpp"
 #include "render/FontAtlas.hpp"
 #include "render/HudRenderer.hpp"
 #include "render/InputMapper.hpp"
@@ -1401,9 +1402,9 @@ void testManifest() {
 }
 
 void testSetting() {
-    const Settings defaults = Settings::Defaults(false);
+    const Settings defaults = Settings::Defaults("en");
     CHECK(defaults.touchControls == "auto");
-    CHECK(Settings::Defaults(true).touchControls == "auto");
+    CHECK(Settings::Defaults("pt").touchControls == "auto");
 
     // "auto" follows the build: off on this desktop build, on where
     // PENUMBRA_MOBILE is defined.
@@ -2083,7 +2084,7 @@ void testPhoneVersusWithPad() {
         Script::RegisterAll(machine);
         machine.Boot(Script::ScriptMain);
 
-        Penumbra::Render::ControlSettings phone = Settings::Defaults(false).controls;
+        Penumbra::Render::ControlSettings phone = Settings::Defaults("en").controls;
         phone.keyboardPlayer2 = false;   // a phone's default (Settings.hpp)
         Penumbra::Render::InputMapper mapper;
         mapper.SetControls(phone);
@@ -2171,7 +2172,7 @@ void testPhoneVersusWithPad() {
         CHECK(loc.Translate(message, Language::English) ==
               "Connect a gamepad for player 2.\n\nPlayer 1 plays with the\n touch controls.");
         loc.SetTouch(false);   // touch off: the original's, as ever
-        CHECK(loc.Translate(message, Language::Portuguese) == message);
+        CHECK(loc.Translate(message, Language::Portuguese) == Penumbra::Eth::Cp1252ToUtf8(message));   // E24: UTF-8 out
         CHECK(loc.Translate(message, Language::English) == "At least one joystick is needed\n to play this mode.");
 
         // A pad connects: player 2's, so Versus opens.

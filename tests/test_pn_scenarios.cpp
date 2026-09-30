@@ -1979,11 +1979,20 @@ void ScenarioCoop(Game& g) {
 // ENHANCEMENT E10 (game/script/videoModes.cpp): keyboard player 2, the view,
 // the language and the two volumes, below the original's g_controls. No layer
 // here, so each starts at its constructed value: row 0 of each switch, 100%
-// on both steppers. Run just before the Quit rather than in scenario 10: it
+// on both steppers; E24's language chooser gets its eleven options here, as
+// the layer would give them. Run just before the Quit rather than in scenario 10: it
 // adds some 300 frames, and the runtime reseeds rand() from the clock after
 // every frame with particles in view (Machine.cpp, ETHScene.cpp:1129-1130), so
 // frames added early in the chain would reshuffle every random roll after them.
 void ScenarioOptionsE10(Game& g) {
+    // E24: what PenumbraLayer gives the chooser - a key per language, in the
+    // picker's order, each drawn as that language's name - with Portuguese,
+    // the row E10's switch started on, current. No frame is spent on it.
+    array<string> languages;
+    for (const char* id : {"en", "de", "es", "fr", "it", "pt", "ru", "tr", "uk", "ja", "ar"}) {
+        languages.insertLast(string("{language:") + id + "}");
+    }
+    Script::g_language.setOptions(languages, 5u);
     CHECK(EnsureMenu(g));
     g.base.cursor = kOptionsButton;
     g.Steps(3);
@@ -2009,8 +2018,8 @@ void ScenarioOptionsE10(Game& g) {
     CHECK(HudHas(g.m, "[\x95] Tela larga (widescreen)"));
     CHECK(HudHas(g.m, "[ ] Tela 4:3 (original)"));
     CHECK(HudHas(g.m, "Vale a partir da pr\xF3xima fase"));
-    CHECK(HudHas(g.m, "[\x95] Portugu\xEAs"));
-    CHECK(HudHas(g.m, "[ ] English"));
+    CHECK(HudHas(g.m, "Idioma"));            // E24: the language's chooser, its label
+    CHECK(HudHas(g.m, "{language:pt}"));     // and the current language's name
     CHECK(HudHas(g.m, "Volume da m\xFAsica"));
     CHECK(HudHas(g.m, "Volume dos efeitos"));
     // E8's switch (drawn at y 694-744 by the same Switch::put the three rows
@@ -2038,11 +2047,10 @@ void ScenarioOptionsE10(Game& g) {
     const E10Switch e10Switches[] = {
         {&Script::g_keyboardP2, 255.0f, 424.0f, "Teclado para o jogador 2", "Jogador 2 s\xF3 no joystick"},
         {&Script::g_widescreen, 255.0f, 494.0f, "Tela larga (widescreen)", "Tela 4:3 (original)"},
-        {&Script::g_language, 255.0f, 564.0f, "Portugu\xEAs", "English"},
         // E13's, in the second column (x 540-796) beside E8's.
         {&Script::g_pauseOnFocusLoss, 540.0f, 694.0f, "Pausa ao perder o foco", "Continua sem o foco"},
     };
-    for (const E10Switch& row : e10Switches) {
+    const auto switchRow = [&](const E10Switch& row) {
         CHECK_EQ(row.widget->getCurrent(), 0u);
         click(vector2(row.x + 45.0f, row.y + 37.0f));
         std::printf("  '%s': switch %u\n", Utf8(row.row1).c_str(), row.widget->getCurrent());
@@ -2052,7 +2060,22 @@ void ScenarioOptionsE10(Game& g) {
         click(vector2(row.x + 45.0f, row.y + 12.0f));
         CHECK_EQ(row.widget->getCurrent(), 0u);
         CHECK(WaitForHud(g, string("[\x95] ") + row.row0, 3));
-    }
+    };
+    switchRow(e10Switches[0]);
+    switchRow(e10Switches[1]);
+    // E24: the language, a chooser in E10's switch's place (x 255, y 564-614):
+    // its label, then "[<]" in x 255-295 and "[>]" in x 471-511 at y 589-614.
+    // Two clicks, as the switch took, so the frames after it are the same.
+    CHECK_EQ(Script::g_language.getCurrent(), 5u);
+    click(vector2(491.0f, 601.0f));
+    std::printf("  language: [>] from pt to option %u\n", Script::g_language.getCurrent());
+    CHECK_EQ(Script::g_language.getCurrent(), 6u);
+    CHECK(WaitForHud(g, "{language:ru}", 3));
+    CHECK(!HudHas(g.m, "{language:pt}"));
+    click(vector2(275.0f, 601.0f));
+    CHECK_EQ(Script::g_language.getCurrent(), 5u);
+    CHECK(WaitForHud(g, "{language:pt}", 3));
+    switchRow(e10Switches[2]);
     // None of them moved the original's switches, nor E8's beside E13's.
     CHECK_EQ(Script::g_smoothMotion.getCurrent(), 0u);
     CHECK_EQ(Script::g_enablePS.getCurrent(), 0u);

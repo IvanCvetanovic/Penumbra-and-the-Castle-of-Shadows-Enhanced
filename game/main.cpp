@@ -6,7 +6,8 @@
 //   --tour <a,b,...>@<N>   after the menu, start each scene in turn for N ticks (one launch, many screens)
 //   --hold <KEY>@<a>-<b>   hold an Ethanon key from tick a to tick b (headless captures);
 //                          KEY is a K_ name without the prefix: RIGHT, UP, S, D, SPACE, CTRL...
-//   --lang pt|en           this run's language, over the settings
+//   --lang <id>            this run's language, over the settings (E24: en de es fr it pt ru tr
+//                          uk ja ar)
 //   --widescreen on|off    this run's view, over the settings
 //   --smooth on|off        this run's motion between ticks (E8), over the settings;
 //                          off under --fixed-step unless given as on
@@ -44,6 +45,7 @@
 #include "PenumbraLayer.hpp"
 #include "eth/Paths.hpp"
 #include "eth/StartupErrors.hpp"
+#include "render/Languages.hpp"
 #include "render/WindowMode.hpp"
 
 #include "core/GameRuntime.hpp"
@@ -61,7 +63,7 @@ constexpr const char* kGameUsage =
     "  --start <scene>        skip the menu and start scenes/<scene>.esc (level1..level3, pvp_lv1..pvp_lv6;\n"
     "                         arena_select, gameover and videoModes start as the scripts start them)\n"
     "  --tour <a,b,...>@<N>   after the menu, start each scene in turn for N ticks (many screens, one launch)\n"
-    "  --lang pt|en           this run's language (not saved)\n"
+    "  --lang <id>            this run's language (not saved): en de es fr it pt ru tr uk ja ar\n"
     "  --widescreen on|off    this run's view (not saved)\n"
     "  --smooth on|off        this run's motion between ticks (not saved; off under --fixed-step)\n"
     "  --original <dir>       the original game's files: the folder holding data.enml\n"
@@ -404,10 +406,16 @@ int PenumbraMain(int argc, char** argv) {
     std::string warning;
     Penumbra::Render::Settings settings = Penumbra::Render::Settings::Load(
         layerOptions.userDir,
-        Penumbra::Render::Settings::Defaults(Penumbra::Render::Settings::SystemLanguageIsPortuguese()), &warning);
+        Penumbra::Render::Settings::Defaults(Penumbra::Render::Settings::SystemLanguage()), &warning);
     if (!warning.empty()) std::cerr << "[Penumbra] settings: " << warning << std::endl;
     // Run-only: the layer shows them and never saves them into settings.json.
-    if (languageOverride == "pt" || languageOverride == "en") layerOptions.languageOverride = languageOverride;
+    if (auto language = Penumbra::Render::Language::English;
+        Penumbra::Render::LanguageFromId(languageOverride, language)) {
+        layerOptions.languageOverride = Penumbra::Render::LanguageId(language);
+    } else if (!languageOverride.empty()) {
+        std::cerr << "[Penumbra] --lang: \"" << languageOverride << "\" is not a language the game speaks; ignored"
+                  << std::endl;
+    }
     if (widescreenOverride == "on") layerOptions.widescreenOverride = true;
     if (widescreenOverride == "off") layerOptions.widescreenOverride = false;
     // E8 blends by SimulationClock::alpha, which --fixed-step at the tick pins

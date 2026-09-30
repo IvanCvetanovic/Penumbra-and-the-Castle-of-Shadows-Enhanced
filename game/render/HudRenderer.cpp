@@ -8,6 +8,7 @@
 #include <utility>
 
 #include "core/Log.hpp"
+#include "eth/Text.hpp"
 #include "render/CameraRig.hpp"
 #include "render/FontAtlas.hpp"
 #include "render/Localization.hpp"
@@ -86,6 +87,12 @@ void HudRenderer::Draw(entt::registry& registry, const Eth::RenderSnapshot& snap
 void HudRenderer::Build(const Eth::RenderSnapshot& snapshot, const View& view, std::vector<Quad>& out,
                         const std::vector<Eth::HudCmd>* extra) {
     if (m_fonts != nullptr) m_fonts->SetRasterScale(view.scale);
+    // E24: every text's characters first, so each atlas this frame grows is
+    // baked once for all of them rather than once per text that brings some.
+    for (const Eth::HudCmd& cmd : snapshot.hud) prepareText(cmd);
+    if (extra != nullptr) {
+        for (const Eth::HudCmd& cmd : *extra) prepareText(cmd);
+    }
     for (const Eth::HudCmd& cmd : snapshot.hud) addCommand(cmd, view, out);
     // The layer's own commands, over the scripts' and under the bars, which
     // stay last.
@@ -104,15 +111,37 @@ void HudRenderer::addCommand(const Eth::HudCmd& cmd, const View& view, std::vect
     }
 }
 
-void HudRenderer::addText(const Eth::HudCmd& cmd, const View& view, std::vector<Quad>& out) {
-    if (m_fonts == nullptr || cmd.text.empty() || cmd.fontSize <= 0.0f) return;
-    const glm::vec4 color = ToColor(cmd.color);
+bool HudRenderer::drawsText(const Eth::HudCmd& cmd) const {
     // Every blend mode 0.7.12 set alpha-tested at > 1/255 (docs/spec/30 §3.3):
     // a transparent text draws nothing, and costs no quads here.
-    if (color.a <= 0.0f) return;
+    return cmd.kind == Eth::HudCmd::Kind::Text && m_fonts != nullptr && !cmd.text.empty() && cmd.fontSize > 0.0f &&
+           ToColor(cmd.color).a > 0.0f;
+}
 
-    const std::string text = m_localization != nullptr ? m_localization->Translate(cmd.text) : cmd.text;
-    const TextLayout layout = m_fonts->Layout(text, cmd.font, cmd.fontSize, cmd.pos);
+const std::u32string& HudRenderer::visualText(const Eth::HudCmd& cmd) {
+    // E24: the translation is UTF-8, laid out by code point; Arabic shaped and
+    // put in drawing order first (render/ArabicShaping.hpp). Both lookups are
+    // remembered, so asking twice a frame (prepareText, addText) costs two
+    // hash lookups. The reference is used at once: the memo may be cleared by
+    // the next call.
+    const std::string text =
+        m_localization != nullptr ? m_localization->Translate(cmd.text) : Eth::Cp1252ToUtf8(cmd.text);
+    return m_visual.Of(text, rightToLeft());
+}
+
+bool HudRenderer::rightToLeft() const { return m_localization != nullptr && m_localization->RightToLeft(); }
+
+void HudRenderer::prepareText(const Eth::HudCmd& cmd) {
+    if (drawsText(cmd)) m_fonts->Prepare(visualText(cmd), cmd.font, cmd.fontSize);
+}
+
+void HudRenderer::addText(const Eth::HudCmd& cmd, const View& view, std::vector<Quad>& out) {
+    if (!drawsText(cmd)) return;
+    const glm::vec4 color = ToColor(cmd.color);
+
+    // A right-to-left paragraph's lines flush with its widest.
+    const TextLayout layout = m_fonts->LayoutCodePoints(visualText(cmd), cmd.font, cmd.fontSize, cmd.pos,
+                                                        rightToLeft() ? LineAlign::Right : LineAlign::Left);
     if (layout.texture.empty()) return;
     for (const TextGlyph& glyph : layout.glyphs) {
         Quad quad;

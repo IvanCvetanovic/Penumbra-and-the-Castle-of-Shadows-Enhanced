@@ -144,6 +144,7 @@ struct FontAtlas::Font {
     int winAscent = 0;                 // font units
     int winDescent = 0;
     int avgCharWidth = 0;              // font units, widthScale already applied
+    int unitsPerEm = 0;                // head.unitsPerEm
     std::array<int, 256> glyph{};      // glyph index per cp1252 byte
 };
 
@@ -157,20 +158,47 @@ struct FontAtlas::Atlas {
         glm::vec2 uvMin{0.0f};
         glm::vec2 uvMax{0.0f};
     };
+    // E24: a code point cp1252 does not have, from this face or from the
+    // bundled face of its script. Baked the first time it is drawn.
+    struct Extra {
+        Slot slot;
+        const Font* font = nullptr;
+        int glyph = 0;
+        float scaleX = 0.0f;
+        float scale = 0.0f;
+    };
     std::string stem;                  // the font file's name, for the key
     std::string key;                   // "" until baked
     int rasterPx = 0;
     float scale = 0.0f;                // stbtt: raster px per font unit
     float scaleX = 0.0f;               // the same, across: scale x the font's widthScale
+    float emPx = 0.0f;                 // E24: the face's em, raster px (a script face's glyphs are scaled to it)
     int ascent = 0;                    // raster px
     int lineHeight = 0;
     int tab = 8;
     bool partial = false;
+    bool dirty = false;                // E24: wanted has grown since the last bake (Prepare)
     std::bitset<256> wanted;
     std::bitset<256> baked;
     std::array<Slot, 256> slots{};
+    std::map<char32_t, Extra> extras;  // E24: ordered, so a bake packs them the same way every time
     std::uint64_t lastUsed = 0;
 };
+
+FontAtlas::Script FontAtlas::ScriptOf(const char32_t codePoint) {
+    const auto value = static_cast<unsigned>(codePoint);
+    const auto in = [value](const unsigned first, const unsigned last) { return value >= first && value <= last; };
+    // CJK symbols and punctuation, hiragana, katakana (and its phonetic
+    // extensions), the CJK ideographs with extension A, the full-width forms.
+    if (in(0x3000, 0x30FF) || in(0x31F0, 0x31FF) || in(0x3400, 0x4DBF) || in(0x4E00, 0x9FFF) ||
+        in(0xFF00, 0xFFEF)) {
+        return Script::Japanese;
+    }
+    // Arabic, its supplement, and both presentation-form blocks (what
+    // render/ArabicShaping.hpp turns the letters into).
+    if (in(0x0600, 0x06FF) || in(0x0750, 0x077F) || in(0xFB50, 0xFDFF) || in(0xFE70, 0xFEFF)) return Script::Arabic;
+    return Script::Face;
+}
 
 FontAtlas::FontAtlas() : m_bundledDir(DefaultBundledFontsDirectory()) {}
 FontAtlas::~FontAtlas() = default;
@@ -224,6 +252,7 @@ void FontAtlas::SetBundledFontsDirectory(const std::string& directory) {
     if (directory == m_bundledDir) return;
     m_bundledDir = directory;
     m_faceChoices.clear();   // fonts and atlases already made are keyed by file and stay valid
+    m_scriptFiles.clear();
 }
 
 void FontAtlas::SetSystemFontsEnabled(const bool enabled) {
@@ -281,24 +310,67 @@ int FontAtlas::GlyphForCodePoint(const std::string& face, const unsigned codePoi
     return font != nullptr ? stbtt_FindGlyphIndex(&font->info, static_cast<int>(codePoint)) : 0;
 }
 
+int FontAtlas::RoutedGlyph(const std::string& face, const char32_t codePoint) {
+    const Script script = ScriptOf(codePoint);
+    Font* font = script == Script::Face ? fontFor(face) : scriptFont(script);
+    return font != nullptr ? stbtt_FindGlyphIndex(&font->info, static_cast<int>(codePoint)) : 0;
+}
+
+std::string FontAtlas::RoutedFile(const std::string& face, const char32_t codePoint) {
+    const Script script = ScriptOf(codePoint);
+    Font* font = script == Script::Face ? fontFor(face) : scriptFont(script);
+    return font != nullptr ? font->file : std::string();
+}
+
+FontAtlas::Font* FontAtlas::scriptFont(const Script script) {
+    if (script == Script::Face) return nullptr;
+    auto it = m_scriptFiles.find(script);
+    if (it == m_scriptFiles.end()) {
+        const char* name = script == Script::Japanese ? kJapaneseFile : kArabicFile;
+        std::string file = FileIn(m_bundledDir, name);
+        if (file.empty()) {
+            SUPERSONIC_LOG_WARN("Penumbra") << "fonts: no " << name << " in "
+                                            << (m_bundledDir.empty() ? std::string("(no bundled folder)") : m_bundledDir)
+                                            << "; its script is drawn from the text's own face";
+        }
+        it = m_scriptFiles.emplace(script, std::move(file)).first;
+    }
+    if (it->second.empty()) return nullptr;
+    if (const auto font = m_fonts.find(it->second); font != m_fonts.end()) return font->second.get();
+    return loadFont(it->second, it->second, std::filesystem::path(it->second).stem().string());
+}
+
+FontAtlas::Font* FontAtlas::loadFont(const std::string& file, const std::string& id, const std::string& stem) {
+    auto font = std::make_unique<Font>();
+    font->file = file;
+    font->id = id;
+    font->stem = stem;
+    const int offset = ReadFile(file, font->data) ? stbtt_GetFontOffsetForIndex(font->data.data(), 0) : -1;
+    if (offset < 0 || stbtt_InitFont(&font->info, font->data.data(), offset) == 0) {
+        SUPERSONIC_LOG_WARN("Penumbra") << "fonts: cannot read " << file;
+        m_fonts.emplace(id, nullptr);
+        return nullptr;
+    }
+    const stbtt_uint32 head = stbtt__find_table(font->data.data(), static_cast<stbtt_uint32>(font->info.fontstart), "head");
+    font->unitsPerEm = (head != 0 && head + 20 <= font->data.size()) ? ttUSHORT(font->data.data() + head + 18) : 0;
+    if (font->unitsPerEm <= 0) font->unitsPerEm = 2048;
+    Font* raw = font.get();
+    m_fonts.emplace(id, std::move(font));
+    return raw;
+}
+
 FontAtlas::Font* FontAtlas::fontFor(const std::string& face) {
     const FaceChoice& choice = choiceFor(face);
     if (choice.file.empty()) return nullptr;
     const std::string id = choice.standIn.empty() ? choice.file : choice.file + "#" + choice.standIn;
     if (const auto it = m_fonts.find(id); it != m_fonts.end()) return it->second.get();
 
-    auto font = std::make_unique<Font>();
-    font->file = choice.file;
-    font->id = id;
-    font->stem = choice.standIn.empty() ? std::filesystem::path(choice.file).stem().string()
-                                        : std::filesystem::path(choice.file).stem().string() + "-" + choice.standIn;
+    Font* font = loadFont(choice.file, id,
+                          choice.standIn.empty()
+                              ? std::filesystem::path(choice.file).stem().string()
+                              : std::filesystem::path(choice.file).stem().string() + "-" + choice.standIn);
+    if (font == nullptr) return nullptr;
     font->widthScale = choice.widthScale;
-    const int offset = ReadFile(choice.file, font->data) ? stbtt_GetFontOffsetForIndex(font->data.data(), 0) : -1;
-    if (offset < 0 || stbtt_InitFont(&font->info, font->data.data(), offset) == 0) {
-        SUPERSONIC_LOG_WARN("Penumbra") << "fonts: cannot read " << choice.file;
-        m_fonts.emplace(id, nullptr);
-        return nullptr;
-    }
 
     // GDI maps a positive lfHeight onto usWinAscent + usWinDescent, and takes
     // tmAveCharWidth (the tab unit) from xAvgCharWidth: both in the OS/2 table,
@@ -328,23 +400,16 @@ FontAtlas::Font* FontAtlas::fontFor(const std::string& face) {
     // A stand-in takes the metrics of the face it replaces, from 2048ths of
     // an em into this file's units (head.unitsPerEm).
     if (choice.winAscent > 0) {
-        const stbtt_uint32 head = stbtt__find_table(font->data.data(), static_cast<stbtt_uint32>(font->info.fontstart), "head");
-        const int unitsPerEm = (head != 0 && head + 20 <= font->data.size()) ? ttUSHORT(font->data.data() + head + 18) : 0;
-        if (unitsPerEm > 0) {
-            const float toFile = static_cast<float>(unitsPerEm) / 2048.0f;
-            font->winAscent = RoundToInt(static_cast<float>(choice.winAscent) * toFile);
-            font->winDescent = RoundToInt(static_cast<float>(choice.winDescent) * toFile);
-            font->avgCharWidth = RoundToInt(static_cast<float>(choice.avgCharWidth) * toFile);
-        }
+        const float toFile = static_cast<float>(font->unitsPerEm) / 2048.0f;
+        font->winAscent = RoundToInt(static_cast<float>(choice.winAscent) * toFile);
+        font->winDescent = RoundToInt(static_cast<float>(choice.winDescent) * toFile);
+        font->avgCharWidth = RoundToInt(static_cast<float>(choice.avgCharWidth) * toFile);
     }
     for (int byte = 0; byte < 256; ++byte) {
         const auto codePoint = static_cast<int>(Eth::Cp1252CodePoint(static_cast<unsigned char>(byte)));
         font->glyph[static_cast<std::size_t>(byte)] = stbtt_FindGlyphIndex(&font->info, codePoint);
     }
-
-    Font* raw = font.get();
-    m_fonts.emplace(id, std::move(font));
-    return raw;
+    return font;
 }
 
 FontAtlas::Atlas& FontAtlas::atlasFor(Font& font, const int rasterPx) {
@@ -356,6 +421,7 @@ FontAtlas::Atlas& FontAtlas::atlasFor(Font& font, const int rasterPx) {
     atlas->rasterPx = rasterPx;
     atlas->scale = static_cast<float>(rasterPx) / static_cast<float>(font.winAscent + font.winDescent);
     atlas->scaleX = atlas->scale * font.widthScale;
+    atlas->emPx = atlas->scale * static_cast<float>(font.unitsPerEm);
     atlas->ascent = RoundToInt(static_cast<float>(font.winAscent) * atlas->scale);
     atlas->lineHeight = atlas->ascent + RoundToInt(static_cast<float>(font.winDescent) * atlas->scale);
     // DT_EXPANDTABS without DT_TABSTOP: a stop every 8 average character widths.
@@ -391,21 +457,70 @@ FontAtlas::Atlas& FontAtlas::atlasFor(Font& font, const int rasterPx) {
     return ref;
 }
 
+void FontAtlas::addExtra(Font& font, Atlas& atlas, const char32_t codePoint) {
+    Atlas::Extra extra;
+    const Script script = ScriptOf(codePoint);
+    const Font* from = script == Script::Face ? nullptr : scriptFont(script);
+    if (from != nullptr) {
+        // Em to em, on the face's baseline, never condensed.
+        const float scale = atlas.emPx / static_cast<float>(from->unitsPerEm);
+        extra.scale = scale;
+        extra.scaleX = scale;
+    } else {
+        from = &font;
+        extra.scale = atlas.scale;
+        extra.scaleX = atlas.scaleX;
+    }
+    extra.font = from;
+    extra.glyph = stbtt_FindGlyphIndex(&from->info, static_cast<int>(codePoint));
+    int advance = 0;
+    int bearing = 0;
+    stbtt_GetGlyphHMetrics(&from->info, extra.glyph, &advance, &bearing);
+    extra.slot.advance = RoundToInt(static_cast<float>(advance) * extra.scaleX);
+    int x0 = 0;
+    int y0 = 0;
+    int x1 = 0;
+    int y1 = 0;
+    stbtt_GetGlyphBitmapBox(&from->info, extra.glyph, extra.scaleX, extra.scale, &x0, &y0, &x1, &y1);
+    extra.slot.x0 = x0;
+    extra.slot.y0 = y0;
+    extra.slot.w = std::max(0, x1 - x0);
+    extra.slot.h = std::max(0, y1 - y0);
+    atlas.extras.emplace(codePoint, extra);
+}
+
 void FontAtlas::bake(Font& font, Atlas& atlas) {
-    std::vector<int> order;
+    // What goes onto the atlas: the cp1252 slots wanted, in byte order, then
+    // E24's extras, in code point order (none at all for Portuguese and
+    // English, so their atlases are packed exactly as they always were).
+    struct Item {
+        Atlas::Slot* slot;
+        const stbtt_fontinfo* info;
+        int glyph;
+        float scaleX;
+        float scale;
+    };
+    std::vector<Item> order;
     long long area = 0;
     int widest = 1;
-    for (int byte = 0x20; byte < 256; ++byte) {
-        const Atlas::Slot& slot = atlas.slots[static_cast<std::size_t>(byte)];
-        if (!atlas.wanted.test(static_cast<std::size_t>(byte)) || slot.w <= 0 || slot.h <= 0) continue;
-        order.push_back(byte);
+    const auto add = [&](Atlas::Slot& slot, const stbtt_fontinfo& info, const int glyph, const float scaleX,
+                         const float scale) {
+        if (slot.w <= 0 || slot.h <= 0) return;
+        order.push_back(Item{&slot, &info, glyph, scaleX, scale});
         area += static_cast<long long>(slot.w + kPad) * (slot.h + kPad);
         widest = std::max(widest, slot.w + 2 * kPad);
+    };
+    for (int byte = 0x20; byte < 256; ++byte) {
+        if (!atlas.wanted.test(static_cast<std::size_t>(byte))) continue;
+        add(atlas.slots[static_cast<std::size_t>(byte)], font.info, font.glyph[static_cast<std::size_t>(byte)],
+            atlas.scaleX, atlas.scale);
+    }
+    for (auto& entry : atlas.extras) {
+        Atlas::Extra& extra = entry.second;
+        add(extra.slot, extra.font->info, extra.glyph, extra.scaleX, extra.scale);
     }
     // Tallest first onto shelves.
-    std::stable_sort(order.begin(), order.end(), [&atlas](const int a, const int b) {
-        return atlas.slots[static_cast<std::size_t>(a)].h > atlas.slots[static_cast<std::size_t>(b)].h;
-    });
+    std::stable_sort(order.begin(), order.end(), [](const Item& a, const Item& b) { return a.slot->h > b.slot->h; });
 
     int width = 64;
     while (width < kMaxAtlasSide &&
@@ -419,7 +534,7 @@ void FontAtlas::bake(Font& font, Atlas& atlas) {
         int y = kPad;
         int shelf = 0;
         for (std::size_t i = 0; i < order.size(); ++i) {
-            const Atlas::Slot& slot = atlas.slots[static_cast<std::size_t>(order[i])];
+            const Atlas::Slot& slot = *order[i].slot;
             if (x + slot.w + kPad > width) {
                 y += shelf + kPad;
                 x = kPad;
@@ -436,19 +551,27 @@ void FontAtlas::bake(Font& font, Atlas& atlas) {
     height = std::min(height, kMaxAtlasSide);
 
     std::vector<unsigned char> coverage(static_cast<std::size_t>(width) * static_cast<std::size_t>(height), 0);
+    int dropped = 0;
     for (std::size_t i = 0; i < order.size(); ++i) {
-        Atlas::Slot& slot = atlas.slots[static_cast<std::size_t>(order[i])];
+        Atlas::Slot& slot = *order[i].slot;
         if (at[i].y + slot.h > height) {
             slot.w = 0;   // did not fit: drawn as nothing rather than as a neighbour
+            ++dropped;
             continue;
         }
         unsigned char* target =
             coverage.data() + static_cast<std::size_t>(at[i].y) * static_cast<std::size_t>(width) + at[i].x;
-        stbtt_MakeGlyphBitmap(&font.info, target, slot.w, slot.h, width, atlas.scaleX, atlas.scale,
-                              font.glyph[static_cast<std::size_t>(order[i])]);
+        stbtt_MakeGlyphBitmap(order[i].info, target, slot.w, slot.h, width, order[i].scaleX, order[i].scale,
+                              order[i].glyph);
         slot.uvMin = glm::vec2(at[i]) / glm::vec2(static_cast<float>(width), static_cast<float>(height));
         slot.uvMax = glm::vec2(at[i] + glm::ivec2(slot.w, slot.h)) /
                      glm::vec2(static_cast<float>(width), static_cast<float>(height));
+    }
+
+    if (dropped > 0) {
+        SUPERSONIC_LOG_WARN("Penumbra") << "fonts: the " << atlas.stem << " atlas at " << atlas.rasterPx << " px is full ("
+                                        << kMaxAtlasSide << "x" << kMaxAtlasSide << "); " << dropped
+                                        << " glyph(s) will not be drawn";
     }
 
     // White, with the coverage as alpha: the quad's colour is the text colour,
@@ -472,6 +595,7 @@ void FontAtlas::bake(Font& font, Atlas& atlas) {
                                static_cast<std::uint32_t>(height), false);
     }
     atlas.baked = atlas.wanted;
+    atlas.dirty = false;
 }
 
 void FontAtlas::retire(const std::string& key) { m_retired.push_back(key); }
@@ -493,83 +617,141 @@ void FontAtlas::BeginFrame() {
     }
 }
 
-TextLayout FontAtlas::Layout(const std::string& cp1252, const std::string& face, const float size,
-                             const glm::vec2 pos) {
+TextLayout FontAtlas::LayoutCp1252(const std::string& cp1252, const std::string& face, const float size,
+                                   const glm::vec2 pos) {
+    std::u32string text;
+    text.reserve(cp1252.size());
+    for (const char c : cp1252) text += static_cast<char32_t>(Eth::Cp1252CodePoint(static_cast<unsigned char>(c)));
+    return LayoutCodePoints(text, face, size, pos);
+}
+
+TextLayout FontAtlas::LayoutUtf8(const std::string& utf8, const std::string& face, const float size,
+                                 const glm::vec2 pos) {
+    return LayoutCodePoints(Eth::Utf8ToCodePoints(utf8), face, size, pos);
+}
+
+int FontAtlas::rasterPxFor(const float size) const { return std::clamp(RoundToInt(size * m_scale), 1, kMaxRasterPx); }
+
+bool FontAtlas::want(Font& font, Atlas& atlas, const std::u32string& text) {
+    bool grew = false;
+    for (const char32_t codePoint : text) {
+        if (codePoint < 0x20) continue;
+        unsigned char byte = 0;
+        if (Eth::Cp1252ByteOf(static_cast<unsigned>(codePoint), byte)) {
+            if (!atlas.partial || atlas.wanted.test(byte)) continue;
+            atlas.wanted.set(byte);
+            grew = true;
+        } else if (atlas.extras.find(codePoint) == atlas.extras.end()) {
+            addExtra(font, atlas, codePoint);
+            grew = true;
+        }
+    }
+    return grew;
+}
+
+void FontAtlas::Prepare(const std::u32string& text, const std::string& face, const float size) {
+    if (text.empty()) return;
+    Font* font = fontFor(face);
+    if (font == nullptr) return;
+    Atlas& atlas = atlasFor(*font, rasterPxFor(size));
+    atlas.lastUsed = m_frame;
+    if (want(*font, atlas, text)) atlas.dirty = true;
+}
+
+TextLayout FontAtlas::LayoutCodePoints(const std::u32string& text, const std::string& face, const float size,
+                                       const glm::vec2 pos, const LineAlign align) {
     TextLayout layout;
-    if (cp1252.empty()) return layout;
+    if (text.empty()) return layout;
     Font* font = fontFor(face);
     if (font == nullptr) return layout;
 
     const float scale = m_scale;
-    const int rasterPx = std::clamp(RoundToInt(size * scale), 1, kMaxRasterPx);
-    Atlas& atlas = atlasFor(*font, rasterPx);
+    Atlas& atlas = atlasFor(*font, rasterPxFor(size));
     atlas.lastUsed = m_frame;
 
-    if (atlas.partial) {
-        bool grew = false;
-        for (const char c : cp1252) {
-            const auto byte = static_cast<unsigned char>(c);
-            if (byte < 0x20 || atlas.wanted.test(byte)) continue;
-            atlas.wanted.set(byte);
-            grew = true;
-        }
-        if (grew || atlas.key.empty()) bake(*font, atlas);
-    } else if (atlas.key.empty()) {
-        bake(*font, atlas);
-    }
+    // Everything this text needs that the atlas lacks, all at once, with
+    // whatever Prepare asked for since the last bake: one rebake however many
+    // new characters a sign - or a frame's texts, prepared first - bring. The
+    // same wanted set packs the same way, so a text drawn alone or after a
+    // Prepare lands on the same pixels.
+    if (want(*font, atlas, text) || atlas.dirty || atlas.key.empty()) bake(*font, atlas);
 
     layout.texture = atlas.key;
     layout.lineHeight = static_cast<float>(atlas.lineHeight) / scale;
     layout.ascent = static_cast<float>(atlas.ascent) / scale;
 
+    const auto slotOf = [&atlas](const char32_t codePoint, unsigned char& byte) -> const Atlas::Slot& {
+        byte = 0;
+        if (Eth::Cp1252ByteOf(static_cast<unsigned>(codePoint), byte)) return atlas.slots[byte];
+        byte = 0;
+        return atlas.extras.find(codePoint)->second.slot;
+    };
+    // One pass per line of pen advances: the glyphs' places (`place`) or only
+    // each line's width (the first pass, for LineAlign::Right).
+    std::vector<int> lineWidths;
+    const auto walk = [&](const bool place, const int anchorX, const int anchorY, const int widest) {
+        int penX = 0;
+        int line = 0;
+        const auto offset = [&]() {
+            return (place && align == LineAlign::Right && static_cast<std::size_t>(line) < lineWidths.size())
+                       ? widest - lineWidths[static_cast<std::size_t>(line)]
+                       : 0;
+        };
+        int lineStart = offset();
+        const auto newLine = [&]() {
+            if (!place) lineWidths.push_back(penX);
+            ++line;
+            penX = 0;
+            lineStart = offset();
+        };
+        for (std::size_t i = 0; i < text.size(); ++i) {
+            const char32_t codePoint = text[i];
+            if (codePoint == '\r') {
+                // CR LF is one break; a lone CR breaks too, as DrawText reads it.
+                if (i + 1 < text.size() && text[i + 1] == '\n') continue;
+                newLine();
+                continue;
+            }
+            if (codePoint == '\n') {
+                newLine();
+                continue;
+            }
+            if (codePoint == '\t') {
+                penX = (penX / atlas.tab + 1) * atlas.tab;
+                continue;
+            }
+            if (codePoint < 0x20) continue;
+            unsigned char byte = 0;
+            const Atlas::Slot& slot = slotOf(codePoint, byte);
+            if (place && slot.w > 0 && slot.h > 0) {
+                const int baseline = anchorY + line * atlas.lineHeight + atlas.ascent;
+                const int left = anchorX + lineStart + penX + slot.x0;
+                const int top = baseline + slot.y0;
+                TextGlyph glyph;
+                glyph.min = glm::vec2(static_cast<float>(left), static_cast<float>(top)) / scale;
+                glyph.max = glm::vec2(static_cast<float>(left + slot.w), static_cast<float>(top + slot.h)) / scale;
+                glyph.uvMin = slot.uvMin;
+                glyph.uvMax = slot.uvMax;
+                glyph.byte = byte;
+                glyph.codePoint = codePoint;
+                glyph.line = line;
+                glyph.pen = glm::vec2(static_cast<float>(anchorX + lineStart + penX), static_cast<float>(baseline)) / scale;
+                layout.glyphs.push_back(glyph);
+            }
+            penX += slot.advance;
+        }
+        if (!place) lineWidths.push_back(penX);
+        return line;
+    };
+
     // (int) the position as DrawTextA's RECT did, then into window pixels,
     // where every glyph edge below lands on a whole pixel.
     const int anchorX = RoundToInt(static_cast<float>(static_cast<int>(pos.x)) * scale);
     const int anchorY = RoundToInt(static_cast<float>(static_cast<int>(pos.y)) * scale);
-    int penX = 0;
-    int line = 0;
-    int widest = 0;
-    const auto newLine = [&]() {
-        widest = std::max(widest, penX);
-        ++line;
-        penX = 0;
-    };
-    for (std::size_t i = 0; i < cp1252.size(); ++i) {
-        const auto byte = static_cast<unsigned char>(cp1252[i]);
-        if (byte == '\r') {
-            // CR LF is one break; a lone CR breaks too, as DrawText reads it.
-            if (i + 1 < cp1252.size() && cp1252[i + 1] == '\n') continue;
-            newLine();
-            continue;
-        }
-        if (byte == '\n') {
-            newLine();
-            continue;
-        }
-        if (byte == '\t') {
-            penX = (penX / atlas.tab + 1) * atlas.tab;
-            continue;
-        }
-        if (byte < 0x20) continue;
-        const Atlas::Slot& slot = atlas.slots[byte];
-        if (slot.w > 0 && slot.h > 0) {
-            const int baseline = anchorY + line * atlas.lineHeight + atlas.ascent;
-            const int left = anchorX + penX + slot.x0;
-            const int top = baseline + slot.y0;
-            TextGlyph glyph;
-            glyph.min = glm::vec2(static_cast<float>(left), static_cast<float>(top)) / scale;
-            glyph.max = glm::vec2(static_cast<float>(left + slot.w), static_cast<float>(top + slot.h)) / scale;
-            glyph.uvMin = slot.uvMin;
-            glyph.uvMax = slot.uvMax;
-            glyph.byte = byte;
-            glyph.line = line;
-            glyph.pen = glm::vec2(static_cast<float>(anchorX + penX), static_cast<float>(baseline)) / scale;
-            layout.glyphs.push_back(glyph);
-        }
-        penX += slot.advance;
-    }
-    widest = std::max(widest, penX);
-    layout.lines = line + 1;
+    walk(false, anchorX, anchorY, 0);
+    const int widest = lineWidths.empty() ? 0 : *std::max_element(lineWidths.begin(), lineWidths.end());
+    const int lines = walk(true, anchorX, anchorY, widest);
+    layout.lines = lines + 1;
     layout.width = static_cast<float>(widest) / scale;
     return layout;
 }

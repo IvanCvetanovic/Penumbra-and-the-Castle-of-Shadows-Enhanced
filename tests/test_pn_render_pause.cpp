@@ -15,6 +15,8 @@
 
 #include "eth/Input.hpp"
 #include "eth/Snapshot.hpp"
+#include "eth/Text.hpp"
+#include "render/ArabicShaping.hpp"
 #include "render/FontAtlas.hpp"
 #include "render/HudRenderer.hpp"
 #include "render/Localization.hpp"
@@ -622,16 +624,32 @@ void testThroughHudRenderer() {
         // "Paused" + "Resume" + "Main menu": 6 + 6 + 8 glyphs with pixels, twice.
         CHECK_EQ(glyphs, std::size_t{(6 + 6 + 8) * 2});
         const PauseMenu::Layout layout = PauseMenu::ComputeLayout(view.logicalScreen);
-        for (const Language language : {Language::Portuguese, Language::English}) {
-            const float title =
-                fonts.Layout(loc.Translate(PauseMenu::kTitle, language), PauseMenu::kFont, PauseMenu::kTitleSize, layout.title).width;
-            CHECK(layout.title.x + title < layout.panelMax.x);
+        // E24: every language with its own file too, as HudRenderer draws it
+        // (shaped and ordered), each overflow reported.
+        Penumbra::Render::VisualText visual;
+        const auto widthOf = [&](const char* text, const Language language, const float size, const glm::vec2 at) {
+            return fonts
+                .LayoutCodePoints(visual.Of(loc.Translate(text, language), Penumbra::Render::IsRightToLeft(language)),
+                                  PauseMenu::kFont, size, at)
+                .width;
+        };
+        for (const Penumbra::Render::LanguageInfo& info : Penumbra::Render::kLanguages) {
+            const Language language = info.language;
+            if (!loc.HasLanguageFile(language)) continue;
+            const float title = widthOf(PauseMenu::kTitle, language, PauseMenu::kTitleSize, layout.title);
+            CHECK_MSG(layout.title.x + title < layout.panelMax.x,
+                      std::string(info.id) + " [" + Penumbra::Eth::Cp1252ToUtf8(PauseMenu::kTitle) + "] \"" +
+                          loc.Translate(PauseMenu::kTitle, language) + "\": " +
+                          std::to_string(layout.title.x + title) + " px, the panel ends at " +
+                          std::to_string(layout.panelMax.x));
             for (int i = 0; i < PauseMenu::kItemCount; ++i) {
                 const auto index = static_cast<std::size_t>(i);
-                const float width = fonts.Layout(loc.Translate(PauseMenu::kItemText[index], language), PauseMenu::kFont,
-                                                 PauseMenu::kItemSize, layout.text[index])
-                                        .width;
-                CHECK_MSG(layout.text[index].x + width < layout.rowMax[index].x, PauseMenu::kItemText[index]);
+                const float width = widthOf(PauseMenu::kItemText[index], language, PauseMenu::kItemSize, layout.text[index]);
+                CHECK_MSG(layout.text[index].x + width < layout.rowMax[index].x,
+                          std::string(info.id) + " [" + Penumbra::Eth::Cp1252ToUtf8(PauseMenu::kItemText[index]) + "] \"" +
+                              loc.Translate(PauseMenu::kItemText[index], language) +
+                              "\": " + std::to_string(layout.text[index].x + width) + " px, the row ends at " +
+                              std::to_string(layout.rowMax[index].x));
             }
         }
     }
@@ -744,14 +762,14 @@ void testEnglish() {
     for (std::size_t i = 0; i < 3; ++i) {
         CHECK_MSG(loc.HasTranslation(portuguese[i]), portuguese[i]);
         CHECK(loc.Translate(portuguese[i], Language::English) == english[i]);
-        CHECK(loc.Translate(portuguese[i], Language::Portuguese) == portuguese[i]);
+        CHECK(loc.Translate(portuguese[i], Language::Portuguese) == Penumbra::Eth::Cp1252ToUtf8(portuguese[i]));
     }
 }
 
 void testSetting() {
-    const Settings defaults = Settings::Defaults(false);
+    const Settings defaults = Settings::Defaults("en");
     CHECK(defaults.pauseOnFocusLoss);
-    CHECK(Settings::Defaults(true).pauseOnFocusLoss);
+    CHECK(Settings::Defaults("pt").pauseOnFocusLoss);
 
     Settings off = defaults;
     off.pauseOnFocusLoss = false;

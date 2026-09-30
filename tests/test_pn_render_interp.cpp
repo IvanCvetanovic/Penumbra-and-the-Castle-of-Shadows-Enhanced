@@ -604,7 +604,7 @@ void ShadowShapeFromTheTickPlacedByTheBlend(Render::TextureCache& textures) {
 // ---- settings ----------------------------------------------------------------------------
 
 void SmoothMotionSetting() {
-    const Render::Settings defaults = Render::Settings::Defaults(false);
+    const Render::Settings defaults = Render::Settings::Defaults("en");
     CHECK(defaults.smoothMotion);
     CHECK(defaults.ToJson().find("\"smoothMotion\": true") != std::string::npos);
 

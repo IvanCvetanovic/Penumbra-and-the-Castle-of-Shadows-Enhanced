@@ -159,8 +159,13 @@ void PenumbraLayer::OnAttach(entt::registry& registry) {
     Script::g_windowed.setCurrent(m_options.startFullscreen ? 1u : 0u);
     // E10: the enhanced settings' own rows on the options screen. Language and
     // view from what this run shows (a --lang or --widescreen flag included),
-    // as g_windowed is, so the screen's first frame changes nothing.
-    Script::g_language.setCurrent(Portuguese() ? 0u : 1u);
+    // as g_windowed is, so the screen's first frame changes nothing. E24: the
+    // languages in the picker's order, each drawn as its own name.
+    Eth::array<Eth::string> languageNames;
+    for (const Render::LanguageInfo& info : Render::kLanguages) {
+        languageNames.insertLast(Render::Localization::LanguageNameKey(info.language));
+    }
+    Script::g_language.setOptions(languageNames, static_cast<Eth::uint>(Render::LanguageIndex(CurrentLanguage())));
     Script::g_widescreen.setCurrent(Widescreen() ? 0u : 1u);
     Script::g_keyboardP2.setCurrent(m_settings.controls.keyboardPlayer2 ? 0u : 1u);
     Script::g_musicVolume.setCurrent(Script::g_musicVolume.stepFor(m_settings.musicVolume));
@@ -230,13 +235,14 @@ bool PenumbraLayer::Widescreen() const {
     return m_options.widescreenOverride.value_or(m_settings.widescreen);
 }
 
-bool PenumbraLayer::Portuguese() const {
-    return m_options.languageOverride.value_or(m_settings.language) == "pt";
+Render::Language PenumbraLayer::CurrentLanguage() const {
+    // main() and Settings let through only the ids Languages.hpp lists.
+    Render::Language language = Render::Language::English;
+    Render::LanguageFromId(m_options.languageOverride.value_or(m_settings.language), language);
+    return language;
 }
 
-void PenumbraLayer::ApplyLanguage() {
-    m_localization.SetLanguage(Portuguese() ? Render::Language::Portuguese : Render::Language::English);
-}
+void PenumbraLayer::ApplyLanguage() { m_localization.SetLanguage(CurrentLanguage()); }
 
 bool PenumbraLayer::SmoothMotion() const {
     return m_options.smoothMotionOverride.value_or(m_settings.smoothMotion);
@@ -710,18 +716,20 @@ void PenumbraLayer::OnFixedUpdate(entt::registry& registry, float fixedDelta) {
     // until the player moves it. The language, the volumes and smooth motion
     // apply at once (SaveSettings); the view at the next scene load
     // (LogicalScreenFor).
-    const bool portuguese = Script::g_language.getCurrent() == 0;
+    const Eth::uint languageRow = Script::g_language.getCurrent();   // E24: an index into kLanguages
+    const Render::Language language =
+        languageRow < Render::kLanguageCount ? Render::kLanguages[languageRow].language : CurrentLanguage();
     const bool widescreen = Script::g_widescreen.getCurrent() == 0;
     const bool smoothMotion = Script::g_smoothMotion.getCurrent() == 0;
     const bool pauseOnFocusLoss = Script::g_pauseOnFocusLoss.getCurrent() == 0;
     const bool musicMoved = Script::g_musicVolume.getCurrent() != Script::g_musicVolume.stepFor(m_settings.musicVolume);
     const bool effectsMoved =
         Script::g_effectsVolume.getCurrent() != Script::g_effectsVolume.stepFor(m_settings.effectsVolume);
-    if (portuguese != Portuguese() || widescreen != Widescreen() || smoothMotion != SmoothMotion() ||
+    if (language != CurrentLanguage() || widescreen != Widescreen() || smoothMotion != SmoothMotion() ||
         pauseOnFocusLoss != PauseOnFocusLoss() || musicMoved || effectsMoved) {
-        if (portuguese != Portuguese()) {
+        if (language != CurrentLanguage()) {
             m_options.languageOverride.reset();
-            m_settings.language = portuguese ? "pt" : "en";
+            m_settings.language = Render::LanguageId(language);
         }
         if (widescreen != Widescreen()) {
             m_options.widescreenOverride.reset();

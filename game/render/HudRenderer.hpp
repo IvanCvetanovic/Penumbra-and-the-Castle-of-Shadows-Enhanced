@@ -10,9 +10,13 @@
 // so Draw runs on every frame (OnUpdate) and re-emits the same snapshot's HUD
 // on frames without a new tick; it holds no entities.
 //
-//   Text          translated (Localization), laid out (FontAtlas), one quad
-//                 per visible glyph in the text's colour. shadowText is
-//                 already two Text commands in the snapshot.
+//   Text          translated (Localization), shaped and ordered for drawing
+//                 (E24's Arabic, ArabicShaping), laid out (FontAtlas), one
+//                 quad per visible glyph in the text's colour. shadowText is
+//                 already two Text commands in the snapshot. Every text's
+//                 characters go to FontAtlas::Prepare before the first is laid
+//                 out, so a frame that brings new ones (E24's scripts) bakes
+//                 each atlas once.
 //   Sprite        the loaded image (TextureCache, magenta key), its current
 //                 rectangle at bitmap size, the colour multiplied in.
 //   ShapedSprite  the same stretched to the command's size.
@@ -45,6 +49,7 @@
 
 #include "core/ScreenOverlay.hpp"
 #include "eth/Snapshot.hpp"
+#include "render/ArabicShaping.hpp"
 #include "render/View.hpp"
 
 namespace Supersonic {
@@ -87,6 +92,13 @@ private:
     using Quad = Supersonic::ScreenOverlay::Quad;
 
     void addCommand(const Eth::HudCmd& cmd, const View& view, std::vector<Quad>& out);
+    // E24: whether a command is a text that draws anything; its code points
+    // in drawing order; and those handed to FontAtlas::Prepare before any text
+    // of the frame is laid out.
+    bool drawsText(const Eth::HudCmd& cmd) const;
+    const std::u32string& visualText(const Eth::HudCmd& cmd);
+    bool rightToLeft() const;
+    void prepareText(const Eth::HudCmd& cmd);
     void addText(const Eth::HudCmd& cmd, const View& view, std::vector<Quad>& out);
     void addSprite(const Eth::HudCmd& cmd, const View& view, bool stretched, std::vector<Quad>& out);
     // The rectangle, and under E1's open sides its continuation past a
@@ -104,6 +116,7 @@ private:
     Supersonic::TextureRegistry* m_registryTextures = nullptr;
     std::unordered_set<std::string> m_gradients;
     std::vector<Quad> m_quads;
+    VisualText m_visual;   // E24: each text's code points in drawing order
     bool m_loggedDrops = false;
 };
 

@@ -174,12 +174,14 @@ ever written into the original's folder.
 
 | File | What it is |
 |---|---|
-| `settings.json` | Language (`"en"`/`"pt"`); the window (`window`: `width`/`height`, `0` for a window fitted to the monitor; `fullscreen`, true on a first launch; the fullscreen mode, `fullscreenWidth`/`fullscreenHeight`, `0` for the desktop's resolution; `fullscreenRefresh` in Hz, `0` for the highest the monitor offers at that resolution); widescreen, volumes, pixel shaders, `smoothMotion`, `pauseOnFocusLoss`, `touchControls` (`"auto"`, `"on"`, `"off"`); and the controls: `joystickLayout`, `keyboardPlayer2`, `firstPadIsPlayer1`, `rawJoysticks`, `stickDeadzone`, and the `player1`/`player2` key lists. A broken or missing field falls back to its default, field by field. |
+| `settings.json` | Language (`language`: one of `en`, `de`, `es`, `fr`, `it`, `pt`, `ru`, `tr`, `uk`, `ja`, `ar`); the window (`window`: `width`/`height`, `0` for a window fitted to the monitor; `fullscreen`, true on a first launch; the fullscreen mode, `fullscreenWidth`/`fullscreenHeight`, `0` for the desktop's resolution; `fullscreenRefresh` in Hz, `0` for the highest the monitor offers at that resolution); widescreen, volumes, pixel shaders, `smoothMotion`, `pauseOnFocusLoss`, `touchControls` (`"auto"`, `"on"`, `"off"`); and the controls: `joystickLayout`, `keyboardPlayer2`, `firstPadIsPlayer1`, `rawJoysticks`, `stickDeadzone`, and the `player1`/`player2` key lists. A broken or missing field falls back to its default, field by field. |
 | `hs.enml` | The best times, written after a new record. Until then the original's `hs.enml` is read. |
 | `scenes\checkpoint.esc` | The level saved at the last checkpoint. |
 
-The first language follows the system: Portuguese on a Portuguese Windows, or where the POSIX
-locale (`LC_ALL`, `LC_MESSAGES`, `LANG`) starts with `pt`. It is English otherwise. On Linux the
+The first language follows the system when the game speaks it: Windows' display language, the
+POSIX locale (`LC_ALL`, `LC_MESSAGES`, `LANG`), or the device's language on Android, macOS and
+iOS. It is English otherwise. The options screen's Language row changes it, naming each language
+in its own script. On Linux the
 files go to `$XDG_DATA_HOME/Penumbra`, else `~/.local/share/Penumbra`. On macOS they go to
 `~/Library/Application Support/Penumbra`, and the graphics cache to
 `~/Library/Caches/com.ivancvetanovic.penumbra`. On an iPhone or iPad they are inside the app's own
@@ -193,7 +195,7 @@ The game's own options:
 |---|---|
 | `--start <scene>` | Skip the menu and start `scenes/<scene>.esc`: `level1`–`level3` or `pvp_lv1`–`pvp_lv6`; `arena_select`, `gameover` and `videoModes` start as the scripts start them |
 | `--tour <a,b,...>@<N>` | After the menu, start each scene in turn for *N* ticks: many screens in one launch |
-| `--lang pt\|en` | This run's language. It is not saved. |
+| `--lang <id>` | This run's language: `en`, `de`, `es`, `fr`, `it`, `pt`, `ru`, `tr`, `uk`, `ja` or `ar`. It is not saved. |
 | `--widescreen on\|off` | This run's view. It is not saved. |
 | `--smooth on\|off` | This run's motion between ticks (E8). It is not saved. Off under `--fixed-step` unless given as `on`, so fixed-step captures show the ticks themselves. |
 | `--original <dir>`, `--data <dir>` | Where the original's files and the enhanced edition's data are ([above](#where-the-files-are-found)) |

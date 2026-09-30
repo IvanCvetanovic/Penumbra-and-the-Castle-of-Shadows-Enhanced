@@ -101,7 +101,10 @@ struct Settings {
     // read as it always was, and a field it lacks is automatic.
     static constexpr int kVersion = 2;
 
-    std::string language = "en";        // "pt" or "en"
+    // A render/Languages.hpp id (E24: "en", "de", "es", "fr", "it", "pt",
+    // "ru", "tr", "uk", "ja" or "ar"); a file written before E24 holds "pt" or
+    // "en" and reads as it always did.
+    std::string language = "en";
     // The windowed size: a line of the options screen's mode list picked in a
     // window. 0 x 0 is automatic (E23, the default): the window fitted to the
     // monitor it opens on - the largest of the monitor's own shape within
@@ -152,23 +155,37 @@ struct Settings {
 
     bool operator==(const Settings& other) const = default;
 
-    // Everything at its default. The language follows the system's: Portuguese
-    // for a Portuguese Windows UI, English otherwise.
-    static Settings Defaults(bool systemIsPortuguese);
-    // Whether the system's UI language is Portuguese (any region):
+    // Everything at its default, in `language` (a Languages.hpp id; anything
+    // else is English). main() passes SystemLanguage(): the language the
+    // system is set to when the game speaks it, English otherwise (E24).
+    static Settings Defaults(const std::string& language = "en");
+    // The system's UI language as a Languages.hpp id, "en" when the game does
+    // not speak it:
     //   a locale supplied with SetSystemLocale, when one was - the hook for a
     //     platform whose language is not in the environment: an Android
     //     activity (AConfiguration_getLanguage), an iOS or macOS app bundle
     //     (NSLocale.preferredLanguages), called before Defaults;
-    //   Windows: the user's UI language (GetUserDefaultUILanguage);
+    //   Windows: the user's UI language (GetUserDefaultUILanguage's primary
+    //     language, LanguageOfPrimaryLangId);
     //   elsewhere: the POSIX message locale, the first of LC_ALL, LC_MESSAGES
     //     and LANG that is set (a desktop session sets them).
+    static std::string SystemLanguage();
+    // SystemLanguage() == "pt": the start-up error boxes put Portuguese first
+    // on a Portuguese system and English first everywhere else (eth/StartupErrors).
     static bool SystemLanguageIsPortuguese();
     // The hook above: a BCP 47 tag or a POSIX locale ("pt-BR", "pt_PT.UTF-8",
     // "en"). An empty string forgets it.
     static void SetSystemLocale(const std::string& locale);
-    // Whether a locale name is Portuguese: "pt", then the end or a separator
-    // ('_', '-', '.', '@'), any case. "C", "POSIX" and "" are not.
+    // A locale name's language: the part before the first '_', '-', '.' or
+    // '@', any case, when it is a Languages.hpp id ("pt_BR" pt, "uk-UA" uk,
+    // "en_GB.UTF-8" en); "en" for any other ("zh_CN", "C", "POSIX", "").
+    static std::string LanguageOfLocale(const std::string& locale);
+    // Windows' PRIMARYLANGID of a LANGID (LANG_GERMAN 0x07, ...) as a
+    // Languages.hpp id; "en" for a language the game does not speak. Numbers,
+    // so the table is tested off Windows too (Settings.cpp checks them against
+    // winnt.h's LANG_* on Windows).
+    static std::string LanguageOfPrimaryLangId(unsigned primaryLangId);
+    // Whether a locale name is Portuguese: LanguageOfLocale(locale) == "pt".
     static bool LocaleIsPortuguese(const std::string& locale);
     static KeyBindings DefaultPlayer1Keys();
     static KeyBindings DefaultPlayer2Keys();

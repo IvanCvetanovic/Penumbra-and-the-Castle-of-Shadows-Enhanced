@@ -52,7 +52,7 @@ published with André Santee's explicit permission.
 |---|---|
 | **Display** | Widescreen at any resolution; the best resolution and refresh rate chosen automatically, or by hand; smooth motion on fast monitors |
 | **Controls** | Modern gamepads, a keyboard second player, on-screen touch controls, a pause |
-| **Language** | Portuguese and English, switchable in game |
+| **Languages** | English, German, Spanish, French, Italian, Portuguese, Russian, Turkish, Ukrainian, Japanese and Arabic, switchable in game (the 1.0.0 downloads have Portuguese and English; the others arrive with the next release) |
 | **Platforms** | Downloads for Windows, Android, Mac and Linux, and an experimental one for iPhone and iPad |
 | **Fixes** | Bugs of the original fixed, and its rendering matched more closely |
 

@@ -2,7 +2,7 @@
 // needs before PenumbraMain (main.cpp) and nothing else.
 //
 //  - THE LANGUAGE. An app started from the Finder or the Dock has no LANG in
-//    its environment, so the POSIX rule Settings::SystemLanguageIsPortuguese
+//    its environment, so the POSIX rule Settings::SystemLanguage
 //    falls back to would see none; the first language the user put in System
 //    Settings is handed over instead (E19's hook), before anything reads it.
 //  - THE FILES, inside Penumbra.app (tools/apple/make_app.sh). Its

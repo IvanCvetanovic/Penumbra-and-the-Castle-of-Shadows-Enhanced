@@ -11,11 +11,19 @@
 //     variants in English, the originals in Portuguese, and swaps both when the
 //     language changes between two draws of the same sprite; HudRenderer does
 //     the same for a DrawSprite of the back arrow.
+//   - ENHANCEMENT E24: another language's own art, images/<id>/<the original's
+//     path>, where there is one - every such file an image strings.json lists,
+//     at the original's size - and the English art where there is none; and a
+//     switch from one language to another (German to French and back) hands
+//     each renderer that language's file, not the one it cached before.
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
+#include <random>
 #include <string>
+#include <system_error>
+#include <utility>
 #include <vector>
 
 #include <entt/entt.hpp>
@@ -355,6 +363,133 @@ void TestHudSwitch() {
     hud.Detach();
 }
 
+// E24: the language folders that exist beside images/en (the art tool writes
+// them): each file is an image strings.json lists, at its original's size and
+// not the original; and every language resolves each listed image to its own
+// file or else to the English one.
+void TestLanguageFolders() {
+    Localization loc;
+    CHECK(loc.Load());
+    const std::filesystem::path data = std::filesystem::path(Localization::DefaultPath()).parent_path();
+    Supersonic::Json::Value root;
+    std::string error;
+    std::string text = ReadText(Localization::DefaultPath());
+    if (text.rfind("\xEF\xBB\xBF", 0) == 0) text.erase(0, 3);
+    CHECK_MSG(Supersonic::Json::Parse(text, root, error), error);
+    std::vector<std::string> listed;
+    for (const auto& [path, entry] : root["images"].AsObject()) {
+        if (!path.empty() && path[0] != '_') listed.push_back(path);
+    }
+    int own = 0;
+    for (const LanguageInfo& info : kLanguages) {
+        if (info.language == Language::Portuguese) continue;
+        for (const std::string& relative : listed) {
+            const std::string resolved = loc.ImageVariant(relative, info.language);
+            const std::string english = loc.ImageVariant(relative, Language::English);
+            if (Contains(resolved, std::string("/images/") + info.id + "/")) {
+                ++own;
+                const glm::ivec2 size = ProbeImageSize(kApp + "/" + relative);
+                CHECK_MSG(ProbeImageSize(resolved) == size, resolved);
+                const DecodedImage a = DecodeTexture(kApp + "/" + relative, TextureVariant::Plain);
+                const DecodedImage b = DecodeTexture(resolved, TextureVariant::Plain);
+                CHECK_MSG(a.Valid() && b.Valid() && a.rgba != b.rgba, resolved);
+            } else {
+                CHECK_MSG(resolved == english, std::string(info.id) + " " + relative + ": " + resolved);
+            }
+        }
+        // Nothing in the folder that no one draws.
+        const std::filesystem::path folder = data / "images" / info.id;
+        std::error_code ec;
+        if (info.language == Language::English || !std::filesystem::is_directory(folder, ec)) continue;
+        for (const auto& entry : std::filesystem::recursive_directory_iterator(folder, ec)) {
+            if (!entry.is_regular_file()) continue;
+            const std::string relative = std::filesystem::relative(entry.path(), folder).generic_string();
+            bool known = false;
+            for (const std::string& path : listed) known = known || path == relative;
+            CHECK_MSG(known, entry.path().generic_string() + " is not an image strings.json lists");
+        }
+    }
+    std::printf("  %d images drawn from a language's own folder (beside English)\n", own);
+}
+
+// E24: German, French and back, on a data folder of our own: the text, the
+// image each language resolves to, and the two renderers that cache them.
+void TestLanguageSwitch() {
+    namespace fs = std::filesystem;
+    const fs::path data = fs::path(Localization::DefaultPath()).parent_path();
+    const fs::path dir = fs::temp_directory_path() / ("penumbra-l10n-" + std::to_string(std::random_device{}()));
+    std::error_code ec;
+    fs::remove_all(dir, ec);
+    fs::create_directories(dir / "strings", ec);
+    fs::create_directories(dir / "images", ec);
+    fs::copy_file(data / "strings.json", dir / "strings.json", ec);
+    CHECK_MSG(!ec, ec.message());
+    fs::copy(data / "images" / "en", dir / "images" / "en", fs::copy_options::recursive, ec);
+    CHECK_MSG(!ec, ec.message());
+    // The German and French menu sheets: the English one's pixels, under each
+    // language's name (what matters here is which file is asked for).
+    for (const char* id : {"de", "fr"}) {
+        fs::create_directories(dir / "images" / id / "entities", ec);
+        fs::copy_file(data / "images" / "en" / "entities" / "menu_buttons.png",
+                      dir / "images" / id / "entities" / "menu_buttons.png", ec);
+        CHECK_MSG(!ec, ec.message());
+    }
+    const auto write = [](const fs::path& path, const std::string& text) {
+        std::ofstream file(path, std::ios::binary);
+        file << text;
+    };
+    write(dir / "strings" / "de.json", "{\"strings\": {\"Novo jogo\": \"Neues Spiel\"}}");
+    write(dir / "strings" / "fr.json", "{\"strings\": {\"Novo jogo\": \"Nouvelle partie\"}}");
+
+    Localization loc;
+    CHECK(loc.Load((dir / "strings.json").generic_string()));
+    CHECK(loc.HasLanguageFile(Language::German) && loc.HasLanguageFile(Language::French));
+    CHECK(!loc.HasLanguageFile(Language::Italian));
+    const std::string sheet = "entities/menu_buttons.png";
+    for (int round = 0; round < 2; ++round) {
+        CHECK(Contains(loc.ImageVariant(sheet, Language::German), "/images/de/entities/menu_buttons.png"));
+        CHECK(Contains(loc.ImageVariant(sheet, Language::French), "/images/fr/entities/menu_buttons.png"));
+        CHECK(loc.Translate("Novo jogo", Language::German) == "Neues Spiel");
+        CHECK(loc.Translate("Novo jogo", Language::French) == "Nouvelle partie");
+    }
+    // No art of its own: the English; no file: the English text.
+    CHECK(loc.ImageVariant(sheet, Language::Italian) == loc.ImageVariant(sheet, Language::English));
+    CHECK(Contains(loc.ImageVariant(sheet, Language::English), "/images/en/entities/menu_buttons.png"));
+    CHECK(loc.ImageVariant("entities/gamelogo.png", Language::German) ==
+          loc.ImageVariant("entities/gamelogo.png", Language::English));
+    CHECK(loc.ImageVariant(sheet, Language::Portuguese).empty());
+    CHECK(loc.Translate("Novo jogo", Language::Italian) == "New Game");
+
+    // The sprite renderer re-resolves the sheet at each switch.
+    entt::registry registry;
+    TextureCache textures(kApp);
+    SpriteRenderer renderer;
+    renderer.Attach(registry, textures);
+    renderer.SetLocalization(&loc);
+    Eth::RenderSnapshot snapshot;
+    snapshot.pixelShaders = true;
+    snapshot.sprites = {MenuButton(99, 0)};
+    const View view = CameraRig::ComputeView(snapshot, glm::uvec2(1024, 768), false);
+    const DrawOrder order = ComputeDrawOrder(snapshot);
+    const auto albedo = [&]() {
+        renderer.Draw(registry, snapshot, view, order);
+        const entt::entity quad = renderer.QuadFor(99);
+        return quad != entt::null && registry.valid(quad)
+                   ? registry.get<Supersonic::MaterialComponent>(quad).albedoTexturePath
+                   : std::string();
+    };
+    const std::pair<Language, const char*> steps[] = {
+        {Language::German, "images/de/"}, {Language::French, "images/fr/"}, {Language::German, "images/de/"},
+        {Language::Italian, "images/en/"}};
+    for (const auto& [language, folder] : steps) {
+        loc.SetLanguage(language);
+        const std::string drawn = albedo();
+        CHECK_MSG(Contains(drawn, folder), std::string(LanguageId(language)) + ": " + drawn);
+    }
+    renderer.Detach(registry);
+    fs::remove_all(dir, ec);
+}
+
 } // namespace
 
 int main() {
@@ -366,5 +501,7 @@ int main() {
     TestMenuSheetLayout();
     TestSpriteRendererSwitch();
     TestHudSwitch();
+    TestLanguageFolders();   // E24
+    TestLanguageSwitch();
     return test::summary("test_pn_render_english", 90);
 }

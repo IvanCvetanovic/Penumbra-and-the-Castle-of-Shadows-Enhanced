@@ -15,6 +15,11 @@
 // (0x81, 0x8F, 0x90, 0x9D) stay undefined. Typed characters are not text the
 // port draws: InputMapper::ToCp1252 keeps its own table, so a typed U+0107 is
 // '?' as an ANSI window's WM_CHAR made it.
+//
+// BEYOND CP1252 (ENHANCEMENT E24). The nine languages E24 adds are not all
+// cp1252 (Turkish, Cyrillic, Japanese, Arabic): their translations stay UTF-8
+// from game/data/strings/<id>.json to the font, which lays out code points.
+// The scripts' own text is still cp1252; only the draw boundary changes.
 
 #include <string>
 
@@ -34,5 +39,13 @@ string Cp1252ToUtf8(const string& text);
 string Utf8ToCp1252(const string& text);
 // One cp1252 byte -> its Unicode code point (0x8D: U+0107, E21).
 unsigned Cp1252CodePoint(unsigned char byte);
+// E24: the cp1252 byte whose Cp1252CodePoint is `codePoint` (the lowest such
+// byte for U+FFFD); false when cp1252 has none. U+0080..U+009F are C1
+// controls, not the cp1252 characters at those bytes, and have none.
+bool Cp1252ByteOf(unsigned codePoint, unsigned char& byte);
+// E24: UTF-8 -> code points, a stray or truncated sequence as one U+FFFD (the
+// text that follows it survives); and back.
+std::u32string Utf8ToCodePoints(const string& text);
+string CodePointsToUtf8(const std::u32string& text);
 
 } // namespace Penumbra::Eth

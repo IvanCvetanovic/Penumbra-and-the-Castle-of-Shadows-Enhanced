@@ -184,7 +184,7 @@ private:
     void ApplyLanguage();
     // What this run shows: the settings unless a flag overrides them.
     bool Widescreen() const;
-    bool Portuguese() const;
+    Render::Language CurrentLanguage() const;
     bool SmoothMotion() const;
     bool PauseOnFocusLoss() const;
     // E13: a level or an arena being played, where the pause may open.

@@ -56,6 +56,43 @@ char ToCp1252Byte(const unsigned cp) {
     return '?';
 }
 
+// One UTF-8 sequence at text[i]: its code point, and how many bytes it took
+// (at least 1). False for a stray continuation byte, an invalid lead, a
+// truncated sequence, an overlong form, a surrogate or a value past U+10FFFF;
+// `length` is then 1, so the next byte starts afresh.
+bool DecodeUtf8(const string& text, const std::size_t i, unsigned& cp, std::size_t& length) {
+    const std::size_t size = text.size();
+    const unsigned lead = static_cast<unsigned char>(text[i]);
+    length = 1;
+    if (lead < 0x80u) {
+        cp = lead;
+        return true;
+    }
+    std::size_t sequence = 0;
+    unsigned minimum = 0;
+    if ((lead & 0xE0u) == 0xC0u) {
+        sequence = 2; cp = lead & 0x1Fu; minimum = 0x80u;
+    } else if ((lead & 0xF0u) == 0xE0u) {
+        sequence = 3; cp = lead & 0x0Fu; minimum = 0x800u;
+    } else if ((lead & 0xF8u) == 0xF0u) {
+        sequence = 4; cp = lead & 0x07u; minimum = 0x10000u;
+    } else {
+        return false;
+    }
+    if (i + sequence > size) return false;
+    for (std::size_t k = 1; k < sequence; ++k) {
+        const unsigned next = static_cast<unsigned char>(text[i + k]);
+        if ((next & 0xC0u) != 0x80u) return false;
+        cp = (cp << 6) | (next & 0x3Fu);
+    }
+    if (cp < minimum || cp > 0x10FFFFu || (cp >= 0xD800u && cp <= 0xDFFFu)) {
+        length = sequence;
+        return false;
+    }
+    length = sequence;
+    return true;
+}
+
 // AngelScript's string + number went through an ostringstream with its default
 // precision of 6 (reference/eth-0.7.12/src/addons/scriptstdstring.cpp, e.g.
 // AddStringDouble). The classic locale keeps the decimal point a point whatever
@@ -86,48 +123,49 @@ string Cp1252ToUtf8(const string& text) {
 string Utf8ToCp1252(const string& text) {
     string out;
     out.reserve(text.size());
-    const std::size_t size = text.size();
-    std::size_t i = 0;
-    while (i < size) {
-        const unsigned lead = static_cast<unsigned char>(text[i]);
-        if (lead < 0x80u) {
-            out += static_cast<char>(lead);
-            ++i;
-            continue;
-        }
-        std::size_t length = 0;
+    for (std::size_t i = 0; i < text.size();) {
+        // A stray, truncated or invalid sequence costs one '?' (a truncated one
+        // resynchronises on the next byte, so the text that follows survives).
         unsigned cp = 0;
-        unsigned minimum = 0;
-        if ((lead & 0xE0u) == 0xC0u) {
-            length = 2; cp = lead & 0x1Fu; minimum = 0x80u;
-        } else if ((lead & 0xF0u) == 0xE0u) {
-            length = 3; cp = lead & 0x0Fu; minimum = 0x800u;
-        } else if ((lead & 0xF8u) == 0xF0u) {
-            length = 4; cp = lead & 0x07u; minimum = 0x10000u;
-        } else {
-            out += '?';     // a stray continuation byte or an invalid lead
-            ++i;
-            continue;
-        }
-        bool complete = i + length <= size;
-        for (std::size_t k = 1; complete && k < length; ++k) {
-            const unsigned next = static_cast<unsigned char>(text[i + k]);
-            if ((next & 0xC0u) != 0x80u) {
-                complete = false;
-            } else {
-                cp = (cp << 6) | (next & 0x3Fu);
-            }
-        }
-        if (!complete) {
-            // A truncated sequence costs one '?' and resynchronises on the next
-            // byte, so the text that follows it survives.
-            out += '?';
-            ++i;
-            continue;
-        }
-        const bool valid = cp >= minimum && cp <= 0x10FFFFu && (cp < 0xD800u || cp > 0xDFFFu);
-        out += valid ? ToCp1252Byte(cp) : '?';
+        std::size_t length = 1;
+        out += DecodeUtf8(text, i, cp, length) ? ToCp1252Byte(cp) : '?';
         i += length;
+    }
+    return out;
+}
+
+bool Cp1252ByteOf(const unsigned codePoint, unsigned char& byte) {
+    if (codePoint < 0x80u || (codePoint >= 0xA0u && codePoint <= 0xFFu)) {
+        byte = static_cast<unsigned char>(codePoint);
+        return true;
+    }
+    for (unsigned i = 0; i < 32; ++i) {
+        if (Cp1252CodePoint(static_cast<unsigned char>(0x80u + i)) == codePoint) {
+            byte = static_cast<unsigned char>(0x80u + i);
+            return true;
+        }
+    }
+    return false;
+}
+
+std::u32string Utf8ToCodePoints(const string& text) {
+    std::u32string out;
+    out.reserve(text.size());
+    for (std::size_t i = 0; i < text.size();) {
+        unsigned cp = 0;
+        std::size_t length = 1;
+        out += static_cast<char32_t>(DecodeUtf8(text, i, cp, length) ? cp : kReplacement);
+        i += length;
+    }
+    return out;
+}
+
+string CodePointsToUtf8(const std::u32string& text) {
+    string out;
+    out.reserve(text.size());
+    for (const char32_t cp : text) {
+        const auto value = static_cast<unsigned>(cp);
+        AppendUtf8(out, value <= 0x10FFFFu ? value : kReplacement);
     }
     return out;
 }

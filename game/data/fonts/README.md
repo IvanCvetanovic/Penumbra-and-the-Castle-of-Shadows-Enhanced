@@ -1,17 +1,17 @@
-# Bundled fonts: stand-ins for the Windows faces
+# Bundled fonts: stand-ins for the Windows faces, and the Japanese and Arabic faces
 
 The original drew its text with GDI in four Microsoft faces (Arial Narrow, Arial, Arial Black,
 Verdana, all bold). Those exist only on Windows and may not be redistributed, so the port reads them
 from `%WINDIR%\Fonts` when they are there and otherwise draws these open-licence stand-ins with the
 Windows face's metrics (`game/render/FontAtlas.hpp` says how). Off Windows they are the only fonts
-the game uses.
+the game uses. The Japanese and Arabic faces of ENHANCEMENT E24, subsets of Noto, are at the end.
 
 | File | Stands in for | Version | Licence |
 |---|---|---|---|
 | `LiberationSans-Bold.ttf` | Arial Bold; Arial Narrow Bold (advances x 0.82) | Liberation Fonts 2.1.5 | SIL Open Font License 1.1 (`LICENSE-LiberationFonts.txt`) |
 | `DejaVuSans-Bold.ttf` | Arial Black; Verdana Bold | DejaVu Fonts 2.37 | Bitstream Vera licence + Arev licence, DejaVu changes public domain (`LICENSE-DejaVuFonts.txt`) |
 
-Both files are unmodified copies from the upstream releases. The Arial Narrow stand-in is condensed
+Both stand-ins are unmodified copies from the upstream releases. The Arial Narrow stand-in is condensed
 at run time, not in the file, so no renamed derivative is needed under either licence. Both licences
 allow the fonts to be bundled and redistributed with software, including sold as part of a larger
 package, but not sold on their own. Each licence text must travel with its font file. `tools/package.bat`
@@ -54,3 +54,17 @@ copies this whole folder.
   ariblk: 2254/634, xAvgCharWidth 1131.
 - DejaVuSans-Bold vs verdanab.ttf 5.33: advances 0.96-1.05x, 1.00x on average. The cell is taken
   from verdanab: 2059/430, xAvgCharWidth 1163.
+
+<!-- make_fonts.py: begin -->
+## Script faces (ENHANCEMENT E24): Japanese and Arabic
+
+Written by `tools/l10n/make_fonts.py` (rerun it whenever `game/data/strings/ja.json` changes; this section is its own and is rewritten). `game/render/FontAtlas` draws hiragana, katakana, CJK ideographs, CJK punctuation and the full-width forms from the first, Arabic from the second, on every platform, scaled to the em of the line's face. Each is an OFL Modified Version of the upstream file - a subset, instanced at bold - under its own name (neither upstream declares a Reserved Font Name the file uses), with its licence beside it.
+
+| File | Source | Made | Licence |
+|---|---|---|---|
+| `NotoSansJP-Bold.ttf` | google/fonts `ofl/notosansjp/NotoSansJP[wght].ttf` at commit `66a36c8c94b1a5d992ee4e7f392fccfe4945767c` (sha256 `c2f3b4d463500a2ddcd3849cded1fceeb9fd6d1c32e6cbecd568453ba50fc68f`) | subset + instance (wght 700): 934 characters, 932 glyphs, 161,696 bytes, sha256 `881d6c6e15382e1c31eb59f7a73c47ff634fab7716ba3a6cf1d2eb189f067789` | SIL Open Font License 1.1 (`LICENSE-NotoSansJP.txt`) |
+| `NotoSansArabic-Bold.ttf` | google/fonts `ofl/notosansarabic/NotoSansArabic[wdth,wght].ttf` at commit `66a36c8c94b1a5d992ee4e7f392fccfe4945767c` (sha256 `63111b5b2e074dd48cc67692e0a2726d86ee94c1c37fe8598257b7b4e87e869e`) | subset + instance (wght 700, wdth 100): 1171 characters, 1161 glyphs, 96,724 bytes, sha256 `f53dc0274d87962a931c21d995970a74b68c5958930c11bf85c143bffe598e7e` | SIL Open Font License 1.1 (`LICENSE-NotoSansArabic.txt`) |
+
+Japanese characters from the language files (ar.json, de.json, es.json, fr.json, it.json, ja.json, ru.json, tr.json, uk.json) and the language names: 369, of them 250 kanji.
+Made with fontTools 4.63.0.
+<!-- make_fonts.py: end -->

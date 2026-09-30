@@ -5,6 +5,9 @@
 # /W4 and add_test under the suite's own name. add_pn_test links the whole
 # port, so a suite can drive the Eth runtime, the ported scripts or the layer.
 #
+# PENUMBRA_TESTS_DATA_DIR is tests/data, the suites' own data files (the
+# language rooms, l10n_rooms.json); test_pn_all gets it too.
+#
 # SKIPS_WITH_77 marks a suite that reads the original's files from
 # PENUMBRA_ORIGINAL_DIR: a machine without them exits 77 before its first
 # check, which ctest reports SKIPPED - never a pass.
@@ -20,6 +23,7 @@ function(add_pn_test name)
     endif()
     supersonic_add_test(${name})
     penumbra_windows_resources(${name} "Penumbra test suite ${name}")
+    target_compile_definitions(${name} PRIVATE PENUMBRA_TESTS_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/data")
     if (PN_GAME)
         target_link_libraries(${name} PRIVATE PenumbraGame)
     else()
@@ -80,6 +84,7 @@ endforeach()
 add_executable(test_pn_all ${_pnAllSources})
 penumbra_windows_resources(test_pn_all "Penumbra test suites, all in one")
 target_link_libraries(test_pn_all PRIVATE Supersonic::TestHarness SupersonicCore PenumbraGame)
+target_compile_definitions(test_pn_all PRIVATE PENUMBRA_TESTS_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/data")
 if (MSVC)
     target_compile_options(test_pn_all PRIVATE /W4)
 else()

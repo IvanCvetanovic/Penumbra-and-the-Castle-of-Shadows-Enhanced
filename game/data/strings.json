@@ -1,6 +1,21 @@
 {
     "_about": "English for every player-visible Portuguese string of Penumbra and the Castle of Shadows (2010), read by game/render/Localization. Keys are the original's text in UTF-8 (the game holds it as cp1252 bytes; the loader converts). Line breaks are kept where the original has them, and lines are kept about as long as the Portuguese, because every text is drawn at a fixed place (menu panel at x=652, 391 px wide; help messages at (10,70) in Arial 30; lore signs in Arial Narrow 16). Lookup trims the text's leading and trailing whitespace and puts it back around the English, so keys carry none. Keys starting with '_' are notes. Sources: extracted/app/*.as (DrawText, shadowText, showData, addMessage, Switch labels), data.enml (global.story01-04, soldados, fun, comboTip, bridge, annoying, flyingWall, portalToCastle, warning, nights, wisdom, arena1-6), scenes/*.esc (help signs' 'message', arena thumbnails' 'title'). Not listed: the TESTING-only debug overlays ('FPS: ', 'NPCs: ', controlCharacters.as:206, setupScene.as:329), which the shipped build never compiled.",
 
+    "_languages": "ENHANCEMENT E24: the languages the game is drawn in, in the options screen's order (the Magic Rampage Companion app's picker order), each named in its own script - the same in every language. The ids are render/Languages.hpp's (settings.json, --lang, strings/<id>.json, images/<id>/); rtl: right to left. Every language but English and Portuguese has its own file, strings/<id>.json, keyed by the Portuguese as this file is (render/Localization.hpp).",
+    "languages": [
+        { "id": "en", "name": "English" },
+        { "id": "de", "name": "Deutsch" },
+        { "id": "es", "name": "Español" },
+        { "id": "fr", "name": "Français" },
+        { "id": "it", "name": "Italiano" },
+        { "id": "pt", "name": "Português" },
+        { "id": "ru", "name": "Русский" },
+        { "id": "tr", "name": "Türkçe" },
+        { "id": "uk", "name": "Українська" },
+        { "id": "ja", "name": "日本語" },
+        { "id": "ar", "name": "العربية", "rtl": true }
+    ],
+
     "strings": {
         "_menu.as:217-339 showData titles": "",
         "Créditos": "Credits",
@@ -67,6 +82,8 @@
         "Vale a partir da próxima fase": "Takes effect from the next level",
         "Português": "Português",
         "English": "English",
+        "_videoModes.cpp ENHANCEMENT E24: the language row, a chooser since E24 (the label on its own line, then '[<] name [>]' with the names from 'languages', the same in every language), in E10's switch's place, Arial Narrow 25": "",
+        "Idioma": "Language",
         "Volume da música": "Music volume",
         "Volume dos efeitos": "Effects volume",
         "Ativa movimento suave": "Enable smooth motion",

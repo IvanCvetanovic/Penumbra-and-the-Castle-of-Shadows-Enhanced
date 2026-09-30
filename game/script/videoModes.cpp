@@ -5,6 +5,7 @@
 // option) any later version.
 // Enhancement E10 adds the enhanced settings' rows; each of its lines is marked.   // E10
 // Enhancement E23 adds the automatic display mode and the refresh rate; marked.  // E23
+// Enhancement E24 makes the language row a chooser of eleven; marked.            // E24
 
 #include "script/Script.hpp"
 
@@ -20,11 +21,12 @@ Switch g_controls("2\xBA joystick para jogador 2", "interface/input_options1.png
 // ENHANCEMENT E10 (Script.hpp): the enhanced settings' rows, labelled in the   // E10
 // script's Portuguese like the rows above (strings.json has their English).    // E10
 // Row 0 of each Switch is the settings' default; the layer seeds all six.      // E10
-// The languages are named in their own tongue in both, so a player who cannot  // E10
-// read the current one still finds theirs.                                     // E10
 Switch g_keyboardP2("Teclado para o jogador 2", "Jogador 2 s\xF3 no joystick");   // E10
 Switch g_widescreen("Tela larga (widescreen)", "Tela 4:3 (original)");         // E10
-Switch g_language("Portugu\xEAs", "English");                                  // E10
+// E24: the language, a chooser whose options the layer gives it: every         // E24
+// language named in its own tongue, whatever the current one, so a player who  // E24
+// cannot read the current one still finds theirs.                              // E24
+Chooser g_language("Idioma");                                                   // E24
 Stepper g_musicVolume("Volume da m\xFAsica", 10, 10);                           // E10: 100%, the settings' default
 Stepper g_effectsVolume("Volume dos efeitos", 10, 10);                          // E10
 // E8's switch, worded as the original's own on/off row (g_enablePS).           // E10
@@ -50,6 +52,9 @@ namespace {                                                                     
 // with room to spare (test_pn_render_hud measures them).                         // E23
 constexpr float kRefreshRateX = 540.0f;                                          // E23
 constexpr float kRefreshRateValueWidth = 200.0f;                                 // E23
+// E24: the language's row keeps E10's switch's 256 px: "[<]" 40, the name 176,  // E24
+// "[>]" 40 (test_pn_render_hud measures every name in the box).                  // E24
+constexpr float kLanguageValueWidth = 176.0f;                                    // E24
 } // namespace                                                                   // E23
 
 // videoModes.as:47
@@ -212,7 +217,7 @@ void screenModesLoop()
     // The view applies from the next scene: the next level, and the menus      // E10
     // (render/WideMenus.hpp), whose world goes on past their sides.            // E10
     shadowText(vector2(520, origin.y+411), "Vale a partir da pr\xF3xima fase", "Arial Narrow", 15.0f, 150, 203,203,228);   // E10
-    g_language.put(vector2(255, origin.y+464), "Arial Narrow", fontSize, 256);     // E10: y 564-614
+    g_language.put(vector2(255, origin.y+464), "Arial Narrow", fontSize, kLanguageValueWidth);   // E24: y 564-614, E10's switch's place
     g_musicVolume.put(vector2(255, origin.y+534), "Arial Narrow", fontSize, 180);  // E10: y 634-659
     g_effectsVolume.put(vector2(255, origin.y+559), "Arial Narrow", fontSize, 180);   // E10: y 659-684
     g_smoothMotion.put(vector2(255, origin.y+594), "Arial Narrow", fontSize, 256);    // E10: y 694-744

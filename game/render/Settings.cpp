@@ -8,11 +8,13 @@
 #include <fstream>
 #include <iterator>
 #include <sstream>
+#include <string_view>
 #include <system_error>
 
 #include <GLFW/glfw3.h>
 
 #include "core/Json.hpp"
+#include "render/Languages.hpp"
 
 // Only for the UI language. Never include eth/Eth.hpp in this file: windows.h
 // defines DrawText as a macro, which would rename the script API's DrawText.
@@ -397,9 +399,10 @@ KeyBindings Settings::DefaultPlayer2Keys() {
     return keys;
 }
 
-Settings Settings::Defaults(bool systemIsPortuguese) {
+Settings Settings::Defaults(const std::string& language) {
     Settings settings;
-    settings.language = systemIsPortuguese ? "pt" : "en";
+    Language known = Language::English;
+    settings.language = LanguageFromId(language, known) ? LanguageId(known) : "en";
     settings.controls.player1 = DefaultPlayer1Keys();
     settings.controls.player2 = DefaultPlayer2Keys();
     return settings;
@@ -417,27 +420,62 @@ std::string& SuppliedLocale() {
 
 void Settings::SetSystemLocale(const std::string& locale) { SuppliedLocale() = locale; }
 
-bool Settings::LocaleIsPortuguese(const std::string& locale) {
-    if (locale.size() < 2) return false;
-    const auto lower = [](char c) { return static_cast<char>(std::tolower(static_cast<unsigned char>(c))); };
-    if (lower(locale[0]) != 'p' || lower(locale[1]) != 't') return false;
-    return locale.size() == 2 || locale[2] == '_' || locale[2] == '-' || locale[2] == '.' || locale[2] == '@';
+std::string Settings::LanguageOfLocale(const std::string& locale) {
+    const std::size_t end = locale.find_first_of("_-.@");
+    Language language = Language::English;
+    return LanguageFromId(std::string_view(locale).substr(0, end), language) ? LanguageId(language) : "en";
 }
 
-bool Settings::SystemLanguageIsPortuguese() {
-    if (!SuppliedLocale().empty()) return LocaleIsPortuguese(SuppliedLocale());
+bool Settings::LocaleIsPortuguese(const std::string& locale) { return LanguageOfLocale(locale) == "pt"; }
+
+namespace {
+
+// winnt.h's primary language ids of the languages the game speaks.
+struct PrimaryLangId {
+    unsigned id;
+    Language language;
+};
+constexpr PrimaryLangId kPrimaryLangIds[] = {
+    {0x09, Language::English},  {0x07, Language::German},  {0x0A, Language::Spanish},
+    {0x0C, Language::French},   {0x10, Language::Italian}, {0x16, Language::Portuguese},
+    {0x19, Language::Russian},  {0x1F, Language::Turkish}, {0x22, Language::Ukrainian},
+    {0x11, Language::Japanese}, {0x01, Language::Arabic},
+};
 #ifdef _WIN32
-    return PRIMARYLANGID(GetUserDefaultUILanguage()) == LANG_PORTUGUESE;
+static_assert(kPrimaryLangIds[0].id == LANG_ENGLISH && kPrimaryLangIds[1].id == LANG_GERMAN &&
+                  kPrimaryLangIds[2].id == LANG_SPANISH && kPrimaryLangIds[3].id == LANG_FRENCH &&
+                  kPrimaryLangIds[4].id == LANG_ITALIAN && kPrimaryLangIds[5].id == LANG_PORTUGUESE &&
+                  kPrimaryLangIds[6].id == LANG_RUSSIAN && kPrimaryLangIds[7].id == LANG_TURKISH &&
+                  kPrimaryLangIds[8].id == LANG_UKRAINIAN && kPrimaryLangIds[9].id == LANG_JAPANESE &&
+                  kPrimaryLangIds[10].id == LANG_ARABIC,
+              "kPrimaryLangIds agrees with winnt.h");
+#endif
+
+} // namespace
+
+std::string Settings::LanguageOfPrimaryLangId(const unsigned primaryLangId) {
+    for (const PrimaryLangId& entry : kPrimaryLangIds) {
+        if (entry.id == primaryLangId) return LanguageId(entry.language);
+    }
+    return "en";
+}
+
+std::string Settings::SystemLanguage() {
+    if (!SuppliedLocale().empty()) return LanguageOfLocale(SuppliedLocale());
+#ifdef _WIN32
+    return LanguageOfPrimaryLangId(PRIMARYLANGID(GetUserDefaultUILanguage()));
 #else
     // POSIX precedence for messages: LC_ALL overrides LC_MESSAGES, which
     // overrides LANG; an empty variable counts as unset.
     for (const char* name : {"LC_ALL", "LC_MESSAGES", "LANG"}) {
         const char* value = std::getenv(name);
-        if (value != nullptr && *value != '\0') return LocaleIsPortuguese(value);
+        if (value != nullptr && *value != '\0') return LanguageOfLocale(value);
     }
-    return false;
+    return "en";
 #endif
 }
+
+bool Settings::SystemLanguageIsPortuguese() { return SystemLanguage() == "pt"; }
 
 std::filesystem::path Settings::FilePath(const std::filesystem::path& userDir) {
     return userDir / "settings.json";
@@ -459,12 +497,11 @@ Settings Settings::FromJson(const std::string& text, const Settings& defaults, s
 
     if (root.Has("language")) {
         const std::string language = root["language"].AsString();
-        if (EqualsIgnoreCase(language, "pt")) {
-            settings.language = "pt";
-        } else if (EqualsIgnoreCase(language, "en")) {
-            settings.language = "en";
+        Language known = Language::English;
+        if (LanguageFromId(language, known)) {
+            settings.language = LanguageId(known);
         } else {
-            Warn(warning, "language is neither \"pt\" nor \"en\"");
+            Warn(warning, "language \"" + language + "\" is not one the game speaks");
         }
     }
 

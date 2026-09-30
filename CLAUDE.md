@@ -11,8 +11,9 @@ Engine 0.7.12** (D3D9 + NVIDIA Cg, AngelScript gameplay). The enhanced edition r
 **Supersonic** (C++20, Vulkan, EnTT), which is a git submodule at `engine/`.
 
 Decisions (2026-09-27): **enhanced from the start** — the original's scripts are the gameplay
-spec, but visuals, controls, resolution and balance may be modernised freely; **Portuguese and
-English** text, selectable in the game; the original's assets are **read in place** from
+spec, but visuals, controls, resolution and balance may be modernised freely; **eleven languages**
+(Portuguese, the original's; English; and since E24 the nine others of the author's Magic Rampage
+Companion app), selectable in the game; the original's assets are **read in place** from
 `extracted/app` (committed, and public since 2026-09-30) and never copied or converted into
 the repository.
 
@@ -32,7 +33,8 @@ game/
   eth/               PenumbraEth: the Ethanon 0.7.12 runtime emulation (no renderer)
   script/            the .as files ported to C++, one .cpp per .as, on the Eth API
   render/            presentation on the engine: sprites, lights, shadows, particles, text, HUD
-  data/              the port's own JSON (translations, settings defaults, touch layout), fonts, images
+  data/              the port's own JSON (strings.json = English + the language list, strings/<id>.json =
+                     the other languages, settings defaults, touch layout), fonts, images
   android/           AndroidMain.cpp (unpack, flags, locale) and the manifest
   macos/ ios/        MacMain.mm (main on a Mac) and IOSMain.mm (SupersonicMain on iOS), Info.plists
   windows/ linux/ macos/  how-to-play.txt: the "HOW TO PLAY.txt" each release download carries
@@ -54,7 +56,9 @@ tools/apple/         make_app.sh (Penumbra.app for macOS or iOS), make_release.s
                      by hand; release.yml (by hand): the Linux, Mac and iPhone/iPad downloads, added to a
                      release; pages.yml: site/, the download page
 site/                the download page (EN/PT) on GitHub Pages
-tools/art/           make_english_art.py: the English image variants in game/data/images/en
+tools/art/           make_localized_art.py: the image variants with translated words, game/data/images/<id>
+                     (make_english_art.py: the same for English only)
+tools/l10n/          make_fonts.py: the bundled Noto Sans JP / Arabic subsets (rerun when ja.json changes)
 docs/spec/           what the original is and does (read-only knowledge base, cited)
 docs/planning/       the port's step record
 DEVLOG.md            append-only work log
@@ -100,9 +104,16 @@ reference/           gitignored: Ethanon 0.7.12 source (eth-0.7.12), GS2D r485, 
    app-lifetime uint32 counter never reset by a scene load; `UnitsPerSecond(x) = x/60` (0 on the
    first tick after a scene load); `GetFPSRate() = 60`. No wall clock, no libm-dependent RNG in the
    tick: use the Eth layer's seeded RNG and `DetMath` where results must reproduce.
-8. **Text is cp1252.** The original's strings are Windows-1252 bytes. Keep them as bytes in the
-   ported code (write non-ASCII in C++ literals as `\xE3` escapes); translate at the draw boundary
-   (`game/data/strings.json`, keyed by the original string) and convert to UTF-8 only for logs.
+8. **Text is cp1252 in the scripts, Unicode on the screen.** The original's strings are
+   Windows-1252 bytes. Keep them as bytes in the ported code (write non-ASCII in C++ literals as
+   `\xE3` escapes). Translation happens at the draw boundary (game/render/Localization):
+   `game/data/strings.json` (English, and the language list) and `game/data/strings/<id>.json` (the
+   nine others), keyed by the original string, give UTF-8, which FontAtlas draws by code point;
+   Portuguese passes through as cp1252 converted to UTF-8. Japanese and Arabic always draw from the
+   bundled Noto fonts (tools/l10n/make_fonts.py; rerun it whenever ja.json changes), Arabic shaped
+   and laid out right to left by game/render/ArabicShaping. Every text has a room on screen
+   (tests/data/l10n_rooms.json) that test_pn_render_hud checks in every language; the words baked
+   into images come from tools/art/make_localized_art.py (game/data/images/<id>/).
    One byte goes beyond cp1252: 0x8D, which cp1252 leaves undefined and none of the original's
    files holds, is the port's U+0107 (c with acute) for the enhanced edition's credit (E21):
    `\x8D` in C++, `ć` in strings.json (eth/Text.hpp). The other four undefined bytes stay undefined.

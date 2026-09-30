@@ -31,7 +31,7 @@ constexpr std::size_t kLogCap = 256;
 bool IsSpace(const char c) { return c == ' ' || c == '\n' || c == '\t'; }
 
 // Whether a text holds anything a translation could change. Digits, ':', '-',
-// brackets and the 0x95 bullet are the same in both languages, so the timer,
+// brackets and the 0x95 bullet are the same in every language, so the timer,
 // the damage numbers and an image switch's "[ ] " never reach the tables.
 bool HasLetters(const std::string& text) {
     for (const char c : text) {
@@ -63,6 +63,20 @@ bool ReadFile(const std::string& path, std::string& out) {
     out.assign(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>());
     return true;
 }
+
+// A BOM is what an editor on Windows may leave; the parser would call it
+// content before the document.
+std::string WithoutBom(const std::string& utf8Json) {
+    const std::string_view bom = "\xEF\xBB\xBF";
+    return utf8Json.compare(0, bom.size(), bom) == 0 ? utf8Json.substr(bom.size()) : utf8Json;
+}
+
+// A key as the scripts' text is looked up: cp1252, normalised, trimmed.
+std::string KeyOf(const std::string& utf8) { return Trimmed(Localization::Normalise(Eth::Utf8ToCp1252(utf8))); }
+
+// A translation as it is drawn: UTF-8, with the key's normalisation. Normalise
+// and Trimmed only touch ASCII bytes, which a UTF-8 sequence never contains.
+std::string ValueOf(const std::string& utf8) { return Trimmed(Localization::Normalise(utf8)); }
 
 } // namespace
 
@@ -106,46 +120,71 @@ bool Localization::Load(const std::string& path) {
         SUPERSONIC_LOG_WARN("Penumbra") << "localization: " << path << ": " << error << "; text stays Portuguese";
         return false;
     }
-    // Image variants are named relative to the file they are listed in.
-    m_dataDir = std::filesystem::path(path).parent_path().generic_string();
+    // Image variants and the languages' files are named relative to it.
+    m_dataDir = named.parent_path().generic_string();
+
+    // E24: every other language's file. One missing is not an error: that
+    // language is drawn in English, which the log says once here rather than
+    // once per text.
+    for (const LanguageInfo& info : kLanguages) {
+        if (info.language == Language::English || info.language == Language::Portuguese) continue;
+        const std::string file = std::string("strings/") + info.id + ".json";
+        std::string json;
+        if (!ReadFile(Eth::ResolveUnder(m_dataDir, file), json)) {
+            SUPERSONIC_LOG_WARN("Penumbra") << "localization: no " << file << "; " << info.id << " is drawn in English";
+            continue;
+        }
+        if (!LoadLanguageFromJson(info.language, json, error)) {
+            SUPERSONIC_LOG_WARN("Penumbra") << "localization: " << file << ": " << error << "; " << info.id
+                                            << " is drawn in English";
+        }
+    }
     return true;
 }
 
 bool Localization::LoadFromJson(const std::string& utf8Json, std::string& error) {
-    m_strings.clear();
+    for (Table& table : m_tables) table = Table{};
     m_patterns.clear();
+    for (std::string& name : m_names) name.clear();
     m_images.clear();
-    m_memo.clear();
+    for (auto& memo : m_memo) memo.clear();
     m_imageResolved.clear();
     m_touchStrings.clear();
     m_touchMemo.clear();
+    m_logged.clear();
     m_loaded = false;
 
-    // A BOM is what an editor on Windows may leave; the parser would call it
-    // content before the document.
-    const std::string_view bom = "\xEF\xBB\xBF";
-    const std::string text = utf8Json.compare(0, bom.size(), bom) == 0 ? utf8Json.substr(bom.size()) : utf8Json;
-
     Supersonic::Json::Value root;
-    if (!Supersonic::Json::Parse(text, root, error)) return false;
+    if (!Supersonic::Json::Parse(WithoutBom(utf8Json), root, error)) return false;
     if (!root.IsObject()) {
         error = "the document is not an object";
         return false;
     }
 
+    Table& english = m_tables[LanguageIndex(Language::English)];
     // Keys are trimmed as well as normalised, because lookup trims the text and
-    // puts its own surrounding whitespace back around the English.
+    // puts its own surrounding whitespace back around the translation.
     for (const auto& [key, value] : root["strings"].AsObject()) {
         if (key.empty() || key[0] == '_' || !value.IsString()) continue;   // "_..." are notes
-        m_strings[Trimmed(Normalise(Eth::Utf8ToCp1252(key)))] =
-            Trimmed(Normalise(Eth::Utf8ToCp1252(value.AsString())));
+        english.strings[KeyOf(key)] = ValueOf(value.AsString());
     }
     for (const Supersonic::Json::Value& entry : root["patterns"].AsArray()) {
         const std::string pt = entry["pt"].AsString();
         const std::string en = entry["en"].AsString();
         if (pt.empty()) continue;
-        m_patterns.push_back(ParsePattern(Trimmed(Normalise(Eth::Utf8ToCp1252(pt))),
-                                          Trimmed(Normalise(Eth::Utf8ToCp1252(en)))));
+        Pattern pattern = ParsePattern(KeyOf(pt));
+        const Output output = ParseOutput(ValueOf(en));
+        // The same in every language when the English is the Portuguese with
+        // its placeholders numbered in order: numbers and markers only.
+        std::string numbered;
+        int next = 0;
+        for (const Token& token : pattern.pt) {
+            numbered += token.slot == Slot::Literal ? Eth::Cp1252ToUtf8(token.literal)
+                                                    : "{" + std::to_string(++next) + "}";
+        }
+        pattern.shared = numbered == ValueOf(en);
+        m_patterns.push_back(std::move(pattern));
+        english.patterns.emplace_back(output);
     }
     for (const auto& [path, entry] : root["images"].AsObject()) {
         if (path.empty() || path[0] == '_') continue;
@@ -153,16 +192,104 @@ bool Localization::LoadFromJson(const std::string& utf8Json, std::string& error)
     }
     // E16: keyed as "strings" is, so a hint is found however the original
     // spelled its line ends.
-    const auto touchText = [](const std::string& utf8) { return Trimmed(Normalise(Eth::Utf8ToCp1252(utf8))); };
     for (const auto& [key, entry] : root["touch"].AsObject()) {
         if (key.empty() || key[0] == '_' || !entry.IsObject()) continue;
-        m_touchStrings[touchText(key)] = TouchText{touchText(entry["pt"].AsString()), touchText(entry["en"].AsString())};
+        TouchText& wording = m_touchStrings[KeyOf(key)];
+        wording[LanguageIndex(Language::Portuguese)] = ValueOf(entry["pt"].AsString());
+        wording[LanguageIndex(Language::English)] = ValueOf(entry["en"].AsString());
     }
+    // E24: the languages' own names. The ids are Languages.hpp's (a suite
+    // checks the list against it); one this build does not know is skipped.
+    for (const Supersonic::Json::Value& entry : root["languages"].AsArray()) {
+        Language language = Language::English;
+        if (LanguageFromId(entry["id"].AsString(), language)) m_names[LanguageIndex(language)] = entry["name"].AsString();
+    }
+    english.loaded = true;
+    m_tables[LanguageIndex(Language::Portuguese)].loaded = true;
     m_loaded = true;
     return true;
 }
 
-Localization::Pattern Localization::ParsePattern(const std::string& pt, const std::string& en) {
+bool Localization::LoadLanguageFromJson(const Language language, const std::string& utf8Json, std::string& error) {
+    if (language == Language::English || language == Language::Portuguese) {
+        error = "English and Portuguese are strings.json's";
+        return false;
+    }
+    Supersonic::Json::Value root;
+    if (!Supersonic::Json::Parse(WithoutBom(utf8Json), root, error)) return false;
+    if (!root.IsObject()) {
+        error = "the document is not an object";
+        return false;
+    }
+
+    Table table;
+    // An empty value is a text not translated yet: left out, so it falls back.
+    for (const auto& [key, value] : root["strings"].AsObject()) {
+        if (key.empty() || key[0] == '_' || !value.IsString() || ValueOf(value.AsString()).empty()) continue;
+        table.strings[KeyOf(key)] = ValueOf(value.AsString());
+    }
+    table.patterns.resize(m_patterns.size());
+    for (const Supersonic::Json::Value& entry : root["patterns"].AsArray()) {
+        const std::string pt = KeyOf(entry["pt"].AsString());
+        const std::string text = ValueOf(entry["text"].AsString());
+        if (pt.empty() || text.empty()) continue;
+        bool found = false;
+        for (std::size_t i = 0; i < m_patterns.size() && !found; ++i) {
+            if (m_patterns[i].source != pt) continue;
+            table.patterns[i] = ParseOutput(text);
+            found = true;
+        }
+        if (!found) {
+            SUPERSONIC_LOG_WARN("Penumbra") << "localization: " << LanguageId(language) << ": no pattern \""
+                                            << Eth::Cp1252ToUtf8(pt) << "\" in strings.json";
+        }
+    }
+    for (auto& entry : m_touchStrings) entry.second[LanguageIndex(language)].clear();
+    for (const auto& [key, value] : root["touch"].AsObject()) {
+        if (key.empty() || key[0] == '_' || !value.IsString()) continue;
+        const auto it = m_touchStrings.find(KeyOf(key));
+        if (it == m_touchStrings.end()) {
+            SUPERSONIC_LOG_WARN("Penumbra") << "localization: " << LanguageId(language) << ": \"" << key
+                                            << "\" is not in strings.json's touch";
+            continue;
+        }
+        it->second[LanguageIndex(language)] = ValueOf(value.AsString());
+    }
+    table.loaded = true;
+    m_tables[LanguageIndex(language)] = std::move(table);
+    m_memo[LanguageIndex(language)].clear();
+    return true;
+}
+
+bool Localization::HasLanguageFile(const Language language) const { return m_tables[LanguageIndex(language)].loaded; }
+
+std::string Localization::LanguageNameKey(const Language language) {
+    return std::string("{language:") + LanguageId(language) + "}";
+}
+
+std::string Localization::LanguageName(const Language language) const { return m_names[LanguageIndex(language)]; }
+
+const std::string* Localization::languageNameFor(const std::string& cp1252) const {
+    // "{language:" + an id of two letters + "}": the one shape to look at.
+    constexpr std::string_view kOpen = "{language:";
+    if (cp1252.size() != kOpen.size() + 3 || cp1252.compare(0, kOpen.size(), kOpen) != 0 || cp1252.back() != '}') {
+        return nullptr;
+    }
+    Language language = Language::English;
+    if (!LanguageFromId(std::string_view(cp1252).substr(kOpen.size(), 2), language)) return nullptr;
+    const std::string& name = m_names[LanguageIndex(language)];
+    return name.empty() ? nullptr : &name;
+}
+
+std::vector<std::string> Localization::SharedPatterns() const {
+    std::vector<std::string> shared;
+    for (const Pattern& pattern : m_patterns) {
+        if (pattern.shared) shared.push_back(pattern.source);
+    }
+    return shared;
+}
+
+Localization::Pattern Localization::ParsePattern(const std::string& pt) {
     Pattern pattern;
     pattern.source = pt;
     std::string literal;
@@ -196,28 +323,32 @@ Localization::Pattern Localization::ParsePattern(const std::string& pt, const st
         literal += pt[i];
     }
     flush();
+    return pattern;
+}
 
+Localization::Output Localization::ParseOutput(const std::string& utf8) {
+    Output output;
     std::string text;
     const auto flushOut = [&]() {
         if (text.empty()) return;
         OutToken token;
         token.literal = std::move(text);
-        pattern.en.push_back(std::move(token));
+        output.push_back(std::move(token));
         text.clear();
     };
-    for (std::size_t i = 0; i < en.size(); ++i) {
-        if (en[i] == '{' && i + 2 < en.size() && en[i + 1] >= '1' && en[i + 1] <= '9' && en[i + 2] == '}') {
+    for (std::size_t i = 0; i < utf8.size(); ++i) {
+        if (utf8[i] == '{' && i + 2 < utf8.size() && utf8[i + 1] >= '1' && utf8[i + 1] <= '9' && utf8[i + 2] == '}') {
             flushOut();
             OutToken token;
-            token.capture = en[i + 1] - '1';
-            pattern.en.push_back(token);
+            token.capture = utf8[i + 1] - '1';
+            output.push_back(token);
             i += 2;
             continue;
         }
-        text += en[i];
+        text += utf8[i];
     }
     flushOut();
-    return pattern;
+    return output;
 }
 
 bool Localization::matchFrom(const Pattern& pattern, const std::size_t token, const std::string& core,
@@ -267,41 +398,60 @@ bool Localization::matchPattern(const Pattern& pattern, const std::string& core,
     return matchFrom(pattern, 0, core, 0, captures, 0);
 }
 
-int Localization::translateNormalised(const std::string& text, std::string& out, const int depth) const {
+Localization::Gaps Localization::translateNormalised(const std::string& text, const Language language,
+                                                     std::string& out, const int depth) const {
     if (depth > kMaxDepth) {
-        out = text;
-        return 1;
+        out = Eth::Cp1252ToUtf8(text);
+        return Gaps{1, 0};
     }
     std::size_t begin = 0;
     std::size_t end = text.size();
     while (begin < end && IsSpace(text[begin])) ++begin;
     while (end > begin && IsSpace(text[end - 1])) --end;
     if (begin == end) {
-        out = text;
-        return 0;
+        out = text;   // whitespace only: ASCII
+        return Gaps{};
     }
     std::string core;
-    const int missing = translateCore(text.substr(begin, end - begin), core, depth);
+    const Gaps gaps = translateCore(text.substr(begin, end - begin), language, core, depth);
     out = text.substr(0, begin) + core + text.substr(end);
-    return missing;
+    return gaps;
 }
 
-int Localization::translateCore(const std::string& core, std::string& out, const int depth) const {
+Localization::Gaps Localization::translateCore(const std::string& core, const Language language, std::string& out,
+                                               const int depth) const {
     if (!HasLetters(core)) {
-        out = core;
-        return 0;
+        out = Eth::Cp1252ToUtf8(core);
+        return Gaps{};
     }
-    if (const auto it = m_strings.find(core); it != m_strings.end()) {
+    const Table& own = m_tables[LanguageIndex(language)];
+    const Table& english = m_tables[LanguageIndex(Language::English)];
+    if (const auto it = own.strings.find(core); it != own.strings.end()) {
         out = it->second;
-        return 0;
+        return Gaps{};
+    }
+    if (&own != &english) {
+        if (const auto it = english.strings.find(core); it != english.strings.end()) {
+            out = it->second;
+            return Gaps{0, 1};
+        }
     }
 
     std::vector<std::string> captures;
-    for (const Pattern& pattern : m_patterns) {
+    for (std::size_t p = 0; p < m_patterns.size(); ++p) {
+        const Pattern& pattern = m_patterns[p];
         if (!matchPattern(pattern, core, captures)) continue;
-        int missing = 0;
+        // The language's own wording; for a shared pattern, or one it lacks,
+        // the English (only the latter a gap).
+        Gaps gaps;
+        const std::optional<Output>* output = p < own.patterns.size() ? &own.patterns[p] : nullptr;
+        if (output == nullptr || !output->has_value()) {
+            output = p < english.patterns.size() ? &english.patterns[p] : nullptr;
+            if (!pattern.shared && &own != &english) gaps.english = 1;
+        }
+        if (output == nullptr || !output->has_value()) continue;
         out.clear();
-        for (const OutToken& token : pattern.en) {
+        for (const OutToken& token : **output) {
             if (token.capture < 0) {
                 out += token.literal;
                 continue;
@@ -317,13 +467,13 @@ int Localization::translateCore(const std::string& core, std::string& out, const
             }
             if (pattern.captureSlots[index] == Slot::Text) {
                 std::string piece;
-                missing += translateNormalised(captures[index], piece, depth + 1);
+                gaps += translateNormalised(captures[index], language, piece, depth + 1);
                 out += piece;
             } else {
-                out += captures[index];
+                out += Eth::Cp1252ToUtf8(captures[index]);
             }
         }
-        return missing;
+        return gaps;
     }
 
     // Paragraphs: split at every run of two or more line breaks, the runs kept.
@@ -344,91 +494,136 @@ int Localization::translateCore(const std::string& core, std::string& out, const
     }
     if (!pieces.empty()) {
         pieces.push_back(core.substr(start));
-        int missing = 0;
+        Gaps gaps;
         out.clear();
         for (std::size_t i = 0; i < pieces.size(); ++i) {
             std::string piece;
-            missing += translateNormalised(pieces[i], piece, depth + 1);
+            gaps += translateNormalised(pieces[i], language, piece, depth + 1);
             out += piece;
             if (i < breaks.size()) out += breaks[i];
         }
-        return missing;
+        return gaps;
     }
 
-    out = core;
-    return 1;
+    out = Eth::Cp1252ToUtf8(core);
+    return Gaps{1, 0};
 }
 
-const Localization::TouchText* Localization::touchVariant(const std::string& cp1252) const {
-    if (m_touchStrings.empty() || !HasLetters(cp1252)) return nullptr;
+const Localization::TouchHit& Localization::touchVariant(const std::string& cp1252) const {
     auto it = m_touchMemo.find(cp1252);
     if (it == m_touchMemo.end()) {
-        TouchText wrapped;
-        const std::string text = Normalise(cp1252);
-        std::size_t begin = 0;
-        std::size_t end = text.size();
-        while (begin < end && IsSpace(text[begin])) ++begin;
-        while (end > begin && IsSpace(text[end - 1])) --end;
-        if (const auto found = m_touchStrings.find(text.substr(begin, end - begin)); found != m_touchStrings.end()) {
-            // The blank lines around it, as translateNormalised keeps them.
-            const auto around = [&](const std::string& core) {
-                return core.empty() ? core : text.substr(0, begin) + core + text.substr(end);
-            };
-            wrapped.pt = around(found->second.pt);
-            wrapped.en = around(found->second.en);
+        TouchHit hit;
+        if (!m_touchStrings.empty() && HasLetters(cp1252)) {
+            const std::string text = Normalise(cp1252);
+            std::size_t begin = 0;
+            std::size_t end = text.size();
+            while (begin < end && IsSpace(text[begin])) ++begin;
+            while (end > begin && IsSpace(text[end - 1])) --end;
+            if (const auto found = m_touchStrings.find(text.substr(begin, end - begin));
+                found != m_touchStrings.end()) {
+                // The blank lines around it, as translateNormalised keeps them.
+                hit.wording = &found->second;
+                hit.before = text.substr(0, begin);
+                hit.after = text.substr(end);
+            }
         }
         if (m_touchMemo.size() >= kMemoCap) m_touchMemo.clear();
-        it = m_touchMemo.emplace(cp1252, std::move(wrapped)).first;
+        it = m_touchMemo.emplace(cp1252, std::move(hit)).first;
     }
-    return it->second.pt.empty() && it->second.en.empty() ? nullptr : &it->second;
+    return it->second;
+}
+
+std::string Localization::touchWording(const TouchHit& hit, const Language language) const {
+    if (hit.wording == nullptr) return {};
+    const std::string* core = &(*hit.wording)[LanguageIndex(language)];
+    if (core->empty() && language != Language::Portuguese) core = &(*hit.wording)[LanguageIndex(Language::English)];
+    return core->empty() ? std::string() : hit.before + *core + hit.after;
 }
 
 bool Localization::HasTouchVariant(const std::string& cp1252) const {
-    const TouchText* touch = touchVariant(cp1252);
-    return touch != nullptr && !touch->pt.empty() && !touch->en.empty();
+    const TouchHit& hit = touchVariant(cp1252);
+    return hit.wording != nullptr && !(*hit.wording)[LanguageIndex(Language::Portuguese)].empty() &&
+           !(*hit.wording)[LanguageIndex(Language::English)].empty();
+}
+
+bool Localization::HasTouchVariant(const std::string& cp1252, const Language language) const {
+    const TouchHit& hit = touchVariant(cp1252);
+    return hit.wording != nullptr && !(*hit.wording)[LanguageIndex(language)].empty();
 }
 
 std::string Localization::Translate(const std::string& cp1252, const Language language) const {
-    // E16: a control hint's touch wording, in either language. Only while
-    // touch is on, so with it off every text takes the path it always took.
+    // E24: a language's name, the same in every language.
+    if (const std::string* name = languageNameFor(cp1252); name != nullptr) return *name;
+    // E16: a control hint's touch wording. Only while touch is on, so with it
+    // off every text takes the path it always took.
     if (m_touch) {
-        if (const TouchText* touch = touchVariant(cp1252); touch != nullptr) {
-            const std::string& worded = language == Language::Portuguese ? touch->pt : touch->en;
-            if (!worded.empty()) return worded;
+        const TouchHit& hit = touchVariant(cp1252);
+        if (std::string worded = touchWording(hit, language); !worded.empty()) {
+            const bool english = (*hit.wording)[LanguageIndex(language)].empty();
+            const std::string logKey = std::string("touch:") + LanguageId(language) + ":" + cp1252;
+            if (english && HasLanguageFile(language) && m_logged.size() < kLogCap && m_logged.insert(logKey).second) {
+                SUPERSONIC_LOG_WARN("Penumbra") << "localization: no " << LanguageId(language)
+                                                << " touch wording for \"" << Eth::Cp1252ToUtf8(cp1252)
+                                                << "\"; drawn in English";
+            }
+            return worded;
         }
     }
-    if (language == Language::Portuguese || !m_loaded || !HasLetters(cp1252)) return cp1252;
-    if (const auto it = m_memo.find(cp1252); it != m_memo.end()) return it->second;
+    if (language == Language::Portuguese || !m_loaded || !HasLetters(cp1252)) return Eth::Cp1252ToUtf8(cp1252);
+    auto& memo = m_memo[LanguageIndex(language)];
+    if (const auto it = memo.find(cp1252); it != memo.end()) return it->second;
 
     std::string out;
-    const int missing = translateNormalised(Normalise(cp1252), out, 0);
-    if (missing > 0 && m_logged.size() < kLogCap && m_logged.insert(cp1252).second) {
-        SUPERSONIC_LOG_WARN("Penumbra") << "localization: no English for \"" << Eth::Cp1252ToUtf8(cp1252)
-                                        << "\" (" << missing << " piece(s) left in Portuguese)";
+    const Gaps gaps = translateNormalised(Normalise(cp1252), language, out, 0);
+    const std::string logKey = std::string(LanguageId(language)) + ":" + cp1252;
+    // A language without its file was said once at Load; English falls back to nothing.
+    const bool logEnglish = gaps.english > 0 && HasLanguageFile(language);
+    if ((gaps.missing > 0 || logEnglish) && m_logged.size() < kLogCap && m_logged.insert(logKey).second) {
+        if (gaps.missing > 0) {
+            SUPERSONIC_LOG_WARN("Penumbra") << "localization: no " << LanguageId(language) << " for \""
+                                            << Eth::Cp1252ToUtf8(cp1252) << "\" (" << gaps.missing
+                                            << " piece(s) left in Portuguese)";
+        } else {
+            SUPERSONIC_LOG_WARN("Penumbra") << "localization: no " << LanguageId(language) << " for \""
+                                            << Eth::Cp1252ToUtf8(cp1252) << "\" (" << gaps.english
+                                            << " piece(s) drawn in English)";
+        }
     }
-    if (m_memo.size() >= kMemoCap) m_memo.clear();
-    m_memo.emplace(cp1252, out);
+    if (memo.size() >= kMemoCap) memo.clear();
+    memo.emplace(cp1252, out);
     return out;
 }
 
-bool Localization::HasTranslation(const std::string& cp1252) const {
-    if (!HasLetters(cp1252)) return true;
+bool Localization::HasTranslation(const std::string& cp1252, const Language language) const {
+    if (languageNameFor(cp1252) != nullptr) return true;
+    if (!HasLetters(cp1252) || language == Language::Portuguese) return true;
     if (!m_loaded) return false;
     std::string out;
-    return translateNormalised(Normalise(cp1252), out, 0) == 0;
+    const Gaps gaps = translateNormalised(Normalise(cp1252), language, out, 0);
+    return gaps.missing == 0 && gaps.english == 0;
 }
 
 std::string Localization::ImageVariant(const std::string& relativePath, const Language language) const {
-    if (language == Language::Portuguese || m_images.empty()) return {};
-    const std::string key = PathKey(relativePath);
+    if (language == Language::Portuguese) return {};
+    const std::string path = PathKey(relativePath);
+    const std::string key = std::string(LanguageId(language)) + "|" + path;
     if (const auto it = m_imageResolved.find(key); it != m_imageResolved.end()) return it->second;
 
     std::string resolved;
-    if (const auto it = m_images.find(key); it != m_images.end() && !it->second.empty()) {
-        // As strings.json spells it, found as the disk spells it (eth/Paths.hpp).
-        const std::filesystem::path candidate(Eth::ResolveUnder(m_dataDir, it->second));
+    const auto existing = [](const std::filesystem::path& candidate) {
         std::error_code ec;
-        if (std::filesystem::is_regular_file(candidate, ec)) resolved = candidate.generic_string();
+        return std::filesystem::is_regular_file(candidate, ec) ? candidate.generic_string() : std::string();
+    };
+    if (language == Language::English) {
+        if (const auto it = m_images.find(path); it != m_images.end() && !it->second.empty()) {
+            // As strings.json spells it, found as the disk spells it (eth/Paths.hpp).
+            resolved = existing(Eth::ResolveUnder(m_dataDir, it->second));
+        }
+    } else {
+        // E24: the language's own art, else the English (the logo keeps the
+        // game's English name in the nine languages that have none of their own).
+        resolved = existing(Eth::ResolveUnder(m_dataDir, std::string("images/") + LanguageId(language) + "/" + path));
+        if (resolved.empty()) resolved = ImageVariant(relativePath, Language::English);
     }
     // Remembered either way: the HUD asks for every image on every frame.
     m_imageResolved.emplace(key, resolved);
