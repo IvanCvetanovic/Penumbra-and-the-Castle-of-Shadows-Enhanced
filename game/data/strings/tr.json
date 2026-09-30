@@ -4,7 +4,7 @@
     "Créditos": "Jenerik",
     "Melhores tempos": "En İyi Süreler",
     "Como Jogar": "Nasıl Oynanır",
-    "Jogador versus Jogador": "Oyuncuya Karşı Oyuncu",
+    "Jogador versus Jogador": "Oyuncular Arası Düello",
     "Novo jogo": "Yeni Oyun",
     "Sair do jogo": "Çıkış",
     "Configurações": "Ayarlar",
@@ -14,7 +14,7 @@
     "Vale": "Vadi",
     "Templo Sagrado": "Kutsal Tapınak",
     "Neblina": "Sis",
-    "•Controles\n Movimento: < e >\n Pulo: ^ ou CTRL (joystick 3)\n Ataque/espada: S (joystick 4)\n Ataque/fogo: D (joystick 2)\n Acionar Luz: ESPAÇO (joystick 1)\n\n Detectar joysticks: segure J\n\n•2 jogadores:\n Se houver um joystick plugado,\n o personagem principal ganha\n a habilidade de invocar a\n criatura que pode ser controlada\n pelo 2º jogador.\n\n Para invocar a criatura basta pres-\n sionar START no 2º controle.\n\n A mágica de invocação custa 50 mana\n e uma vida, mas possibilitará que 2\n jogadores lutem lado-a-lado.\n\n Somente o jogador 1 pode pegar\n checkpoints e passar de fase.": "•Kontroller\n Hareket: < ve >\n Zıplama: ^ veya Ctrl (joystick 3)\n Saldırı/kılıç: S (joystick 4)\n Saldırı/ateş: D (joystick 2)\n Işığı yak: BOŞLUK (joystick 1)\n\n Joystick algıla: J'yi basılı tutun\n\n•2 oyuncu:\n Bir joystick takılıysa ana\n karakter, 2. oyuncunun kontrol\n edebileceği bir yaratığı\n çağırma gücü kazanır.\n\n Yaratığı çağırmak için 2. joystick'te\n START'a basmanız yeterlidir.\n\n Çağırma büyüsü 50 mana ve bir\n cana mal olur, ama 2 oyuncunun\n yan yana savaşmasını sağlar.\n\n Yalnızca 1. oyuncu kontrol\n noktalarını alıp seviyeyi geçebilir.",
+    "•Controles\n Movimento: < e >\n Pulo: ^ ou CTRL (joystick 3)\n Ataque/espada: S (joystick 4)\n Ataque/fogo: D (joystick 2)\n Acionar Luz: ESPAÇO (joystick 1)\n\n Detectar joysticks: segure J\n\n•2 jogadores:\n Se houver um joystick plugado,\n o personagem principal ganha\n a habilidade de invocar a\n criatura que pode ser controlada\n pelo 2º jogador.\n\n Para invocar a criatura basta pres-\n sionar START no 2º controle.\n\n A mágica de invocação custa 50 mana\n e uma vida, mas possibilitará que 2\n jogadores lutem lado-a-lado.\n\n Somente o jogador 1 pode pegar\n checkpoints e passar de fase.": "•Kontroller\n Hareket: < ve >\n Zıplama: ^ veya CTRL (joystick 3)\n Saldırı/kılıç: S (joystick 4)\n Saldırı/ateş: D (joystick 2)\n Işığı yak: BOŞLUK (joystick 1)\n\n Joystick algıla: J'yi basılı tutun\n\n•2 oyuncu:\n Bir joystick takılıysa ana\n karakter, 2. oyuncunun kontrol\n edebileceği bir yaratığı\n çağırma gücü kazanır.\n\n Yaratığı çağırmak için 2. joystick'te\n START'a basmanız yeterlidir.\n\n Çağırma büyüsü 50 mana ve bir\n cana mal olur, ama 2 oyuncunun\n yan yana savaşmasını sağlar.\n\n Yalnızca 1. oyuncu kayıt\n noktalarını alıp seviyeyi geçebilir.",
     "Ajuste as opções de vídeo como\nresolução de tela e uso de shaders.\n\nConfigure também o uso do joystick\npelo segundo jogador.": "Ekran çözünürlüğü ve shader gibi\nvideo ayarlarını yapın.\n\nİkinci oyuncunun joystick\nkullanımını da belirleyebilirsiniz.",
     "André Santee\n -Programação\n -Scripting e mecânica do jogo\n -Efeitos especiais\n -Game design\n\nArthur Santee\n -Modelagem 3D\n -Game design\n\nGabriel Duarte\n -Trilha sonora\n  gabrielduarte.wordpress.com\n\nApproaching Thunderstorm\n -www.freesoundtrackmusic.com\n\nAgradecimentos especiais:\n-James Hastings-Trew por ter nos\n cedido algumas de suas texturas\n  planetpixelemporium.com\n-José Rodolfo Ortale\n-Rafael \"Pet\" Alencar\n-Taina Monclaire": "André Santee\n -Programlama\n -Betik yazımı ve oyun mekaniği\n -Özel efektler\n -Oyun tasarımı\n\nArthur Santee\n -3D modelleme\n -Oyun tasarımı\n\nGabriel Duarte\n -Müzikler\n  gabrielduarte.wordpress.com\n\nApproaching Thunderstorm\n -www.freesoundtrackmusic.com\n\nÖzel teşekkürler:\n-Bazı dokularını kullanmamıza\n izin veren James Hastings-Trew\n  planetpixelemporium.com\n-José Rodolfo Ortale\n-Rafael \"Pet\" Alencar\n-Taina Monclaire",
     "Penumbra não é um bom lugar\npara se viver. Quando acaba a\nneblina, chega a tempestade.\n\nEras atrás, um mago muito\npoderoso tomou o controle da\nsombria terra chamada Penumbra,\nnomeando-se o rei deste mundo.\n\nPor diversos séculos, a Ordem dos\nBruxos de Penumbra têm buscado\nderrubar o tirano.\n\nApós incontáveis anos treinando\nas artes da mágica e da luta você\nfoi escolhido pela Ordem para\nir ao Castelo das Sombras\nde Penumbra e assassinar o rei,\nacabando com um reinado que dura\nanos.": "Penumbra, yaşamak için iyi bir\nyer değildir. Sis dağılınca\nfırtına gelir.\n\nÇağlar önce, çok güçlü bir büyücü\nPenumbra adındaki kasvetli\ntoprakların denetimini ele geçirip\nkendini bu dünyanın kralı ilan etti.\n\nYüzyıllardır Penumbra Büyücüler\nTarikatı bu zorbayı devirmenin\nyolunu arıyor.\n\nBüyü ve dövüş sanatlarında geçen\nsayısız eğitim yılının ardından,\nTarikat sizi Penumbra'daki\nGölgeler Kalesi'ne gidip kralı\nöldürmek ve yıllardır süren\nsaltanatına son vermek için seçti.",
@@ -59,7 +59,7 @@
     "Não é possível invocar 2 criaturas ao mesmo tempo": "Aynı anda 2 yaratık çağrılamaz",
     "Criatura mágica invocada": "Büyülü yaratık çağrıldı",
     "Impossível invocar criatura daqui": "Yaratık buradan çağrılamaz",
-    "Checkpoint...": "Kaydedildi...",
+    "Checkpoint...": "Kayıt noktası...",
     "É necessário ter 5 de mana para realizar este combo": "Bu kombo için 5 mana gerekir",
     "Esta mágica já está em execução": "Bu büyü zaten etkin",
     "Pulo duplo: para cima enquanto estiver no ar": "Çift zıplama: havadayken yukarı basın",
@@ -71,7 +71,7 @@
     "Golpe de espada: tecla 'S'": "Kılıç darbesi: 'S' tuşu",
     "Bola de fogo: tecla 'D'": "Ateş topu: 'D' tuşu",
     "Próxima fase: seta para baixo": "Sonraki seviye: aşağı ok",
-    "Pressione a seta para cima ou CTRL para pular": "Yukarı ok veya Ctrl ile zıplayın",
+    "Pressione a seta para cima ou CTRL para pular": "Yukarı ok veya CTRL ile zıplayın",
     "É uma boa hora para ligar a luz": "Işığı yakmanın tam zamanı",
     "Pelos corredores subterrâneos\nde penumbra é possível chegar\nperto do Castelo das Sombras\nsem chamar muito a atenção": "Penumbra'nın yeraltı\nkoridorlarından fazla dikkat\nçekmeden Gölgeler Kalesi'ne\nyaklaşmak mümkündür",
     "Este portal mágico é usado para\ntransportar as tropas do rei entre\no subterrâneo e sua fortaleza": "Bu büyülü geçit, kralın\nbirliklerini yeraltı ile hisarı\narasında taşımak için kullanılır",
@@ -112,7 +112,7 @@
     },
     {
       "pt": "É necessário terminar o jogo\nem menos de {any} para\nliberar esta arena.",
-      "text": "Bu arenayı açmak için\noyunu {1} dakikadan kısa\nsürede bitirmeniz gerekir."
+      "text": "Bu arenayı açmak için\noyunu {1} süresinin altında\nbitirmeniz gerekir."
     },
     {
       "pt": "Escolha uma arena e dispute uma\npartida contra outro jogador.\n\n-Quem derrotar o outro ganha 1 ponto\n-Vence quem fizer {int} pontos primeiro\n-A partida acaba se a diferença no\nplacar exceder {int} pontos",
@@ -143,9 +143,9 @@
     "Golpe de espada: tecla 'S'": "Kılıç darbesi: kılıç düğmesi",
     "Bola de fogo: tecla 'D'": "Ateş topu: ateş düğmesi",
     "Próxima fase: seta para baixo": "Sonraki seviye: sol alttaki aşağı ok",
-    "É necessário ao menos um joystick\n para jogar neste modo.": "Oyuncu 2 için bir oyun kolu bağlayın.\n\nOyuncu 1 dokunmatik\n kontrollerle oynar.",
+    "É necessário ao menos um joystick\n para jogar neste modo.": "Oyuncu 2 için bir joystick bağlayın.\n\nOyuncu 1 dokunmatik\n kontrollerle oynar.",
     "Experimente algumas combinações de teclas,\ncomo [frente + frente + espada] entre outras": "Farklı düğme kombinasyonları deneyin,\nörneğin [ileri + ileri + kılıç]",
-    "•Controles\n Movimento: < e >\n Pulo: ^ ou CTRL (joystick 3)\n Ataque/espada: S (joystick 4)\n Ataque/fogo: D (joystick 2)\n Acionar Luz: ESPAÇO (joystick 1)\n\n Detectar joysticks: segure J\n\n•2 jogadores:\n Se houver um joystick plugado,\n o personagem principal ganha\n a habilidade de invocar a\n criatura que pode ser controlada\n pelo 2º jogador.\n\n Para invocar a criatura basta pres-\n sionar START no 2º controle.\n\n A mágica de invocação custa 50 mana\n e uma vida, mas possibilitará que 2\n jogadores lutem lado-a-lado.\n\n Somente o jogador 1 pode pegar\n checkpoints e passar de fase.": "•Dokunmatik kontroller\n Hareket: sol alttaki oklar\n Zıplama: zıplama düğmesi\n Saldırı/kılıç: kılıç düğmesi\n Saldırı/ateş: ateş düğmesi\n Işığı yak: ışık düğmesi\n\n Kombolar: üstlerindeki iki düğme\n Duraklat: sağ üstteki düğme\n\n•2 oyuncu:\n Bir joystick takılıysa ana\n karakter, 2. oyuncunun kontrol\n edebileceği bir yaratığı\n çağırma gücü kazanır.\n\n Yaratığı çağırmak için 2. joystick'te\n START'a basmanız yeterlidir.\n\n Çağırma büyüsü 50 mana ve bir\n cana mal olur, ama 2 oyuncunun\n yan yana savaşmasını sağlar.\n\n Yalnızca 1. oyuncu kontrol\n noktalarını alıp seviyeyi geçebilir."
+    "•Controles\n Movimento: < e >\n Pulo: ^ ou CTRL (joystick 3)\n Ataque/espada: S (joystick 4)\n Ataque/fogo: D (joystick 2)\n Acionar Luz: ESPAÇO (joystick 1)\n\n Detectar joysticks: segure J\n\n•2 jogadores:\n Se houver um joystick plugado,\n o personagem principal ganha\n a habilidade de invocar a\n criatura que pode ser controlada\n pelo 2º jogador.\n\n Para invocar a criatura basta pres-\n sionar START no 2º controle.\n\n A mágica de invocação custa 50 mana\n e uma vida, mas possibilitará que 2\n jogadores lutem lado-a-lado.\n\n Somente o jogador 1 pode pegar\n checkpoints e passar de fase.": "•Dokunmatik kontroller\n Hareket: sol alttaki oklar\n Zıplama: zıplama düğmesi\n Saldırı/kılıç: kılıç düğmesi\n Saldırı/ateş: ateş düğmesi\n Işığı yak: ışık düğmesi\n\n Kombolar: üstlerindeki iki düğme\n Duraklat: sağ üstteki düğme\n\n•2 oyuncu:\n Bir joystick takılıysa ana\n karakter, 2. oyuncunun kontrol\n edebileceği bir yaratığı\n çağırma gücü kazanır.\n\n Yaratığı çağırmak için 2. joystick'te\n START'a basmanız yeterlidir.\n\n Çağırma büyüsü 50 mana ve bir\n cana mal olur, ama 2 oyuncunun\n yan yana savaşmasını sağlar.\n\n Yalnızca 1. oyuncu kayıt\n noktalarını alıp seviyeyi geçebilir."
   },
   "art": {
     "labels": {
@@ -159,6 +159,7 @@
     },
     "back": "Geri",
     "player1": "Oyuncu 1",
-    "player2": "Oyuncu 2"
+    "player2": "Oyuncu 2",
+    "logo": "ve Gölgeler Kalesi"
   }
 }

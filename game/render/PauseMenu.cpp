@@ -59,16 +59,21 @@ HudCmd Rectangle(const glm::vec2& pos, const glm::vec2& size, Eth::uint top, Eth
 
 // util.as:450 shadowText: a black copy at half the alpha, offset by a tenth of
 // the size, under the text in the scripts' (203,203,228).
-void ShadowText(std::vector<HudCmd>& out, const glm::vec2& pos, const char* text, float size, Eth::uint8 alpha) {
+// E24: `rtlRight` is where a right-to-left language ends it (HudCmd::rtlRight),
+// the shadow's offset with it.
+void ShadowText(std::vector<HudCmd>& out, const glm::vec2& pos, float rtlRight, const char* text, float size,
+                Eth::uint8 alpha) {
     HudCmd shadow;
     shadow.kind = HudCmd::Kind::Text;
     shadow.pos = pos + glm::vec2(size * 0.1f, size * 0.1f);
+    shadow.rtlRight = rtlRight + size * 0.1f;
     shadow.text = text;
     shadow.font = PauseMenu::kFont;
     shadow.fontSize = size;
     shadow.color = Eth::ARGB(static_cast<Eth::uint8>(alpha / 2), 0, 0, 0);
     HudCmd front = shadow;
     front.pos = pos;
+    front.rtlRight = rtlRight;
     front.color = Eth::ARGB(alpha, 203, 203, 228);
     out.push_back(std::move(shadow));
     out.push_back(std::move(front));
@@ -83,11 +88,13 @@ PauseMenu::Layout PauseMenu::ComputeLayout(const glm::vec2& screen) {
     layout.panelMin = glm::floor((screen - kPanelSize) * 0.5f);
     layout.panelMax = layout.panelMin + kPanelSize;
     layout.title = layout.panelMin + kTitleOffset;
+    layout.titleRight = layout.panelMax.x - kTitleOffset.x;
     for (int i = 0; i < kItemCount; ++i) {
         const auto index = static_cast<std::size_t>(i);
         layout.rowMin[index] = layout.panelMin + kFirstRowOffset + glm::vec2(0.0f, kRowStep * static_cast<float>(i));
         layout.rowMax[index] = layout.rowMin[index] + kRowSize;
         layout.text[index] = layout.rowMin[index] + kRowTextOffset;
+        layout.textRight[index] = layout.rowMax[index].x - kRowTextOffset.x;
     }
     return layout;
 }
@@ -212,10 +219,11 @@ void PauseMenu::AppendOverlay(std::vector<Eth::HudCmd>& out) const {
     const auto selected = static_cast<std::size_t>(m_selected);
     out.push_back(Rectangle(layout.rowMin[selected], layout.rowMax[selected] - layout.rowMin[selected], kHighlight,
                             kHighlight));
-    ShadowText(out, layout.title, kTitle, kTitleSize, kSelectedAlpha);
+    ShadowText(out, layout.title, layout.titleRight, kTitle, kTitleSize, kSelectedAlpha);
     for (int i = 0; i < kItemCount; ++i) {
         const auto index = static_cast<std::size_t>(i);
-        ShadowText(out, layout.text[index], kItemText[index], kItemSize, i == m_selected ? kSelectedAlpha : kOtherAlpha);
+        ShadowText(out, layout.text[index], layout.textRight[index], kItemText[index], kItemSize,
+                   i == m_selected ? kSelectedAlpha : kOtherAlpha);
     }
 }
 

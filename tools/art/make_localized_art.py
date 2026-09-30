@@ -18,21 +18,24 @@ variant, else the original (render/Localization).
 tools/art/make_english_art.py is the same tool with --lang en.
 
 WHAT EACH LANGUAGE GETS. en: all seven files, from strings.json "images" (its "labels" tables), which
-also says where each file is used. de es fr it ru tr uk ja ar: six files, from the "art" section of
-game/data/strings/<id>.json:
+also says where each file is used. de es fr it ru tr uk ja ar: the same seven, from the "art"
+section of game/data/strings/<id>.json:
       "art": { "labels": { "<Portuguese menu label>": "<text>", ... the seven of them },
-               "back": "<the arrow's word>", "player1": "...", "player2": "..." }
+               "back": "<the arrow's word>", "player1": "...", "player2": "...",
+               "logo": "<the subtitle under Penumbra>" }
   entities/menu_buttons.png, entities/menu_buttons_gloss.png, entities/normalmaps/menu_nm_buttons.png
                               labels[...]; frame order Novo jogo, Creditos, Melhores tempos, Sair,
                               Configuracoes, Como jogar, Versus (the original's accents in the JSON keys)
   interface/arrow_button.png  back
   interface/input_options1.png, interface/input_options2.png   player1, player2
-The logo (entities/gamelogo.png) is English-only: the new languages show the English logo (the game's
-name). A value must be non-empty, without control characters or edge spaces. The default run takes
+  entities/gamelogo.png       logo: the subtitle only; "Penumbra" stays the original wordmark. It is
+                              optional: without it the language shows the English logo.
+A value must be non-empty, without control characters or edge spaces. The default run takes
 en plus each language whose "art" is complete and skips the rest with the keys they miss; a language
 named with --lang must be complete. Each menu label has its own room (THE ROOM AND THE FIT below;
 --check prints it in characters): from about 8 Courier characters ("Versus") to about 18 ("Melhores
-tempos"); "Sair" about 7. The arrow's word holds about 7 Latin letters (3 Japanese).
+tempos"); "Sair" about 7. The arrow's word holds about 7 Latin letters (3 Japanese), the logo's
+subtitle about 26 Latin letters and spaces (in Matura at size 36; 438 px).
 
 Needs Pillow built with raqm (Arabic is shaped and laid out right to left by raqm; the tool stops if
 PIL.features.check('raqm') is false), numpy, fontTools (only to check glyph coverage), the three stock
@@ -44,8 +47,9 @@ FACES, per script and role:
   role            Latin (en de es fr it tr)     Cyrillic (ru uk)       Japanese (ja)             Arabic (ar)
   menu labels     Courier New                    Courier New            Noto Sans JP, wght 700    Noto Sans Arabic, wght 700
   "Player N"      Courier New Bold               Courier New Bold       Noto Sans JP, wght 700    Noto Sans Arabic, wght 700
-  arrow's word    Matura MT Script Capitals;     Kurale                 Yuji Syuku                Aref Ruqaa Bold
-                  Kurale if Matura lacks a letter
+  arrow's word,   Matura MT Script Capitals;     Kurale                 Yuji Syuku                Aref Ruqaa Bold
+  logo subtitle   Kurale if Matura lacks a letter
+                  or has a capital I (its swash I reads as J: "Jndietro")
 Courier New, Courier New Bold (cour.ttf, courbd.ttf) and Matura MT Script Capitals (MATURASC.TTF, with
 Office) are Microsoft's, read from the system and rasterised, as the English art always was; Courier
 covers Latin, Turkish and Cyrillic. The rest are SIL Open Font License 1.1 faces from google/fonts, fetched at commit
@@ -162,8 +166,15 @@ centred on the body's middle row (44). English centres by Pillow's text box, as 
 did; the other languages by the drawn ink (a brush or Ruqaa word's box is lopsided). Every inked
 pixel must fall on the opaque white body inside rows 28-60, columns 16-108; a word that does not
 fit is drawn smaller, half a size at a time, down to 20 (Latin, Cyrillic) or 18, and then the tool
-stops. Both are a judgement call about a different typeface; strings.json can drop the English ones
-by emptying their "en", and deleting images/<id>/interface/arrow_button.png falls back to English.
+stops. The logo's subtitle takes the arrow's faces at the logo's scale (36/28: Matura 36, Kurale 33.5
+with a 1 px stroke, Yuji Syuku 33.5, Aref Ruqaa Bold 36), on the English subtitle's baseline (125) or,
+for Japanese and Arabic, with its ink centred on its x-height band (row 117), centred on the original
+subtitle's columns (by Pillow's text box for English, by the ink otherwise). It must stay inside the
+original subtitle's columns 106-544, 2 px clear of "Penumbra" and 3 px clear of the image's bottom;
+one that does not fit is drawn smaller, half a size at a time, down to 0.8x, and then the language
+is reported and not written. English passes at size 36 unchanged. Both are a judgement call about a
+different typeface; strings.json can drop the English ones by emptying their "en", and deleting
+images/<id>/interface/arrow_button.png or entities/gamelogo.png falls back to English.
 """
 
 import argparse
@@ -217,8 +228,9 @@ class Face:
 
     directory = FONT_CACHE
 
-    def __init__(self, file, source=None, sha256=None, axes=None):
+    def __init__(self, file, source=None, sha256=None, axes=None, avoid=""):
         self.file, self.source, self.sha256, self.axes = file, source, sha256, axes
+        self.avoid = set(avoid)
         self.fonts = {}
         self.cmap = None
 
@@ -252,14 +264,14 @@ class Face:
         return self.fonts[size]
 
     def missing(self, text):
-        """The characters of `text` the face has no glyph for."""
+        """The characters of `text` the face has no glyph for, or one that misreads (`avoid`)."""
         if self.cmap is None:
             try:
                 from fontTools.ttLib import TTFont
             except ImportError:
                 fail("needs fontTools to check glyph coverage (pip install fonttools)")
             self.cmap = set(TTFont(str(self.path()), lazy=True).getBestCmap())
-        return sorted({c for c in text if ord(c) not in self.cmap})
+        return sorted({c for c in text if ord(c) not in self.cmap or c in self.avoid})
 
     def __str__(self):
         return self.file if self.axes is None else f"{self.file} at {self.axes}"
@@ -271,7 +283,9 @@ def sha256_of(path):
 
 COURIER = Face("cour.ttf")
 COURIER_BOLD = Face("courbd.ttf")
-MATURA = Face("MATURASC.TTF")
+# Matura's capital I has a J-like swash: "Indietro" reads "Jndietro". A word with one goes to the
+# next face.
+MATURA = Face("MATURASC.TTF", avoid="I")
 NOTO_SANS_JP_700 = Face("NotoSansJP[wght].ttf", "notosansjp/NotoSansJP%5Bwght%5D.ttf",
                         "c2f3b4d463500a2ddcd3849cded1fceeb9fd6d1c32e6cbecd568453ba50fc68f", axes=[700])
 NOTO_SANS_ARABIC_700 = Face("NotoSansArabic[wdth,wght].ttf", "notosansarabic/NotoSansArabic%5Bwdth,wght%5D.ttf",
@@ -983,7 +997,7 @@ def arrow_image(word, styles, report=None, by_ink=False):
     for style in styles:
         missing = style.face.missing(word)
         if missing:
-            tried.append(f"{style.face} lacks {''.join(missing)!r}")
+            tried.append(f"{style.face} lacks (or misdraws) {''.join(missing)!r}")
             continue
         size = style.size
         while size >= style.smallest:
@@ -1018,6 +1032,11 @@ LOGO_SPAN = (106, 544)              # the original subtitle's inked columns
 LOGO_REACH = 15                     # how far the glow reaches from a letter
 LOGO_FEATHER = 2.5
 LOGO_GLOW = (4.3555, 2.6089, 0.9104)
+LOGO_MIDDLE = 117.0                 # the Latin subtitle's x-height band (rows 109-125), for centred scripts
+LOGO_LEAST = 0.8                    # the smallest a subtitle is drawn, relative to its face's size
+LOGO_CLEAR = 2                      # px kept clear of "Penumbra"
+LOGO_BOTTOM = 3                     # px kept clear of the image's bottom edge
+ARROW_MATURA_SIZE = 28              # Matura's size on the arrow, against LOGO_SIZE on the logo
 
 
 def logo_layers(image):
@@ -1034,7 +1053,31 @@ def logo_glow(letters):
     return c * (1.0 - np.exp(-k * gaussian(letters, s)))
 
 
-def logo_image(subtitle):
+def logo_styles(arrow_styles):
+    """The logo's faces: the arrow's, at the logo's scale (Matura's logo size over its arrow size)."""
+    scale = LOGO_SIZE / ARROW_MATURA_SIZE
+    return [ArrowStyle(style.face, round(style.size * scale * 2) / 2, round(style.size * scale * LOGO_LEAST * 2) / 2,
+                       style.layout, style.stroke * scale, style.centred) for style in arrow_styles]
+
+
+def logo_fits(ink, penumbra, height):
+    """Why the subtitle's ink (any non-zero byte) misfits, or None."""
+    ink = ink >= 0.5 / 255.0
+    columns = np.nonzero(ink.any(axis=0))[0]
+    rows = np.nonzero(ink.any(axis=1))[0]
+    if columns.min() < LOGO_SPAN[0] or columns.max() > LOGO_SPAN[1]:
+        return f"columns {columns.min()}-{columns.max()}, outside the original subtitle's {LOGO_SPAN[0]}-{LOGO_SPAN[1]}"
+    if rows.max() > height - 1 - LOGO_BOTTOM:
+        return f"rows down to {rows.max()}, within {LOGO_BOTTOM} px of the image's bottom"
+    if (ink & penumbra).any():
+        return f"within {LOGO_CLEAR} px of \"Penumbra\""
+    return None
+
+
+def logo_image(subtitle, styles=None, by_ink=False, report=None):
+    """The logo with `subtitle` under "Penumbra". Without `styles` it is Matura at LOGO_SIZE centred by
+    Pillow's text box, as the English art always was; otherwise the first style whose face draws every
+    letter, centred like the arrow's word (by_ink), drawn smaller half a size at a time until it fits."""
     image = rgba(LOGO)
     letters, glow = logo_layers(image)
     height, width = letters.shape
@@ -1043,10 +1086,41 @@ def logo_image(subtitle):
     for ys, xs in components(letters > 0.02):
         if ys.min() >= 94 and xs.min() >= 60:
             old[ys, xs] = True
-    left, right = plain_width(MATURA, LOGO_SIZE, subtitle)
-    pen = (LOGO_SPAN[0] + LOGO_SPAN[1]) / 2.0 - (left + right) / 2.0
-    new = plain_text(MATURA, LOGO_SIZE, subtitle, pen, LOGO_BASELINE, width, height)
     kept = np.where(old, 0.0, letters)
+    penumbra = dilate(kept > 0.02, LOGO_CLEAR)
+    centre = (LOGO_SPAN[0] + LOGO_SPAN[1]) / 2.0
+    new, tried = None, []
+    for style in styles or [ArrowStyle(MATURA, LOGO_SIZE, LOGO_SIZE * LOGO_LEAST)]:
+        missing = style.face.missing(subtitle)
+        if missing:
+            tried.append(f"{style.face} lacks (or misdraws) {''.join(missing)!r}")
+            continue
+        size = style.size
+        while size >= style.smallest:
+            left, top, right, bottom = plain_box(style.face, size, subtitle, style.layout, style.stroke)
+            pen = centre - (left + right) / 2.0
+            baseline = LOGO_MIDDLE - (top + bottom) / 2.0 if style.centred else LOGO_BASELINE
+            coverage = plain_text(style.face, size, subtitle, pen, baseline, width, height, layout=style.layout,
+                                  stroke=style.stroke)
+            if by_ink:
+                ink_left, ink_right, ink_top, ink_bottom = ink_bounds(coverage)
+                pen += centre - (ink_left + ink_right) / 2.0
+                if style.centred:
+                    baseline += LOGO_MIDDLE - (ink_top + ink_bottom) / 2.0
+                coverage = plain_text(style.face, size, subtitle, pen, baseline, width, height,
+                                      layout=style.layout, stroke=style.stroke)
+            misfit = logo_fits(coverage, penumbra, height)
+            if misfit is None:
+                new = coverage
+                if report is not None:
+                    report.append((subtitle, str(style.face), size, style.size, ink_bounds(coverage)))
+                break
+            size -= 0.5
+        if new is not None:
+            break
+        tried.append(f"{style.face} at size {style.smallest}: {misfit}")
+    if new is None:
+        raise Misfit(f"the logo's subtitle {subtitle!r}: " + "; ".join(tried))
     final = np.maximum(kept, new)
     zone = dilate(old | (new > 0.02), LOGO_REACH).astype(np.float64)
     weight = np.clip(gaussian(zone, LOGO_FEATHER), 0.0, 1.0)
@@ -1111,7 +1185,11 @@ def language_words(language, strings_dir):
         return None, "; ".join(bad)
     values = [value for _, value in wanted]
     players = {relative: values[8:10] for relative, _, _ in PLAYER_LABELS}
-    return Words(values[:7], values[7], players), None
+    # The logo's subtitle is optional: without it the English logo is drawn.
+    logo = art.get("logo")
+    if logo is not None and problem(logo):
+        return None, f"logo {problem(logo)}"
+    return Words(values[:7], values[7], players, logo), None
 
 
 # ---- output -----------------------------------------------------------------------------------------
@@ -1120,7 +1198,7 @@ def render_language(language, words):
     """{relative path: image} for one language, the fit report, and every misfit (a language with
     any is not written)."""
     style = SCRIPTS[SCRIPT_OF[language]]
-    report = {"menu": [], "player": [], "arrow": []}
+    report = {"menu": [], "player": [], "arrow": [], "logo": []}
     misfits = []
     for role, texts in (("menu", words.menu), ("player", [t for ts in words.players.values() for t in ts])):
         face = style[role].face
@@ -1145,7 +1223,14 @@ def render_language(language, words):
     except Misfit as misfit:
         misfits.append(str(misfit))
     if words.logo is not None:
-        images[LOGO] = logo_image(words.logo)[0]
+        try:
+            if language == "en":
+                images[LOGO] = logo_image(words.logo, report=report["logo"])[0]
+            else:
+                images[LOGO] = logo_image(words.logo, logo_styles(style["arrow"]), by_ink=True,
+                                          report=report["logo"])[0]
+        except Misfit as misfit:
+            misfits.append(str(misfit))
     return images, report, misfits
 
 
@@ -1164,6 +1249,10 @@ def print_report(language, report):
         print(f"  {pathlib.PurePosixPath(relative).name} {text!r}: columns {left:.0f}-{right - 1:.0f} "
               f"(area {area[0]}-{area[1] - 1}), rows {top:.0f}-{bottom - 1:.0f} ({LABEL_ROWS[0]}-{LABEL_ROWS[1] - 1})"
               + ("  " + ", ".join(notes) if notes else ""))
+    for subtitle, face, size, nominal, box in report["logo"]:
+        note = f"  drawn smaller: size {size:g} of {nominal:g}" if size != nominal else ""
+        print(f"  logo {subtitle!r}: {face} size {size:g}, columns {box[0]:.0f}-{box[1] - 1:.0f} (the original "
+              f"subtitle's {LOGO_SPAN[0]}-{LOGO_SPAN[1]}), rows {box[2]:.0f}-{box[3] - 1:.0f}{note}")
     for word, face, size, box in report["arrow"]:
         print(f"  arrow {word!r}: {face} size {size:g}, columns {box[0]:.0f}-{box[1] - 1:.0f}, rows {box[2]:.0f}-"
               f"{box[3] - 1:.0f} (inside the opaque white of rows {ARROW_TEXT[0]}-{ARROW_TEXT[1] - 1}, columns "

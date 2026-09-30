@@ -119,8 +119,13 @@ void showData(const string& title, const string& content)
     const float textSize = screenSize.y <= 700 ? 20.0f : 25.0f;      // menu.as:225
     DrawRectangle(rectPos, rectSize,
                   rectColor0, rectColor0, rectColor1, rectColor1);
-    shadowText(rectPos+vector2(10,20), title, "Arial Narrow", 40.0f, 255,203,203,228);
-    shadowText(rectPos+vector2(10,70), content, "Arial Narrow", textSize, 255,203,203,228);
+    // E24: a right-to-left language sets the title and the body against the
+    // panel's right edge, 10 px in as they are from its left, so every panel's
+    // lines start at one edge; the panel runs to the screen's right edge
+    // (screenSize.x, whole, where rectPos.x+rectSize.x is 1024 give or take a float).
+    const float rtlRight = screenSize.x-10;                           // E24
+    shadowText(rectPos+vector2(10,20), title, "Arial Narrow", 40.0f, 255,203,203,228, rtlRight);   // E24: rtlRight
+    shadowText(rectPos+vector2(10,70), content, "Arial Narrow", textSize, 255,203,203,228, rtlRight);   // E24: rtlRight
 }
 
 // menu.as:232. The whole menu and arena-select logic, run every frame (the

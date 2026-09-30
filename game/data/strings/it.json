@@ -17,7 +17,7 @@
     "•Controles\n Movimento: < e >\n Pulo: ^ ou CTRL (joystick 3)\n Ataque/espada: S (joystick 4)\n Ataque/fogo: D (joystick 2)\n Acionar Luz: ESPAÇO (joystick 1)\n\n Detectar joysticks: segure J\n\n•2 jogadores:\n Se houver um joystick plugado,\n o personagem principal ganha\n a habilidade de invocar a\n criatura que pode ser controlada\n pelo 2º jogador.\n\n Para invocar a criatura basta pres-\n sionar START no 2º controle.\n\n A mágica de invocação custa 50 mana\n e uma vida, mas possibilitará que 2\n jogadores lutem lado-a-lado.\n\n Somente o jogador 1 pode pegar\n checkpoints e passar de fase.": "•Comandi\n Movimento: < e >\n Salto: ^ o CTRL (joystick 3)\n Attacco/spada: S (joystick 4)\n Attacco/fuoco: D (joystick 2)\n Attiva luce: SPAZIO (joystick 1)\n\n Rileva joystick: tieni premuto J\n\n•2 giocatori:\n Se è collegato un joystick,\n il personaggio principale ottiene\n il potere di evocare una\n creatura che può essere controllata\n dal 2º giocatore.\n\n Per evocare la creatura basta\n premere START sul 2º controller.\n\n L'evocazione costa 50 mana e una\n vita, ma permette a 2 giocatori\n di combattere fianco a fianco.\n\n Solo il giocatore 1 può prendere\n i checkpoint e superare il livello.",
     "Ajuste as opções de vídeo como\nresolução de tela e uso de shaders.\n\nConfigure também o uso do joystick\npelo segundo jogador.": "Regola le opzioni video, come la\nrisoluzione e l'uso degli shader.\n\nPuoi anche configurare l'uso del\njoystick per il secondo giocatore.",
     "André Santee\n -Programação\n -Scripting e mecânica do jogo\n -Efeitos especiais\n -Game design\n\nArthur Santee\n -Modelagem 3D\n -Game design\n\nGabriel Duarte\n -Trilha sonora\n  gabrielduarte.wordpress.com\n\nApproaching Thunderstorm\n -www.freesoundtrackmusic.com\n\nAgradecimentos especiais:\n-James Hastings-Trew por ter nos\n cedido algumas de suas texturas\n  planetpixelemporium.com\n-José Rodolfo Ortale\n-Rafael \"Pet\" Alencar\n-Taina Monclaire": "André Santee\n -Programmazione\n -Scripting e meccaniche di gioco\n -Effetti speciali\n -Game design\n\nArthur Santee\n -Modellazione 3D\n -Game design\n\nGabriel Duarte\n -Colonna sonora\n  gabrielduarte.wordpress.com\n\nApproaching Thunderstorm\n -www.freesoundtrackmusic.com\n\nRingraziamenti speciali:\n-James Hastings-Trew per averci\n concesso alcune sue texture\n  planetpixelemporium.com\n-José Rodolfo Ortale\n-Rafael \"Pet\" Alencar\n-Taina Monclaire",
-    "Penumbra não é um bom lugar\npara se viver. Quando acaba a\nneblina, chega a tempestade.\n\nEras atrás, um mago muito\npoderoso tomou o controle da\nsombria terra chamada Penumbra,\nnomeando-se o rei deste mundo.\n\nPor diversos séculos, a Ordem dos\nBruxos de Penumbra têm buscado\nderrubar o tirano.\n\nApós incontáveis anos treinando\nas artes da mágica e da luta você\nfoi escolhido pela Ordem para\nir ao Castelo das Sombras\nde Penumbra e assassinar o rei,\nacabando com um reinado que dura\nanos.": "Penumbra non è un bel posto\nin cui vivere. Finita la nebbia,\narriva la tempesta.\n\nMolte ere fa, un mago assai\npotente prese il controllo della\ncupa terra chiamata Penumbra,\nproclamandosi re di questo mondo.\n\nDa secoli, l'Ordine degli Stregoni\ndi Penumbra cerca di rovesciare\nil tiranno.\n\nDopo innumerevoli anni di addestramento\nnelle arti della magia e della lotta,\nsei stato scelto dall'Ordine per\nrecarti al Castello delle Ombre\ndi Penumbra e assassinare il re,\nponendo fine a un regno che dura\nda anni.",
+    "Penumbra não é um bom lugar\npara se viver. Quando acaba a\nneblina, chega a tempestade.\n\nEras atrás, um mago muito\npoderoso tomou o controle da\nsombria terra chamada Penumbra,\nnomeando-se o rei deste mundo.\n\nPor diversos séculos, a Ordem dos\nBruxos de Penumbra têm buscado\nderrubar o tirano.\n\nApós incontáveis anos treinando\nas artes da mágica e da luta você\nfoi escolhido pela Ordem para\nir ao Castelo das Sombras\nde Penumbra e assassinar o rei,\nacabando com um reinado que dura\nanos.": "Penumbra non è un bel posto\nin cui vivere. Finita la nebbia,\narriva la tempesta.\n\nMolte ere fa, un mago assai\npotente prese il controllo della\ncupa terra chiamata Penumbra,\nproclamandosi re di questo mondo.\n\nDa secoli, l'Ordine degli Stregoni\ndi Penumbra cerca di rovesciare\nil tiranno.\n\nDopo innumerevoli anni di\naddestramento nelle arti della\nmagia e della lotta, sei stato\nscelto dall'Ordine per recarti al\nCastello delle Ombre di Penumbra\ne assassinare il re, ponendo fine\na un regno che dura da anni.",
     "É necessário ao menos um joystick\n para jogar neste modo.": "Serve almeno un joystick\n per giocare in questa modalità.",
     "Já há um joystick plugado.\nMude as opções de entrada no menu\nde configurações para poder\nutilizar o teclado e o joystick\npor 2 jogadores.": "C'è già un joystick collegato.\nCambia le opzioni di input nel\nmenu delle impostazioni perché\n2 giocatori possano usare la\ntastiera e il joystick.",
     "Pressione Alt+Enter para trocar entre fullscreen e modo janela": "Premi Alt+Invio per alternare tra schermo intero e modalità finestra",
@@ -29,9 +29,9 @@
     "Desativa pixel shaders": "Disattiva pixel shader",
     "Janela": "In finestra",
     "Tela-cheia": "Schermo intero",
-    "2º joystick para jogador 2": "2º joystick al giocatore 2",
-    "1º joystick para jogador 1": "1º joystick al giocatore 1",
-    "Teclado para o jogador 2": "Tastiera al giocatore 2",
+    "2º joystick para jogador 2": "2º joystick per il giocatore 2",
+    "1º joystick para jogador 1": "1º joystick per il giocatore 1",
+    "Teclado para o jogador 2": "Tastiera per il giocatore 2",
     "Jogador 2 só no joystick": "Giocatore 2: solo joystick",
     "Tela larga (widescreen)": "Schermo panoramico",
     "Tela 4:3 (original)": "4:3 (originale)",
@@ -40,8 +40,8 @@
     "English": "English",
     "Volume da música": "Volume musica",
     "Volume dos efeitos": "Volume effetti",
-    "Ativa movimento suave": "Attiva movimenti fluidi",
-    "Desativa movimento suave": "Disattiva movimenti fluidi",
+    "Ativa movimento suave": "Attiva movimento fluido",
+    "Desativa movimento suave": "Disattiva movimento fluido",
     "Pausa ao perder o foco": "Pausa quando il gioco perde il focus",
     "Continua sem o foco": "Continua anche senza focus",
     "Ativa controles de toque": "Attiva comandi touch",
@@ -116,7 +116,7 @@
     },
     {
       "pt": "Escolha uma arena e dispute uma\npartida contra outro jogador.\n\n-Quem derrotar o outro ganha 1 ponto\n-Vence quem fizer {int} pontos primeiro\n-A partida acaba se a diferença no\nplacar exceder {int} pontos",
-      "text": "Scegli un'arena e disputa una\npartita contro un altro giocatore.\n\n-Chi sconfigge l'altro ottiene 1 punto\n-Vince chi arriva prima a {1} punti\n-La partita finisce se il distacco\nnel punteggio supera {2} punti"
+      "text": "Scegli un'arena e disputa una\npartita contro un altro giocatore.\n\n-Chi sconfigge l'altro ottiene 1 punto\n-Vince chi arriva per primo a {1} punti\n-La partita finisce se il distacco\nnel punteggio supera {2} punti"
     },
     {
       "pt": "{text}\n\nIvan Cvetanović\n -Edição aprimorada (Supersonic Engine)",
@@ -143,7 +143,7 @@
     "Golpe de espada: tecla 'S'": "Colpo di spada: pulsante spada",
     "Bola de fogo: tecla 'D'": "Palla di fuoco: pulsante fuoco",
     "Próxima fase: seta para baixo": "Prossimo livello: freccia giù, in basso a sinistra",
-    "É necessário ao menos um joystick\n para jogar neste modo.": "Collega un gamepad per il giocatore 2.\n\nIl giocatore 1 gioca con i\n comandi touch.",
+    "É necessário ao menos um joystick\n para jogar neste modo.": "Collega un joystick per il giocatore 2.\n\nIl giocatore 1 gioca con i\n comandi touch.",
     "Experimente algumas combinações de teclas,\ncomo [frente + frente + espada] entre outras": "Prova qualche combinazione di pulsanti,\ncome [avanti + avanti + spada] e altre",
     "•Controles\n Movimento: < e >\n Pulo: ^ ou CTRL (joystick 3)\n Ataque/espada: S (joystick 4)\n Ataque/fogo: D (joystick 2)\n Acionar Luz: ESPAÇO (joystick 1)\n\n Detectar joysticks: segure J\n\n•2 jogadores:\n Se houver um joystick plugado,\n o personagem principal ganha\n a habilidade de invocar a\n criatura que pode ser controlada\n pelo 2º jogador.\n\n Para invocar a criatura basta pres-\n sionar START no 2º controle.\n\n A mágica de invocação custa 50 mana\n e uma vida, mas possibilitará que 2\n jogadores lutem lado-a-lado.\n\n Somente o jogador 1 pode pegar\n checkpoints e passar de fase.": "•Comandi touch\n Movimento: frecce in basso a sinistra\n Salto: pulsante salto\n Attacco/spada: pulsante spada\n Attacco/fuoco: pulsante fuoco\n Attiva luce: pulsante luce\n\n Combo: i due pulsanti sopra di essi\n Pausa: pulsante in alto a destra\n\n•2 giocatori:\n Se è collegato un joystick,\n il personaggio principale ottiene\n il potere di evocare una\n creatura che può essere controllata\n dal 2º giocatore.\n\n Per evocare la creatura basta\n premere START sul 2º controller.\n\n L'evocazione costa 50 mana e una\n vita, ma permette a 2 giocatori\n di combattere fianco a fianco.\n\n Solo il giocatore 1 può prendere\n i checkpoint e superare il livello."
   },
@@ -159,6 +159,7 @@
     },
     "back": "Indietro",
     "player1": "Giocatore 1",
-    "player2": "Giocatore 2"
+    "player2": "Giocatore 2",
+    "logo": "e il Castello delle Ombre"
   }
 }

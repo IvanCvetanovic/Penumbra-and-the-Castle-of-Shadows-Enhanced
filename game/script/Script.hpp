@@ -176,6 +176,8 @@ void addToHp(ETHEntity thisEntity, int value);        // util.as:420
 void addToMp(ETHEntity thisEntity, int value);        // util.as:435
 void shadowText(const vector2& pos, const string& text, const string& font, float size,
                 uint8 a, uint8 r, uint8 g, uint8 b);  // util.as:450
+void shadowText(const vector2& pos, const string& text, const string& font, float size,
+                uint8 a, uint8 r, uint8 g, uint8 b, float rtlRight);   // E24: set in a box (HudCmd::rtlRight)
 void loadingMessage();                                // util.as:457
 ETHEntity findEntityInScreen(const string& name);     // util.as:462
 

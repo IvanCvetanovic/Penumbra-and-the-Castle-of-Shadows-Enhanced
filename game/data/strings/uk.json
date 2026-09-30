@@ -4,7 +4,7 @@
     "Créditos": "Автори",
     "Melhores tempos": "Рекорди",
     "Como Jogar": "Як грати",
-    "Jogador versus Jogador": "Гравець проти гравця",
+    "Jogador versus Jogador": "Двобій",
     "Novo jogo": "Нова гра",
     "Sair do jogo": "Вийти з гри",
     "Configurações": "Налаштування",
@@ -14,7 +14,7 @@
     "Vale": "Долина",
     "Templo Sagrado": "Святий храм",
     "Neblina": "Туман",
-    "•Controles\n Movimento: < e >\n Pulo: ^ ou CTRL (joystick 3)\n Ataque/espada: S (joystick 4)\n Ataque/fogo: D (joystick 2)\n Acionar Luz: ESPAÇO (joystick 1)\n\n Detectar joysticks: segure J\n\n•2 jogadores:\n Se houver um joystick plugado,\n o personagem principal ganha\n a habilidade de invocar a\n criatura que pode ser controlada\n pelo 2º jogador.\n\n Para invocar a criatura basta pres-\n sionar START no 2º controle.\n\n A mágica de invocação custa 50 mana\n e uma vida, mas possibilitará que 2\n jogadores lutem lado-a-lado.\n\n Somente o jogador 1 pode pegar\n checkpoints e passar de fase.": "•Керування\n Рух: < і >\n Стрибок: ^ або CTRL (джойстик 3)\n Атака/меч: S (джойстик 4)\n Атака/вогонь: D (джойстик 2)\n Світло: ПРОБІЛ (джойстик 1)\n\n Знайти джойстики: утримуйте J\n\n•2 гравці:\n Якщо під’єднано джойстик,\n головний герой отримує\n здатність викликати\n істоту, якою може керувати\n 2-й гравець.\n\n Щоб викликати істоту, досить\n натиснути START на 2-му геймпаді.\n\n Чари виклику коштують 50 мани\n й одне життя, зате дозволяють 2\n гравцям битися пліч-о-пліч.\n\n Лише гравець 1 може активувати\n чекпойнти й завершувати рівень.",
+    "•Controles\n Movimento: < e >\n Pulo: ^ ou CTRL (joystick 3)\n Ataque/espada: S (joystick 4)\n Ataque/fogo: D (joystick 2)\n Acionar Luz: ESPAÇO (joystick 1)\n\n Detectar joysticks: segure J\n\n•2 jogadores:\n Se houver um joystick plugado,\n o personagem principal ganha\n a habilidade de invocar a\n criatura que pode ser controlada\n pelo 2º jogador.\n\n Para invocar a criatura basta pres-\n sionar START no 2º controle.\n\n A mágica de invocação custa 50 mana\n e uma vida, mas possibilitará que 2\n jogadores lutem lado-a-lado.\n\n Somente o jogador 1 pode pegar\n checkpoints e passar de fase.": "•Керування\n Рух: < і >\n Стрибок: ^ або CTRL (джойстик 3)\n Атака/меч: S (джойстик 4)\n Атака/вогонь: D (джойстик 2)\n Світло: ПРОБІЛ (джойстик 1)\n\n Знайти джойстики: утримуйте J\n\n•2 гравці:\n Якщо під’єднано джойстик,\n головний герой отримує\n здатність викликати\n істоту, якою може керувати\n 2-й гравець.\n\n Щоб викликати істоту, досить\n натиснути START на 2-му джойстику.\n\n Чари виклику коштують 50 мани\n й одне життя, зате дозволяють 2\n гравцям битися пліч-о-пліч.\n\n Лише гравець 1 може активувати\n чекпойнти й завершувати рівень.",
     "Ajuste as opções de vídeo como\nresolução de tela e uso de shaders.\n\nConfigure também o uso do joystick\npelo segundo jogador.": "Змініть параметри відео, як-от\nроздільність екрана й шейдери.\n\nТут також можна налаштувати\nджойстик для другого гравця.",
     "André Santee\n -Programação\n -Scripting e mecânica do jogo\n -Efeitos especiais\n -Game design\n\nArthur Santee\n -Modelagem 3D\n -Game design\n\nGabriel Duarte\n -Trilha sonora\n  gabrielduarte.wordpress.com\n\nApproaching Thunderstorm\n -www.freesoundtrackmusic.com\n\nAgradecimentos especiais:\n-James Hastings-Trew por ter nos\n cedido algumas de suas texturas\n  planetpixelemporium.com\n-José Rodolfo Ortale\n-Rafael \"Pet\" Alencar\n-Taina Monclaire": "André Santee\n -Програмування\n -Скрипти та ігрова механіка\n -Спецефекти\n -Геймдизайн\n\nArthur Santee\n -3D-моделювання\n -Геймдизайн\n\nGabriel Duarte\n -Музика\n  gabrielduarte.wordpress.com\n\nApproaching Thunderstorm\n -www.freesoundtrackmusic.com\n\nОсоблива подяка:\n-James Hastings-Trew за те, що\n надав нам кілька своїх текстур\n  planetpixelemporium.com\n-José Rodolfo Ortale\n-Rafael \"Pet\" Alencar\n-Taina Monclaire",
     "Penumbra não é um bom lugar\npara se viver. Quando acaba a\nneblina, chega a tempestade.\n\nEras atrás, um mago muito\npoderoso tomou o controle da\nsombria terra chamada Penumbra,\nnomeando-se o rei deste mundo.\n\nPor diversos séculos, a Ordem dos\nBruxos de Penumbra têm buscado\nderrubar o tirano.\n\nApós incontáveis anos treinando\nas artes da mágica e da luta você\nfoi escolhido pela Ordem para\nir ao Castelo das Sombras\nde Penumbra e assassinar o rei,\nacabando com um reinado que dura\nanos.": "Penumbra — не найкраще місце\nдля життя. Щойно розвіється\nтуман, налітає буря.\n\nКолись давно могутній чаклун\nзахопив похмуру землю, що\nзветься Penumbra, і проголосив\nсебе королем цього світу.\n\nУже багато століть Орден\nЧарівників Penumbra прагне\nскинути тирана.\n\nПісля незліченних років навчання\nмагії та бойового мистецтва\nОрден обрав вас, щоб ви\nвирушили до Замку Тіней\nу Penumbra та вбили короля,\nпоклавши край правлінню, що\nтриває вже багато років.",
@@ -46,7 +46,7 @@
     "Continua sem o foco": "Грати далі без фокусу",
     "Ativa controles de toque": "Сенсорне керування",
     "Desativa controles de toque": "Без сенсорного керування",
-    "Automático (melhor)": "Авто (найкращий)",
+    "Automático (melhor)": "Авто (найкраща)",
     "Taxa de atualização": "Частота оновлення",
     "Automática": "Авто",
     "Automática (máxima)": "Авто (найвища)",
@@ -116,11 +116,11 @@
     },
     {
       "pt": "Escolha uma arena e dispute uma\npartida contra outro jogador.\n\n-Quem derrotar o outro ganha 1 ponto\n-Vence quem fizer {int} pontos primeiro\n-A partida acaba se a diferença no\nplacar exceder {int} pontos",
-      "text": "Оберіть арену та зіграйте\nматч проти іншого гравця.\n\n-Перемога над суперником: 1 очко\n-Виграє перший з {1} очками\n-Матч закінчується, якщо різниця\nв рахунку перевищить {2} очки"
+      "text": "Оберіть арену та зіграйте\nматч проти іншого гравця.\n\n-Перемога над суперником: 1 очко\n-Виграє той, хто першим набере {1} очки\n-Матч закінчується, якщо різниця\nв рахунку перевищить {2} очки"
     },
     {
       "pt": "{text}\n\nIvan Cvetanović\n -Edição aprimorada (Supersonic Engine)",
-      "text": "{1}\n\nIvan Cvetanović\n -Покращене видання (Supersonic Engine)"
+      "text": "{1}\n\nIvan Cvetanović\n -Покращена версія (Supersonic Engine)"
     },
     {
       "pt": "Melhores tempos:\n{any}",
@@ -132,7 +132,7 @@
     },
     {
       "pt": "Automática ({int} Hz)",
-      "text": "Авто ({1} Hz)"
+      "text": "Авто ({1} Гц)"
     }
   ],
   "touch": {
@@ -143,9 +143,9 @@
     "Golpe de espada: tecla 'S'": "Удар мечем: кнопка меча",
     "Bola de fogo: tecla 'D'": "Вогняна куля: кнопка вогню",
     "Próxima fase: seta para baixo": "Наступний рівень: стрілка вниз, унизу ліворуч",
-    "É necessário ao menos um joystick\n para jogar neste modo.": "Під’єднайте геймпад для гравця 2.\n\nГравець 1 користується\n сенсорним керуванням.",
+    "É necessário ao menos um joystick\n para jogar neste modo.": "Під’єднайте джойстик для гравця 2.\n\nГравець 1 користується\n сенсорним керуванням.",
     "Experimente algumas combinações de teclas,\ncomo [frente + frente + espada] entre outras": "Спробуйте різні комбінації кнопок,\nяк-от [вперед + вперед + меч] тощо",
-    "•Controles\n Movimento: < e >\n Pulo: ^ ou CTRL (joystick 3)\n Ataque/espada: S (joystick 4)\n Ataque/fogo: D (joystick 2)\n Acionar Luz: ESPAÇO (joystick 1)\n\n Detectar joysticks: segure J\n\n•2 jogadores:\n Se houver um joystick plugado,\n o personagem principal ganha\n a habilidade de invocar a\n criatura que pode ser controlada\n pelo 2º jogador.\n\n Para invocar a criatura basta pres-\n sionar START no 2º controle.\n\n A mágica de invocação custa 50 mana\n e uma vida, mas possibilitará que 2\n jogadores lutem lado-a-lado.\n\n Somente o jogador 1 pode pegar\n checkpoints e passar de fase.": "•Сенсорне керування\n Рух: стрілки внизу ліворуч\n Стрибок: кнопка стрибка\n Атака/меч: кнопка меча\n Атака/вогонь: кнопка вогню\n Світло: кнопка світла\n\n Комбо: дві кнопки над ними\n Пауза: кнопка вгорі праворуч\n\n•2 гравці:\n Якщо під’єднано джойстик,\n головний герой отримує\n здатність викликати\n істоту, якою може керувати\n 2-й гравець.\n\n Щоб викликати істоту, досить\n натиснути START на 2-му геймпаді.\n\n Чари виклику коштують 50 мани\n й одне життя, зате дозволяють 2\n гравцям битися пліч-о-пліч.\n\n Лише гравець 1 може активувати\n чекпойнти й завершувати рівень."
+    "•Controles\n Movimento: < e >\n Pulo: ^ ou CTRL (joystick 3)\n Ataque/espada: S (joystick 4)\n Ataque/fogo: D (joystick 2)\n Acionar Luz: ESPAÇO (joystick 1)\n\n Detectar joysticks: segure J\n\n•2 jogadores:\n Se houver um joystick plugado,\n o personagem principal ganha\n a habilidade de invocar a\n criatura que pode ser controlada\n pelo 2º jogador.\n\n Para invocar a criatura basta pres-\n sionar START no 2º controle.\n\n A mágica de invocação custa 50 mana\n e uma vida, mas possibilitará que 2\n jogadores lutem lado-a-lado.\n\n Somente o jogador 1 pode pegar\n checkpoints e passar de fase.": "•Сенсорне керування\n Рух: стрілки внизу ліворуч\n Стрибок: кнопка стрибка\n Атака/меч: кнопка меча\n Атака/вогонь: кнопка вогню\n Світло: кнопка світла\n\n Комбо: дві кнопки над ними\n Пауза: кнопка вгорі праворуч\n\n•2 гравці:\n Якщо під’єднано джойстик,\n головний герой отримує\n здатність викликати\n істоту, якою може керувати\n 2-й гравець.\n\n Щоб викликати істоту, досить\n натиснути START на 2-му джойстику.\n\n Чари виклику коштують 50 мани\n й одне життя, зате дозволяють 2\n гравцям битися пліч-о-пліч.\n\n Лише гравець 1 може активувати\n чекпойнти й завершувати рівень."
   },
   "art": {
     "labels": {
@@ -159,6 +159,7 @@
     },
     "back": "Назад",
     "player1": "Гравець 1",
-    "player2": "Гравець 2"
+    "player2": "Гравець 2",
+    "logo": "та Замок Тіней"
   }
 }

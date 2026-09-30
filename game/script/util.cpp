@@ -513,6 +513,16 @@ void shadowText(const vector2& pos, const string& text, const string& font, cons
     DrawText(pos, text, font, size, ARGB(a,r,g,b));
 }
 
+// ENHANCEMENT E24 (not in the original): the same in a box whose right edge is
+// rtlRight, where a right-to-left language ends the text (HudCmd::rtlRight);
+// the shadow's edge is offset with it. Left to right it draws as the above.
+void shadowText(const vector2& pos, const string& text, const string& font, const float size,
+                const uint8 a, const uint8 r, const uint8 g, const uint8 b, const float rtlRight)
+{
+    DrawText(pos+vector2(size*0.1f, size*0.1f), text, font, size, ARGB(static_cast<uint8>(a/2),0,0,0), rtlRight+size*0.1f);
+    DrawText(pos, text, font, size, ARGB(a,r,g,b), rtlRight);
+}
+
 // util.as:457. "Carregando..." [Loading...], with the original's trailing \n.
 void loadingMessage()
 {

@@ -124,8 +124,10 @@ struct TextLayout {
 // E24: where each line of a block starts. Right: each line flush with the
 // right end of the block's widest line, which starts at the text's position -
 // how a right-to-left paragraph is drawn at the left-anchored places the
-// scripts give (render/ArabicShaping.hpp).
-enum class LineAlign { Left, Right };
+// scripts give (render/ArabicShaping.hpp). RightEdge: the same, the text's x
+// being where the widest line ENDS (rounded, not truncated as a left anchor
+// is) - a right-to-left paragraph set in a box (Eth::HudCmd::rtlRight).
+enum class LineAlign { Left, Right, RightEdge };
 
 class FontAtlas {
 public:
@@ -162,7 +164,7 @@ public:
     // (not at once: quads already queued this frame still name them).
     void BeginFrame();
 
-    // Lays text out as DrawText did, top-left at (int)pos, in the named face
+    // Lays text out as DrawText did, top-left at (int)pos (RightEdge: top-right), in the named face
     // at `size` (the GDI cell height, logical px). Bakes and uploads what it
     // needs. The code points in the order they are drawn (left to right: an
     // Arabic line is shaped and reordered first, render/ArabicShaping.hpp).

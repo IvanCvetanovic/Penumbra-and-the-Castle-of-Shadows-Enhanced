@@ -16,7 +16,7 @@
     "Neblina": "霧",
     "•Controles\n Movimento: < e >\n Pulo: ^ ou CTRL (joystick 3)\n Ataque/espada: S (joystick 4)\n Ataque/fogo: D (joystick 2)\n Acionar Luz: ESPAÇO (joystick 1)\n\n Detectar joysticks: segure J\n\n•2 jogadores:\n Se houver um joystick plugado,\n o personagem principal ganha\n a habilidade de invocar a\n criatura que pode ser controlada\n pelo 2º jogador.\n\n Para invocar a criatura basta pres-\n sionar START no 2º controle.\n\n A mágica de invocação custa 50 mana\n e uma vida, mas possibilitará que 2\n jogadores lutem lado-a-lado.\n\n Somente o jogador 1 pode pegar\n checkpoints e passar de fase.": "•操作方法\n 移動：< と >\n ジャンプ：^ または CTRL（パッド3）\n 剣で攻撃：S（パッド4）\n 火で攻撃：D（パッド2）\n 光を灯す：SPACE（パッド1）\n\n パッドの検出：Jキーを長押し\n\n•2人プレイ：\n パッドが接続されていれば、\n 主人公は、プレイヤー2が操作する\n クリーチャーを召喚する力を\n 得ます。\n\n 召喚するには、2つ目のパッドの\n STARTを押すだけです。\n\n 召喚魔法はマナ50と残機1つを\n 消費しますが、2人で肩を並べて\n 戦えるようになります。\n\n 中間地点の通過と\n ステージクリアができるのは\n プレイヤー1だけです。",
     "Ajuste as opções de vídeo como\nresolução de tela e uso de shaders.\n\nConfigure também o uso do joystick\npelo segundo jogador.": "解像度やシェーダーの使用など、\nビデオ設定を変更できます。\n\nプレイヤー2のパッド設定も\nここで行えます。",
-    "André Santee\n -Programação\n -Scripting e mecânica do jogo\n -Efeitos especiais\n -Game design\n\nArthur Santee\n -Modelagem 3D\n -Game design\n\nGabriel Duarte\n -Trilha sonora\n  gabrielduarte.wordpress.com\n\nApproaching Thunderstorm\n -www.freesoundtrackmusic.com\n\nAgradecimentos especiais:\n-James Hastings-Trew por ter nos\n cedido algumas de suas texturas\n  planetpixelemporium.com\n-José Rodolfo Ortale\n-Rafael \"Pet\" Alencar\n-Taina Monclaire": "André Santee\n -プログラミング\n -スクリプトとゲームメカニクス\n -特殊効果\n -ゲームデザイン\n\nArthur Santee\n -3Dモデリング\n -ゲームデザイン\n\nGabriel Duarte\n -サウンドトラック\n  gabrielduarte.wordpress.com\n\nApproaching Thunderstorm\n -www.freesoundtrackmusic.com\n\nスペシャルサンクス：\n-James Hastings-Trew\n （テクスチャの一部を提供）\n  planetpixelemporium.com\n-José Rodolfo Ortale\n-Rafael \"Pet\" Alencar\n-Taina Monclaire",
+    "André Santee\n -Programação\n -Scripting e mecânica do jogo\n -Efeitos especiais\n -Game design\n\nArthur Santee\n -Modelagem 3D\n -Game design\n\nGabriel Duarte\n -Trilha sonora\n  gabrielduarte.wordpress.com\n\nApproaching Thunderstorm\n -www.freesoundtrackmusic.com\n\nAgradecimentos especiais:\n-James Hastings-Trew por ter nos\n cedido algumas de suas texturas\n  planetpixelemporium.com\n-José Rodolfo Ortale\n-Rafael \"Pet\" Alencar\n-Taina Monclaire": "André Santee\n ・プログラミング\n ・スクリプトとゲームメカニクス\n ・特殊効果\n ・ゲームデザイン\n\nArthur Santee\n ・3Dモデリング\n ・ゲームデザイン\n\nGabriel Duarte\n ・サウンドトラック\n  gabrielduarte.wordpress.com\n\nApproaching Thunderstorm\n -www.freesoundtrackmusic.com\n\nスペシャルサンクス：\n-James Hastings-Trew\n （テクスチャの一部を提供）\n  planetpixelemporium.com\n-José Rodolfo Ortale\n-Rafael \"Pet\" Alencar\n-Taina Monclaire",
     "Penumbra não é um bom lugar\npara se viver. Quando acaba a\nneblina, chega a tempestade.\n\nEras atrás, um mago muito\npoderoso tomou o controle da\nsombria terra chamada Penumbra,\nnomeando-se o rei deste mundo.\n\nPor diversos séculos, a Ordem dos\nBruxos de Penumbra têm buscado\nderrubar o tirano.\n\nApós incontáveis anos treinando\nas artes da mágica e da luta você\nfoi escolhido pela Ordem para\nir ao Castelo das Sombras\nde Penumbra e assassinar o rei,\nacabando com um reinado que dura\nanos.": "Penumbraは住みよい土地ではない。\n霧が晴れれば、嵐がやって来る。\n\n遥か昔、強大な魔術師が\nPenumbraと呼ばれる暗き大地を\n支配し、この世界の王を名乗った。\n\n幾世紀にもわたり、Penumbraの\n魔法使いの結社は、その暴君を\n打倒しようとしてきた。\n\n数えきれない年月、魔法と戦いの\n技を磨いてきたあなたは、結社に\n選ばれた。使命は、Penumbraの\n影の城へ赴いて王を暗殺し、\n長きにわたる支配を終わらせる\nことだ。",
     "É necessário ao menos um joystick\n para jogar neste modo.": "このモードで遊ぶには、\n パッドが1つ以上必要です。",
     "Já há um joystick plugado.\nMude as opções de entrada no menu\nde configurações para poder\nutilizar o teclado e o joystick\npor 2 jogadores.": "パッドが1つ接続済みです。\n設定メニューで入力設定を\n変更すると、キーボードとパッドで\n2人プレイができます。",
@@ -46,7 +46,7 @@
     "Continua sem o foco": "非アクティブ時も続行",
     "Ativa controles de toque": "タッチ操作有効",
     "Desativa controles de toque": "タッチ操作無効",
-    "Automático (melhor)": "自動（最適）",
+    "Automático (melhor)": "自動",
     "Taxa de atualização": "リフレッシュレート",
     "Automática": "自動",
     "Automática (máxima)": "自動（最大）",
@@ -116,11 +116,11 @@
     },
     {
       "pt": "Escolha uma arena e dispute uma\npartida contra outro jogador.\n\n-Quem derrotar o outro ganha 1 ponto\n-Vence quem fizer {int} pontos primeiro\n-A partida acaba se a diferença no\nplacar exceder {int} pontos",
-      "text": "アリーナを選び、ほかの\nプレイヤーと対戦します。\n\n-相手を倒すと1点獲得\n-先に{1}点取った方の勝ち\n-点差が{2}点を超えると試合終了"
+      "text": "アリーナを選び、ほかの\nプレイヤーと対戦します。\n\n・相手を倒すと1点獲得\n・先に{1}点取った方の勝ち\n・点差が{2}点を超えると試合終了"
     },
     {
       "pt": "{text}\n\nIvan Cvetanović\n -Edição aprimorada (Supersonic Engine)",
-      "text": "{1}\n\nIvan Cvetanović\n -エンハンスド版 (Supersonic Engine)"
+      "text": "{1}\n\nIvan Cvetanović\n ・エンハンスド版 (Supersonic Engine)"
     },
     {
       "pt": "Melhores tempos:\n{any}",
@@ -159,6 +159,7 @@
     },
     "back": "戻る",
     "player1": "プレイヤー1",
-    "player2": "プレイヤー2"
+    "player2": "プレイヤー2",
+    "logo": "と影の城"
   }
 }

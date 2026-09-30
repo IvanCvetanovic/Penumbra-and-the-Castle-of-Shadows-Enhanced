@@ -4,7 +4,7 @@
     "Créditos": "فريق العمل",
     "Melhores tempos": "أفضل الأوقات",
     "Como Jogar": "طريقة اللعب",
-    "Jogador versus Jogador": "لاعب ضد لاعب",
+    "Jogador versus Jogador": "مواجهة",
     "Novo jogo": "لعبة جديدة",
     "Sair do jogo": "الخروج من اللعبة",
     "Configurações": "الإعدادات",
@@ -16,7 +16,7 @@
     "Neblina": "الضباب",
     "•Controles\n Movimento: < e >\n Pulo: ^ ou CTRL (joystick 3)\n Ataque/espada: S (joystick 4)\n Ataque/fogo: D (joystick 2)\n Acionar Luz: ESPAÇO (joystick 1)\n\n Detectar joysticks: segure J\n\n•2 jogadores:\n Se houver um joystick plugado,\n o personagem principal ganha\n a habilidade de invocar a\n criatura que pode ser controlada\n pelo 2º jogador.\n\n Para invocar a criatura basta pres-\n sionar START no 2º controle.\n\n A mágica de invocação custa 50 mana\n e uma vida, mas possibilitará que 2\n jogadores lutem lado-a-lado.\n\n Somente o jogador 1 pode pegar\n checkpoints e passar de fase.": "•التحكم\n الحركة: < و >\n القفز: ^ أو CTRL (ذراع التحكم 3)\n الهجوم/السيف: S (ذراع التحكم 4)\n الهجوم/النار: D (ذراع التحكم 2)\n تفعيل النور: SPACE (ذراع التحكم 1)\n\n كشف أذرع التحكم: اضغط J مطولا\n\n•لاعبان:\n إذا كان هناك ذراع تحكم موصول،\n يكتسب البطل القدرة على\n استدعاء مخلوق يتحكم فيه\n اللاعب الثاني.\n\n لاستدعاء المخلوق يكفي الضغط\n على START في ذراع التحكم الثاني.\n\n تكلف تعويذة الاستدعاء\n 50 من المانا وحياة واحدة، لكنها\n تتيح للاعبين القتال جنبا إلى جنب.\n\n وحده اللاعب 1 يمكنه بلوغ\n نقاط الحفظ وإنهاء المرحلة.",
     "Ajuste as opções de vídeo como\nresolução de tela e uso de shaders.\n\nConfigure também o uso do joystick\npelo segundo jogador.": "اضبط خيارات الفيديو مثل\nدقة الشاشة واستخدام المظللات.\n\nكما يمكنك ضبط ذراع التحكم\nالخاص باللاعب الثاني.",
-    "André Santee\n -Programação\n -Scripting e mecânica do jogo\n -Efeitos especiais\n -Game design\n\nArthur Santee\n -Modelagem 3D\n -Game design\n\nGabriel Duarte\n -Trilha sonora\n  gabrielduarte.wordpress.com\n\nApproaching Thunderstorm\n -www.freesoundtrackmusic.com\n\nAgradecimentos especiais:\n-James Hastings-Trew por ter nos\n cedido algumas de suas texturas\n  planetpixelemporium.com\n-José Rodolfo Ortale\n-Rafael \"Pet\" Alencar\n-Taina Monclaire": "André Santee\n -البرمجة\n -البرمجة النصية وآليات اللعب\n -المؤثرات الخاصة\n -تصميم اللعبة\n\nArthur Santee\n -النمذجة ثلاثية الأبعاد\n -تصميم اللعبة\n\nGabriel Duarte\n -الموسيقى التصويرية\n  gabrielduarte.wordpress.com\n\nApproaching Thunderstorm\n -www.freesoundtrackmusic.com\n\nشكر خاص:\n-James Hastings-Trew لسماحه لنا\n باستخدام بعض خاماته\n  planetpixelemporium.com\n-José Rodolfo Ortale\n-Rafael \"Pet\" Alencar\n-Taina Monclaire",
+    "André Santee\n -Programação\n -Scripting e mecânica do jogo\n -Efeitos especiais\n -Game design\n\nArthur Santee\n -Modelagem 3D\n -Game design\n\nGabriel Duarte\n -Trilha sonora\n  gabrielduarte.wordpress.com\n\nApproaching Thunderstorm\n -www.freesoundtrackmusic.com\n\nAgradecimentos especiais:\n-James Hastings-Trew por ter nos\n cedido algumas de suas texturas\n  planetpixelemporium.com\n-José Rodolfo Ortale\n-Rafael \"Pet\" Alencar\n-Taina Monclaire": "André Santee\n - البرمجة\n - البرمجة النصية وآليات اللعب\n - المؤثرات الخاصة\n - تصميم اللعبة\n\nArthur Santee\n - النمذجة ثلاثية الأبعاد\n - تصميم اللعبة\n\nGabriel Duarte\n - الموسيقى التصويرية\n  gabrielduarte.wordpress.com\n\nApproaching Thunderstorm\n - www.freesoundtrackmusic.com\n\nشكر خاص:\n- James Hastings-Trew لسماحه لنا\n باستخدام بعض خاماته\n  planetpixelemporium.com\n- José Rodolfo Ortale\n- Rafael \"Pet\" Alencar\n- Taina Monclaire",
     "Penumbra não é um bom lugar\npara se viver. Quando acaba a\nneblina, chega a tempestade.\n\nEras atrás, um mago muito\npoderoso tomou o controle da\nsombria terra chamada Penumbra,\nnomeando-se o rei deste mundo.\n\nPor diversos séculos, a Ordem dos\nBruxos de Penumbra têm buscado\nderrubar o tirano.\n\nApós incontáveis anos treinando\nas artes da mágica e da luta você\nfoi escolhido pela Ordem para\nir ao Castelo das Sombras\nde Penumbra e assassinar o rei,\nacabando com um reinado que dura\nanos.": "ليست Penumbra مكانا صالحا\nللعيش. فحين ينقشع الضباب،\nتهب العاصفة.\n\nقبل دهور، استولى ساحر شديد\nالبأس على الأرض القاتمة\nالمسماة Penumbra، ونصب\nنفسه ملكا على هذا العالم.\n\nمنذ قرون عديدة، تسعى جماعة\nسحرة Penumbra إلى\nالإطاحة بالطاغية.\n\nوبعد سنوات لا تحصى من التدرب\nعلى فنون السحر والقتال، اختارتك\nالجماعة للذهاب إلى قلعة الظلال\nفي Penumbra واغتيال الملك،\nلتضع حدا لحكم دام\nسنوات طويلة.",
     "É necessário ao menos um joystick\n para jogar neste modo.": "يلزم ذراع تحكم واحد على الأقل\n للعب في هذا الوضع.",
     "Já há um joystick plugado.\nMude as opções de entrada no menu\nde configurações para poder\nutilizar o teclado e o joystick\npor 2 jogadores.": "هناك ذراع تحكم موصول بالفعل.\nاضبط خيارات الإدخال في قائمة\nالإعدادات كي يتشارك لاعبان\nلوحة المفاتيح وذراع التحكم.",
@@ -27,7 +27,7 @@
     "Opções de vídeo": "خيارات الفيديو",
     "Ativa pixel shaders": "تفعيل المظللات",
     "Desativa pixel shaders": "تعطيل المظللات",
-    "Janela": "نافذة",
+    "Janela": "وضع النافذة",
     "Tela-cheia": "ملء الشاشة",
     "2º joystick para jogador 2": "ذراع التحكم الثاني للاعب 2",
     "1º joystick para jogador 1": "ذراع التحكم الأول للاعب 1",
@@ -46,7 +46,7 @@
     "Continua sem o foco": "متابعة اللعب عند فقدان التركيز",
     "Ativa controles de toque": "تفعيل التحكم باللمس",
     "Desativa controles de toque": "تعطيل التحكم باللمس",
-    "Automático (melhor)": "تلقائي (الأفضل)",
+    "Automático (melhor)": "تلقائية (الأفضل)",
     "Taxa de atualização": "معدل التحديث",
     "Automática": "تلقائي",
     "Automática (máxima)": "تلقائي (الأعلى)",
@@ -116,11 +116,11 @@
     },
     {
       "pt": "Escolha uma arena e dispute uma\npartida contra outro jogador.\n\n-Quem derrotar o outro ganha 1 ponto\n-Vence quem fizer {int} pontos primeiro\n-A partida acaba se a diferença no\nplacar exceder {int} pontos",
-      "text": "اختر ساحة والعب مباراة\nضد لاعب آخر.\n\n-من يهزم خصمه يكسب نقطة\n-يفوز أول من يحرز {1} نقاط\n-تنتهي المباراة إذا تجاوز الفارق\nفي النتيجة {2} نقاط"
+      "text": "اختر ساحة والعب مباراة\nضد لاعب آخر.\n\n- من يهزم خصمه يكسب نقطة\n- يفوز أول من يحرز {1} نقاط\n- تنتهي المباراة إذا تجاوز الفارق\nفي النتيجة {2} نقاط"
     },
     {
       "pt": "{text}\n\nIvan Cvetanović\n -Edição aprimorada (Supersonic Engine)",
-      "text": "{1}\n\nIvan Cvetanović\n -النسخة المحسنة (Supersonic Engine)"
+      "text": "{1}\n\nIvan Cvetanović\n - النسخة المحسنة (Supersonic Engine)"
     },
     {
       "pt": "Melhores tempos:\n{any}",
@@ -132,7 +132,7 @@
     },
     {
       "pt": "Automática ({int} Hz)",
-      "text": "تلقائي ({1} Hz)"
+      "text": "تلقائي ({1} هرتز)"
     }
   ],
   "touch": {
@@ -159,6 +159,7 @@
     },
     "back": "رجوع",
     "player1": "اللاعب 1",
-    "player2": "اللاعب 2"
+    "player2": "اللاعب 2",
+    "logo": "وقلعة الظلال"
   }
 }

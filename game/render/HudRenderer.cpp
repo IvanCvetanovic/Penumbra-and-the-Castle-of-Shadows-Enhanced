@@ -139,9 +139,18 @@ void HudRenderer::addText(const Eth::HudCmd& cmd, const View& view, std::vector<
     if (!drawsText(cmd)) return;
     const glm::vec4 color = ToColor(cmd.color);
 
-    // A right-to-left paragraph's lines flush with its widest.
-    const TextLayout layout = m_fonts->LayoutCodePoints(visualText(cmd), cmd.font, cmd.fontSize, cmd.pos,
-                                                        rightToLeft() ? LineAlign::Right : LineAlign::Left);
+    // A right-to-left paragraph's lines flush with its widest; set in a box
+    // (rtlRight), the widest ends at the box's right inset.
+    glm::vec2 pos = cmd.pos;
+    LineAlign align = LineAlign::Left;
+    if (rightToLeft()) {
+        align = LineAlign::Right;
+        if (cmd.rtlRight > 0.0f) {
+            pos.x = cmd.rtlRight;
+            align = LineAlign::RightEdge;
+        }
+    }
+    const TextLayout layout = m_fonts->LayoutCodePoints(visualText(cmd), cmd.font, cmd.fontSize, pos, align);
     if (layout.texture.empty()) return;
     for (const TextGlyph& glyph : layout.glyphs) {
         Quad quad;

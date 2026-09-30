@@ -65,6 +65,6 @@ Written by `tools/l10n/make_fonts.py` (rerun it whenever `game/data/strings/ja.j
 | `NotoSansJP-Bold.ttf` | google/fonts `ofl/notosansjp/NotoSansJP[wght].ttf` at commit `66a36c8c94b1a5d992ee4e7f392fccfe4945767c` (sha256 `c2f3b4d463500a2ddcd3849cded1fceeb9fd6d1c32e6cbecd568453ba50fc68f`) | subset + instance (wght 700): 934 characters, 932 glyphs, 161,696 bytes, sha256 `881d6c6e15382e1c31eb59f7a73c47ff634fab7716ba3a6cf1d2eb189f067789` | SIL Open Font License 1.1 (`LICENSE-NotoSansJP.txt`) |
 | `NotoSansArabic-Bold.ttf` | google/fonts `ofl/notosansarabic/NotoSansArabic[wdth,wght].ttf` at commit `66a36c8c94b1a5d992ee4e7f392fccfe4945767c` (sha256 `63111b5b2e074dd48cc67692e0a2726d86ee94c1c37fe8598257b7b4e87e869e`) | subset + instance (wght 700, wdth 100): 1171 characters, 1161 glyphs, 96,724 bytes, sha256 `f53dc0274d87962a931c21d995970a74b68c5958930c11bf85c143bffe598e7e` | SIL Open Font License 1.1 (`LICENSE-NotoSansArabic.txt`) |
 
-Japanese characters from the language files (ar.json, de.json, es.json, fr.json, it.json, ja.json, ru.json, tr.json, uk.json) and the language names: 369, of them 250 kanji.
+Japanese characters from the language files (ar.json, de.json, es.json, fr.json, it.json, ja.json, ru.json, tr.json, uk.json) and the language names: 370, of them 250 kanji.
 Made with fontTools 4.63.0.
 <!-- make_fonts.py: end -->

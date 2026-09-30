@@ -4,7 +4,7 @@
     "Créditos": "Авторы",
     "Melhores tempos": "Рекорды",
     "Como Jogar": "Как играть",
-    "Jogador versus Jogador": "Игрок против игрока",
+    "Jogador versus Jogador": "Дуэль",
     "Novo jogo": "Новая игра",
     "Sair do jogo": "Выход из игры",
     "Configurações": "Настройки",
@@ -16,7 +16,7 @@
     "Neblina": "Туман",
     "•Controles\n Movimento: < e >\n Pulo: ^ ou CTRL (joystick 3)\n Ataque/espada: S (joystick 4)\n Ataque/fogo: D (joystick 2)\n Acionar Luz: ESPAÇO (joystick 1)\n\n Detectar joysticks: segure J\n\n•2 jogadores:\n Se houver um joystick plugado,\n o personagem principal ganha\n a habilidade de invocar a\n criatura que pode ser controlada\n pelo 2º jogador.\n\n Para invocar a criatura basta pres-\n sionar START no 2º controle.\n\n A mágica de invocação custa 50 mana\n e uma vida, mas possibilitará que 2\n jogadores lutem lado-a-lado.\n\n Somente o jogador 1 pode pegar\n checkpoints e passar de fase.": "•Управление\n Движение: < и >\n Прыжок: ^ или CTRL (джойстик 3)\n Атака/меч: S (джойстик 4)\n Атака/огонь: D (джойстик 2)\n Зажечь свет: ПРОБЕЛ (джойстик 1)\n\n Поиск джойстиков: удерживайте J\n\n•2 игрока:\n Если подключён джойстик,\n главный герой получает\n способность призывать\n существо, которым может\n управлять 2-й игрок.\n\n Чтобы призвать существо, просто\n нажмите START на 2-м контроллере.\n\n Заклинание призыва стоит 50 маны\n и одну жизнь, зато позволяет 2\n игрокам сражаться бок о бок.\n\n Только игрок 1 может активировать\n чекпоинты и проходить уровни.",
     "Ajuste as opções de vídeo como\nresolução de tela e uso de shaders.\n\nConfigure também o uso do joystick\npelo segundo jogador.": "Настройте графику: разрешение\nэкрана, шейдеры и прочее.\n\nЗдесь же настраивается джойстик\nдля второго игрока.",
-    "André Santee\n -Programação\n -Scripting e mecânica do jogo\n -Efeitos especiais\n -Game design\n\nArthur Santee\n -Modelagem 3D\n -Game design\n\nGabriel Duarte\n -Trilha sonora\n  gabrielduarte.wordpress.com\n\nApproaching Thunderstorm\n -www.freesoundtrackmusic.com\n\nAgradecimentos especiais:\n-James Hastings-Trew por ter nos\n cedido algumas de suas texturas\n  planetpixelemporium.com\n-José Rodolfo Ortale\n-Rafael \"Pet\" Alencar\n-Taina Monclaire": "André Santee\n -Программирование\n -Скрипты и игровая механика\n -Спецэффекты\n -Геймдизайн\n\nArthur Santee\n -3D-моделирование\n -Геймдизайн\n\nGabriel Duarte\n -Саундтрек\n  gabrielduarte.wordpress.com\n\nApproaching Thunderstorm\n -www.freesoundtrackmusic.com\n\nОсобая благодарность:\n-James Hastings-Trew за то, что\n поделился с нами частью своих текстур\n  planetpixelemporium.com\n-José Rodolfo Ortale\n-Rafael \"Pet\" Alencar\n-Taina Monclaire",
+    "André Santee\n -Programação\n -Scripting e mecânica do jogo\n -Efeitos especiais\n -Game design\n\nArthur Santee\n -Modelagem 3D\n -Game design\n\nGabriel Duarte\n -Trilha sonora\n  gabrielduarte.wordpress.com\n\nApproaching Thunderstorm\n -www.freesoundtrackmusic.com\n\nAgradecimentos especiais:\n-James Hastings-Trew por ter nos\n cedido algumas de suas texturas\n  planetpixelemporium.com\n-José Rodolfo Ortale\n-Rafael \"Pet\" Alencar\n-Taina Monclaire": "André Santee\n -Программирование\n -Скрипты и игровая механика\n -Спецэффекты\n -Геймдизайн\n\nArthur Santee\n -3D-моделирование\n -Геймдизайн\n\nGabriel Duarte\n -Саундтрек\n  gabrielduarte.wordpress.com\n\nApproaching Thunderstorm\n -www.freesoundtrackmusic.com\n\nОсобая благодарность:\n-James Hastings-Trew за то, что\n поделился частью своих текстур\n  planetpixelemporium.com\n-José Rodolfo Ortale\n-Rafael \"Pet\" Alencar\n-Taina Monclaire",
     "Penumbra não é um bom lugar\npara se viver. Quando acaba a\nneblina, chega a tempestade.\n\nEras atrás, um mago muito\npoderoso tomou o controle da\nsombria terra chamada Penumbra,\nnomeando-se o rei deste mundo.\n\nPor diversos séculos, a Ordem dos\nBruxos de Penumbra têm buscado\nderrubar o tirano.\n\nApós incontáveis anos treinando\nas artes da mágica e da luta você\nfoi escolhido pela Ordem para\nir ao Castelo das Sombras\nde Penumbra e assassinar o rei,\nacabando com um reinado que dura\nanos.": "Penumbra — не лучшее место\nдля жизни. Когда уходит\nтуман, приходит буря.\n\nДавным-давно могущественный\nмаг захватил мрачную землю\nPenumbra и провозгласил себя\nкоролём этого мира.\n\nУже много веков Орден\nволшебников Penumbra\nпытается свергнуть тирана.\n\nПосле долгих лет обучения\nмагии и искусству боя вы\nизбраны Орденом, чтобы\nотправиться в Замок Теней\nPenumbra и убить короля,\nположив конец его\nмноголетнему правлению.",
     "É necessário ao menos um joystick\n para jogar neste modo.": "Для этого режима нужен\n хотя бы один джойстик.",
     "Já há um joystick plugado.\nMude as opções de entrada no menu\nde configurações para poder\nutilizar o teclado e o joystick\npor 2 jogadores.": "Один джойстик уже подключён.\nИзмените параметры ввода\nв настройках, чтобы 2 игрока\nмогли играть на клавиатуре\nи джойстике.",
@@ -46,7 +46,7 @@
     "Continua sem o foco": "Продолжать игру без фокуса",
     "Ativa controles de toque": "Сенсорные кнопки",
     "Desativa controles de toque": "Без сенсорных кнопок",
-    "Automático (melhor)": "Авто (лучший)",
+    "Automático (melhor)": "Авто (лучшее)",
     "Taxa de atualização": "Частота обновления",
     "Automática": "Авто",
     "Automática (máxima)": "Авто (максимум)",
@@ -120,7 +120,7 @@
     },
     {
       "pt": "{text}\n\nIvan Cvetanović\n -Edição aprimorada (Supersonic Engine)",
-      "text": "{1}\n\nIvan Cvetanović\n -Улучшенное издание, Supersonic Engine"
+      "text": "{1}\n\nIvan Cvetanović\n -Улучшенное издание (Supersonic)"
     },
     {
       "pt": "Melhores tempos:\n{any}",
@@ -132,7 +132,7 @@
     },
     {
       "pt": "Automática ({int} Hz)",
-      "text": "Авто ({1} Hz)"
+      "text": "Авто ({1} Гц)"
     }
   ],
   "touch": {
@@ -159,6 +159,7 @@
     },
     "back": "Назад",
     "player1": "Игрок 1",
-    "player2": "Игрок 2"
+    "player2": "Игрок 2",
+    "logo": "и Замок Теней"
   }
 }

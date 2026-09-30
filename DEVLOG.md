@@ -318,3 +318,63 @@ Windows and Android lines are unchanged, and every file fetched back through
 releases/latest/download matches it. In that run's 22.04 container, lavapipe (Mesa 23, LLVM 15)
 drew faint diagonal dotted lines by the torches at frame 300; the same published program on
 Mesa 25.2 in WSL draws the frame without them, so they are that driver's, not the game's.
+
+---
+
+## 2026-09-30 — E24: eleven languages
+
+**Built.** The game spoke Portuguese (the original) and English; it now also speaks German,
+Spanish, French, Italian, Russian, Turkish, Ukrainian, Japanese and Arabic, the languages of the
+author's Magic Rampage Companion app (its picker: en de es fr it pt ru tr uk ja ar). The scripts
+keep the original's cp1252 bytes; translation at the draw boundary (game/render/Localization)
+now yields UTF-8 from strings.json (English and the language list) or game/data/strings/<id>.json
+(the nine others; a missing entry falls back to English), and FontAtlas lays out and bakes by code
+point, all of a frame's new characters in one bake (Prepare). Japanese and Arabic always draw from
+bundled Noto Sans JP and Noto Sans Arabic Bold subsets (tools/l10n/make_fonts.py: google/fonts at
+a pinned commit, sha256-checked, instanced at weight 700, OFL), scaled em-to-em onto the line's
+face. Arabic is joined to its presentation forms and laid out right to left with a simplified bidi
+(game/render/ArabicShaping); a block is right-aligned, and the menu panels' title and body and the
+pause menu share their box's right edge (HudCmd::rtlRight, an E24 overload of DrawText and
+shadowText; ignored left to right). `language` in settings.json takes the eleven ids; a first
+launch follows Windows' display language, the POSIX locale or the device's language on Android,
+macOS and iOS, else English; `--lang` takes any id. The options screen's two-row language switch is
+a chooser naming each language in its own script. The words baked into images come from
+tools/art/make_localized_art.py (make_english_art.py is now its English wrapper and regenerates
+the committed English files byte for byte): the menu buttons, the back arrow, the player labels
+and the logo's subtitle per language, each menu label within the room its button has in the menu
+scene (the statue and the torches), Matura MT Script Capitals for Latin where it has the glyphs
+(its capital I reads as J, so a word with one goes to Kurale), Kurale for Cyrillic, Yuji Syuku for
+Japanese, Aref Ruqaa and Noto Sans Arabic for Arabic (OFL faces pinned like the fonts).
+
+**Found.** The first fitting rule for the translations - no line wider than the Portuguese or
+English it replaces - was far too strict and forced unnatural short words ("Completa" for
+"Pantalla completa", "Hades" for "Infierno", "Стела" for "Обелиск", titles that no longer matched
+their buttons). Every text now has its real room where the game draws it
+(tests/data/l10n_rooms.json: face, size, width to the next element or edge, lines by height, and a
+visual limit of 1.15 x the wider of Portuguese and English for texts drawn in the world), and
+TestRooms lays every language out with the game's own layout against it; a second pass restored
+the natural wordings. Key names follow the local keyboard where it prints its own (Strg,
+Alt+Entrée, Alt+Intro, Alt+Invio). Japanese uses ステージ for the original's "fase", because the
+HUD's "lv:" is the character's level. An adversarial review of the code found per-language test
+loops that could pass over no files at all (the nine files are now required to exist and be
+complete) and a rebake per text on a new script's first frame (now one per frame). A visual
+review of 90 captures found the Arabic panel titles on the wrong side, the Italian "Indietro"
+reading "Jndietro" in Matura, the English logo subtitle in the new languages, and wording nits;
+all fixed.
+
+**Docs.** CLAUDE.md (the languages decision, rule 8 restated: cp1252 in the scripts, Unicode on
+the screen; the layout), docs/enhancements.md (E24), docs/playing.md (the settings value, the
+first language, --lang), README.md (the languages row), game/data/fonts/README.md (the two Noto
+subsets), and the art tool's and font tool's own documentation. The 1.0.0 downloads still carry
+Portuguese and English only; the other languages reach players with the next release.
+
+**Numbers.** WSL (GCC 13): zero warnings; test_pn_all 17 suites, 17547 checks, 0 failures,
+including every language's text against its room, the coverage of every character by the face
+it is routed to, Arabic shaping golden tests, and a German -> French -> German switch of text,
+touch hints and image variants. Portuguese and English captures (menu panels, options, level 1,
+pause, arena select) are pixel-identical to before E24 except the language row itself. Windows:
+tools\build.bat --parallel 2 built with zero warnings; Smart App Control refused the new
+test_pn_all.exe (exit 126), so it was not run there (CI's Windows job runs it). The Japanese font
+is 934 characters, 162 KB; the Arabic one 1171 characters, 97 KB; the nine languages' images add
+about 2.3 MB. The translations are machine-made and machine-reviewed (each by an independent
+back-translation), not checked by native speakers.

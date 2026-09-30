@@ -177,6 +177,11 @@ void DrawText(const vector2& pos, const string& text, const string& font, const 
     M().DrawText(pos, text, font, size, color);
 }
 
+void DrawText(const vector2& pos, const string& text, const string& font, const float size, const uint color,
+              const float rtlRight) {
+    M().DrawText(pos, text, font, size, color, rtlRight);
+}
+
 void LoadSprite(const string& path) { M().LoadSprite(path); }
 
 void DrawSprite(const string& path, const vector2& pos, const uint color) { M().DrawSprite(path, pos, color); }

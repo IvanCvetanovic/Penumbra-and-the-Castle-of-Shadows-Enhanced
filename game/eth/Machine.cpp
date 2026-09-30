@@ -798,7 +798,7 @@ void Machine::PositionBackgroundImage(const vector2& min, const vector2& max) {
 // --- Top layer ----------------------------------------------------------------------------
 
 void Machine::DrawText(const vector2& pos, const string& text, const string& font, const float size,
-                       const uint color) {
+                       const uint color, const float rtlRight) {
     HudCmd cmd;
     cmd.kind = HudCmd::Kind::Text;
     cmd.pos = pos;
@@ -806,6 +806,7 @@ void Machine::DrawText(const vector2& pos, const string& text, const string& fon
     cmd.font = font;
     cmd.fontSize = size;
     cmd.color = color;
+    cmd.rtlRight = rtlRight;
     m_hudQueue.push_back(std::move(cmd));
 }
 

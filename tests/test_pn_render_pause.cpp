@@ -6,6 +6,8 @@
 // presses out of the game, the English, and settings.pauseOnFocusLoss.
 // Pure: no window, no Machine, no original files.
 
+#include <algorithm>
+#include <cstdio>
 #include <string>
 #include <vector>
 
@@ -656,6 +658,103 @@ void testThroughHudRenderer() {
     hud.Detach();
 }
 
+bool SameQuads(const std::vector<Supersonic::ScreenOverlay::Quad>& a,
+               const std::vector<Supersonic::ScreenOverlay::Quad>& b) {
+    if (a.size() != b.size()) return false;
+    for (std::size_t i = 0; i < a.size(); ++i) {
+        if (a[i].min != b[i].min || a[i].max != b[i].max || a[i].uvMin != b[i].uvMin || a[i].uvMax != b[i].uvMax ||
+            a[i].color != b[i].color || a[i].texture != b[i].texture) {
+            return false;
+        }
+    }
+    return true;
+}
+
+// E24: in a right-to-left language the title and the items end at the panel's
+// and the rows' right, inset as they start from the left (HudCmd::rtlRight);
+// in every other language nothing moves.
+void testRightToLeft() {
+    const PauseMenu::Layout layout = PauseMenu::ComputeLayout(glm::vec2(1024.0f, 768.0f));
+    CHECK_NEAR(layout.panelMax.x - layout.titleRight, layout.title.x - layout.panelMin.x);
+    for (std::size_t i = 0; i < static_cast<std::size_t>(PauseMenu::kItemCount); ++i) {
+        CHECK_NEAR(layout.rowMax[i].x - layout.textRight[i], layout.text[i].x - layout.rowMin[i].x);
+        CHECK(layout.textRight[i] > layout.text[i].x);
+    }
+
+    PauseMenu pause = Paused();
+    std::vector<HudCmd> cmds;
+    pause.AppendOverlay(cmds);
+    CHECK_EQ(cmds.size(), std::size_t{3 + 6});
+    if (cmds.size() != 9) return;
+    const float rights[3] = {layout.titleRight, layout.textRight[0], layout.textRight[1]};
+    for (std::size_t t = 0; t < 3; ++t) {
+        const HudCmd& shadow = cmds[3 + t * 2];
+        const HudCmd& front = cmds[4 + t * 2];
+        CHECK_NEAR(front.rtlRight, rights[t]);
+        CHECK_NEAR(shadow.rtlRight, rights[t] + front.fontSize * 0.1f);
+    }
+    for (std::size_t i = 0; i < 3; ++i) CHECK(cmds[i].rtlRight == 0.0f);   // the rectangles
+
+    entt::registry registry;
+    Penumbra::Render::TextureCache textures(PENUMBRA_ORIGINAL_DIR);
+    Penumbra::Render::FontAtlas fonts;
+    fonts.SetSystemFontsEnabled(false);
+    Localization loc;
+    CHECK(loc.Load());
+    HudRenderer hud;
+    hud.Attach(registry, textures, fonts, loc);
+    // 4:3 at one window pixel a logical one: a quad's x times 1024 is its x.
+    View view;
+    view.logicalScreen = glm::vec2(1024.0f, 768.0f);
+    view.windowPixels = glm::uvec2(1024, 768);
+    view.scale = 1.0f;
+    view.viewportMin = glm::vec2(0.0f);
+    view.viewportMax = glm::vec2(1024.0f, 768.0f);
+    RenderSnapshot empty;
+    const auto quadsOf = [&](const std::vector<HudCmd>& extra) {
+        std::vector<Supersonic::ScreenOverlay::Quad> quads;
+        hud.Build(empty, view, quads, &extra);
+        return quads;
+    };
+    std::vector<HudCmd> unmarked = cmds;
+    for (HudCmd& cmd : unmarked) cmd.rtlRight = 0.0f;
+
+    // Left to right: the overlay's every quad where it was without the marks.
+    for (const Penumbra::Render::LanguageInfo& info : Penumbra::Render::kLanguages) {
+        if (info.rightToLeft) continue;
+        loc.SetLanguage(info.language);
+        const auto marked = quadsOf(cmds);
+        CHECK(marked.size() > 3);
+        CHECK_MSG(SameQuads(marked, quadsOf(unmarked)), info.id);
+    }
+
+    if (!loc.HasLanguageFile(Language::Arabic) || fonts.FaceFile(PauseMenu::kFont).empty()) return;
+    loc.SetLanguage(Language::Arabic);
+    const float lefts[3] = {layout.title.x, layout.text[0].x, layout.text[1].x};
+    for (std::size_t t = 0; t < 3; ++t) {
+        const std::vector<HudCmd> front = {cmds[4 + t * 2]};
+        const auto quads = quadsOf(front);
+        CHECK(!quads.empty());
+        float left = 1e9f;
+        float right = -1e9f;
+        for (const auto& quad : quads) {
+            left = std::min(left, quad.min.x * 1024.0f);
+            right = std::max(right, quad.max.x * 1024.0f);
+        }
+        // Ends at the inset right edge, give or take the last letter's side
+        // bearing; starts well right of where the left-to-right text starts.
+        CHECK_MSG(right <= rights[t] + 3.0f && right >= rights[t] - 8.0f,
+                  std::to_string(t) + ": ink to " + std::to_string(right) + ", edge " + std::to_string(rights[t]));
+        CHECK(left > lefts[t] + 40.0f);
+        std::printf("  E24 pause ar: text %zu ink x %.0f-%.0f, edge %.0f\n", t, left, right, rights[t]);
+        // Unmarked, as before: from the left inset.
+        const std::vector<HudCmd> plain = {unmarked[4 + t * 2]};
+        const auto before = quadsOf(plain);
+        if (!before.empty()) CHECK(before.front().min.x * 1024.0f < lefts[t] + 6.0f);
+    }
+    hud.Detach();
+}
+
 // What the game sees after a pause: nothing pressed in it until it is released.
 void testFilter() {
     const PauseInput play = Play();
@@ -799,6 +898,7 @@ void runTests() {
     testPointer();
     testOverlay();
     testThroughHudRenderer();
+    testRightToLeft();   // E24
     testFilter();
     testEnglish();
     testSetting();

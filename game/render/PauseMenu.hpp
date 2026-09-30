@@ -103,6 +103,10 @@ public:
         std::array<glm::vec2, kItemCount> rowMin{};   // the rows the pointer hits and the highlight fills
         std::array<glm::vec2, kItemCount> rowMax{};
         std::array<glm::vec2, kItemCount> text{};
+        // E24: where a right-to-left language ends the title and each item
+        // (Eth::HudCmd::rtlRight): the panel's and the rows' left insets mirrored.
+        float titleRight = 0.0f;
+        std::array<float, kItemCount> textRight{};
     };
     static Layout ComputeLayout(const glm::vec2& screen);
 

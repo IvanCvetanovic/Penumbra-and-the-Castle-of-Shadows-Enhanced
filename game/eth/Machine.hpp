@@ -186,7 +186,9 @@ public:
     void UsePixelShaders(bool use) { m_pixelShaders = use; }
     bool IsPixelShaderSupported() const { return true; }
 
-    void DrawText(const vector2& pos, const string& text, const string& font, float size, uint color);
+    // rtlRight: E24's HudCmd::rtlRight (0 = none, as 0.7.12 drew every text).
+    void DrawText(const vector2& pos, const string& text, const string& font, float size, uint color,
+                  float rtlRight = 0.0f);
     void LoadSprite(const string& path);
     void DrawSprite(const string& path, const vector2& pos, uint color);
     void DrawShapedSprite(const string& path, const vector2& pos, const vector2& size, uint color);

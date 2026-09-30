@@ -1251,7 +1251,37 @@ one rate.
   and on x86_64 under Rosetta; the .ipa holds 496 entries, Payload/ first. Not played by a person
   on Linux, a Mac or an iPhone/iPad.
 
+### Step 30 - E24: eleven languages (2026-09-30)
+- **Why.** The Magic Rampage Companion app, by the same author, offers English, German, Spanish,
+  French, Italian, Portuguese, Russian, Turkish, Ukrainian, Japanese and Arabic; the game offered
+  Portuguese and English. docs/enhancements.md E24 says what the original and the English
+  edition did.
+- **Text.** cp1252 in the scripts, UTF-8 on the screen (CLAUDE.md rule 8). strings.json keeps
+  English and gains the language list and "Idioma"; game/data/strings/<id>.json hold the nine
+  others, keyed by the original Portuguese, falling back to English. FontAtlas lays out and bakes
+  by code point, batched per frame; Portuguese and English keep their exact pixels.
+- **Fonts and scripts.** Japanese and Arabic from bundled Noto subsets (tools/l10n/make_fonts.py;
+  rerun it whenever ja.json changes: the coverage test fails otherwise). Arabic shaped and set
+  right to left (game/render/ArabicShaping), blocks right-aligned, the menu panels and the pause
+  menu to their box's right edge (HudCmd::rtlRight).
+- **Choosing.** settings.json `language` takes the eleven ids; a first launch follows the system
+  language (Windows' display language, the POSIX locale, the device's language), else English;
+  `--lang <id>`; the options screen's chooser names each language in its own script.
+- **Fitting.** tests/data/l10n_rooms.json gives each text its room where it is drawn; TestRooms
+  checks every language, and PN_ROOM_REPORT=<id> prints the headroom. Images: the menu buttons,
+  back arrow, player labels and logo subtitle per language from tools/art/make_localized_art.py,
+  each checked against its room in the scene.
+- **Checked.** 17 suites in WSL, 0 failures; captures of ten screens in all eleven languages,
+  each language's reviewed against Portuguese and English; Japanese and Arabic looked at on every
+  screen. Not run on Windows (Smart App Control refused test_pn_all; CI runs it).
+
 ### Open
+- **E24: a native speaker's read of each language.** The nine translations are machine-made and
+  machine-reviewed (an independent back-translation each), not checked by native speakers;
+  Arabic uses a simplified shaper (no harakat positioning, a simplified bidi).
+- **E24: a release with the languages.** The 1.0.0 downloads carry Portuguese and English only;
+  a 1.1.0 needs versionCode 2, the versions bumped (CMake, manifests, both Info.plists), the APK
+  signed on the development machine, the Windows zip, and the release workflow for the rest.
 - **E23 on Windows, live (not run: the desktop was not to be touched).** Flags and the log lines to
   expect are in Step 27's report; on the development laptop's panel (one 60 Hz mode) automatic switches nothing.
   From E23 on, a run without `--window` or `--windowed` covers the screen on a first launch (and on

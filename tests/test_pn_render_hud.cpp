@@ -1744,6 +1744,20 @@ void TestArabicShaping() {
         }
         const Render::TextLayout left = fonts.LayoutCodePoints(U"ab\nabcd", "Arial Narrow", 25.0f, glm::vec2(100.0f, 0.0f));
         if (left.glyphs.size() == 6) CHECK_NEAR(left.glyphs[0].pen.x, 100.0f);
+        // Set in a box (HudCmd::rtlRight): the same block, its widest line
+        // ending at the x given - rounded there, where a left anchor truncates.
+        const Render::TextLayout boxed = fonts.LayoutCodePoints(U"ab\nabcd", "Arial Narrow", 25.0f,
+                                                                glm::vec2(300.0f, 40.0f), Render::LineAlign::RightEdge);
+        CHECK_EQ(boxed.glyphs.size(), std::size_t{6});
+        CHECK_NEAR(boxed.width, block.width);
+        if (boxed.glyphs.size() == 6 && block.glyphs.size() == 6) {
+            CHECK_NEAR(boxed.glyphs[2].pen.x, 300.0f - block.width);        // "abcd" ends at 300
+            CHECK_NEAR(boxed.glyphs[0].pen.x, 300.0f - shortLine.width);    // "ab" too
+            CHECK_NEAR(boxed.glyphs[0].pen.y, block.glyphs[0].pen.y + 40.0f);
+        }
+        const Render::TextLayout rounded = fonts.LayoutCodePoints(U"ab\nabcd", "Arial Narrow", 25.0f,
+                                                                  glm::vec2(299.6f, 40.0f), Render::LineAlign::RightEdge);
+        if (rounded.glyphs.size() == 6 && boxed.glyphs.size() == 6) CHECK(rounded.glyphs[2].pen == boxed.glyphs[2].pen);
         // Arabic from the bundled face, in the same atlas as the Latin.
         const Render::TextLayout mixed = fonts.LayoutCodePoints(U"a\uFE8F", "Arial Narrow", 25.0f, glm::vec2(0.0f));
         CHECK_EQ(mixed.glyphs.size(), std::size_t{2});
@@ -2104,6 +2118,125 @@ void TestWideMenuBackdrop() {
     }
 }
 
+bool SameQuads(const std::vector<Supersonic::ScreenOverlay::Quad>& a,
+               const std::vector<Supersonic::ScreenOverlay::Quad>& b) {
+    if (a.size() != b.size()) return false;
+    for (std::size_t i = 0; i < a.size(); ++i) {
+        if (a[i].min != b[i].min || a[i].max != b[i].max || a[i].uvMin != b[i].uvMin || a[i].uvMax != b[i].uvMax ||
+            a[i].color != b[i].color || a[i].texture != b[i].texture) {
+            return false;
+        }
+    }
+    return true;
+}
+
+// E24: showData's panel (menu.as:217) in a right-to-left language. Its title
+// and body are two texts at rectPos + (10, y); each carries the panel's right
+// edge less the same 10 px (HudCmd::rtlRight, the shadow's offset with it), so
+// in Arabic both end at x 1014 - the edge every panel's lines start from, as
+// they start from x 642 left to right - and in every other language the mark
+// moves nothing. `shown` is the real menu with the cursor on New Game.
+void CheckPanelRightToLeft(const Eth::RenderSnapshot& shown) {
+    constexpr float kEdge = 1024.0f - 10.0f;
+    std::vector<Eth::HudCmd> panel;   // the title and the body, in front of their shadows
+    for (const Eth::HudCmd& cmd : shown.hud) {
+        if (cmd.kind != Eth::HudCmd::Kind::Text) continue;
+        if (cmd.text != "Novo jogo" && cmd.text != Script::novo_jogo) {
+            CHECK_MSG(cmd.rtlRight == 0.0f, Eth::Cp1252ToUtf8(cmd.text));   // the Alt+Enter line: not in a box
+            continue;
+        }
+        if (cmd.color == 0xFFCBCBE4u) {
+            CHECK_NEAR(cmd.rtlRight, kEdge);
+            panel.push_back(cmd);
+        } else {
+            CHECK_NEAR(cmd.rtlRight, kEdge + cmd.fontSize * 0.1f);
+        }
+    }
+    CHECK_EQ(panel.size(), std::size_t{2});
+    if (panel.size() != 2) return;
+
+    entt::registry registry;
+    Render::TextureCache textures(kApp);
+    Render::FontAtlas fonts;
+    fonts.SetSystemFontsEnabled(false);
+    Render::Localization loc;
+    CHECK(loc.Load());
+    Render::HudRenderer hud;
+    hud.Attach(registry, textures, fonts, loc);
+    // 4:3 at one window pixel a logical one: a quad's x times 1024 is its x.
+    Render::View view;
+    view.logicalScreen = glm::vec2(1024.0f, 768.0f);
+    view.windowPixels = glm::uvec2(1024, 768);
+    view.scale = 1.0f;
+    view.viewportMin = glm::vec2(0.0f);
+    view.viewportMax = glm::vec2(1024.0f, 768.0f);
+    const auto quadsOf = [&](const Eth::HudCmd& cmd) {
+        Eth::RenderSnapshot one;
+        one.hud.push_back(cmd);
+        std::vector<Supersonic::ScreenOverlay::Quad> quads;
+        hud.Build(one, view, quads);
+        return quads;
+    };
+    const auto unmarked = [](Eth::HudCmd cmd) {
+        cmd.rtlRight = 0.0f;
+        return cmd;
+    };
+
+    // Left to right: every quad where it was without the mark, the title
+    // from x 642 (+ its first letter's bearing).
+    for (const Render::LanguageInfo& info : Render::kLanguages) {
+        if (info.rightToLeft) continue;
+        loc.SetLanguage(info.language);
+        for (const Eth::HudCmd& cmd : panel) {
+            const auto marked = quadsOf(cmd);
+            CHECK(!marked.empty());
+            CHECK_MSG(SameQuads(marked, quadsOf(unmarked(cmd))), std::string(info.id) + " " + Eth::Cp1252ToUtf8(cmd.text));
+        }
+        const auto title = quadsOf(panel[0]);
+        if (!title.empty()) CHECK_MSG(title[0].min.x * 1024.0f >= 642.0f && title[0].min.x * 1024.0f < 648.0f, info.id);
+    }
+
+    if (!loc.HasLanguageFile(Language::Arabic)) return;
+    loc.SetLanguage(Language::Arabic);
+    Render::VisualText visual;
+    float ink[2][2] = {};
+    for (std::size_t t = 0; t < 2; ++t) {
+        const Eth::HudCmd& cmd = panel[t];
+        const auto quads = quadsOf(cmd);
+        // Exactly the block FontAtlas sets with its widest line ending at the edge.
+        const Render::TextLayout expected = fonts.LayoutCodePoints(visual.Of(loc.Translate(cmd.text), true), cmd.font,
+                                                                   cmd.fontSize, glm::vec2(kEdge, cmd.pos.y),
+                                                                   Render::LineAlign::RightEdge);
+        CHECK_EQ(quads.size(), expected.glyphs.size());
+        float left = 1e9f;
+        float right = -1e9f;
+        for (std::size_t i = 0; i < quads.size() && i < expected.glyphs.size(); ++i) {
+            CHECK(quads[i].min == view.HudToFraction(expected.glyphs[i].min) &&
+                  quads[i].max == view.HudToFraction(expected.glyphs[i].max));
+            left = std::min(left, quads[i].min.x * 1024.0f);
+            right = std::max(right, quads[i].max.x * 1024.0f);
+        }
+        float firstPen = 1e9f;
+        for (const Render::TextGlyph& glyph : expected.glyphs) firstPen = std::min(firstPen, glyph.pen.x);
+        CHECK(firstPen >= kEdge - expected.width - 0.01f);   // nothing starts left of the widest line
+        // The ink ends at the edge, give or take the last letter's side bearing,
+        // and stays in the panel (from x 632.8).
+        CHECK_MSG(right <= kEdge + 3.0f && right >= kEdge - 8.0f, Eth::Cp1252ToUtf8(cmd.text) + ": " + std::to_string(right));
+        CHECK(left > 1024.0f - 1024.0f * (1.0f - 0.618f));
+        ink[t][0] = left;
+        ink[t][1] = right;
+    }
+    CHECK(std::fabs(ink[0][1] - ink[1][1]) <= 6.0f);   // the title over the body's right edge
+    // Unmarked, as before: the title flush left and short of the body's edge.
+    const auto before = quadsOf(unmarked(panel[0]));
+    float beforeRight = -1e9f;
+    for (const auto& quad : before) beforeRight = std::max(beforeRight, quad.max.x * 1024.0f);
+    CHECK(beforeRight < ink[1][1] - 50.0f);
+    std::printf("  E24 panel ar: title ink x %.0f-%.0f, body %.0f-%.0f, both to x %.0f (unmarked, the title ended at %.0f)\n",
+                ink[0][0], ink[0][1], ink[1][0], ink[1][1], kEdge, beforeRight);
+    hud.Detach();
+}
+
 // The real main menu, loaded as the layer loads it with widescreen on, in a
 // 16:9 window, the cursor on New Game: the world goes on past the sides, and
 // everything the scripts placed is where the pillarbox put it - New Game's
@@ -2170,6 +2303,7 @@ void TestWideMenuScene() {
         CHECK(Near(view.HudToFraction(cmd.pos).x * 1920.0f, 240.0f + cmd.pos.x * 1080.0f / 768.0f, 0.01f));
     }
     CHECK(title);
+    CheckPanelRightToLeft(shown);   // E24
     // Its panel reaches the window's right edge.
     entt::registry registry;
     Render::TextureCache textures(kApp);

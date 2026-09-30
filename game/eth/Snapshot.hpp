@@ -100,6 +100,11 @@ struct HudCmd {
     string text;                // Text: cp1252 bytes, '\n' breaks lines, tabs expand
     string font;                // Text: "Arial Narrow", "Arial Black", "Arial", "Verdana"
     float fontSize = 0.0f;      // Text: GDI cell height in pixels (always drawn bold)
+    // Text, ENHANCEMENT E24 (not in 0.7.12): the right edge of the box the
+    // text is set in, its left inset mirrored (showData's panel, the pause's
+    // rows); 0 = none. In a right-to-left language the block's widest line
+    // ends here, rather than starting at pos.x; left to right it is unused.
+    float rtlRight = 0.0f;
     string sprite;              // Sprite/ShapedSprite: the path the script loaded (relative to the game root)
     vector2 spriteRectMin{0.0f};// Sprite: the sub-rectangle drawn, in pixels of the image
     vector2 spriteRectMax{0.0f};

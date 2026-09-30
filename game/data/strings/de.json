@@ -14,7 +14,7 @@
     "Vale": "Das Tal",
     "Templo Sagrado": "Heiliger Tempel",
     "Neblina": "Nebel",
-    "•Controles\n Movimento: < e >\n Pulo: ^ ou CTRL (joystick 3)\n Ataque/espada: S (joystick 4)\n Ataque/fogo: D (joystick 2)\n Acionar Luz: ESPAÇO (joystick 1)\n\n Detectar joysticks: segure J\n\n•2 jogadores:\n Se houver um joystick plugado,\n o personagem principal ganha\n a habilidade de invocar a\n criatura que pode ser controlada\n pelo 2º jogador.\n\n Para invocar a criatura basta pres-\n sionar START no 2º controle.\n\n A mágica de invocação custa 50 mana\n e uma vida, mas possibilitará que 2\n jogadores lutem lado-a-lado.\n\n Somente o jogador 1 pode pegar\n checkpoints e passar de fase.": "•Steuerung\n Bewegen: < und >\n Springen: ^ oder Strg (Joystick 3)\n Angriff/Schwert: S (Joystick 4)\n Angriff/Feuer: D (Joystick 2)\n Lichtzauber: Leertaste (Joystick 1)\n\n Joysticks erkennen: J gedrückt halten\n\n•2 Spieler:\n Ist ein Joystick angeschlossen,\n erhält die Hauptfigur die\n Fähigkeit, eine Kreatur zu\n beschwören, die der 2. Spieler\n steuern kann.\n\n Um die Kreatur zu beschwören,\n drücke START am 2. Controller.\n\n Die Beschwörung kostet 50 Mana\n und ein Leben, dafür können dann 2\n Spieler Seite an Seite kämpfen.\n\n Nur Spieler 1 kann Checkpoints\n einsammeln und Level abschließen.",
+    "•Controles\n Movimento: < e >\n Pulo: ^ ou CTRL (joystick 3)\n Ataque/espada: S (joystick 4)\n Ataque/fogo: D (joystick 2)\n Acionar Luz: ESPAÇO (joystick 1)\n\n Detectar joysticks: segure J\n\n•2 jogadores:\n Se houver um joystick plugado,\n o personagem principal ganha\n a habilidade de invocar a\n criatura que pode ser controlada\n pelo 2º jogador.\n\n Para invocar a criatura basta pres-\n sionar START no 2º controle.\n\n A mágica de invocação custa 50 mana\n e uma vida, mas possibilitará que 2\n jogadores lutem lado-a-lado.\n\n Somente o jogador 1 pode pegar\n checkpoints e passar de fase.": "•Steuerung\n Bewegen: < und >\n Springen: ^ oder Strg (Joystick 3)\n Angriff/Schwert: S (Joystick 4)\n Angriff/Feuer: D (Joystick 2)\n Lichtzauber: Leertaste (Joystick 1)\n\n Joysticks erkennen: J gedrückt halten\n\n•2 Spieler:\n Ist ein Joystick angeschlossen,\n erhält die Hauptfigur die\n Fähigkeit, eine Kreatur zu\n beschwören, die der 2. Spieler\n steuern kann.\n\n Um die Kreatur zu beschwören,\n drücke START am 2. Joystick.\n\n Die Beschwörung kostet 50 Mana\n und ein Leben, dafür können dann 2\n Spieler Seite an Seite kämpfen.\n\n Nur Spieler 1 kann Checkpoints\n einsammeln und Level abschließen.",
     "Ajuste as opções de vídeo como\nresolução de tela e uso de shaders.\n\nConfigure também o uso do joystick\npelo segundo jogador.": "Passe die Videooptionen an, etwa\ndie Auflösung und die Shader.\n\nRichte auch den Joystick für\nden zweiten Spieler ein.",
     "André Santee\n -Programação\n -Scripting e mecânica do jogo\n -Efeitos especiais\n -Game design\n\nArthur Santee\n -Modelagem 3D\n -Game design\n\nGabriel Duarte\n -Trilha sonora\n  gabrielduarte.wordpress.com\n\nApproaching Thunderstorm\n -www.freesoundtrackmusic.com\n\nAgradecimentos especiais:\n-James Hastings-Trew por ter nos\n cedido algumas de suas texturas\n  planetpixelemporium.com\n-José Rodolfo Ortale\n-Rafael \"Pet\" Alencar\n-Taina Monclaire": "André Santee\n -Programmierung\n -Scripting und Spielmechanik\n -Spezialeffekte\n -Game-Design\n\nArthur Santee\n -3D-Modellierung\n -Game-Design\n\nGabriel Duarte\n -Soundtrack\n  gabrielduarte.wordpress.com\n\nApproaching Thunderstorm\n -www.freesoundtrackmusic.com\n\nBesonderer Dank an:\n-James Hastings-Trew, der uns\n einige seiner Texturen überließ\n  planetpixelemporium.com\n-José Rodolfo Ortale\n-Rafael \"Pet\" Alencar\n-Taina Monclaire",
     "Penumbra não é um bom lugar\npara se viver. Quando acaba a\nneblina, chega a tempestade.\n\nEras atrás, um mago muito\npoderoso tomou o controle da\nsombria terra chamada Penumbra,\nnomeando-se o rei deste mundo.\n\nPor diversos séculos, a Ordem dos\nBruxos de Penumbra têm buscado\nderrubar o tirano.\n\nApós incontáveis anos treinando\nas artes da mágica e da luta você\nfoi escolhido pela Ordem para\nir ao Castelo das Sombras\nde Penumbra e assassinar o rei,\nacabando com um reinado que dura\nanos.": "Penumbra ist kein guter Ort\nzum Leben. Wenn sich der Nebel\nlichtet, zieht der Sturm auf.\n\nVor langer Zeit riss ein mächtiger\nMagier die Macht im düsteren Land\nPenumbra an sich und krönte sich\nzum König dieser Welt.\n\nSeit Jahrhunderten versucht der\nOrden der Zauberer von Penumbra,\nden Tyrannen zu stürzen.\n\nNach unzähligen Jahren der\nAusbildung in Magie und Kampf\nhat dich der Orden auserwählt,\nzur Burg der Schatten von\nPenumbra zu gehen, den König\nzu töten und seiner jahrelangen\nHerrschaft ein Ende zu setzen.",
@@ -27,7 +27,7 @@
     "Opções de vídeo": "Videooptionen",
     "Ativa pixel shaders": "Pixel-Shader ein",
     "Desativa pixel shaders": "Pixel-Shader aus",
-    "Janela": "Fenster",
+    "Janela": "Fenstermodus",
     "Tela-cheia": "Vollbild",
     "2º joystick para jogador 2": "2. Joystick für Spieler 2",
     "1º joystick para jogador 1": "1. Joystick für Spieler 1",
@@ -46,10 +46,10 @@
     "Continua sem o foco": "Ohne Fokus weiterlaufen",
     "Ativa controles de toque": "Touch-Steuerung ein",
     "Desativa controles de toque": "Touch-Steuerung aus",
-    "Automático (melhor)": "Automatik (optimal)",
+    "Automático (melhor)": "Automatisch (ideal)",
     "Taxa de atualização": "Bildwiederholrate",
-    "Automática": "Automatik",
-    "Automática (máxima)": "Automatik (maximal)",
+    "Automática": "Automatisch",
+    "Automática (máxima)": "Automatisch (höchste)",
     "Vale para a tela cheia": "Gilt im Vollbild",
     "Pausado": "Pause",
     "Continuar": "Weiter",
@@ -132,7 +132,7 @@
     },
     {
       "pt": "Automática ({int} Hz)",
-      "text": "Automatik ({1} Hz)"
+      "text": "Automatisch ({1} Hz)"
     }
   ],
   "touch": {
@@ -143,9 +143,9 @@
     "Golpe de espada: tecla 'S'": "Schwerthieb: die Schwerttaste",
     "Bola de fogo: tecla 'D'": "Feuerball: die Feuertaste",
     "Próxima fase: seta para baixo": "Nächstes Level: Abwärtspfeil unten links",
-    "É necessário ao menos um joystick\n para jogar neste modo.": "Schließe ein Gamepad für Spieler 2 an.\n\nSpieler 1 spielt mit der\n Touch-Steuerung.",
+    "É necessário ao menos um joystick\n para jogar neste modo.": "Schließe einen Joystick für Spieler 2 an.\n\nSpieler 1 spielt mit der\n Touch-Steuerung.",
     "Experimente algumas combinações de teclas,\ncomo [frente + frente + espada] entre outras": "Probiere ein paar Tastenkombinationen aus,\nzum Beispiel [vor + vor + Schwert]",
-    "•Controles\n Movimento: < e >\n Pulo: ^ ou CTRL (joystick 3)\n Ataque/espada: S (joystick 4)\n Ataque/fogo: D (joystick 2)\n Acionar Luz: ESPAÇO (joystick 1)\n\n Detectar joysticks: segure J\n\n•2 jogadores:\n Se houver um joystick plugado,\n o personagem principal ganha\n a habilidade de invocar a\n criatura que pode ser controlada\n pelo 2º jogador.\n\n Para invocar a criatura basta pres-\n sionar START no 2º controle.\n\n A mágica de invocação custa 50 mana\n e uma vida, mas possibilitará que 2\n jogadores lutem lado-a-lado.\n\n Somente o jogador 1 pode pegar\n checkpoints e passar de fase.": "•Touch-Steuerung\n Bewegen: Pfeile unten links\n Springen: Sprungtaste\n Angriff/Schwert: Schwerttaste\n Angriff/Feuer: Feuertaste\n Lichtzauber: Lichttaste\n\n Combos: die zwei Tasten darüber\n Pause: Taste oben rechts\n\n•2 Spieler:\n Ist ein Joystick angeschlossen,\n erhält die Hauptfigur die\n Fähigkeit, eine Kreatur zu\n beschwören, die der 2. Spieler\n steuern kann.\n\n Um die Kreatur zu beschwören,\n drücke START am 2. Controller.\n\n Die Beschwörung kostet 50 Mana\n und ein Leben, dafür können dann 2\n Spieler Seite an Seite kämpfen.\n\n Nur Spieler 1 kann Checkpoints\n einsammeln und Level abschließen."
+    "•Controles\n Movimento: < e >\n Pulo: ^ ou CTRL (joystick 3)\n Ataque/espada: S (joystick 4)\n Ataque/fogo: D (joystick 2)\n Acionar Luz: ESPAÇO (joystick 1)\n\n Detectar joysticks: segure J\n\n•2 jogadores:\n Se houver um joystick plugado,\n o personagem principal ganha\n a habilidade de invocar a\n criatura que pode ser controlada\n pelo 2º jogador.\n\n Para invocar a criatura basta pres-\n sionar START no 2º controle.\n\n A mágica de invocação custa 50 mana\n e uma vida, mas possibilitará que 2\n jogadores lutem lado-a-lado.\n\n Somente o jogador 1 pode pegar\n checkpoints e passar de fase.": "•Touch-Steuerung\n Bewegen: Pfeile unten links\n Springen: Sprungtaste\n Angriff/Schwert: Schwerttaste\n Angriff/Feuer: Feuertaste\n Lichtzauber: Lichttaste\n\n Combos: die zwei Tasten darüber\n Pause: Taste oben rechts\n\n•2 Spieler:\n Ist ein Joystick angeschlossen,\n erhält die Hauptfigur die\n Fähigkeit, eine Kreatur zu\n beschwören, die der 2. Spieler\n steuern kann.\n\n Um die Kreatur zu beschwören,\n drücke START am 2. Joystick.\n\n Die Beschwörung kostet 50 Mana\n und ein Leben, dafür können dann 2\n Spieler Seite an Seite kämpfen.\n\n Nur Spieler 1 kann Checkpoints\n einsammeln und Level abschließen."
   },
   "art": {
     "labels": {
@@ -159,6 +159,7 @@
     },
     "back": "Zurück",
     "player1": "Spieler 1",
-    "player2": "Spieler 2"
+    "player2": "Spieler 2",
+    "logo": "und die Burg der Schatten"
   }
 }

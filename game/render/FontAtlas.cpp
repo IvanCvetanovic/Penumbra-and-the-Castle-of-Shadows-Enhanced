@@ -693,7 +693,7 @@ TextLayout FontAtlas::LayoutCodePoints(const std::u32string& text, const std::st
         int penX = 0;
         int line = 0;
         const auto offset = [&]() {
-            return (place && align == LineAlign::Right && static_cast<std::size_t>(line) < lineWidths.size())
+            return (place && align != LineAlign::Left && static_cast<std::size_t>(line) < lineWidths.size())
                        ? widest - lineWidths[static_cast<std::size_t>(line)]
                        : 0;
         };
@@ -750,7 +750,10 @@ TextLayout FontAtlas::LayoutCodePoints(const std::u32string& text, const std::st
     const int anchorY = RoundToInt(static_cast<float>(static_cast<int>(pos.y)) * scale);
     walk(false, anchorX, anchorY, 0);
     const int widest = lineWidths.empty() ? 0 : *std::max_element(lineWidths.begin(), lineWidths.end());
-    const int lines = walk(true, anchorX, anchorY, widest);
+    // RightEdge: the block's left in whole window pixels, so its glyphs land
+    // on them as a left-anchored text's do.
+    const int startX = align == LineAlign::RightEdge ? RoundToInt(pos.x * scale) - widest : anchorX;
+    const int lines = walk(true, startX, anchorY, widest);
     layout.lines = lines + 1;
     layout.width = static_cast<float>(widest) / scale;
     return layout;

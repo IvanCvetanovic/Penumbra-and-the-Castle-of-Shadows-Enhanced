@@ -32,7 +32,7 @@
     "2º joystick para jogador 2": "2e manette pour le joueur 2",
     "1º joystick para jogador 1": "1re manette pour le joueur 1",
     "Teclado para o jogador 2": "Joueur 2 au clavier",
-    "Jogador 2 só no joystick": "Joueur 2 à la manette uniquement",
+    "Jogador 2 só no joystick": "Joueur 2 : manette seule",
     "Tela larga (widescreen)": "Écran large",
     "Tela 4:3 (original)": "4:3 (d'origine)",
     "Vale a partir da próxima fase": "Prend effet au prochain niveau",
@@ -46,7 +46,7 @@
     "Continua sem o foco": "Actif en arrière-plan",
     "Ativa controles de toque": "Mode tactile activé",
     "Desativa controles de toque": "Mode tactile désactivé",
-    "Automático (melhor)": "Auto (optimal)",
+    "Automático (melhor)": "Auto (optimale)",
     "Taxa de atualização": "Taux de rafraîchissement",
     "Automática": "Auto",
     "Automática (máxima)": "Auto (maximum)",
@@ -116,7 +116,7 @@
     },
     {
       "pt": "Escolha uma arena e dispute uma\npartida contra outro jogador.\n\n-Quem derrotar o outro ganha 1 ponto\n-Vence quem fizer {int} pontos primeiro\n-A partida acaba se a diferença no\nplacar exceder {int} pontos",
-      "text": "Choisissez une arène et disputez\nun match contre un autre joueur.\n\n-Vaincre l'adversaire rapporte 1 point\n-Le premier à {1} points l'emporte\n-Le match s'arrête si l'écart au\nscore dépasse {2} points"
+      "text": "Choisissez une arène et disputez\nun match contre un autre joueur.\n\n-Vaincre l'adversaire rapporte 1 point\n-Le premier à {1} points l'emporte\n-Le match s'arrête si l'écart de\nscore dépasse {2} points"
     },
     {
       "pt": "{text}\n\nIvan Cvetanović\n -Edição aprimorada (Supersonic Engine)",
@@ -159,6 +159,7 @@
     },
     "back": "Retour",
     "player1": "Joueur 1",
-    "player2": "Joueur 2"
+    "player2": "Joueur 2",
+    "logo": "et le Château des Ombres"
   }
 }

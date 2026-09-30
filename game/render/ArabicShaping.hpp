@@ -32,7 +32,9 @@
 // left-to-right one (every other language) an Arabic word - the chooser's name
 // for Arabic - is still shaped and reads right to left in place. FontAtlas
 // right-aligns a right-to-left paragraph's lines to its widest
-// (LineAlign::Right).
+// (LineAlign::Right); a paragraph set in a box - showData's panel, the pause's
+// rows (Eth::HudCmd::rtlRight) - ends at the box's right inset
+// (LineAlign::RightEdge).
 
 #include <string>
 #include <unordered_map>
