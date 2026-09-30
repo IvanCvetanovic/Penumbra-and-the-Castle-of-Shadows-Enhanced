@@ -378,3 +378,18 @@ test_pn_all.exe (exit 126), so it was not run there (CI's Windows job runs it). 
 is 934 characters, 162 KB; the Arabic one 1171 characters, 97 KB; the nine languages' images add
 about 2.3 MB. The translations are machine-made and machine-reviewed (each by an independent
 back-translation), not checked by native speakers.
+
+---
+
+## 2026-09-30 — Version 1.0.1
+
+**Built.** The version is 1.0.1 everywhere make_release.py checks (CMakeLists.txt, the Windows
+manifest, the Android manifest with versionCode 2, and both Info.plists with build number 2), so
+a 1.0.1 APK installs over 1.0.0 as an update. tools/build_android.sh takes `--jobs <n>` (default
+6, as before) for machines short of memory.
+
+**Numbers.** `tools/build_android.sh --release --jobs 3`: zero warnings; the APK (arm64-v8a and
+x86_64, 21 MB) verifies with v2 and v3 signatures from the release key (certificate SHA-256
+ac1d43bd...66da), package versionCode 2, versionName 1.0.1, and carries the nine language files,
+both Noto fonts and every language's images. Not run on the emulator (memory was short); it is
+for a test on a real phone. No release was made.

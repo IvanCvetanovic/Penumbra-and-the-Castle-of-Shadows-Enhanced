@@ -35,6 +35,7 @@
 #                                 (a debug APK only: a release APK has no run-as, so with
 #                                 --release only --run "" is taken)
 #   --package-only               skip configure and build; repackage what is built
+#   --jobs <n>                   compile jobs per ABI (default 6; fewer when memory is short)
 #
 # Uses the SDK at $ANDROID_SDK, else $ANDROID_HOME, else $ANDROID_SDK_ROOT, else Android Studio's
 # default %LOCALAPPDATA%/Android/Sdk (Windows paths are taken either way): NDK 28.2.13676358's
@@ -65,6 +66,7 @@ SERIAL="emulator-5560"
 RUN=0
 RUN_FLAGS=""
 PACKAGE_ONLY=0
+JOBS=6
 RELEASE=0
 KEYSTORE_FLAG=""
 PASS_FILE_FLAG=""
@@ -77,6 +79,7 @@ while [[ $# -gt 0 ]]; do
         --serial) SERIAL="$2"; shift 2 ;;
         --run) RUN=1; INSTALL=1; RUN_FLAGS="$2"; shift 2 ;;
         --package-only) PACKAGE_ONLY=1; shift ;;
+        --jobs) JOBS="$2"; shift 2 ;;
         --release) RELEASE=1; shift ;;
         --keystore) KEYSTORE_FLAG="$2"; shift 2 ;;
         --keystore-pass-file) PASS_FILE_FLAG="$2"; shift 2 ;;
@@ -165,8 +168,8 @@ for abi in "${ABIS[@]}"; do
                 -DSUPERSONIC_ENABLE_VALIDATION=OFF \
                 -DPENUMBRA_BUILD_TESTS=OFF
         fi
-        # At most six jobs: another project compiles on this machine too.
-        "$CMAKE" --build "$(win "$tree")" --target Penumbra -j 6
+        # Six jobs by default, at most: another project compiles on this machine too.
+        "$CMAKE" --build "$(win "$tree")" --target Penumbra -j "$JOBS"
     fi
     lib="$tree/game/libPenumbra.so"
     [[ -f "$lib" ]] || { echo "not built: $lib" >&2; exit 1; }

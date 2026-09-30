@@ -21,8 +21,8 @@
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.ivancvetanovic.penumbra"
-    android:versionCode="1"
-    android:versionName="1.0.0">
+    android:versionCode="2"
+    android:versionName="1.0.1">
 
     <uses-feature android:name="android.hardware.vulkan.level" android:version="0" android:required="true" />
     <uses-feature android:name="android.hardware.vulkan.version" android:version="0x402000" android:required="true" />
