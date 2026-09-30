@@ -1,6 +1,6 @@
 # Enhancements
 
-The remake plays the original's own scripts, ported to C++. Each change from the original is
+The enhanced edition plays the original's own scripts, ported to C++. Each change from the original is
 listed here with what the original did. Where a change affects play, it can usually be switched off; a few are build-time switches, and
 some (such as the pause) have none.
 

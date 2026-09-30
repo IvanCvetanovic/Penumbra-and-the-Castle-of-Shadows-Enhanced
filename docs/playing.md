@@ -13,7 +13,7 @@ is started from.
 Penumbra\
   Penumbra.exe
   assets\shaders\*.spv     the engine's shaders
-  data\                    the remake's own data: strings.json (English), images\en, fonts, touch art
+  data\                    the enhanced edition's own data: strings.json (English), images\en, fonts, touch art
   original\                the original game's data files (scenes, entities, sounds, ...)
   *.dll                    the Visual C++ runtime
   README.md, licenses\
@@ -46,7 +46,7 @@ at its metrics is used instead (E17, `game/render/FontAtlas.cpp`).
 build/game/Penumbra.exe
 ```
 
-A build finds the original's files in `extracted/app` and the remake's data in `game/data`, as
+A build finds the original's files in `extracted/app` and the enhanced edition's data in `game/data`, as
 absolute paths baked in by CMake. It finds the engine's shaders in `engine/assets/shaders`. It
 can therefore be started from any directory. The Linux, Android and Apple builds are described in
 [building.md](building.md).
@@ -58,12 +58,12 @@ At startup the game looks for two folders, and logs where it found each one:
 | | What marks it | Looked for, in order |
 |---|---|---|
 | The original game | `data.enml` | `--original <dir>`; `original\` beside the executable; the build's `extracted/app` |
-| The remake's data | `strings.json` | `--data <dir>`; `data\` beside the executable; the build's `game/data` |
+| The enhanced edition's data | `strings.json` | `--data <dir>`; `data\` beside the executable; the build's `game/data` |
 
 - If a folder named with `--original` or `--data` does not hold the file that marks it, the game
   refuses to start. It does not fall back to another folder.
 - Without the original, the game stops with a message.
-- Without the remake's data, the game still runs, in Portuguese with the original's images.
+- Without the enhanced edition's data, the game still runs, in Portuguese with the original's images.
 - The engine finds its own shaders by a similar rule: the executable's folder if it holds
   `assets\shaders`, else the working directory, else the engine checkout the build names
   (`engine/README.md`, "Building a game against the engine").
@@ -98,7 +98,7 @@ The game's own options:
 | `--lang pt\|en` | This run's language. It is not saved. |
 | `--widescreen on\|off` | This run's view. It is not saved. |
 | `--smooth on\|off` | This run's motion between ticks (E8). It is not saved. Off under `--fixed-step` unless given as `on`, so fixed-step captures show the ticks themselves. |
-| `--original <dir>`, `--data <dir>` | Where the original's files and the remake's data are ([above](#where-the-files-are-found)) |
+| `--original <dir>`, `--data <dir>` | Where the original's files and the enhanced edition's data are ([above](#where-the-files-are-found)) |
 | `--hold <KEY>@<a>-<b>` | Hold an Ethanon key from tick *a* to tick *b*, for scripted captures. KEY is one of `UP DOWN LEFT RIGHT CTRL ALT SHIFT SPACE ENTER ESC BACKSPACE PAGEUP PAGEDOWN J S D 1 2 3 LMOUSE RMOUSE`. |
 | `--cursor <x>,<y>` | Pin the scripts' cursor at a point of the 1024x768 menu screen, for menu captures |
 | `--touch [on\|off]` | This run's touch controls (E16); on by itself. On a desktop the held left mouse button is the finger. It is not saved. |

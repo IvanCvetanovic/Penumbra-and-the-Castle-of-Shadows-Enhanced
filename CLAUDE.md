@@ -4,10 +4,10 @@
 
 ## What this is
 
-A remake of **Penumbra e o Castelo das Sombras** (2010, PC, by Andre Santee / Asantee), a 2D
+An enhanced edition of **Penumbra e o Castelo das Sombras** (2010, PC, by Andre Santee / Asantee), a 2D
 side-view action platformer (a wizard, a sword, fireballs and a light spell; three campaign levels,
 a king to beat, local co-op and 2-player Versus in six arenas). The original ran on the **Ethanon
-Engine 0.7.12** (D3D9 + NVIDIA Cg, AngelScript gameplay). The remake runs on Ivan's own engine,
+Engine 0.7.12** (D3D9 + NVIDIA Cg, AngelScript gameplay). The enhanced edition runs on Ivan's own engine,
 **Supersonic** (C++20, Vulkan, EnTT), which is a git submodule at `engine/`.
 
 Ivan's rulings (2026-09-27): **enhanced from the start** — the original's scripts are the gameplay
