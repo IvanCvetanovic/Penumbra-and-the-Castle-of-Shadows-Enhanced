@@ -96,24 +96,33 @@ struct View {
     // The part of the image that is not barred (CameraRig::Bars), image
     // pixels: the logical screen's box, widened across by openSides as far as
     // the image goes. Exactly viewportMin/viewportMax when nothing is open.
+    // E25's larger menu (render/PhoneUi.hpp) puts the screen's top above the
+    // image and its bottom below it: then the image's own edges, which is
+    // what CroppedTop/CroppedBottom say.
     glm::vec2 ShownMin() const {
         if (!(openSides > 0.0f)) return viewportMin;
-        return {std::max(0.0f, viewportMin.x - openSides * scale), viewportMin.y};
+        return {std::max(0.0f, viewportMin.x - openSides * scale), CroppedTop() ? 0.0f : viewportMin.y};
     }
     glm::vec2 ShownMax() const {
         if (!(openSides > 0.0f)) return viewportMax;
-        return {std::min(static_cast<float>(windowPixels.x), viewportMax.x + openSides * scale), viewportMax.y};
+        return {std::min(static_cast<float>(windowPixels.x), viewportMax.x + openSides * scale),
+                CroppedBottom() ? static_cast<float>(windowPixels.y) : viewportMax.y};
     }
     // The same, in logical pixels (x may run below 0 and past the screen's
     // width). Exactly (0, 0) and logicalScreen when nothing is open.
     glm::vec2 ShownLogicalMin() const {
         if (!(openSides > 0.0f) || !(scale > 0.0f)) return glm::vec2(0.0f);
-        return {(ShownMin().x - viewportMin.x) / scale, 0.0f};
+        return {(ShownMin().x - viewportMin.x) / scale, CroppedTop() ? -viewportMin.y / scale : 0.0f};
     }
     glm::vec2 ShownLogicalMax() const {
         if (!(openSides > 0.0f) || !(scale > 0.0f)) return logicalScreen;
-        return {(ShownMax().x - viewportMin.x) / scale, logicalScreen.y};
+        return {(ShownMax().x - viewportMin.x) / scale,
+                CroppedBottom() ? (static_cast<float>(windowPixels.y) - viewportMin.y) / scale : logicalScreen.y};
     }
+    // E25: the screen runs past the image's top or bottom edge (more than a
+    // rounding's half pixel; E1's views never do).
+    bool CroppedTop() const { return viewportMin.y < -0.5f; }
+    bool CroppedBottom() const { return viewportMax.y > static_cast<float>(windowPixels.y) + 0.5f; }
 
     // Screen-space HUD position (logical pixels, y down) -> ScreenOverlay
     // fraction of the whole image.

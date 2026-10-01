@@ -182,6 +182,22 @@ public:
     // screen brings a dozen texts of new characters into one atlas. The code
     // points as LayoutCodePoints will get them (an Arabic line shaped first).
     void Prepare(const std::u32string& text, const std::string& face, float size);
+    // ENHANCEMENT E25: how large a text comes out, as LayoutCodePoints lays it
+    // out at the current raster scale - the widest line's advance and the
+    // lines up to the last one that has any (trailing breaks add none), logical
+    // px - from the glyphs' metrics, baking nothing. HudRenderer sizes a text
+    // to fit its box with it, trying sizes it never draws. What the text needs
+    // that the atlas lacks is wanted, as Prepare wants it, for whichever
+    // Layout of that face and size comes next.
+    struct Extent {
+        float width = 0.0f;
+        int lines = 0;
+        float lineHeight = 0.0f;
+        float Height() const { return static_cast<float>(lines) * lineHeight; }
+    };
+    // `lineWidths`, when given, gets each line's advance (logical px), in order.
+    Extent Measure(const std::u32string& text, const std::string& face, float size,
+                   std::vector<float>* lineWidths = nullptr);
     // For the suites: the bakes so far, each one an atlas rasterised and uploaded.
     std::uint64_t BakeCount() const { return m_serial; }
 

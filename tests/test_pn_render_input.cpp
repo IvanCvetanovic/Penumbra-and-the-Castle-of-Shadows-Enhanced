@@ -23,7 +23,9 @@
 #include "render/CameraRig.hpp"
 #include "render/InputMapper.hpp"
 #include "render/Languages.hpp"
+#include "render/PhoneUi.hpp"
 #include "render/Settings.hpp"
+#include "render/TouchControls.hpp"
 #include "render/WideMenus.hpp"
 #include "render/WindowMode.hpp"
 
@@ -1256,18 +1258,23 @@ void testWideMenuView() {
 // the pillarbox formula puts each of menu.esc's buttons at (its collision box,
 // menu.esc: position + <Collision> offset, +-size/2) comes back through the
 // mapper inside that box, and the sides hit nothing.
+struct MenuButton {
+    const char* name;
+    glm::vec2 min;
+    glm::vec2 max;
+};
+// menu.esc's seven buttons: each collision box (position + <Collision> offset,
+// +-size/2), in the 1024x768 screen.
+const MenuButton kMenuButtons[] = {
+    {"novo_jogo", {231.5f, 200.5f}, {600.5f, 225.5f}},       {"versus", {281.5f, 258.5f}, {650.5f, 283.5f}},
+    {"como_jogar", {196.5f, 314.5f}, {565.5f, 339.5f}},      {"melhores_tempos", {182.5f, 376.5f}, {551.5f, 401.5f}},
+    {"opcoes_de_video", {229.5f, 433.5f}, {598.5f, 458.5f}}, {"creditos", {332.5f, 494.5f}, {701.5f, 519.5f}},
+    {"sair", {449.5f, 558.5f}, {818.5f, 583.5f}},
+};
+
 void testWideMenuHits() {
-    struct Button {
-        const char* name;
-        glm::vec2 min;
-        glm::vec2 max;
-    };
-    const Button buttons[] = {
-        {"novo_jogo", {231.5f, 200.5f}, {600.5f, 225.5f}},       {"versus", {281.5f, 258.5f}, {650.5f, 283.5f}},
-        {"como_jogar", {196.5f, 314.5f}, {565.5f, 339.5f}},      {"melhores_tempos", {182.5f, 376.5f}, {551.5f, 401.5f}},
-        {"opcoes_de_video", {229.5f, 433.5f}, {598.5f, 458.5f}}, {"creditos", {332.5f, 494.5f}, {701.5f, 519.5f}},
-        {"sair", {449.5f, 558.5f}, {818.5f, 583.5f}},
-    };
+    using Button = MenuButton;
+    const auto& buttons = kMenuButtons;
     std::vector<glm::uvec2> windows(std::begin(kWideWindows), std::end(kWideWindows));
     windows.push_back(glm::uvec2(1024u, 768u));
     for (const glm::uvec2 window : windows) {
@@ -1356,6 +1363,471 @@ void testWideMenuWarp() {
     CHECK(!InputMapper::PointerOverBars({100.0f, 580.0f}, inEditor));
 }
 
+// === E25: a phone-sized UI (render/PhoneUi.hpp) =================================================
+
+// settings.json "zoom" read, written and read back, and the zoom's rules: none
+// without the touch controls, whatever it says; automatic 150% on a
+// phone-shaped screen and 125% on any other; and never past where a message
+// line would lose its room before the pause button (MaxZoom; E26's frame is
+// testPhoneHudFrame's). The screen a campaign level gets at it.
+void testPhoneZoom() {
+    using namespace Penumbra::Render;
+    const Settings en = Settings::Defaults("en");
+    CHECK_EQ(en.zoom, 0);
+    CHECK(en.ToJson().find("\"zoom\": \"auto\"") != std::string::npos);
+    std::string warning;
+    const auto zoomOf = [&](const std::string& json) {
+        warning.clear();
+        return Settings::FromJson(json, en, &warning).zoom;
+    };
+    CHECK_EQ(zoomOf(R"({"zoom": "auto"})"), 0);
+    CHECK(warning.empty());
+    CHECK_EQ(zoomOf(R"({"zoom": "AUTO"})"), 0);
+    CHECK_EQ(zoomOf(R"({"zoom": 150})"), 150);
+    CHECK(warning.empty());
+    CHECK_EQ(zoomOf(R"({"zoom": 137.6})"), 138);
+    CHECK_EQ(zoomOf(R"({"zoom": 50})"), 100);
+    CHECK_EQ(zoomOf(R"({"zoom": 400})"), 200);
+    CHECK_EQ(zoomOf(R"({"zoom": "big"})"), 0);
+    CHECK(warning.find("zoom") != std::string::npos);
+    CHECK_EQ(zoomOf(R"({"zoom": true})"), 0);
+    CHECK(warning.find("zoom") != std::string::npos);
+    CHECK_EQ(zoomOf(R"({"language": "en"})"), 0);   // a file from before E25: automatic
+    for (const int zoom : {0, 100, 125, 150, 175, 200, 130}) {
+        Settings changed = en;
+        changed.zoom = zoom;
+        const Settings back = Settings::FromJson(changed.ToJson(), en, &warning);
+        CHECK_EQ(back.zoom, zoom);
+        CHECK(back == changed);
+    }
+    CHECK_EQ(ClampZoomSetting(0), 0);
+    CHECK_EQ(ClampZoomSetting(90), 100);
+    CHECK_EQ(ClampZoomSetting(250), 200);
+
+    // Phone-shaped: 18:9 and longer, either way up; 16:9 and every tablet not.
+    for (const glm::uvec2 phone : {glm::uvec2(2400u, 1080u), glm::uvec2(2340u, 1080u), glm::uvec2(2160u, 1080u),
+                                   glm::uvec2(2520u, 1080u), glm::uvec2(1080u, 2400u)}) {
+        CHECK_MSG(IsPhoneShaped(phone), std::to_string(phone.x) + "x" + std::to_string(phone.y));
+    }
+    for (const glm::uvec2 other : {glm::uvec2(1920u, 1080u), glm::uvec2(2048u, 1536u), glm::uvec2(2560u, 1600u),
+                                   glm::uvec2(2360u, 1640u), glm::uvec2(0u, 0u)}) {
+        CHECK_MSG(!IsPhoneShaped(other), std::to_string(other.x) + "x" + std::to_string(other.y));
+    }
+    // What is asked.
+    CHECK_EQ(ZoomPercent(0, false, {2400u, 1080u}), 100);     // no touch controls: no zoom
+    CHECK_EQ(ZoomPercent(175, false, {2400u, 1080u}), 100);   // whatever the setting says
+    CHECK_EQ(ZoomPercent(0, true, {2400u, 1080u}), 150);
+    CHECK_EQ(ZoomPercent(0, true, {1920u, 1080u}), 125);
+    CHECK_EQ(ZoomPercent(0, true, {2048u, 1536u}), 125);
+    CHECK_EQ(ZoomPercent(175, true, {2048u, 1536u}), 175);
+    CHECK_EQ(ZoomPercent(100, true, {2400u, 1080u}), 100);
+
+    // What a campaign level gets, and its screen: the window's shape, whole
+    // pixels, never narrower than 1024; a zoom of 1 is E1's screen exactly.
+    struct Case {
+        glm::uvec2 window;
+        bool widescreen;
+        bool touch;
+        int setting;
+        float zoom;
+        glm::vec2 screen;
+    };
+    const Case cases[] = {
+        {{2400u, 1080u}, true, true, 0, 1.5f, {1138.0f, 512.0f}},          // a 20:9 phone, automatic
+        {{2400u, 1080u}, true, true, 125, 1.25f, {1364.0f, 614.0f}},
+        {{2400u, 1080u}, true, true, 175, 1.75f, {976.0f, 439.0f}},
+        // Held where a message keeps 795 px to the pause button: 197% (no frame; E26's is
+        // testPhoneHudFrame's), (1707 - 116) / 805.
+        {{2400u, 1080u}, true, true, 200, 1591.0f / 805.0f, {864.0f, 389.0f}},
+        {{2400u, 1080u}, true, false, 150, 1.0f, {1707.0f, 768.0f}},       // no touch controls: E1's
+        {{2400u, 1080u}, false, true, 0, 908.0f / 805.0f, {908.0f, 681.0f}},   // 4:3 levels: 113% at most
+        {{2520u, 1080u}, true, true, 200, 2.0f, {896.0f, 384.0f}},         // 21:9: 200%
+        {{1920u, 1080u}, true, true, 0, 1.25f, {1092.0f, 614.0f}},         // 16:9, automatic
+        {{2560u, 1600u}, true, true, 0, 1.25f, {982.0f, 614.0f}},          // a 16:10 tablet, automatic
+        {{2048u, 1536u}, true, true, 0, 908.0f / 805.0f, {908.0f, 681.0f}},   // a 4:3 tablet: 125% held at 113%
+    };
+    for (const Case& c : cases) {
+        const std::string what = std::to_string(c.window.x) + "x" + std::to_string(c.window.y) + " zoom " +
+                                 std::to_string(c.setting) + (c.widescreen ? "" : " 4:3") + (c.touch ? "" : " no touch");
+        const float zoom = CampaignZoom(c.setting, c.touch, c.window, c.widescreen);
+        const glm::vec2 screen = ZoomedScreen(c.window, c.widescreen, zoom);
+        std::printf("  E25 %s: %.3f, screen %.0fx%.0f\n", what.c_str(), zoom, screen.x, screen.y);
+        CHECK_MSG(Near(zoom, c.zoom, 0.002f), what + ": " + std::to_string(zoom));
+        CHECK_MSG(screen == c.screen, what);
+        // The message rule, whole pixels and all.
+        CHECK_MSG(MessageClearance(screen, HudFrame{}) >= kMessageRoom + kMessageGap, what);
+        if (c.widescreen) {
+            const float aspect = static_cast<float>(c.window.x) / static_cast<float>(c.window.y);
+            CHECK_MSG(std::fabs(screen.x - screen.y * aspect) <= 1.0f, what);   // no bars
+        }
+    }
+    // The options screen's steps: none past what the screen can show.
+    CHECK_EQ(MaxZoomPercent({2400u, 1080u}, true), 197);
+    CHECK_EQ(MaxZoomPercent({2560u, 1080u}, true), 211);
+    CHECK_EQ(MaxZoomPercent({1920u, 1080u}, true), 155);
+    CHECK_EQ(MaxZoomPercent({2048u, 1536u}, true), 112);
+    CHECK_EQ(MaxZoomPercent({2400u, 1080u}, false), 112);
+    // A zoom of 1 is E1's own screen, in any window.
+    for (const glm::uvec2 window : kWideWindows) {
+        const float aspect = static_cast<float>(window.x) / static_cast<float>(window.y);
+        CHECK(ZoomedScreen(window, true, 1.0f) == glm::vec2(std::max(1024.0f, std::round(768.0f * aspect)), 768.0f));
+        CHECK(ZoomedScreen(window, false, 1.0f) == glm::vec2(1024.0f, 768.0f));
+    }
+    // The scenes it applies to: the campaign's, the checkpoint a death reloads
+    // included; never the menus, the options, game over or the arenas.
+    for (const char* scene : {"scenes/level1.esc", "scenes/level2.esc", "scenes/level3.esc", "scenes/checkpoint.esc"}) {
+        CHECK_MSG(IsCampaignScene(scene), scene);
+    }
+    for (const char* scene : {"scenes/menu.esc", "scenes/arena_select.esc", "scenes/videoModes.esc",
+                              "scenes/gameover.esc", "scenes/pvp_lv1.esc", "scenes/pvp_lv6.esc", ""}) {
+        CHECK_MSG(!IsCampaignScene(scene), scene);
+    }
+    // A zoomed campaign scene goes back to E1's screen once the campaign is
+    // finished or while the princess is there; an unzoomed one, an arena (her
+    // Versus) or the menus never do.
+    const glm::vec2 zoomed(1138.0f, 512.0f);
+    const glm::vec2 plain(1707.0f, 768.0f);
+    CHECK(CampaignUnzooms("scenes/level1.esc", zoomed, false, true));
+    CHECK(CampaignUnzooms("scenes/checkpoint.esc", zoomed, false, true));
+    CHECK(CampaignUnzooms("scenes/level3.esc", zoomed, true, false));
+    CHECK(!CampaignUnzooms("scenes/level1.esc", zoomed, false, false));
+    CHECK(!CampaignUnzooms("scenes/level1.esc", plain, true, true));
+    CHECK(!CampaignUnzooms("scenes/pvp_lv1.esc", zoomed, false, true));
+    CHECK(!CampaignUnzooms("scenes/menu.esc", zoomed, true, true));
+}
+
+// ENHANCEMENT E26: the HUD's safe frame. settings.json "edgeMargin" read,
+// written and read back; the margin asked for (none without the touch
+// controls; automatic 3.5% on a phone-shaped screen, 1% on another); the
+// frame a level's screen gets from it and the display's safe area, whichever
+// keeps more, less the bars; and the message rule on every screen the touch
+// controls draw a level on - the phone and tablet shapes, their safe areas,
+// the automatic margin, every zoom the Zoom row offers there and E1's
+// unzoomed screen (co-op, the arenas, 100%): a message line keeps its room
+// and the gap up to the pause button, and the row offers the steps it did
+// before the frame (175% on 20:9, 150% on 18:9; a 4:3 tablet still zoomed).
+void testPhoneHudFrame() {
+    using namespace Penumbra::Render;
+    using Supersonic::SafeAreaInsets;
+    const Settings en = Settings::Defaults("en");
+    CHECK(en.edgeMargin < 0.0f);
+    CHECK(en.ToJson().find("\"edgeMargin\": \"auto\"") != std::string::npos);
+    std::string warning;
+    const auto marginOf = [&](const std::string& json) {
+        warning.clear();
+        return Settings::FromJson(json, en, &warning).edgeMargin;
+    };
+    CHECK(marginOf(R"({"edgeMargin": "auto"})") < 0.0f);
+    CHECK(warning.empty());
+    CHECK(marginOf(R"({"edgeMargin": "Auto"})") < 0.0f);
+    CHECK(Near(marginOf(R"({"edgeMargin": 3.5})"), 3.5f));
+    CHECK(warning.empty());
+    CHECK(Near(marginOf(R"({"edgeMargin": 0})"), 0.0f));
+    CHECK(Near(marginOf(R"({"edgeMargin": 12})"), 8.0f));
+    CHECK(Near(marginOf(R"({"edgeMargin": -2})"), 0.0f));
+    CHECK(marginOf(R"({"edgeMargin": "wide"})") < 0.0f);
+    CHECK(warning.find("edgeMargin") != std::string::npos);
+    CHECK(marginOf(R"({"language": "en"})") < 0.0f);   // a file from before E26: automatic
+    for (const float margin : {-1.0f, 0.0f, 2.5f, 3.5f, 8.0f}) {
+        Settings changed = en;
+        changed.edgeMargin = margin;
+        const Settings back = Settings::FromJson(changed.ToJson(), en, &warning);
+        CHECK(back == changed);
+    }
+    CHECK(ClampEdgeMarginSetting(-5.0f) == kEdgeMarginAuto);
+    CHECK(ClampEdgeMarginSetting(20.0f) == kEdgeMarginMaxPercent);
+
+    // What is asked.
+    CHECK_EQ(EdgeMarginPercent(kEdgeMarginAuto, false, {2400u, 1080u}), 0.0f);   // no touch controls: none
+    CHECK_EQ(EdgeMarginPercent(5.0f, false, {2400u, 1080u}), 0.0f);              // whatever the setting says
+    CHECK_EQ(EdgeMarginPercent(kEdgeMarginAuto, true, {2400u, 1080u}), kPhoneEdgeMarginPercent);
+    CHECK_EQ(EdgeMarginPercent(kEdgeMarginAuto, true, {2048u, 1536u}), kTabletEdgeMarginPercent);
+    CHECK_EQ(EdgeMarginPercent(kEdgeMarginAuto, true, {1920u, 1080u}), kTabletEdgeMarginPercent);
+    CHECK_EQ(EdgeMarginPercent(0.0f, true, {2400u, 1080u}), 0.0f);
+    CHECK_EQ(EdgeMarginPercent(6.0f, true, {2400u, 1080u}), 6.0f);
+    CHECK_EQ(EdgeMarginPercent(30.0f, true, {2400u, 1080u}), kEdgeMarginMaxPercent);
+
+    // The frame, on a 20:9 phone: 3.5% of 2400 px at the sides and of 1080 at
+    // the top, in the screen's pixels - E1's (1.40625 image px each) and 150%'s
+    // (2.109) - and nothing at the bottom, where no HUD is.
+    const glm::uvec2 phone(2400u, 1080u);
+    HudFrame frame = ComputeHudFrame(phone, {1707.0f, 768.0f}, SafeAreaInsets{}, 3.5f);
+    CHECK(Near(frame.left, 84.0f / 1.40625f, 0.05f) && Near(frame.right, 84.0f / 1.40625f, 0.6f));
+    CHECK(Near(frame.top, 37.8f / 1.40625f, 0.05f) && frame.bottom == 0.0f);
+    frame = ComputeHudFrame(phone, {1138.0f, 512.0f}, SafeAreaInsets{}, 3.5f);
+    const float zoomedScale = 1080.0f / 512.0f;
+    CHECK(Near(frame.left, 84.0f / zoomedScale, 0.05f) && Near(frame.top, 37.8f / zoomedScale, 0.05f));
+    // A notch wider than the margin decides its side; a bar at the bottom only the bottom.
+    frame = ComputeHudFrame({2532u, 1170u}, {1662.0f, 768.0f}, SafeAreaInsets{132.0f, 0.0f, 0.0f, 63.0f}, 3.5f);
+    const float iphoneScale = 1170.0f / 768.0f;
+    CHECK(Near(frame.left, 132.0f / iphoneScale, 0.05f));
+    CHECK(Near(frame.right, 0.035f * 2532.0f / iphoneScale, 0.6f));
+    CHECK(Near(frame.bottom, 63.0f / iphoneScale, 0.05f));
+    // 4:3 levels on a phone: the bars keep the sides clear; the top is still kept.
+    frame = ComputeHudFrame(phone, {1024.0f, 768.0f}, SafeAreaInsets{}, 3.5f);
+    CHECK(frame.left == 0.0f && frame.right == 0.0f && Near(frame.top, 37.8f / 1.40625f, 0.05f));
+    // No margin and no safe area: the original's edges.
+    CHECK(ComputeHudFrame(phone, {1707.0f, 768.0f}, SafeAreaInsets{}, 0.0f).IsZero());
+    CHECK(ComputeHudFrame({1024u, 768u}, {1024.0f, 768.0f}, SafeAreaInsets{}, 0.0f).IsZero());
+
+    // A margin set by hand is held to what leaves a message its room on E1's
+    // screen: a 4:3 tablet takes 5%, a phone all 8.
+    const float tabletMax = FittedEdgeMargin(8.0f, {2048u, 1536u}, true, SafeAreaInsets{});
+    std::printf("  E26 a 4:3 tablet's margin set to 8%%: %.2f%%\n", tabletMax);
+    CHECK(tabletMax > 4.9f && tabletMax < 5.1f);
+    CHECK_EQ(FittedEdgeMargin(1.0f, {2048u, 1536u}, true, SafeAreaInsets{}), 1.0f);
+    CHECK_EQ(FittedEdgeMargin(8.0f, phone, true, SafeAreaInsets{}), 8.0f);
+    CHECK_EQ(FittedEdgeMargin(-1.0f, phone, true, SafeAreaInsets{}), 0.0f);
+
+    // The rule, everywhere a level is drawn with the touch controls.
+    struct Shape {
+        const char* name;
+        glm::uvec2 window;
+        SafeAreaInsets safe;
+    };
+    const Shape shapes[] = {
+        {"18:9", {2160u, 1080u}, {}},
+        {"20:9", {2400u, 1080u}, {}},
+        {"19.5:9, a notch", {2532u, 1170u}, {132.0f, 0.0f, 0.0f, 63.0f}},
+        {"19.5:9, a notch either side", {2532u, 1170u}, {132.0f, 0.0f, 132.0f, 63.0f}},
+        {"21:9", {2520u, 1080u}, {}},
+        {"16:9", {1920u, 1080u}, {}},
+        {"16:10", {2560u, 1600u}, {}},
+        {"3:2", {2160u, 1440u}, {}},
+        {"10.9-inch", {2360u, 1640u}, {}},
+        {"4:3", {2048u, 1536u}, {}},
+    };
+    const float needs = kMessageRoom + kMessageGap;
+    for (const Shape& shape : shapes) {
+        for (const bool widescreen : {true, false}) {
+            const std::string what = std::string(shape.name) + (widescreen ? "" : ", 4:3 levels");
+            const float margin =
+                FittedEdgeMargin(EdgeMarginPercent(kEdgeMarginAuto, true, shape.window), shape.window, widescreen,
+                                 shape.safe);
+            const int limit = MaxZoomPercent(shape.window, widescreen, shape.safe, margin);
+            const float automatic = CampaignZoom(kZoomAutomatic, true, shape.window, widescreen, shape.safe, margin);
+            float least = 1e9f;
+            std::vector<float> zooms = {1.0f, automatic, MaxZoom(shape.window, widescreen, shape.safe, margin)};
+            for (const int step : kZoomSteps) {
+                if (step <= limit) zooms.push_back(static_cast<float>(step) / 100.0f);
+            }
+            for (const float zoom : zooms) {
+                const glm::vec2 screen = ZoomedScreen(shape.window, widescreen, zoom);
+                const HudFrame at = ComputeHudFrame(shape.window, screen, shape.safe, margin);
+                const float clear = MessageClearance(screen, at);
+                least = std::min(least, clear);
+                CHECK_MSG(clear >= needs, what + " at " + std::to_string(zoom) + ": " + std::to_string(clear));
+                CHECK_MSG(at.left >= 0.0f && at.top >= 0.0f && at.right >= 0.0f, what);
+            }
+            std::printf("  E26 %s: margin %.2f%%, zoom up to %d%%, automatic %.0f%%, a message's room at least %.0f px\n",
+                        what.c_str(), margin, limit, automatic * 100.0f, least - kMessageGap);
+            CHECK_MSG(automatic > 1.0f, what);   // every touch screen still zooms in
+        }
+    }
+    // The steps the Zoom row offers, as before the frame.
+    const auto limitOf = [](glm::uvec2 window, SafeAreaInsets safe = {}) {
+        const float margin =
+            FittedEdgeMargin(EdgeMarginPercent(kEdgeMarginAuto, true, window), window, true, safe);
+        return MaxZoomPercent(window, true, safe, margin);
+    };
+    CHECK(limitOf({2400u, 1080u}) >= 175);
+    CHECK(limitOf({2340u, 1080u}) >= 175);
+    CHECK(limitOf({2160u, 1080u}) >= 150);
+    CHECK(limitOf({2532u, 1170u}, {132.0f, 0.0f, 132.0f, 63.0f}) >= 150);
+    CHECK(limitOf({1920u, 1080u}) >= 150);
+    CHECK(limitOf({2560u, 1600u}) >= 125);
+    CHECK(limitOf({2160u, 1440u}) >= 125);
+}
+
+// E25's larger menu: where each window puts the 1024x768 menu - the logo and
+// the seven buttons filling the height, from the left, the panel no narrower
+// than in E1's view - and a 4:3 or narrower window left as it was.
+View PhoneMenuView(glm::uvec2 window, const Penumbra::Render::MenuFrame& frame) {
+    RenderSnapshot snapshot;
+    snapshot.screenSize = vector2(1024.0f, 768.0f);
+    snapshot.sideMargin = Penumbra::Render::kWideMenuMargin;
+    return CameraRig::ComputeView(snapshot, window, true, &frame);
+}
+
+const glm::uvec2 kPhoneMenuWindows[] = {{2400u, 1080u}, {2340u, 1080u}, {2520u, 1080u}, {1920u, 1080u},
+                                        {2560u, 1600u}, {1920u, 1200u}, {2360u, 1640u}};
+
+void testPhoneMenuFrame() {
+    using namespace Penumbra::Render;
+    for (const glm::uvec2 window : kPhoneMenuWindows) {
+        const std::string what = std::to_string(window.x) + "x" + std::to_string(window.y);
+        const glm::vec2 image(window);
+        const MenuFrame frame = ComputeMenuFrame(window);
+        const float base = std::min(image.x / 1024.0f, image.y / 768.0f);
+        CHECK_MSG(frame.active, what);
+        CHECK_MSG(Near(frame.baseScale, base, 1e-5f), what);
+        CHECK_MSG(frame.scale >= base * kMenuMinGain - 1e-5f, what);
+        // The focus box whole in the window, at its left; the screen's top and
+        // bottom edges never inside it (nothing is collected past them).
+        const glm::vec2 focusMin = frame.viewportMin + kMenuFocusMin * frame.scale;
+        const glm::vec2 focusMax = frame.viewportMin + kMenuFocusMax * frame.scale;
+        CHECK_MSG(focusMin.x >= -0.5f && focusMin.x <= 0.5f && focusMin.y >= -0.5f, what);
+        CHECK_MSG(focusMax.y <= image.y + 0.5f && focusMax.x < image.x, what);
+        CHECK_MSG(frame.viewportMin.y <= 0.0f && frame.viewportMin.y + 768.0f * frame.scale >= image.y - 0.5f, what);
+        // The panel, from x 632.8 to the window's edge, no narrower than E1's.
+        const float baseLeft = std::round((image.x - 1024.0f * base) * 0.5f);
+        const float basePanel = image.x - (baseLeft + kMenuPanelLeft * base);
+        const float panel = image.x - (frame.viewportMin.x + kMenuPanelLeft * frame.scale);
+        std::printf("  E25 menu %s: x%.3f (E1's x%.3f, %.0f%% larger), panel %.0f px (E1's %.0f)\n", what.c_str(),
+                    frame.scale, base, (frame.scale / base - 1.0f) * 100.0f, panel, basePanel);
+        CHECK_MSG(panel >= basePanel - 1.0f, what);
+
+        // The view it makes: that scale and place, the whole window shown (no
+        // bars), what is shown of the screen from the crop.
+        const View view = PhoneMenuView(window, frame);
+        CHECK_MSG(view.scale == frame.scale && view.viewportMin == frame.viewportMin, what);
+        CHECK_MSG(CameraRig::Bars(view).empty(), what);
+        CHECK_MSG(view.ShownMin() == glm::vec2(0.0f) && view.ShownMax() == image, what);
+        CHECK_MSG(Near(view.ShownLogicalMin().x, -frame.viewportMin.x / frame.scale), what);
+        CHECK_MSG(Near(view.ShownLogicalMin().y, std::max(0.0f, -frame.viewportMin.y / frame.scale)), what);
+        CHECK_MSG(Near(view.ShownLogicalMax().x, (image.x - frame.viewportMin.x) / frame.scale), what);
+        CHECK_MSG(Near(view.ShownLogicalMax().y, std::min(768.0f, (image.y - frame.viewportMin.y) / frame.scale)), what);
+        CHECK_MSG(view.CroppedBottom(), what);
+
+        // The panel's text box: 10 px in from the panel's left, 20 down from
+        // what is shown of its top, 10 short of the window's right and bottom.
+        const MenuPanel box = ComputeMenuPanel(frame, window);
+        CHECK_MSG(Near(box.min.x, kMenuPanelLeft + 10.0f), what);
+        CHECK_MSG(Near(box.min.y, view.ShownLogicalMin().y + 20.0f), what);
+        CHECK_MSG(Near(box.max.x, view.ShownLogicalMax().x - 10.0f), what);
+        CHECK_MSG(Near(box.max.y, view.ShownLogicalMax().y - 10.0f), what);
+        CHECK_MSG(Near(box.shownMin.x, view.ShownLogicalMin().x) && Near(box.shownMin.y, view.ShownLogicalMin().y), what);
+        CHECK_MSG(Near(box.shownMax.x, view.ShownLogicalMax().x) && Near(box.shownMax.y, view.ShownLogicalMax().y), what);
+        CHECK_MSG(Near(box.minScale * frame.scale, base, 1e-4f), what);   // E1's size on the window, at least
+        CHECK_MSG(Near(box.maxScale, box.minScale * kMenuMaxTextGain, 1e-4f), what);
+        // A notch at the right and a corner button keep the text out of them.
+        const Supersonic::SafeAreaInsets rightNotch{0.0f, 0.0f, 90.0f, 0.0f};
+        const MenuPanel inset = ComputeMenuPanel(frame, window, rightNotch, box.max.x - 40.0f);
+        CHECK_MSG(Near(inset.max.x, box.max.x - 50.0f), what);
+        const MenuPanel notch = ComputeMenuPanel(frame, window, rightNotch);
+        CHECK_MSG(Near(notch.max.x, box.max.x - 90.0f / frame.scale), what);
+    }
+    // Without a safe area the frame is E25's exactly (one clamp, the screen's
+    // edges kept out of the image), whichever bounds the scale - the fill (a
+    // phone) or the panel (a tablet).
+    for (const glm::uvec2 window : kPhoneMenuWindows) {
+        const glm::vec2 image(window);
+        const MenuFrame frame = ComputeMenuFrame(window, Supersonic::SafeAreaInsets{});
+        const float s = frame.scale;
+        const float centred = (image.y - (kMenuFocusMax.y - kMenuFocusMin.y) * s) * 0.5f - kMenuFocusMin.y * s;
+        const glm::vec2 before =
+            glm::round(glm::vec2(-kMenuFocusMin.x * s, std::clamp(centred, std::min(0.0f, image.y - 768.0f * s), 0.0f)));
+        CHECK_MSG(frame.viewportMin == before,
+                  std::to_string(window.x) + "x" + std::to_string(window.y) + ": " +
+                      std::to_string(frame.viewportMin.y) + " against " + std::to_string(before.y));
+    }
+    // A notch at the left: the focus box starts past it.
+    const MenuFrame notched = ComputeMenuFrame({2400u, 1080u}, Supersonic::SafeAreaInsets{100.0f, 0.0f, 0.0f, 0.0f});
+    CHECK(notched.active);
+    CHECK(Near(notched.viewportMin.x + kMenuFocusMin.x * notched.scale, 100.0f, 0.5f));
+    // A notched phone with its home indicator (an iPhone on its side): the
+    // logo and the Quit button's foot inside the safe area, the notch to the
+    // left of the focus box, the panel's box and its loading corner above the
+    // indicator; a camera at the top, likewise.
+    for (const Supersonic::SafeAreaInsets safe : {Supersonic::SafeAreaInsets{132.0f, 0.0f, 0.0f, 63.0f},
+                                                   Supersonic::SafeAreaInsets{0.0f, 80.0f, 0.0f, 0.0f},
+                                                   Supersonic::SafeAreaInsets{132.0f, 40.0f, 132.0f, 63.0f}}) {
+        const glm::uvec2 window(2532u, 1170u);
+        const std::string what = "2532x1170 safe " + std::to_string(safe.left) + "," + std::to_string(safe.top) +
+                                 "," + std::to_string(safe.right) + "," + std::to_string(safe.bottom);
+        const MenuFrame frame = ComputeMenuFrame(window, safe);
+        CHECK_MSG(frame.active, what);
+        const glm::vec2 focusMin = frame.viewportMin + kMenuFocusMin * frame.scale;
+        const glm::vec2 focusMax = frame.viewportMin + kMenuFocusMax * frame.scale;
+        const float quitFoot = frame.viewportMin.y + 583.5f * frame.scale;
+        std::printf("  E25 menu %s: x%.3f, the focus box y %.0f-%.0f, the Quit button's foot at %.0f\n", what.c_str(),
+                    frame.scale, focusMin.y, focusMax.y, quitFoot);
+        CHECK_MSG(focusMin.x >= safe.left - 0.5f, what);
+        CHECK_MSG(focusMin.y >= safe.top - 0.5f, what);
+        CHECK_MSG(focusMax.y <= 1170.0f - safe.bottom + 0.5f, what);
+        CHECK_MSG(quitFoot <= 1170.0f - safe.bottom, what);
+        const MenuPanel box = ComputeMenuPanel(frame, window, safe);
+        CHECK_MSG(frame.viewportMin.y + box.min.y * frame.scale >= safe.top - 0.5f, what);
+        CHECK_MSG(frame.viewportMin.y + box.max.y * frame.scale <= 1170.0f - safe.bottom - 0.5f, what);
+        CHECK_MSG(frame.viewportMin.y + box.shownMax.y * frame.scale <= 1170.0f - safe.bottom + 0.5f, what);
+        CHECK_MSG(frame.viewportMin.y + box.shownMin.y * frame.scale >= safe.top - 0.5f, what);
+        CHECK_MSG(frame.viewportMin.x + box.max.x * frame.scale <= 2532.0f - safe.right - 0.5f, what);
+    }
+
+    // No wider than 4:3, or a 4:3 tablet whose panel would narrow: E1's view.
+    for (const glm::uvec2 window : {glm::uvec2(1024u, 768u), glm::uvec2(2048u, 1536u), glm::uvec2(1280u, 1024u),
+                                    glm::uvec2(2732u, 2048u), glm::uvec2(0u, 0u)}) {
+        const MenuFrame frame = ComputeMenuFrame(window);
+        CHECK_MSG(!frame.active, std::to_string(window.x) + "x" + std::to_string(window.y));
+        if (window.x == 0) continue;
+        const View view = PhoneMenuView(window, frame);
+        const View before = MenuView(window, Penumbra::Render::kWideMenuMargin);
+        CHECK(view.scale == before.scale && view.viewportMin == before.viewportMin &&
+              view.viewportMax == before.viewportMax);
+    }
+    // E1's views are never cropped: their shown area is what it always was.
+    for (const glm::uvec2 window : kWideWindows) {
+        const View open = MenuView(window, Penumbra::Render::kWideMenuMargin);
+        CHECK(!open.CroppedTop() && !open.CroppedBottom());
+        CHECK(open.ShownLogicalMin().y == 0.0f && open.ShownLogicalMax().y == 768.0f);
+    }
+    CHECK(IsPhoneMenuScene("scenes/menu.esc") && IsPhoneMenuScene("scenes/arena_select.esc"));
+    CHECK(!IsPhoneMenuScene("scenes/videoModes.esc") && !IsPhoneMenuScene("scenes/gameover.esc") &&
+          !IsPhoneMenuScene("scenes/level1.esc"));
+}
+
+// A tap or a click where a menu button is drawn in E25's larger menu hits it:
+// every button whole on the window, and the window pixel of its middle and of
+// two points just inside its drawn part (left of the panel, which covers the
+// rest, as it does in the original) coming back through the mouse's mapping
+// and through a finger's (the layer's TouchContacts, then E16's pointer)
+// inside its collision box.
+void testPhoneMenuHits() {
+    using namespace Penumbra::Render;
+    for (const glm::uvec2 window : kPhoneMenuWindows) {
+        const MenuFrame frame = ComputeMenuFrame(window);
+        const View view = PhoneMenuView(window, frame);
+        const glm::vec2 image(window);
+        for (const MenuButton& button : kMenuButtons) {
+            const std::string what = std::string(button.name) + " at " + std::to_string(window.x) + "x" +
+                                     std::to_string(window.y);
+            const glm::vec2 drawnMax(std::min(button.max.x, kMenuPanelLeft - 1.0f), button.max.y);
+            const glm::vec2 topLeft = view.viewportMin + button.min * view.scale;
+            const glm::vec2 bottomRight = view.viewportMin + button.max * view.scale;
+            CHECK_MSG(topLeft.x >= 0.0f && topLeft.y >= 0.0f && bottomRight.y <= image.y, what);
+            const glm::vec2 inset(2.0f / view.scale);
+            for (const glm::vec2 logical : {(button.min + drawnMax) * 0.5f, button.min + inset, drawnMax - inset}) {
+                const glm::vec2 pixel = view.viewportMin + logical * view.scale;
+                const auto inside = [&](const glm::vec2& p) {
+                    return p.x > button.min.x && p.x < button.max.x && p.y > button.min.y && p.y < button.max.y;
+                };
+                // The mouse.
+                InputMapper mapper;
+                mapper.SetControls(Defaults());
+                RawDevices raw;
+                raw.mouseWindow = pixel;
+                raw.mouse[0] = true;
+                const InputFrame clicked = mapper.BuildTick(raw, view);
+                CHECK_MSG(inside(clicked.cursor) && clicked.keys[K_LMOUSE], what);
+                CHECK_MSG(!InputMapper::PointerOverBars(pixel, view), what);
+                // A finger: the menu's pointer, where the layer maps a contact.
+                TouchControls touch;
+                TouchInput input;
+                input.contacts = {TouchContact{0, InputMapper::WindowToLogical(pixel, view), true}};
+                input.screen = view.logicalScreen;
+                input.areaMin = view.ShownLogicalMin();
+                input.areaMax = view.ShownLogicalMax();
+                input.scene = TouchScene::Menu;
+                input.corner = TouchCorner::Hidden;
+                input.unit = frame.baseScale / frame.scale;
+                InputFrame tapped;
+                TouchControls::ApplyToFrame(touch.Update(input), tapped);
+                CHECK_MSG(inside(tapped.cursor) && tapped.keys[K_LMOUSE], what);
+            }
+        }
+    }
+}
+
 void runTests() {
     testKeyboardPlayer1();
     testGamepads();
@@ -1368,6 +1840,10 @@ void runTests() {
     testWideMenuView();
     testWideMenuHits();
     testWideMenuWarp();
+    testPhoneZoom();        // E25
+    testPhoneMenuFrame();   // E25
+    testPhoneMenuHits();    // E25
+    testPhoneHudFrame();    // E26
     testLatch();
     testMenuMode();
     testKeyNames();

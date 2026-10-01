@@ -658,6 +658,60 @@ void FontAtlas::Prepare(const std::u32string& text, const std::string& face, con
     if (want(*font, atlas, text)) atlas.dirty = true;
 }
 
+FontAtlas::Extent FontAtlas::Measure(const std::u32string& text, const std::string& face, const float size,
+                                     std::vector<float>* lineWidths) {
+    Extent extent;
+    if (lineWidths != nullptr) lineWidths->clear();
+    if (text.empty()) return extent;
+    Font* font = fontFor(face);
+    if (font == nullptr) return extent;
+    Atlas& atlas = atlasFor(*font, rasterPxFor(size));
+    atlas.lastUsed = m_frame;
+    // An extra's advance is known once it is added; the next Layout bakes it.
+    if (want(*font, atlas, text)) atlas.dirty = true;
+
+    // LayoutCodePoints' first pass: whole raster pixels a line, the same breaks and tabs.
+    int penX = 0;
+    int widest = 0;
+    int line = 0;
+    int lastWithAdvance = -1;
+    const auto endLine = [&]() {
+        widest = std::max(widest, penX);
+        if (lineWidths != nullptr) lineWidths->push_back(static_cast<float>(penX) / m_scale);
+        if (penX > 0) lastWithAdvance = line;
+        ++line;
+        penX = 0;
+    };
+    for (std::size_t i = 0; i < text.size(); ++i) {
+        const char32_t codePoint = text[i];
+        if (codePoint == '\r') {
+            if (i + 1 < text.size() && text[i + 1] == '\n') continue;
+            endLine();
+            continue;
+        }
+        if (codePoint == '\n') {
+            endLine();
+            continue;
+        }
+        if (codePoint == '\t') {
+            penX = (penX / atlas.tab + 1) * atlas.tab;
+            continue;
+        }
+        if (codePoint < 0x20) continue;
+        unsigned char byte = 0;
+        if (Eth::Cp1252ByteOf(static_cast<unsigned>(codePoint), byte)) {
+            penX += atlas.slots[byte].advance;
+        } else if (const auto extra = atlas.extras.find(codePoint); extra != atlas.extras.end()) {
+            penX += extra->second.slot.advance;
+        }
+    }
+    endLine();
+    extent.width = static_cast<float>(widest) / m_scale;
+    extent.lines = lastWithAdvance + 1;
+    extent.lineHeight = static_cast<float>(atlas.lineHeight) / m_scale;
+    return extent;
+}
+
 TextLayout FontAtlas::LayoutCodePoints(const std::u32string& text, const std::string& face, const float size,
                                        const glm::vec2 pos, const LineAlign align) {
     TextLayout layout;

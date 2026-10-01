@@ -82,6 +82,12 @@ PenumbraLayer::~PenumbraLayer() = default;
 
 Eth::vector2 PenumbraLayer::LogicalScreenFor(const std::string& sceneFile) const {
     constexpr float kHeight = 768.0f;
+    // E25: a campaign level, zoomed while the touch controls are on - E1's
+    // screen (or the 4:3 one) that many times smaller, fixed per scene as E1's is.
+    if (Render::IsCampaignScene(sceneFile)) {
+        const float zoom = CampaignZoom();
+        if (zoom > 1.0f) return Render::ZoomedScreen(m_options.windowPixels, Widescreen(), zoom);
+    }
     if (!Widescreen() || IsFixedLayoutScene(sceneFile)) return {1024.0f, kHeight};
     // E1: as wide as the window's shape, never narrower than the original.
     // Fixed per scene: the scripts read GetScreenSize() every frame, but a
@@ -147,7 +153,7 @@ void PenumbraLayer::OnAttach(entt::registry& registry) {
         m_options.touchOverride.value_or(Render::TouchControls::EnabledBySetting(m_settings.touchControls)));
     // E20: a phone's options screen (Script.hpp). From the build, not from the
     // controls: a desktop run with --touch still has a window to switch.
-    Script::g_mobileLayout = Render::kMobileBuild;
+    Script::g_mobileLayout = m_options.mobileLayoutOverride.value_or(Render::kMobileBuild);
     Script::g_refreshRateRow = !Render::kMobileBuild || kPhoneRefreshRate;   // E23: not on iOS
 
     // The original's option switches, remembered across launches (E6).
@@ -173,6 +179,7 @@ void PenumbraLayer::OnAttach(entt::registry& registry) {
     Script::g_smoothMotion.setCurrent(SmoothMotion() ? 0u : 1u);   // E8's row: as this run draws (--smooth, --fixed-step)
     Script::g_pauseOnFocusLoss.setCurrent(PauseOnFocusLoss() ? 0u : 1u);   // E13's, likewise
     Script::g_touchControls.setCurrent(m_touchEnabled ? 0u : 1u);   // E20's: as this run has them (--touch)
+    RefreshZoomChoices();   // E25's: as this run zooms (--zoom)
     m_input.SetControls(m_settings.controls);
     m_interp.SetEnabled(SmoothMotion());
 
@@ -207,8 +214,10 @@ void PenumbraLayer::OnAttach(entt::registry& registry) {
     // The first tick runs before any OnUpdate has measured the window.
     Eth::RenderSnapshot seed;
     seed.screenSize = config.screenSize;
-    m_view = Render::CameraRig::ComputeView(
-        seed, Render::CameraRig::WindowPixels(registry, glm::vec2(m_options.windowPixels)), m_pillarbox);
+    const glm::uvec2 image = Render::CameraRig::WindowPixels(registry, glm::vec2(m_options.windowPixels));
+    // E25: the menu's first taps map through the frame it is drawn in.
+    const Render::MenuFrame menuFrame = MenuFrameFor("scenes/menu.esc", image);
+    m_view = Render::CameraRig::ComputeView(seed, image, m_pillarbox, &menuFrame);
 }
 
 void PenumbraLayer::OnDetach(entt::registry& registry) {
@@ -233,6 +242,69 @@ Supersonic::WindowControl* PenumbraLayer::WindowControlOf(entt::registry& regist
 
 bool PenumbraLayer::Widescreen() const {
     return m_options.widescreenOverride.value_or(m_settings.widescreen);
+}
+
+int PenumbraLayer::ZoomSetting() const {
+    return Render::ClampZoomSetting(m_options.zoomOverride.value_or(m_settings.zoom));
+}
+
+float PenumbraLayer::CampaignZoom() const {
+    // E26: as far as the frame leaves the messages their room.
+    return Render::CampaignZoom(ZoomSetting(), m_touchEnabled, m_options.windowPixels, Widescreen(), SafeInsets(),
+                                EdgeMargin());
+}
+
+Supersonic::SafeAreaInsets PenumbraLayer::SafeInsets() const {
+    return m_options.safeAreaOverride.value_or(Supersonic::SafeArea::Get());
+}
+
+float PenumbraLayer::EdgeMargin() const {
+    const float asked = Render::EdgeMarginPercent(m_options.edgeMarginOverride.value_or(m_settings.edgeMargin),
+                                                  m_touchEnabled, m_options.windowPixels);
+    return Render::FittedEdgeMargin(asked, m_options.windowPixels, Widescreen(), SafeInsets());
+}
+
+Render::HudFrame PenumbraLayer::CurrentHudFrame() const {
+    // The loops the HUD is drawn under, their end screens included (the
+    // bars stay where they were); the menus have none.
+    const std::string& loop = m_machine->LoopFunction();
+    if (!m_touchEnabled || (loop != "levelLoop" && loop != "pvpLoop")) return Render::HudFrame{};
+    return Render::ComputeHudFrame(m_view.windowPixels, m_machine->GetScreenSize(), SafeInsets(), EdgeMargin());
+}
+
+Render::MenuFrame PenumbraLayer::MenuFrameFor(const std::string& sceneFile, const glm::uvec2 image) const {
+    // The larger menu shows the world past the screen's sides, which only
+    // E1's wide menus collect.
+    if (!m_touchEnabled || !Widescreen() || !Render::IsPhoneMenuScene(sceneFile)) return Render::MenuFrame{};
+    return Render::ComputeMenuFrame(image, SafeInsets());
+}
+
+void PenumbraLayer::RefreshZoomChoices() {
+    // E25: automatic, then the steps this screen can show (a step past
+    // MaxZoom would draw as the one below it); the setting, a hand-edited
+    // percentage or one past the limit here, is shown as it is, in its place.
+    const int setting = ZoomSetting();
+    m_zoomChoicesSafe = SafeInsets();
+    const int limit = Render::MaxZoomPercent(m_options.windowPixels, Widescreen(), m_zoomChoicesSafe, EdgeMargin());
+    m_zoomChoices.assign(1, Render::kZoomAutomatic);
+    for (const int step : Render::kZoomSteps) {
+        if (step == Render::kZoomMinPercent || step <= limit) m_zoomChoices.push_back(step);
+    }
+    if (setting != Render::kZoomAutomatic &&
+        std::find(m_zoomChoices.begin(), m_zoomChoices.end(), setting) == m_zoomChoices.end()) {
+        m_zoomChoices.insert(std::upper_bound(m_zoomChoices.begin() + 1, m_zoomChoices.end(), setting), setting);
+    }
+    Eth::array<Eth::string> labels;
+    uint32_t current = 0;
+    for (std::size_t i = 0; i < m_zoomChoices.size(); ++i) {
+        // The script's Portuguese: strings.json has "Autom\xE1tica", and a
+        // percentage is the pattern "{int}%", the same in every language.
+        labels.insertLast(m_zoomChoices[i] == Render::kZoomAutomatic ? std::string("Autom\xE1tica")
+                                                                     : std::to_string(m_zoomChoices[i]) + "%");
+        if (m_zoomChoices[i] == setting) current = static_cast<uint32_t>(i);
+    }
+    Script::g_zoom.setOptions(labels, current);
+    m_zoomChoiceSeeded = Script::g_zoom.getCurrent();
 }
 
 Render::Language PenumbraLayer::CurrentLanguage() const {
@@ -278,6 +350,14 @@ void PenumbraLayer::ApplyTouch(Eth::InputFrame& frame) {
     Render::TouchInput input;
     input.contacts = TouchContacts();
     input.screen = m_machine->GetScreenSize();
+    // E25: the controls keep their size on the window - laid out for a screen
+    // 768 tall, which a zoomed level's is not, and at E1's scale, which a
+    // phone's larger menu is not.
+    const Render::MenuFrame menuFrame = MenuFrameFor(m_machine->GetSceneFileName(), m_view.windowPixels);
+    input.unit = menuFrame.active ? menuFrame.baseScale / menuFrame.scale
+                                  : input.screen.y / Render::kUnzoomedHeight;
+    // E25: the down button, while the door offered the way on in this scene.
+    input.nextLevelOffered = m_nextLevelOffered && m_nextLevelSerial == m_machine->Snapshot().sceneSerial;
     // E1's wide menus: laid out across what is shown, into the window's corners.
     if (m_view.openSides > 0.0f) {
         input.areaMin = m_view.ShownLogicalMin();
@@ -287,11 +367,13 @@ void PenumbraLayer::ApplyTouch(Eth::InputFrame& frame) {
     // window pixels from the platform - zero on the desktop - brought into the
     // logical screen the controls are laid out in.
     input.safeArea = Render::TouchInsets{};
-    const Supersonic::SafeAreaInsets safe = Supersonic::SafeArea::Get();
+    const Supersonic::SafeAreaInsets safe = SafeInsets();
     if (!safe.IsZero()) {
         input.safeArea = Render::TouchControls::WindowInsetsToLogical(
             Render::TouchInsets{safe.left, safe.top, safe.right, safe.bottom}, m_view);
     }
+    // E26: the pause button hangs from the HUD frame's corner, under the timer.
+    input.hudFrame = Render::TouchInsets{m_hudFrame.left, m_hudFrame.top, m_hudFrame.right, m_hudFrame.bottom};
 
     // The controls are a level's or an arena's (the loops doLoop runs under,
     // their end screens included: the wizard still walks there). Everything
@@ -614,6 +696,18 @@ void PenumbraLayer::OnFixedUpdate(entt::registry& registry, float fixedDelta) {
         frame.cursor = frame.cursorAbsolute = Render::InputMapper::WindowToLogical(*m_options.devPointer, m_view);
     }
     ++m_ticksThisFrame;
+    // E26: the HUD's frame for this tick, from the screen the last frame left
+    // (a load or E25's return to E1's screen changes it), before the pause
+    // button is laid out in it and the scripts draw in it.
+    if (!(SafeInsets() == m_zoomChoicesSafe)) RefreshZoomChoices();   // E25: insets that came after attach
+    m_hudFrame = CurrentHudFrame();
+    if (!(m_hudFrame == m_hudFrameLogged)) {
+        SUPERSONIC_LOG_INFO("Penumbra") << "E26 HUD frame: left " << m_hudFrame.left << " top " << m_hudFrame.top
+                                        << " right " << m_hudFrame.right << " (edge margin " << EdgeMargin()
+                                        << "%, screen " << m_machine->GetScreenSize().x << "x"
+                                        << m_machine->GetScreenSize().y << ") | tick " << m_ticks << std::endl;
+        m_hudFrameLogged = m_hudFrame;
+    }
     // E16: the fingers press player 1's keys, or click in a menu, before
     // anything reads the frame - the pause included, which a finger opens
     // and whose rows a finger taps.
@@ -657,7 +751,77 @@ void PenumbraLayer::OnFixedUpdate(entt::registry& registry, float fixedDelta) {
         // E23: the mode list marks the choice of whichever the window is in.
         const glm::uvec2 chosen = m_windowFullscreen ? SavedFullscreenMode() : SavedWindowedSize();
         Script::g_chosenVideoMode = Eth::videoMode{chosen.x, chosen.y, Eth::PF32BIT};
+        // E25: where a phone's larger menu sets its panel's text (showData),
+        // from the frame the menu is drawn in; off anywhere else.
+        Script::g_phonePanel = Script::PhonePanel{};
+        const Render::MenuFrame menuFrame = MenuFrameFor(m_machine->GetSceneFileName(), m_view.windowPixels);
+        if (menuFrame.active) {
+            // The arena select's back button keeps the panel's text out of its column.
+            float cornerLeft = 0.0f;
+            if (m_touchEnabled && m_touch.Visible(Render::TouchControl::Back)) {
+                cornerLeft = m_touch.Layout()[Render::TouchControl::Back].min.x;
+            }
+            const Render::MenuPanel panel =
+                Render::ComputeMenuPanel(menuFrame, m_view.windowPixels, SafeInsets(), cornerLeft);
+            Script::g_phonePanel = Script::PhonePanel{true,          panel.min,      panel.max,
+                                                      panel.minScale, panel.maxScale, panel.shownMin,
+                                                      panel.shownMax, m_localization.RightToLeft()};
+        }
+        // E26: the HUD's values and frame (zero outside a level or an arena).
+        Script::g_touchHud =
+            Script::TouchHud{m_touchEnabled, m_hudFrame.left, m_hudFrame.top, m_hudFrame.right, m_hudFrame.bottom};
+        // E25: the door raises it again in this frame if it still offers the way on.
+        Script::g_nextLevelOffered = false;
         m_machine->Frame(frame);   // steps the key and button state machines itself
+        if (Script::g_nextLevelOffered != m_nextLevelOffered) {
+            const bool offered = Script::g_nextLevelOffered;
+            SUPERSONIC_LOG_INFO("Penumbra") << "E25 next level " << (offered ? "offered" : "no longer offered")
+                                            << ": the down button " << (offered ? "shows" : "hides") << " | tick "
+                                            << m_ticks << std::endl;
+        }
+        m_nextLevelOffered = Script::g_nextLevelOffered;
+        m_nextLevelSerial = m_machine->Snapshot().sceneSerial;
+        // E25: a zoomed campaign scene goes back to E1's screen, from here to
+        // the next load, once the king is beaten - the end screen lays its
+        // time and best times out for the unzoomed screen (setupScene.as:
+        // 365-373, down to y 566) - or once player 2's princess is there, in
+        // a scene loaded with her or summoned into it: the leash that kills
+        // her 3 s off screen (controlCharacters.as:342-360) is the screen,
+        // which the zoom would pull in by a third.
+        // SeekEntity walks the whole scene: only where the answer can matter,
+        // a zoomed campaign scene.
+        const bool zoomedCampaign = Render::IsCampaignScene(m_machine->GetSceneFileName()) &&
+                                    m_machine->GetScreenSize().y < Render::kUnzoomedHeight;
+        const bool princess = zoomedCampaign && Eth::SeekEntity(Script::MAIN_CHARACTER_ENTITY1) != nullptr;
+        if (Render::CampaignUnzooms(m_machine->GetSceneFileName(), m_machine->GetScreenSize(),
+                                    Script::g_gameFinished, princess)) {
+            const Eth::vector2 unzoomed = Render::ZoomedScreen(m_options.windowPixels, Widescreen(), 1.0f);
+            m_machine->SetScreenSize(unzoomed);
+            SUPERSONIC_LOG_INFO("Penumbra") << "E25 " << (Script::g_gameFinished ? "end screen" : "player 2's princess")
+                                            << ": the zoom ends, the screen is " << unzoomed.x << "x" << unzoomed.y
+                                            << " | tick " << m_ticks << std::endl;
+        }
+        // --princess and --hp: once, the first tick the wizard exists in a
+        // campaign level (the princess) or any level or arena (hp).
+        if ((m_options.devPrincess && !m_devPrincessDone) || (m_options.devHp && !m_devHpDone)) {
+            if (Eth::ETHEntity wizard = Eth::SeekEntity("bruxo.ent"); wizard != nullptr && InPlayScene()) {
+                if (m_options.devPrincess && !m_devPrincessDone &&
+                    Render::IsCampaignScene(m_machine->GetSceneFileName())) {
+                    // Where controlCharacters.as:700-705 summons her: one box to his right, 6 px up.
+                    const Eth::vector2 at = wizard->GetPositionXY() + Eth::vector2(48.0f, -6.0f);
+                    Eth::AddEntity(Script::MAIN_CHARACTER_ENTITY1, Eth::vector3(at, 0.0f), 0.0f);
+                    m_devPrincessDone = true;
+                    SUPERSONIC_LOG_INFO("Penumbra") << "dev princess at " << at.x << "," << at.y << " | tick "
+                                                    << m_ticks << std::endl;
+                }
+                if (m_options.devHp && !m_devHpDone) {
+                    wizard->AddIntData("hp", *m_options.devHp);
+                    m_devHpDone = true;
+                    SUPERSONIC_LOG_INFO("Penumbra") << "dev hp " << *m_options.devHp << " | tick " << m_ticks
+                                                    << std::endl;
+                }
+            }
+        }
         // --spawn: once, the first tick the wizard exists in a level or arena;
         // the camera follows him on the next tick as it follows any move.
         if (m_options.devSpawn && !m_devSpawned && InPlayScene()) {
@@ -731,7 +895,8 @@ void PenumbraLayer::OnFixedUpdate(entt::registry& registry, float fixedDelta) {
             m_options.languageOverride.reset();
             m_settings.language = Render::LanguageId(language);
         }
-        if (widescreen != Widescreen()) {
+        const bool viewChanged = widescreen != Widescreen();
+        if (viewChanged) {
             m_options.widescreenOverride.reset();
             m_settings.widescreen = widescreen;
         }
@@ -747,6 +912,7 @@ void PenumbraLayer::OnFixedUpdate(entt::registry& registry, float fixedDelta) {
         if (effectsMoved) m_settings.effectsVolume = Script::g_effectsVolume.getFraction();
         ApplyVolumes();
         SaveSettings();   // ApplyLanguage() first
+        if (viewChanged) RefreshZoomChoices();   // E25: 4:3 levels have less room to zoom
     }
 
     // E20: the touch controls' row (drawn on a phone's options screen only).
@@ -757,7 +923,23 @@ void PenumbraLayer::OnFixedUpdate(entt::registry& registry, float fixedDelta) {
         m_options.touchOverride.reset();
         m_settings.touchControls = touchControls ? "on" : "off";
         SetTouchEnabled(touchControls);
+        RefreshZoomChoices();   // E25/E26: the zoom's limit follows the frame, which follows touch
         SaveSettings();
+    }
+
+    // E25: the zoom's row (a phone's options screen). A pick replaces --zoom,
+    // is saved, and applies from the next level loaded, as E1's view does.
+    const uint32_t zoomIndex = Script::g_zoom.getCurrent();
+    if (zoomIndex != m_zoomChoiceSeeded && zoomIndex < m_zoomChoices.size()) {
+        m_options.zoomOverride.reset();
+        m_settings.zoom = m_zoomChoices[zoomIndex];
+        SaveSettings();
+        SUPERSONIC_LOG_INFO("Penumbra") << "E25 zoom picked: "
+                                        << (m_settings.zoom == Render::kZoomAutomatic
+                                                ? std::string("automatic")
+                                                : std::to_string(m_settings.zoom) + "%")
+                                        << " (from the next level)" << std::endl;
+        RefreshZoomChoices();
     }
 
     // E23: the refresh rate's row. A pick replaces --refresh and is saved; in
@@ -814,7 +996,12 @@ void PenumbraLayer::OnUpdate(entt::registry& registry, float deltaTime) {
     const auto* clock = registry.ctx().find<Supersonic::SimulationClock>();
     const float alpha = paused || clock == nullptr ? 1.0f : clock->alpha;
     const Eth::RenderSnapshot& world = m_interp.Frame(snapshot, alpha);
-    m_view = m_rig.Update(registry, world, m_pillarbox);
+    // E25: a phone's menu, larger and to the left; the pointer and the touch
+    // controls map through the view this returns, as ever.
+    // The image the rig measures, with the same stand-in before one is published.
+    const Render::MenuFrame menuFrame =
+        MenuFrameFor(snapshot.sceneFile, Render::CameraRig::WindowPixels(registry, snapshot.screenSize));
+    m_view = m_rig.Update(registry, world, m_pillarbox, &menuFrame);
     if (window != nullptr) {
         // 0.7.12 hid the system pointer while the scripts asked (main.as:133)
         // and drew cursor.ent in its place. Every frame is cheap: it does

@@ -1,13 +1,13 @@
 {
-  "_about": "ENHANCEMENT E16: the on-screen touch controls' look and layout, read by game/render/TouchControls (which has the same values built in, for when this file is missing or a field is). Replacing the art is a data-only change: put the new PNGs anywhere under game/data, point 'image' at them and adjust 'size' (what each is drawn at, stretched: an image needs at least that many pixels, in the same proportions) and the placement. Keep straight alpha and no exact magenta #FF00FF (the HUD keys it out). Units are logical pixels: the logical screen is always 768 tall, 1024 wide in the menus and in 4:3 levels, wider in widescreen levels, so sizes here are already relative to the screen's height. 'anchor' is the corner of the safe area a control hangs from and 'offset' the distance from that corner to its nearest edges, inward. 'hitPadding' is how far past its edge a finger still lands on it; 'shape' (circle or rect) is its touch area. 'scale' multiplies every size, offset and padding. Alphas are 0..1: 'idleAlpha' at rest, 'pressedAlpha' while held. A control with \"enabled\": false is not there at all (a layout without the combo buttons, say); one left out of this file keeps its built-in place and image. The first, placeholder look is images/touch/placeholder/touch_controls.json: copy it over this file to go back to it.",
-  "_provenance": "The buttons are Magic Rampage's screen pad (Magic Rampage 7.8.7, Asantee Games), made by tools/art/make_mr_touch_art.py from its package: images/touch/README.md says which image is which of its files and what was composed. Its buttons are 128 px squares (a 100 px face in a soft shadow), so they are touched as squares and drawn at 96-120. The layout is the port's own: the direction control under the left thumb; the actions under the right as a pad's face buttons, placed as E3 maps them (A jump at the bottom, X sword left, B fire right, Y light top); the two combo buttons in a row above them, each on its attack's side; pause and back in the top-right corner below the run's timer (setupScene.as:337 draws it at (W-50, 0)), clear of the player status frames at the top-left (interface.as). Keys starting with '_' are notes.",
+  "_about": "ENHANCEMENT E16: the on-screen touch controls' look and layout, read by game/render/TouchControls (which has the same values built in, for when this file is missing or a field is). Replacing the art is a data-only change: put the new PNGs anywhere under game/data, point 'image' at them and adjust 'size' (what each is drawn at, stretched: an image needs at least that many pixels, in the same proportions) and the placement. Keep straight alpha and no exact magenta #FF00FF (the HUD keys it out). Units are the pixels of a logical screen 768 tall (1024 wide in the menus and in 4:3 levels, wider in widescreen levels), so sizes here are relative to the screen's height; E25's zoomed levels and a phone's larger menu draw the screen at another scale, and the controls are scaled with it so they keep their size on the window. 'anchor' is the corner of the safe area a control hangs from and 'offset' the distance from that corner to its nearest edges, inward. 'hitPadding' is how far past its edge a finger still lands on it; 'shape' (circle or rect) is its touch area. 'scale' multiplies every size, offset and padding. Alphas are 0..1: 'idleAlpha' at rest, 'pressedAlpha' while held. A control with \"enabled\": false is not there at all (a layout without the combo buttons, say); one left out of this file keeps its built-in place and image. The first, placeholder look is images/touch/placeholder/touch_controls.json: copy it over this file to go back to it.",
+  "_provenance": "The buttons are Magic Rampage's screen pad (Magic Rampage 7.8.7, Asantee Games), made by tools/art/make_mr_touch_art.py from its package: images/touch/README.md says which image is which of its files and what was composed. Its buttons are 128 px squares (a 100 px face in a soft shadow), so they are touched as squares and drawn at 96-120. The layout is the port's own: the direction control under the left thumb, left and right only, and E25's down button above them only where down takes the wizard on; the actions under the right as a pad's face buttons, placed as E3 maps them (A jump at the bottom, X sword left, B fire right, Y light top); the two combo buttons in a row above them, each on its attack's side; pause and back in the top-right corner below the run's timer (setupScene.as:337 draws it at (W-50, 0)), clear of the player status frames at the top-left (interface.as). Keys starting with '_' are notes.",
   "version": 1,
   "idleAlpha": 0.45,
   "pressedAlpha": 0.9,
   "scale": 1.0,
   "controls": {
     "dpad": {
-      "_note": "Left, right and down (K_LEFT, K_RIGHT, K_DOWN); no up, which only jumps. One round control the thumb slides on without lifting; 'deadZone' is the fraction of the radius at the centre that means nothing. Its look is Magic Rampage's buttons: the three arrows are each a whole button alone on a canvas the size of the control, where its direction's sector is (tools/art/make_mr_touch_art.py checks that every pixel of the left and right buttons is that direction alone), each brightened while its direction is held; the base image is empty (Magic Rampage has no disc). The knob, Magic Rampage's focus brackets, follows the thumb onto the button it holds; 'atRest' false draws nothing there while no thumb points a direction, since the brackets at the centre would frame the empty gap between the left and right buttons like a missing button (true keeps the knob at the centre, as the placeholder look's disc has it).",
+      "_note": "Left and right (K_LEFT, K_RIGHT); no up, which only jumps, and since E25 no down: 'downSector' true gives it E16's down sector back (down within 67.5 degrees of straight down), with the down arrow 'arrows.down' images/touch/dpad_down.png, and exitDown's 'enabled' false takes the down button away - the layout before E25. One round control the thumb slides on without lifting; 'deadZone' is the fraction of the radius at the centre that means nothing. Its look is Magic Rampage's buttons: the arrows are each a whole button alone on a canvas the size of the control, where its direction's sector is (tools/art/make_mr_touch_art.py checks that every pixel of the left and right buttons is that direction alone), each brightened while its direction is held; the base image is empty (Magic Rampage has no disc). The knob, Magic Rampage's focus brackets, follows the thumb onto the button it holds; 'atRest' false draws nothing there while no thumb points a direction, since the brackets at the centre would frame the empty gap between the left and right buttons like a missing button (true keeps the knob at the centre, as the placeholder look's disc has it).",
       "image": "images/touch/dpad.png",
       "anchor": "bottomLeft",
       "offset": [24, 24],
@@ -15,10 +15,11 @@
       "shape": "circle",
       "hitPadding": 60,
       "deadZone": 0.25,
+      "downSector": false,
       "arrows": {
         "left": "images/touch/dpad_left.png",
         "right": "images/touch/dpad_right.png",
-        "down": "images/touch/dpad_down.png"
+        "down": ""
       },
       "knob": {
         "image": "images/touch/dpad_knob.png",
@@ -78,6 +79,16 @@
       "anchor": "bottomRight",
       "offset": [102, 412],
       "size": [100, 100],
+      "shape": "rect",
+      "hitPadding": 6,
+      "enabled": true
+    },
+    "exitDown": {
+      "_note": "ENHANCEMENT E25: K_DOWN, shown only while the next_level door offers player 1 the way on (main.as:204-208, the scripts' g_nextLevelOffered) - the one place in play where down alone does anything. The arrows' size, centred over the gap between the left and right buttons (the disc's centre, 24 + 165 across) and 14 px above their tops: x 137-241, y 391-495 of a 768-tall screen. Its image is the disc's former down arrow, alone (tools/art/make_mr_touch_art.py).",
+      "image": "images/touch/exit_down.png",
+      "anchor": "bottomLeft",
+      "offset": [137, 273],
+      "size": [104, 104],
       "shape": "rect",
       "hitPadding": 6,
       "enabled": true

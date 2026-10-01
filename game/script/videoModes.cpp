@@ -44,6 +44,11 @@ videoMode g_chosenVideoMode{0, 0, PF32BIT};                                     
 videoMode g_nativeVideoMode{0, 0, PF32BIT};                                      // E23
 Chooser g_refreshRate("Taxa de atualiza\xE7\xE3o");                               // E23
 bool g_refreshRateRow = true;                                                    // E23: the layer lowers it where no rate can be set
+// E25 (Script.hpp): the zoom's row on a phone, and the menu panel's text box.   // E25
+Chooser g_zoom("Zoom");                                                          // E25
+PhonePanel g_phonePanel;                                                         // E25
+vector2 g_joystickIconsMin{0.0f};                                                // E25
+vector2 g_joystickIconsMax{0.0f};                                                // E25
 
 namespace {                                                                      // E23
 // The refresh rate's row: at x 540, beside the window switch (x 255, y 170-220), // E23
@@ -55,6 +60,12 @@ constexpr float kRefreshRateValueWidth = 200.0f;                                
 // E24: the language's row keeps E10's switch's 256 px: "[<]" 40, the name 176,  // E24
 // "[>]" 40 (test_pn_render_hud measures every name in the box).                  // E24
 constexpr float kLanguageValueWidth = 176.0f;                                    // E24
+// E25: the zoom's row on a phone, in the refresh rate's column and value box,  // E25
+// beside g_keyboardP2's switch (x 255-511, y 424-474): below the input images  // E25
+// (to y 404) and above E10's hint "Vale a partir da pr\xF3xima fase" (y 511),  // E25
+// which says when it applies too.                                               // E25
+constexpr float kZoomX = kRefreshRateX;                                          // E25
+constexpr float kZoomValueWidth = kRefreshRateValueWidth;                        // E25
 } // namespace                                                                   // E23
 
 // videoModes.as:47
@@ -213,6 +224,8 @@ void screenModesLoop()
     // then E8's switch 10 px below them. Below 744 only the Alt+Enter line      // E10
     // (y 753); x 520 on is free at these y.                                     // E10
     g_keyboardP2.put(vector2(255, origin.y+324), "Arial Narrow", fontSize, 256);   // E10: y 424-474
+    if (g_mobileLayout)                                                          // E25
+        g_zoom.put(vector2(kZoomX, origin.y+324), "Arial Narrow", fontSize, kZoomValueWidth);   // E25: y 424-474
     g_widescreen.put(vector2(255, origin.y+394), "Arial Narrow", fontSize, 256);   // E10: y 494-544
     // The view applies from the next scene: the next level, and the menus      // E10
     // (render/WideMenus.hpp), whose world goes on past their sides.            // E10

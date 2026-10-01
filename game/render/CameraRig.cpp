@@ -8,6 +8,7 @@
 #include "core/RenderSettings.hpp"
 #include "core/ScreenOverlay.hpp"
 #include "core/ViewportInfo.hpp"
+#include "render/PhoneUi.hpp"
 
 namespace Penumbra::Render {
 
@@ -81,14 +82,15 @@ void CameraRig::Detach(entt::registry& registry) {
     m_camera = entt::null;
 }
 
-View CameraRig::Update(entt::registry& registry, const Eth::RenderSnapshot& snapshot, bool pillarbox) {
+View CameraRig::Update(entt::registry& registry, const Eth::RenderSnapshot& snapshot, bool pillarbox,
+                       const MenuFrame* menu) {
     using namespace Supersonic;
     if (m_camera == entt::null || !registry.valid(m_camera) || !registry.all_of<CameraComponent>(m_camera)) {
         m_camera = entt::null;
         Attach(registry);
     }
 
-    View view = ComputeView(snapshot, WindowPixels(registry, LogicalScreen(snapshot)), pillarbox);
+    View view = ComputeView(snapshot, WindowPixels(registry, LogicalScreen(snapshot)), pillarbox, menu);
     if (const auto* viewport = registry.ctx().find<ViewportInfo>(); viewport != nullptr) {
         view.imageOrigin = viewport->rect.min;
     }
@@ -132,7 +134,8 @@ View CameraRig::Update(entt::registry& registry, const Eth::RenderSnapshot& snap
     return view;
 }
 
-View CameraRig::ComputeView(const Eth::RenderSnapshot& snapshot, glm::uvec2 windowPixels, bool pillarbox) {
+View CameraRig::ComputeView(const Eth::RenderSnapshot& snapshot, glm::uvec2 windowPixels, bool pillarbox,
+                            const MenuFrame* menu) {
     View view;
     view.camera = snapshot.camera;
     view.logicalScreen = LogicalScreen(snapshot);
@@ -156,6 +159,14 @@ View CameraRig::ComputeView(const Eth::RenderSnapshot& snapshot, glm::uvec2 wind
     // this rounded box, not on the exact middle.
     view.viewportMin = glm::round((window - shown) * 0.5f);
     view.viewportMax = view.viewportMin + shown;
+    // E25: a phone's menu, larger and to the left; its top and bottom may run
+    // past the image's (View::CroppedTop/CroppedBottom). The camera below is
+    // placed from these as from any other.
+    if (menu != nullptr && menu->active && menu->scale > 0.0f) {
+        view.scale = menu->scale;
+        view.viewportMin = menu->viewportMin;
+        view.viewportMax = view.viewportMin + view.logicalScreen * view.scale;
+    }
     // E1 for the menus: the world the snapshot collected past the screen's
     // sides is shown there, in place of the bars. Nothing above moves.
     if (snapshot.sideMargin > 0.0f && std::isfinite(snapshot.sideMargin)) view.openSides = snapshot.sideMargin;

@@ -151,6 +151,18 @@ struct Settings {
     // on in a mobile build (PENUMBRA_MOBILE) and off on the desktop; "on" and
     // "off" force them. The original was played with a keyboard and pads.
     std::string touchControls = "auto";
+    // E25: the campaign camera's zoom while the touch controls are on
+    // (render/PhoneUi.hpp): 0 is automatic (written "auto": 150% on a
+    // phone-shaped screen, 125% on another), else a percentage, 100 to 200.
+    // Without the touch controls the levels are not zoomed, whatever it says.
+    int zoom = 0;
+    // E26: the HUD's safe frame while the touch controls are on
+    // (render/PhoneUi.hpp): negative is automatic (written "auto": 3.5% on a
+    // phone-shaped screen, 1% on another), else a percentage, 0 to 8, of the
+    // screen's width at each side and of its height at the top, kept clear of
+    // the HUD besides the display's safe area. Without the touch controls the
+    // HUD is at the screen's edges, whatever it says.
+    float edgeMargin = -1.0f;
     ControlSettings controls;
 
     bool operator==(const Settings& other) const = default;

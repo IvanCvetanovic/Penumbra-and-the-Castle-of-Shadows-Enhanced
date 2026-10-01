@@ -29,6 +29,9 @@ array<bool> g_castingLight(2, false);
 array<int> g_pvpPoints(2, 0);
 array<Combo> g_comboManager(2);
 
+// ENHANCEMENT E25 (Script.hpp): the next_level door offers player 1 the way on.
+bool g_nextLevelOffered = false;
+
 // main.as:62. Called by newGame (main.as:101) and goToPvp (setupScene.as:244).
 void resetData()
 {
@@ -164,6 +167,9 @@ void ETHCallback_next_level(ETHEntity thisEntity)
                 {
                     if (entityArray[t]->GetUIntData("playerId") == 0)
                     {
+                        // E25: down would take him on from here; the touch   // E25
+                        // controls show their down button for it.            // E25
+                        g_nextLevelOffered = true;                            // E25
                         // main.as:208: player 1 holding down (key or stick).
                         if (getPlayerXYAxis(0).y > 0)
                         {

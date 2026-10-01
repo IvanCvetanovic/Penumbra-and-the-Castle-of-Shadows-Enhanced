@@ -226,6 +226,40 @@ void ReadWindowedSize(const Value& window, int& width, int& height, std::string*
     height = readHeight;
 }
 
+// zoom (E25): "auto" (any case) is 0; a number is a percentage, rounded and
+// held to 100..200. Anything else leaves the default, with a warning.
+void ReadZoom(const Value& root, int& out, std::string* warning) {
+    if (!root.Has("zoom")) return;
+    const Value& value = root["zoom"];
+    if (value.IsString() && EqualsIgnoreCase(value.AsString(), "auto")) {
+        out = 0;
+        return;
+    }
+    const double number = value.AsNumber(std::nan(""));
+    if (!value.IsNumber() || !std::isfinite(number)) {
+        Warn(warning, "zoom is not \"auto\" or a percentage from 100 to 200");
+        return;
+    }
+    out = static_cast<int>(std::clamp(std::round(number), 100.0, 200.0));
+}
+
+// edgeMargin (E26): "auto" (any case) is negative; a number is a percentage,
+// held to 0..8. Anything else leaves the default, with a warning.
+void ReadEdgeMargin(const Value& root, float& out, std::string* warning) {
+    if (!root.Has("edgeMargin")) return;
+    const Value& value = root["edgeMargin"];
+    if (value.IsString() && EqualsIgnoreCase(value.AsString(), "auto")) {
+        out = -1.0f;
+        return;
+    }
+    const double number = value.AsNumber(std::nan(""));
+    if (!value.IsNumber() || !std::isfinite(number)) {
+        Warn(warning, "edgeMargin is not \"auto\" or a percentage from 0 to 8");
+        return;
+    }
+    out = static_cast<float>(std::clamp(number, 0.0, 8.0));
+}
+
 // window.fullscreenRefresh (E23): 0, or a whole number of Hz up to
 // kMaxRefreshRate. Anything else is automatic, with a warning.
 void ReadRefreshRate(const Value& window, int& out, std::string* warning) {
@@ -535,6 +569,8 @@ Settings Settings::FromJson(const std::string& text, const Settings& defaults, s
             Warn(warning, "touchControls is not \"auto\", \"on\" or \"off\"");
         }
     }
+    ReadZoom(root, settings.zoom, warning);   // E25
+    ReadEdgeMargin(root, settings.edgeMargin, warning);   // E26
 
     if (root.Has("volume")) {
         const Value& volume = root["volume"];
@@ -598,6 +634,9 @@ std::string Settings::ToJson() const {
     out << "  \"smoothMotion\": " << FormatBool(smoothMotion) << ",\n";
     out << "  \"pauseOnFocusLoss\": " << FormatBool(pauseOnFocusLoss) << ",\n";
     out << "  \"touchControls\": \"" << Supersonic::Json::Escape(touchControls) << "\",\n";   // E16
+    out << "  \"zoom\": " << (zoom == 0 ? std::string("\"auto\"") : std::to_string(zoom)) << ",\n";   // E25
+    out << "  \"edgeMargin\": " << (edgeMargin < 0.0f ? std::string("\"auto\"") : FormatFloat(edgeMargin))
+        << ",\n";   // E26
     out << "  \"controls\": {\n";
     out << "    \"joystickLayout\": " << controls.joystickLayout << ",\n";
     out << "    \"keyboardPlayer2\": " << FormatBool(controls.keyboardPlayer2) << ",\n";

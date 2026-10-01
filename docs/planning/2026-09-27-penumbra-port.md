@@ -57,6 +57,8 @@ Engine, in this repository, with the engine improved where the game needs it.
 | E21 | The enhanced edition's credit (Step 26): the Credits panel draws the original team's credits untouched, then one blank line, "Ivan Cvetanović" and one role, " -Edição aprimorada (Supersonic Engine)" / " -Enhanced edition (Supersonic Engine)" (Script.hpp creditosEnhanced after menu.as's creditos; the English by a strings.json pattern). One role, not three: the panel has three lines left below the original's (the last ends at y 745 of 768) and 381 px across. The c with acute: cp1252 has none, so 0x8D, a byte cp1252 leaves undefined and none of the original's 261 text files (.as .enml .esc .ent .par .txt .cg .ethproj) holds, is the port's byte for U+0107 (eth/Text: logs, strings.json; FontAtlas: every face and both stand-ins have the glyph). Not switchable: it changes no play | the panel credited the 2010 team only |
 | E23 | The display mode chosen for the player, and by hand (Step 27). Automatic: fullscreen at the desktop's size - the monitor's native size as the system runs it, not the largest listed mode (NVIDIA DSR and AMD VSR list virtual modes above the panel's; a virtual X server lists one oversized mode) - at the highest refresh rate the monitor offers at that size, which switches the display only when the desktop does not run that rate already (engine: SetFullscreenMode's kHighestRefreshRate); a window fitted to its monitor, the largest of the monitor's own shape within 85% of its work area each way, centred (engine: FitWindowToMonitor; 1566x979 on a 1920x1200 panel over a 48 px taskbar), fitted before the first swapchain at launch (GameManifest::fitWindowToMonitor) and again on each way out of fullscreen; a first launch (no settings.json) is fullscreen. By hand, on the options screen: the mode list's first line "Automático (melhor)" / "Automatic (best)" (automatic in the window or in fullscreen, whichever the game is in), the sizes as "WxH" with the monitor's native one marked "(nativa)" / "(native)", the current choice marked "[•]" and drawn at full alpha as a Switch row's is; a window picked from the list is centred on its monitor; a refresh-rate row at x 540 beside the window switch, "Taxa de atualização" / "Refresh rate", "[<] Automática (165 Hz) [>]" and every rate the monitor offers at the fullscreen size, applied at once in fullscreen and at the next fullscreen from a window ("Vale para a tela cheia" / "Applies in fullscreen"). Saved as window.width/height and fullscreenWidth/Height (0 x 0 automatic) and fullscreenRefresh (0 automatic; a rate the size lacks runs at the highest and is kept); --refresh auto\|Hz for one run. On Android the row, beside the touch controls' (E20), asks the display for "Automática (máxima)" / "Automatic (highest)" or "60 Hz" (engine: SetPreferredRefreshRate - the activity's preferredDisplayModeId, and ANativeWindow_setFrameRate from API 30). Not switchable as a whole: automatic is a line of the list and of the row | fullscreen at the mode picked, at whatever rate the driver gave it, a window at 1024x768 or the size picked; the list's lines "WxHx32", each size once per refresh rate; no refresh rate to choose |
 | E22 | The touch controls are player 1 (Step 26; InputMapper::PadOrder, set with them by the layer's SetTouchEnabled): while they are on, real pads start at player 2's index and never take player 1's, so on a phone one Bluetooth gamepad plays player 2 - Versus opens, the co-op princess comes with its Start - and a second pad changes nothing for player 1 (it goes to an index no player reads); off (E20's row, or a desktop without --touch), E12 as before. Versus without a pad says so in touch wording, "Conecte um gamepad para o jogador 2." / "Connect a gamepad for player 2." (strings.json "touch") | winmm's order made a lone pad player 2's; E12 made it player 1's, which on a phone (touch on, keyboard player 2 off) left Versus closed and the princess never summoned |
+| E25 | A phone-sized UI while the touch controls are on (Step 31; render/PhoneUi): the campaign's levels and checkpoint.esc get a logical screen the zoom times smaller than E1's (auto 150% on a phone-shaped window, aspect >= 1.9, 125% elsewhere; settings.zoom "auto" or 100-200, a phone's options row "Zoom", --zoom; no further than a message line keeps 795 px to the pause button, E26's frame included (Step 32's message rule: on 20:9 the row offers up to 175% and a higher saved value draws at about 183%, a 4:3 tablet's 125% at about 110%; the row offers no step past the limit), the end screen and a scene with the princess back at E1's (Machine::SetScreenSize, CampaignUnzooms); menu.esc and arena_select.esc keep 1024x768 for the scripts, but the view scales them until the logo and buttons (30..632.8 x 20..600) fill the window's height, from the left, where that is at least 1.1 times E1's scale and leaves the panel E1's width (CameraRig's MenuFrame); showData sets its title and body in what the window's safe area shows of the panel, one factor for both (HudCmd::fit, HudRenderer, FontAtlas::Measure), from E1's size up to 1.6 times it, a long body in two columns (TextFit::columns) and clear of the gamepad icons (TextFit::avoid); the direction disc is left/right only and a down button (images/touch/exit_down.png) shows above it while Script::g_nextLevelOffered (the next_level callback, main.as:204-208) says the door offers the way on; the touch layout is scaled by TouchInput::unit so it keeps its size on the window; without touch nothing changes | 1024x768 on every screen; the disc had a down arrow, needed only at the exit |
+| E26 | The HUD in a safe frame while the touch controls are on (Step 32; render/PhoneUi's HudFrame): in a level's or an arena's loop the layer sets Script::g_touchHud - the frame, the display's safe area (SafeArea, --safe-area) or settings.edgeMargin ("auto": 3.5% of the width at the sides and of the height at the top on a phone-shaped screen, 1% elsewhere; 0-8; --edge-margin) whichever is more, in the screen's logical px less the bars - and interface.cpp (the bars, the values, the lives, the PvP points), setupScene.cpp (the timer, the message lines), loadingMessage and detectJoysticks draw from its corners (hudTopLeft, hudTopRight, hudBottomLeft); the values as hudValue (light text over the lives counter's 0xF0000000 shadow, never left of the bar's left end) while touch is on; the pause button hangs from the frame's corner (TouchInput::hudFrame). A hand-set margin is held to the message rule on E1's screen (FittedEdgeMargin) | The HUD at the screen's edges, the values in the bars' dark colours, sliding off the left edge as a bar empties |
 
 ## Steps
 
@@ -1274,6 +1276,93 @@ one rate.
 - **Checked.** 17 suites in WSL, 0 failures; captures of ten screens in all eleven languages,
   each language's reviewed against Portuguese and English; Japanese and Arabic looked at on every
   screen. Not run on Windows (Smart App Control refused test_pn_all; CI runs it).
+
+### Step 31 - E25: a phone-sized UI (2026-09-30)
+- **Why.** Played on a phone, 1.0.1 was small everywhere: the levels showed a wide stretch around a
+  small wizard, the menu sat in the middle of the screen with the panel's text at a 4:3 monitor's
+  size, and the direction control's down arrow did something only at a level's exit. All three
+  change only while the touch controls are on; a desktop without them draws exactly as before.
+- **The zoom.** render/PhoneUi: CampaignZoom (auto: 150% phone-shaped, 125% otherwise; 100% without
+  touch) and ZoomedScreen, which the layer's LogicalScreenFor gives level1..3.esc and
+  checkpoint.esc. MaxZoom keeps the screen at least 908 across - where the pause button starts at
+  1024, short of which E24's rooms cap every message and help sign (888 px from x 10); measured,
+  the widest drawn with the touch wording is 759 px in any language - so a 20:9 phone gets 150% by
+  default, 175% at most from the row (about 188% for a value set higher by hand), a 16:10 tablet
+  its 125%, a 4:3 tablet about 113%; the Zoom row offers no step past the limit. Between 113% and about 185% a line longer than the screen less the pause
+  button's column would run under that (translucent) button; none does today. The
+  campaign's end screen lays its best times out to y 566: the layer sets the Machine's screen back to
+  E1's when g_gameFinished rises in a zoomed scene. settings.zoom ("auto" or 100-200), --zoom, and
+  the Zoom chooser on a phone's options screen (x 540, y 424-474, in the refresh rate's value box,
+  under E10's "applies from the next level" hint; --mobile-layout shows the phone's screen on a desktop).
+- **The menu.** ComputeMenuFrame scales the 1024x768 menu so its focus box - the demons' left to the
+  panel's edge, the logo's glow to below Quit, in every language's art - fills the window's height,
+  set at its left (past a notch), if that is 1.1 times E1's scale and the panel keeps E1's width:
+  20:9 x1.32, 16:9 x1.32, 16:10 x1.22, a 4:3 tablet unchanged. CameraRig places the camera from it;
+  View's shown area follows the crop (CroppedTop/Bottom). The scripts keep their screen, so every
+  hit test and the pointer's mapping follow. showData (E25 branch) sets its title and body in
+  g_phonePanel, the part of the panel the window shows, as one fit group: HudRenderer measures the
+  translated, shaped texts without baking (FontAtlas::Measure) and scales both by the largest factor
+  at which each fits, between E1's size and 1.6 times it, memoised per panel. loadingMessage uses
+  the corner the window shows.
+- **The down button.** TouchControl::ExitDown, "exitDown" in touch_controls.json, the disc's former
+  down arrow alone (exit_down.png, the pixels dpad_down.png has at (139, 276); make_mr_touch_art.py
+  writes it), 104 px centred over the gap between the left and right buttons, 14 px above them.
+  It shows while the last frame's Script::g_nextLevelOffered is up - raised by ETHCallback_next_level
+  where player 1 stands within 80 px, before its down test, lowered by the layer before each
+  frame and dropped on a load - and presses K_DOWN. The disc's down sector is a manifest flag
+  (downSector), off; the placeholder look keeps it, and no down button. Touch wording: "Próxima
+  fase: seta para baixo que aparece acima das setas" / "Next level: the down arrow that appears
+  above the arrows".
+- **Checked.** See DEVLOG.md (2026-09-30, E25).
+
+### Step 32 - E25's review; E26: the HUD in a safe frame (2026-10-01)
+- **Why.** E25's review found the zoom tightening co-op's leash, messages that could run under the
+  pause button on a zoomed tablet, the gamepad icon over the enlarged panel text, How to Play and
+  the credits no larger on a phone, and the phone menu ignoring the safe area's top and bottom.
+  Played on a phone with curved edges, the hp and mp values could not be read: the bars start at
+  the screen's top-left corner, the values ride the bars' ends in the bars' own dark colours, and
+  the timer sits in the top-right corner.
+- **The message rule** (render/PhoneUi.hpp) now holds the messages, the zoom and the frame
+  together. A message line starts 10 px past the frame's left edge. It keeps kMessageRoom (785) +
+  10 px up to the pause button's column (116 manifest px at the screen's unit, in from the
+  frame's right edge; TouchControls' default manifest, checked by the touch suite) on every screen
+  a touch screen draws a level on. clearance(z) + 10 = (clearance(1) + 10) / z, so MaxZoom is a
+  closed form, backed off for whole pixels; it replaces E25's 908 px floor, which it matches on a
+  4:3 screen without a frame. E24's rooms cap every message and help sign a touch screen draws at
+  785 (tests/data/l10n_rooms.json). Desktop-only wordings, which a touch wording replaces on
+  touch, keep 888. The input suite checks the rule on ten shapes, with widescreen on and off, at
+  every zoom offered and E1's; the smallest room is 785 px. Offered steps with the automatic
+  frame: 20:9 up to 175% (limit 182%), 18:9 150% (162%), a notched 19.5:9 iPhone 150% (170%), 16:9
+  150% (151%), 16:10 125% (135%), 3:2 125%, a 4:3 tablet's automatic 110%.
+- **Co-op.** CampaignUnzooms: after each frame the layer sets E1's screen once g_gameFinished rises
+  or princess.ent exists in a campaign scene, until the next load. The touch suite summons her
+  into a zoomed level 1 and holds her 540 px below the wizard: with the rule she is alive after
+  5 s on a 1707x768 screen, without it she dies on the 1138x512 one.
+- **The menu in the safe area.** ComputeMenuFrame fills the safe area's height with the focus box
+  and keeps it inside; ComputeMenuPanel's shown area and box stop at the safe area's top and
+  bottom. With SafeAreaInsets{132, 0, 0, 63} on 2532x1170 (x1.909) the Quit button's foot is at
+  1076 of 1107.
+- **The long panels.** TextFit::columns (showData's body): HudRenderer breaks the translated,
+  shaped text at a blank line (its hand-made breaks kept) and sets the second column 0.6 em past
+  the first's widest line - to the right, or to the left in a right-to-left language - raised to
+  the box's top where it clears the title. Of the breaks within 3% of the largest factor it takes
+  the one with the columns nearest in lines. Two columns are used where they fit and one does not,
+  or where they are 1.1 times larger. Measured on 2400x1080: How to Play and the credits at 1.24
+  (the Japanese credits) to 1.60 times E1's size, 1.3 or more in all but that and the Portuguese
+  How to Play (1.29); their widest lines, one in each column, hold them. A notched 2532x1170 iPhone
+  (its frame x1.21 of E1's, 72 px of each side's inset kept out of the panel) gets 1.00 (Japanese
+  credits) to 1.27; 16:9 and 16:10 panels, about 400 px across, stay one column at about 1.0.
+- **The gamepad icons.** On a phone's panel detectJoysticks draws them at half E1's size, in a row
+  along the top of the shown panel from the corner the language's lines leave free
+  (PhonePanel::rightToLeft), above where the body's first line can be. It records their box, and
+  showData passes it with 6 px about it as TextFit::avoid: no line of the group crosses it. The HUD
+  suite checks every panel, language and window with an icon: no glyph lies on it.
+- **E26.** See the E26 row. The HUD's positions keep the original's numbers and add the frame's
+  corner (// E26). Without the touch controls g_touchHud stays zero, and the touch suite checks
+  in level 1 that every HUD command is then the original's. With a frame, the bars, the values,
+  the lives, the timer, the message lines and the loading message move by it and nothing else does. The values' style
+  changes only with `on`.
+- **Checked.** See DEVLOG.md (2026-10-01, E25's review and E26).
 
 ### Open
 - **E24: a native speaker's read of each language.** The nine translations are machine-made and

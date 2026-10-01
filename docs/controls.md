@@ -82,7 +82,8 @@ the mouse, held down, is the finger.
 
 | Action | Touch | The key it presses |
 |---|---|---|
-| Walk / down | The three buttons at the bottom left (left, right, down): one control, the thumb slides between them | Left, Right, Down |
+| Walk | The two buttons at the bottom left (left, right): one control, the thumb slides between them | Left, Right |
+| Next level (E25) | The down button that shows above the two, only while the wizard stands at a level's exit | Down |
 | Jump | Bottom button of the four at the bottom right | Ctrl |
 | Sword | Left button | S |
 | Fireball | Right button | D |
@@ -92,6 +93,17 @@ the mouse, held down, is the finger.
 | Pause (in a level) / back (arena select, game over, the end screens) | The button at the top right | Esc |
 
 - Several fingers work at once: hold a direction and tap the buttons.
+- The down button (E25) appears only where down does something on its own: at a level's exit
+  door, where it takes the wizard to the next level. Everywhere else the direction control is
+  left and right only; the spell combo's down is its combo button's.
+- The camera is zoomed in on the campaign's levels while the touch controls are on (E25): 150% on
+  a phone, 125% on a tablet (a 4:3 one has room for about 110%), or what the options screen's Zoom
+  row says. The controls keep their size. Once the princess is summoned the level goes back to the
+  unzoomed view, so she can follow the wizard as far as she could in the original.
+- The HUD keeps clear of a phone's curved edges, rounded corners and camera (E26): the bars, the
+  lives, the timer and the messages are drawn a little way in, the pause button with them, and
+  the hp, mp and level values are light on a dark shadow. `edgeMargin` in `settings.json` sets how
+  far in (`"auto"`, or 0 to 8 percent).
 - Two players on one phone (E22): player 1 plays on the touchscreen and player 2 on a Bluetooth
   gamepad. Versus opens once a pad is connected (until then its entry says "Connect a gamepad for
   player 2"), and in the campaign the pad's Start summons the princess. The pad never moves the

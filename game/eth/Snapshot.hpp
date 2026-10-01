@@ -90,6 +90,30 @@ struct ParticleDraw {
     float lifeStartMs = 0.0f;
 };
 
+// ENHANCEMENT E25 (not in 0.7.12): a text set in a box it is scaled to fit -
+// showData's panel on a phone, whose width and height the text should use.
+// Every text of one group (a nonzero id) is scaled by ONE factor, about the
+// box's top-left (its top-right for a right-to-left language, with rtlRight):
+// the largest in [minScale, maxScale] at which each of them lies inside the
+// box, its lines as they are. Group 0 is a text drawn as it always was.
+//
+// A text of the group may also be set in two columns side by side (columns
+// 2: showData's body), its lines split at one of its blank lines, the first
+// part at the text's place and the rest a gap to its right (to its left, for
+// a right-to-left language) - where that lets the group be larger. And no
+// line of the group may cross the avoid box (the gamepad icons over the
+// panel), when it has one.
+struct TextFit {
+    vector2 min{0.0f};          // the box, logical screen pixels
+    vector2 max{0.0f};
+    uint group = 0;
+    float minScale = 1.0f;      // never smaller than this, even if it does not fit
+    float maxScale = 1.0f;
+    uint columns = 1;           // this text's: 1, or 2 (split at a blank line where that sets the group larger)
+    vector2 avoidMin{0.0f};     // the group's: a box no line crosses (none while avoidMax is not past avoidMin)
+    vector2 avoidMax{0.0f};
+};
+
 // A top-layer primitive (DrawText / DrawSprite / DrawShapedSprite /
 // DrawRectangle), in screen pixels, drawn over the scene in submission order.
 struct HudCmd {
@@ -112,6 +136,7 @@ struct HudCmd {
     uint color1 = 0xFFFFFFFFu;  // Rectangle: top-right
     uint color2 = 0xFFFFFFFFu;  // Rectangle: bottom-left
     uint color3 = 0xFFFFFFFFu;  // Rectangle: bottom-right
+    TextFit fit;                // Text, E25: group 0 (none) unless the script sets it in a box
 };
 
 struct RenderSnapshot {

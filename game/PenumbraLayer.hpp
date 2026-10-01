@@ -13,6 +13,7 @@
 #include "core/WindowControl.hpp"
 
 #include "eth/EthTypes.hpp"
+#include "platform/SafeArea.hpp"
 #include "render/AudioOutEngine.hpp"
 #include "render/CameraRig.hpp"
 #include "render/FontAtlas.hpp"
@@ -23,6 +24,7 @@
 #include "render/Localization.hpp"
 #include "render/ParticleRenderer.hpp"
 #include "render/PauseMenu.hpp"
+#include "render/PhoneUi.hpp"
 #include "render/Settings.hpp"
 #include "render/ShadowRenderer.hpp"
 #include "render/SpriteRenderer.hpp"
@@ -108,6 +110,20 @@ public:
         // E16's touch controls for this run (--touch: on, the mouse as the
         // finger); never saved.
         std::optional<bool> touchOverride;
+        // E25's zoom for this run (--zoom auto|<percent>: 0 is automatic);
+        // never saved, and a pick on a phone's options screen replaces it.
+        std::optional<int> zoomOverride;
+        // E20's phone layout of the options screen and the menu's footer for
+        // this run (--mobile-layout on|off), for captures of a phone's screens
+        // on a desktop. Dev-only, never saved.
+        std::optional<bool> mobileLayoutOverride;
+        // E26's edge margin for this run (--edge-margin auto|<percent>:
+        // negative is automatic); never saved.
+        std::optional<float> edgeMarginOverride;
+        // --safe-area l,t,r,b: the display's safe-area insets (window px) in
+        // place of what the platform reports (none on a desktop), for
+        // captures of a notched phone's screens on a desktop. Dev-only.
+        std::optional<Supersonic::SafeAreaInsets> safeAreaOverride;
         // --cursor x,y: the scripts' cursor pinned at a logical-screen point,
         // for headless captures of the mouse-driven menu (the live OS pointer
         // otherwise decides which panel a capture shows). A finger (E16)
@@ -124,6 +140,14 @@ public:
         // first tick he exists, for captures of places far from a level's
         // start (Step 24's pit edges). Dev-only, never saved.
         std::optional<glm::vec2> devSpawn;
+        // --princess: player 2's princess put beside the wizard the first
+        // tick he exists in a campaign level, as a pad's Start would summon
+        // her (without its cost), for captures of co-op (E25's unzoom, E26's
+        // two HUD blocks). Dev-only.
+        bool devPrincess = false;
+        // --hp <n>: the wizard's hp set once, the first tick he exists, for
+        // captures of a low bar (E26's values). Dev-only.
+        std::optional<int> devHp;
         // E23 for this run (--refresh auto|<Hz>): the fullscreen refresh rate
         // over the settings' (0 = automatic); never saved, and a pick on the
         // options screen's row replaces it, as a pick replaces --lang.
@@ -203,6 +227,26 @@ private:
     // they come on (at attach, or from the options screen's row), and with
     // them E22's pad order (InputMapper::PadOrder).
     void SetTouchEnabled(bool enabled);
+    // E25 (render/PhoneUi.hpp): the zoom setting this run uses (--zoom, else
+    // the settings'), and the zoom a campaign level loads at now.
+    int ZoomSetting() const;
+    float CampaignZoom() const;
+    // E25: the frame of a phone's larger menu for a scene drawn in an image
+    // this large - inactive unless the touch controls are on, E1's widescreen
+    // too, and the scene is the menu or the arena select.
+    Render::MenuFrame MenuFrameFor(const std::string& sceneFile, glm::uvec2 image) const;
+    // E25: the zoom row's options (Script::g_zoom), from the setting.
+    void RefreshZoomChoices();
+    // The display's safe-area insets now, window px (--safe-area, else the platform's).
+    Supersonic::SafeAreaInsets SafeInsets() const;
+    // E26 (render/PhoneUi.hpp): the edge margin this run uses, percent
+    // (--edge-margin, else the settings'; 0 without the touch controls), as
+    // much of it as the window leaves the messages their room with.
+    float EdgeMargin() const;
+    // E26: the HUD's frame for this tick: in a level's or an arena's loop
+    // with the touch controls on, from the screen the scripts have now;
+    // zero anywhere else.
+    Render::HudFrame CurrentHudFrame() const;
 
     Options m_options;
     Render::Settings m_settings;
@@ -246,6 +290,22 @@ private:
     // Script::g_refreshRate, and the index it was given.
     std::vector<uint32_t> m_rateChoices;
     uint32_t m_rateChoiceSeeded = 0;
+    // E25: the zoom row's percentages (0 = automatic) and the index given to
+    // Script::g_zoom; and whether the next_level door offered player 1 the
+    // way on in the last frame, and in which scene (a load drops it).
+    std::vector<int> m_zoomChoices;
+    uint32_t m_zoomChoiceSeeded = 0;
+    bool m_nextLevelOffered = false;
+    unsigned m_nextLevelSerial = 0;
+    // E26: this tick's HUD frame (CurrentHudFrame), which the scripts and the
+    // pause button get, and the last one logged.
+    Render::HudFrame m_hudFrame;
+    Render::HudFrame m_hudFrameLogged;
+    // E25: the safe insets RefreshZoomChoices last counted with; insets can
+    // arrive after attach (SafeArea.hpp), and the zoom's limit follows them.
+    Supersonic::SafeAreaInsets m_zoomChoicesSafe;
+    bool m_devPrincessDone = false;   // --princess
+    bool m_devHpDone = false;         // --hp
 };
 
 } // namespace Penumbra

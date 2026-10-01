@@ -393,3 +393,148 @@ x86_64, 21 MB) verifies with v2 and v3 signatures from the release key (certific
 ac1d43bd...66da), package versionCode 2, versionName 1.0.1, and carries the nine language files,
 both Noto fonts and every language's images. Not run on the emulator (memory was short); it is
 for a test on a real phone. No release was made.
+
+---
+
+## 2026-09-30 — E25: a phone-sized UI
+
+**Why.** Played on a phone, 1.0.1 was small everywhere. The levels showed a wide stretch of the
+castle around a small wizard. The menu sat in the middle of the screen, with the panel's text at a
+4:3 monitor's size. The direction control's down arrow did something only at a level's exit. All
+three now change while the touch controls are on (E16), and nowhere else.
+
+**Built.**
+- **The zoom.** render/PhoneUi gives the campaign's levels and checkpoint.esc a logical screen the
+  zoom times smaller than E1's, so the scripts' camera, HUD, messages and pause work in it:
+  - automatic is 150% on a phone-shaped screen (18:9 or longer) and 125% elsewhere;
+  - `zoom` in settings.json, `--zoom`, and a Zoom row on a phone's options screen (x 540, y 424-474);
+  - never narrower than 908 px, the pause button's edge at 1024, short of which E24's rooms cap
+    every message: on 20:9 the row offers up to 175% (a value set higher is drawn at about 188%),
+    a 4:3 tablet's automatic 125% comes out at about 113%, and the row offers no step past the limit;
+  - a finished campaign's end screen goes back to E1's screen (Machine::SetScreenSize).
+- **The menu.** menu.esc and arena_select.esc keep 1024x768 for the scripts. On a screen wider than
+  4:3, the view scales them until the logo and the seven buttons fill the height, set at the left
+  (CameraRig's MenuFrame). showData sets its title and body in what the window shows of the panel,
+  scaled by one factor (HudCmd::fit, measured by FontAtlas::Measure without baking), from E1's size
+  up to 1.6 times it.
+- **The down button.** The direction control is left and right only. A down button
+  (images/touch/exit_down.png, the former arrow alone) shows above them only while
+  Script::g_nextLevelOffered is up; ETHCallback_next_level raises it where player 1 stands at the
+  door. The disc's down sector is a manifest flag; the placeholder look keeps it. The touch layout
+  is scaled by TouchInput::unit, so the buttons keep their size under the zoom and the larger menu.
+
+**Numbers.**
+- WSL (GCC 13): zero warnings; test_pn_all 17 suites, 19522 checks, 0 failures.
+- The new checks:
+  - the zoom's setting and rules: ten cases across six window shapes;
+  - where the larger menu goes on seven window shapes (x1.32 on 20:9 and 16:9, x1.22 on 16:10,
+    x1.12 on a 2360x1640 tablet; a 4:3 tablet unchanged);
+  - a click and a tap on every menu button landing in its collision box;
+  - every panel (the arenas and both Versus texts included) in all eleven languages, fitted inside
+    its box at 2400x1080, 1920x1080 and 2560x1600: from 1.01 to 1.60 times E1's size;
+  - the down button hidden away from the exit and a tap on it pressing down alone;
+  - the layout at a zoomed screen's scale;
+  - level 1 at 150% through the real game: a 1138x512 screen, the door's offer 19 px from it, and
+    level 2 loaded 179 ticks after the button's tap.
+- Measured with the touch wording on, the widest message line in any language is 759 px (Arial 30).
+- A desktop without the touch controls draws exactly as before: the Portuguese and English
+  1024x768 capture set (menu panels, options, level 1, pause, arena select) is byte-identical to
+  the captures taken before E25, 20 of 20 files.
+- Captures at 2400x1080 in pt, en, ja and ar: the menu, How to Play, Credits, the arena select,
+  the phone options screen, level 1, and level 1 at the exit and a step short of it. In English
+  also a jump, the pause, and a drop from 2000 px above the exit. The drop starts above level 1's
+  geometry, where nothing is lit, so it shows only that the camera keeps the wizard on the zoomed
+  screen as he falls. The same at 2048x1536, a 4:3 tablet: the menu as before, the
+  levels at 113%. The ported camera has no level bounds (cameraManager.as); at level 1's left edge
+  the zoomed screen shows the black past the wall, as E1's does.
+
+**Open.**
+- The nine other languages' touch wording for "Próxima fase: seta para baixo" still says the down
+  arrow at the bottom left. The room allows 861 px.
+- The end screen's revert and the layer's composition of the zoomed screen are layer code; no
+  suite runs them, and only the captures saw them.
+- docs/images/touch-controls.jpg still shows the down arrow.
+- Not played on a phone.
+
+## 2026-10-01 — E25's review; E26: the HUD in a safe frame
+
+**Why.** E25's review found five things. The zoom tightened co-op's leash. A message could run
+under the pause button on a zoomed tablet. The gamepad icon sat over the enlarged panel text. How
+to Play and the credits were no larger on a phone. The phone menu ignored the safe area's top and
+bottom. And on a phone with curved edges the hp and mp values could not be read: the bars start
+at the screen's top-left corner, the values ride the bars' ends in the bars' own dark colours,
+and the timer sits in the top-right corner.
+
+**Built.**
+- **The message rule** (render/PhoneUi.hpp). A message line starts 10 px past the HUD frame's left
+  edge and keeps 785 + 10 px up to the pause button, on every screen a touch screen draws a level
+  on. The zoom stops where the rule would break; this replaces E25's 908 px floor. E24's rooms cap
+  every message a touch screen draws at 785 px. Desktop-only wordings keep 888.
+- **Co-op.** A zoomed campaign scene goes back to E1's screen once the princess exists, until the
+  next load (CampaignUnzooms, with the end screen's case).
+- **The menu in the safe area.** The larger menu fills the safe area's height and keeps the logo
+  and the Quit button inside it; the panel's text box stops at its top and bottom. Without a
+  safe area the frame is E25's exactly, checked on seven window shapes.
+- **Two columns.** showData's body may be broken at a blank line into two columns, the second
+  0.6 em past the first (to its left in Arabic), raised to the title's row where it clears the
+  title. HudRenderer picks the break, keeping hand-made breaks.
+- **The gamepad icons** on a phone's panel: half E1's size, in a row in the top corner the text
+  leaves free, with the text kept out of their box (TextFit::avoid).
+- **E26.** In a level or an arena, with the touch controls on, the bars, their values, the lives,
+  the timer, the message lines and the loading message are drawn inside a frame. The frame is the safe area or
+  `edgeMargin` (auto 3.5% of the width at the sides and of the height at the top on a phone, 1% on
+  a tablet; 0-8), whichever is more. The pause button hangs from the frame's corner. The values are
+  light text over the lives counter's dark shadow, and never leave the bar's left end.
+- Dev flags for captures: `--edge-margin`, `--safe-area`, `--princess`, `--hp`.
+
+**Numbers.**
+- WSL (GCC 13): zero warnings. test_pn_all: 17 suites, 21254 checks, 16 suites pass. The only
+  failures are 4 in test_pn_render_hud's font coverage: the Japanese touch wording for "Próxima
+  fase" (rewritten in another session) uses U+73FE, which the bundled Noto Sans JP lacks.
+  TestRooms passes with every language file as it stands.
+- The message rule on ten shapes, widescreen on and off, at every zoom offered and E1's: the
+  smallest room is 785 px. Offered steps with the automatic frame: 20:9 up to 175% (limit 182%),
+  18:9 150%, a notched 19.5:9 iPhone 150%, 16:9 150%, 16:10 125%, 3:2 125%. A 4:3 tablet's
+  automatic 125% is drawn at 110%.
+- Co-op in the real game: summoned into a zoomed level 1 and held 540 px below the wizard, the
+  princess is alive after 5 s on E1's 1707x768 screen. Without the rule she dies on the 1138x512
+  one.
+- Level 1's HUD in the real game: with no frame every command is the original's (the values dark
+  at the bars' ends, "lv: 1" at x -27 at no experience). With a frame the bars, values, lives,
+  timer, messages and the loading message move by it and nothing else does. On touch the values are two texts, light
+  over dark, at least 2 px inside the bar's left end at hp 10.
+- How to Play and the credits on 2400x1080, in eleven languages: 1.24 (the Japanese credits) to
+  1.60 times E1's size. Only that one and the Portuguese How to Play (1.29) are under 1.3; the
+  earlier E25 build drew both at about 1.0. On a notched 2532x1170 iPhone: 1.00 to 1.27. 16:9 and
+  16:10 keep one column at about 1.0. No glyph lies on a gamepad's icon in any language or window.
+- A desktop without the touch controls draws exactly as before: the pt/en 1024x768 capture set is
+  byte-identical to out/shots/l10n/final, 20 of 20 files.
+- Captures (out/shots/phone/e26): 2400x1080, 2532x1170 with safe insets 132,0,132,63, and
+  2048x1536, in en, ja, ar and pt. The set is the menu, How to Play, Credits, the arena select,
+  level 1, level 1 at the exit, and co-op (--princess). In English also level 1 at hp 12 and the
+  pause.
+
+**Open.**
+- The edge margin has no options row: its label would need nine translations. A phone player
+  cannot edit settings.json, so only the automatic margin reaches them.
+- MSVC /W4 not checked (WSL only).
+- (Resolved below: the Noto Sans JP subset regenerated with U+73FE.)
+
+---
+
+## 2026-10-01 — E25/E26: the review's last fixes
+
+**Built.** A review of E25 and E26 found six things; five are fixed. The Japanese next-level
+touch wording used 現 (U+73FE), missing from the bundled Noto Sans JP subset: the subset is
+regenerated (tools/l10n/make_fonts.py, 935 characters). On a phone with a side cutout the loading
+message started inside it: the phone panel's shown area now starts at the safe area's left. At
+exactly the fill scale, float rounding could put std::clamp's high bound a hair under its low
+(undefined behaviour) in ComputeMenuFrame: the high is held at the low. The zoom chooser's list
+now follows a touch switch and safe insets that arrive after start-up (RefreshZoomChoices). The
+search for player 2's princess, a walk of the whole scene, runs only in a zoomed campaign scene.
+
+**Open.** On a 4:3 touch tablet (no phone panel) the gamepad icons still sit over the panel's
+title row, as in the original; a half-size row there would need its own right-to-left placement.
+
+**Numbers.** WSL: zero warnings; test_pn_all 17 suites, 21250 checks, 0 failures. Without touch
+the twenty Portuguese and English reference captures are pixel-identical to before E24's polish.

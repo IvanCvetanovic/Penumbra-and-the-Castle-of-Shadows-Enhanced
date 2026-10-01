@@ -15,6 +15,7 @@
 #include "render/Localization.hpp"
 #include "render/ParticleRenderer.hpp"
 #include "render/PauseMenu.hpp"
+#include "render/PhoneUi.hpp"
 #include "render/Settings.hpp"
 #include "render/ShadowRenderer.hpp"
 #include "render/SpriteRenderer.hpp"

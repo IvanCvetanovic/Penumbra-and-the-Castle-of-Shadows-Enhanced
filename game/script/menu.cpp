@@ -54,14 +54,42 @@ void detectJoysticks()
     const vector2 joySpriteSize = GetSpriteSize("interface/joystick.png");
     InputState& input = GetInputHandle();                             // menu.as:78
     input.DetectJoysticks();
+    // E25: on a phone's larger menu the screen's right edge is in the middle  // E25
+    // of the panel's text: the icons go to the top edge of what the window    // E25
+    // shows of the panel, in a row from the corner the text's lines leave     // E25
+    // free (the right, or the left for a right-to-left language), at half the // E25
+    // size E1's view draws them - above the body's first line - and showData  // E25
+    // keeps its text out of their box.                                        // E25
+    g_joystickIconsMin = g_joystickIconsMax = vector2(0,0);                     // E25
+    if (g_phonePanel.on)                                                         // E25
+    {                                                                            // E25
+        const vector2 iconSize = joySpriteSize*(g_phonePanel.minScale*0.5f);     // E25
+        for (uint t = 0; t < 2; t++)                                             // E25
+        {                                                                        // E25
+            if (input.GetJoystickStatus(t) != JS_DETECTED)                       // E25
+                continue;                                                        // E25
+            const float slot = iconSize.x*static_cast<float>(t);                 // E25
+            const vector2 iconPos(g_phonePanel.rightToLeft ? g_phonePanel.min.x+slot   // E25
+                                                           : g_phonePanel.max.x-iconSize.x-slot,   // E25
+                                  g_phonePanel.shownMin.y);                      // E25
+            DrawShapedSprite("interface/joystick.png", iconPos, iconSize, ARGB(150,255,255,255));   // E25
+            // The row's box: the icons share their top.                        // E25
+            if (g_joystickIconsMax.x <= g_joystickIconsMin.x)                    // E25
+                g_joystickIconsMin = g_joystickIconsMax = iconPos;               // E25
+            g_joystickIconsMin.x = min(g_joystickIconsMin.x, iconPos.x);         // E25
+            g_joystickIconsMax = vector2(max(g_joystickIconsMax.x, iconPos.x+iconSize.x), iconPos.y+iconSize.y);   // E25
+        }                                                                        // E25
+        return;                                                                  // E25
+    }                                                                            // E25
+    // E26: in a level (held J, setupScene.as:393-394) from the HUD frame's corner.  // E26
     if (input.GetJoystickStatus(0) == JS_DETECTED)
     {
-        DrawSprite("interface/joystick.png", vector2(screenSize.x-joySpriteSize.x, 0),
+        DrawSprite("interface/joystick.png", vector2(screenSize.x-joySpriteSize.x, 0)+hudTopRight(),   // E26: hudTopRight
                    ARGB(150,255,255,255));
     }
     if (input.GetJoystickStatus(1) == JS_DETECTED)
     {
-        DrawSprite("interface/joystick.png", vector2(screenSize.x-joySpriteSize.x, joySpriteSize.y),
+        DrawSprite("interface/joystick.png", vector2(screenSize.x-joySpriteSize.x, joySpriteSize.y)+hudTopRight(),   // E26
                    ARGB(150,255,255,255));
     }
 }
@@ -119,6 +147,34 @@ void showData(const string& title, const string& content)
     const float textSize = screenSize.y <= 700 ? 20.0f : 25.0f;      // menu.as:225
     DrawRectangle(rectPos, rectSize,
                   rectColor0, rectColor0, rectColor1, rectColor1);
+    // E25: on a phone the menu is drawn larger, from the left, and the panel   // E25
+    // runs on to the window's right edge: the title and the body are set in    // E25
+    // the part of it the window shows (g_phonePanel), 10 px in and 20 down as  // E25
+    // above, the body 50 below the title, both scaled by one factor to fill    // E25
+    // it (HudCmd::fit) - never smaller than they are drawn without E25.        // E25
+    // A long body may be set in two columns, split at one of its blank lines, // E25
+    // where that sets the panel larger (How to Play, the credits). No line     // E25
+    // crosses the gamepad icons, with 6 px about them (the body's first line   // E25
+    // is below them at any size; only a long title meets them).                // E25
+    if (g_phonePanel.on)                                                         // E25
+    {                                                                            // E25
+        TextFit fit;                                                             // E25
+        fit.min = g_phonePanel.min;                                              // E25
+        fit.max = g_phonePanel.max;                                              // E25
+        fit.group = 1;                                                           // E25
+        fit.minScale = g_phonePanel.minScale;                                    // E25
+        fit.maxScale = g_phonePanel.maxScale;                                    // E25
+        if (g_joystickIconsMax.x > g_joystickIconsMin.x)                         // E25
+        {                                                                        // E25
+            fit.avoidMin = g_joystickIconsMin-vector2(6,6);                      // E25
+            fit.avoidMax = g_joystickIconsMax+vector2(6,6);                      // E25
+        }                                                                        // E25
+        shadowText(fit.min, title, "Arial Narrow", 40.0f, 255,203,203,228, fit.max.x, fit);   // E25
+        TextFit body = fit;                                                      // E25
+        body.columns = 2;                                                        // E25
+        shadowText(fit.min+vector2(0,50), content, "Arial Narrow", textSize, 255,203,203,228, fit.max.x, body);   // E25
+        return;                                                                  // E25
+    }                                                                            // E25
     // E24: a right-to-left language sets the title and the body against the
     // panel's right edge, 10 px in as they are from its left, so every panel's
     // lines start at one edge; the panel runs to the screen's right edge

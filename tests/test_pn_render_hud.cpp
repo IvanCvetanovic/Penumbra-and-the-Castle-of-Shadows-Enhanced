@@ -46,6 +46,7 @@
 #include "render/FontAtlas.hpp"
 #include "render/HudRenderer.hpp"
 #include "render/Localization.hpp"
+#include "render/PhoneUi.hpp"
 #include "render/TextureCache.hpp"
 #include "render/View.hpp"
 #include "render/WideMenus.hpp"
@@ -1207,9 +1208,9 @@ void TestLanguages() {
     // translator words.
     const std::vector<std::string> shared = loc.SharedPatterns();
     const std::vector<std::string> expected = {"[{any}] {text}", "hp: {int}", "mp: {int}", "lv: {int}",
-                                               "{int}x{int}x{int}", "{int}x{int}", "{int} Hz"};
+                                               "{int}x{int}x{int}", "{int}x{int}", "{int} Hz", "{int}%"};   // E25's zoom
     CHECK(shared == expected);
-    CHECK_EQ(loc.PatternCount(), std::size_t{16});
+    CHECK_EQ(loc.PatternCount(), std::size_t{17});
 }
 
 // E24: the rules of a language file, on documents of our own (the real files
@@ -2237,6 +2238,323 @@ void CheckPanelRightToLeft(const Eth::RenderSnapshot& shown) {
     hud.Detach();
 }
 
+// ENHANCEMENT E25: showData's panel on a phone's larger menu, in every
+// language, at a phone's, a 16:9 screen's and a 16:10 tablet's size, the
+// touch wording on (a phone's): every panel the menu and the arena select
+// show - title and body composed as menu.cpp composes them, drawn by the
+// script's own showData into `machine` (the real menu, booted) - is scaled by
+// one factor, at least E1's size on the window and at most kMenuMaxTextGain
+// times it, and every glyph of it lies in the box the window shows of the
+// panel. The long ones, How to Play and the credits, are set in two columns
+// and come out at least kLongPanelGain times E1's size on a phone. With a
+// gamepad's icon over the panel (detectJoysticks: at half E1's size, in the
+// top corner the language's lines leave free) no glyph is on it. Prints the
+// smallest and largest factor over E1's size for each, and the long panels'.
+// (Measured on 2400x1080: 1.24 for the Japanese credits, 1.29 for the
+// Portuguese How to Play, 1.31 to 1.60 for the rest; their widest lines, one
+// in each column, are what holds them.)
+constexpr float kLongPanelGain = 1.2f;
+
+void CheckPhonePanels(Eth::Machine& machine) {
+    struct Panel {
+        std::string title;
+        std::string body;
+    };
+    const std::string noPad = "\xC9 necess\xE1rio ao menos um joystick\n para jogar neste modo.";   // menu.cpp:182
+    const std::string onePad = noPad + Script::endl + Script::endl + "J\xE1 h\xE1 um joystick plugado." +
+                               Script::endl + "Mude as op\xE7\xF5" "es de entrada no menu" + Script::endl +
+                               "de configura\xE7\xF5" "es para poder" + Script::endl +
+                               "utilizar o teclado e o joystick" + Script::endl + "por 2 jogadores.";
+    std::vector<Panel> panels = {
+        {"Cr\xE9" "ditos", Script::creditos + Script::creditosEnhanced},
+        {"Melhores tempos", Script::getRecordTimeList()},
+        {"Como Jogar", Script::como_jogar},
+        {"Jogador versus Jogador", Script::versus},
+        {"Jogador versus Jogador", noPad},
+        {"Jogador versus Jogador", onePad},
+        {"Novo jogo", Script::novo_jogo},
+        {"Sair do jogo", ""},
+        {"Configura\xE7\xF5" "es", Script::config},
+    };
+    // The arenas (arena_select.esc's thumbnails), the two with a score locked (menu.cpp:224-231).
+    const char* const arenaTitles[] = {"Obelisco", "Inferno", "Cova", "Vale", "Templo Sagrado", "Neblina"};
+    for (int n = 1; n <= 6; ++n) {
+        std::string extra;
+        if (n >= 5) {
+            extra = "\n\n\xC9 necess\xE1rio terminar o jogo\nem menos de " + Script::getTimeString(n == 5 ? 720000u : 900000u) +
+                    " para\nliberar esta arena.";
+        }
+        panels.push_back({arenaTitles[n - 1], Script::g_gameData.get("global", "arena" + std::to_string(n)) + extra});
+    }
+
+    entt::registry registry;
+    Render::TextureCache textures(kApp);
+    Render::FontAtlas fonts;
+    Render::Localization loc;
+    CHECK(loc.Load());
+    loc.SetTouch(true);
+    Render::HudRenderer hud;
+    hud.Attach(registry, textures, fonts, loc);
+    Eth::InputFrame input;
+    input.cursor = input.cursorAbsolute = Eth::vector2(900.0f, 700.0f);   // on no button: the loop draws no panel
+
+    struct Screen {
+        glm::uvec2 window;
+        Supersonic::SafeAreaInsets safe;
+        float longPanels;   // the least How to Play and the credits come out at, times E1's size
+    };
+    // A 20:9 phone; a notched 19.5:9 one on its side, whose frame is only
+    // x1.21 of E1's and whose insets take 72 px of the panel; 16:9 and a
+    // 16:10 tablet, whose panels (about 400 px across) take one column.
+    const Screen screens[] = {{{2400u, 1080u}, {}, kLongPanelGain},
+                              {{2532u, 1170u}, {132.0f, 0.0f, 132.0f, 63.0f}, 1.0f},
+                              {{1920u, 1080u}, {}, 1.0f},
+                              {{2560u, 1600u}, {}, 1.0f}};
+    for (const Screen& screen : screens) {
+        const glm::uvec2 window = screen.window;
+        const std::string size = std::to_string(window.x) + "x" + std::to_string(window.y);
+        const Render::MenuFrame frame = Render::ComputeMenuFrame(window, screen.safe);
+        CHECK_MSG(frame.active, size);
+        const Render::MenuPanel box = Render::ComputeMenuPanel(frame, window, screen.safe);
+        // The first gamepad's icon as detectJoysticks puts it on a phone's
+        // panel: at half E1's size, in the top corner the language's lines
+        // leave free.
+        const glm::vec2 iconSize = glm::vec2(180.0f, 130.0f) * box.minScale * 0.5f;
+        const glm::vec2 iconLeft(box.min.x, box.shownMin.y);
+        const glm::vec2 iconRight(box.max.x - iconSize.x, box.shownMin.y);
+        // Each panel's four texts (the title, the body, their shadows), as the
+        // script queues them: without an icon, with it at the right, at the left.
+        const auto draw = [&](const bool rightToLeft, const glm::vec2* icon) {
+            Script::g_phonePanel = Script::PhonePanel{true,         box.min,      box.max,        box.minScale,
+                                                      box.maxScale, box.shownMin, box.shownMax, rightToLeft};
+            std::vector<std::vector<Eth::HudCmd>> drawn;
+            for (const Panel& panel : panels) {
+                Script::g_joystickIconsMin = icon != nullptr ? *icon : glm::vec2(0.0f);
+                Script::g_joystickIconsMax = icon != nullptr ? *icon + iconSize : glm::vec2(0.0f);
+                Script::showData(panel.title, panel.body);
+                machine.Frame(input);
+                std::vector<Eth::HudCmd> texts;
+                for (const Eth::HudCmd& cmd : machine.Snapshot().hud) {
+                    if (cmd.kind == Eth::HudCmd::Kind::Text && cmd.fit.group != 0) texts.push_back(cmd);
+                }
+                CHECK_EQ(texts.size(), std::size_t{4});
+                drawn.push_back(std::move(texts));
+            }
+            Script::g_joystickIconsMin = Script::g_joystickIconsMax = glm::vec2(0.0f);
+            return drawn;
+        };
+        const std::vector<std::vector<Eth::HudCmd>> plain = draw(false, nullptr);
+        const std::vector<std::vector<Eth::HudCmd>> padRight = draw(false, &iconRight);
+        const std::vector<std::vector<Eth::HudCmd>> padLeft = draw(true, &iconLeft);
+        Eth::RenderSnapshot menu = machine.Snapshot();
+        const Render::View view = Render::CameraRig::ComputeView(menu, window, true, &frame);
+        CHECK_MSG(view.scale == frame.scale, size);
+
+        for (const Language language : MeasuredLanguages(loc)) {
+          loc.SetLanguage(language);
+          const char* id = Render::LanguageId(language);
+          for (int pass = 0; pass < 2; ++pass) {
+            const bool withPad = pass == 1;
+            const std::vector<std::vector<Eth::HudCmd>>& drawn =
+                !withPad ? plain : (loc.RightToLeft() ? padLeft : padRight);
+            const glm::vec2 icon = loc.RightToLeft() ? iconLeft : iconRight;
+            float least = 1e9f;
+            float most = 0.0f;
+            float howTo = 0.0f;
+            float credits = 0.0f;
+            int howToBreak = -1;
+            int creditsBreak = -1;
+            for (std::size_t p = 0; p < drawn.size(); ++p) {
+                Eth::RenderSnapshot one;
+                one.hud = drawn[p];
+                std::vector<Supersonic::ScreenOverlay::Quad> quads;
+                hud.Build(one, view, quads);
+                const float f = hud.FitScale(1);
+                const std::string what = size + " " + id + (withPad ? " (a gamepad)" : "") + " \"" +
+                                         Eth::Cp1252ToUtf8(panels[p].title) + "\"";
+                CHECK_MSG(f >= box.minScale - 1e-5f && f <= box.maxScale + 1e-5f, what + ": " + std::to_string(f));
+                least = std::min(least, f / box.minScale);
+                most = std::max(most, f / box.minScale);
+                if (p == 0) {
+                    credits = f / box.minScale;
+                    creditsBreak = hud.FitColumnBreak(1);
+                } else if (p == 2) {
+                    howTo = f / box.minScale;
+                    howToBreak = hud.FitColumnBreak(1);
+                }
+                // No glyph on the gamepad's icon.
+                if (withPad) {
+                    for (const Supersonic::ScreenOverlay::Quad& quad : quads) {
+                        if (quad.texture.empty()) continue;
+                        const glm::vec2 min = (quad.min * glm::vec2(window) - view.viewportMin) / view.scale;
+                        const glm::vec2 max = (quad.max * glm::vec2(window) - view.viewportMin) / view.scale;
+                        if (min.x < icon.x + iconSize.x && max.x > icon.x && min.y < icon.y + iconSize.y &&
+                            max.y > icon.y) {
+                            CHECK_MSG(false, what + ": a glyph on the gamepad's icon at (" + std::to_string(min.x) +
+                                                 ", " + std::to_string(min.y) + ")");
+                            break;
+                        }
+                    }
+                }
+                // Every glyph in the box: window fractions back to logical px.
+                for (const Supersonic::ScreenOverlay::Quad& quad : quads) {
+                    if (quad.texture.empty()) continue;   // the bars (none here)
+                    const glm::vec2 min = (quad.min * glm::vec2(window) - view.viewportMin) / view.scale;
+                    const glm::vec2 max = (quad.max * glm::vec2(window) - view.viewportMin) / view.scale;
+                    // Right to left, the last letter's ink may pass the edge its
+                    // advance ends at by its side bearing, as E24's panel allows
+                    // (3 px at 25 px): within the panel's 10 px margin.
+                    // And the last line's Arabic letters (Noto Sans Arabic)
+                    // reach below the Arial line box the fit counts, by as much.
+                    const float rightSlack = loc.RightToLeft() ? 0.12f * 25.0f * f + 0.5f : 2.0f;
+                    const float bottomSlack = loc.RightToLeft() ? 0.12f * 25.0f * f + 0.5f : 2.0f;
+                    const bool inside = min.x >= box.min.x - 2.0f && max.x <= box.max.x + rightSlack &&
+                                        min.y >= box.min.y - 4.0f && max.y <= box.max.y + bottomSlack;
+                    if (!inside) {
+                        CHECK_MSG(false, what + ": a glyph at (" + std::to_string(min.x) + ", " + std::to_string(min.y) +
+                                             ")-(" + std::to_string(max.x) + ", " + std::to_string(max.y) +
+                                             ") past the box (" + std::to_string(box.min.x) + ", " +
+                                             std::to_string(box.min.y) + ")-(" + std::to_string(box.max.x) + ", " +
+                                             std::to_string(box.max.y) + ") at " + std::to_string(f / box.minScale));
+                        break;
+                    }
+                }
+            }
+            std::printf("  E25 panels %s %s%s: %.2f to %.2f times E1's size; How to Play %.2f (%s), the credits "
+                        "%.2f (%s)\n",
+                        size.c_str(), id, withPad ? " with a gamepad" : "", least, most, howTo,
+                        howToBreak >= 0 ? ("2 columns from line " + std::to_string(howToBreak + 1)).c_str() : "1 column",
+                        credits,
+                        creditsBreak >= 0 ? ("2 columns from line " + std::to_string(creditsBreak + 1)).c_str()
+                                          : "1 column");
+            // The long panels clearly larger on a 20:9 phone, a gamepad's icon or not.
+            CHECK_MSG(howTo >= screen.longPanels - 1e-3f, size + " " + id + ": How to Play at " + std::to_string(howTo));
+            CHECK_MSG(credits >= screen.longPanels - 1e-3f, size + " " + id + ": the credits at " + std::to_string(credits));
+          }
+        }
+    }
+    loc.SetLanguage(Language::English);
+    Script::g_phonePanel = Script::PhonePanel{};
+    hud.Detach();
+}
+
+// E25's two columns (HudRenderer, Eth::TextFit::columns), on a text of our
+// own: twelve lines of W, a blank line, twelve of I, in a box too short for
+// one column. It is broken at the blank line, both columns at one factor, the
+// second a gap to the right of the first's widest line - to its left for a
+// right-to-left language, which reads it first from the right. A text with
+// no blank line, or one that fits whole, stays one column. With an avoid box
+// at the top right no glyph is in it.
+void TestFitColumns() {
+    entt::registry registry;
+    Render::TextureCache textures(kApp);
+    Render::FontAtlas fonts;
+    Render::Localization loc;
+    CHECK(loc.Load());
+    Render::HudRenderer hud;
+    hud.Attach(registry, textures, fonts, loc);
+    Render::View view;
+    view.logicalScreen = glm::vec2(1024.0f, 768.0f);
+    view.windowPixels = glm::uvec2(1024, 768);
+    view.scale = 1.0f;
+    view.viewportMin = glm::vec2(0.0f);
+    view.viewportMax = glm::vec2(1024.0f, 768.0f);
+
+    std::string text;
+    for (int i = 0; i < 12; ++i) text += "WWW\n";
+    text += "\n";
+    for (int i = 0; i < 12; ++i) text += (i + 1 < 12) ? "II\n" : "II";
+    const auto build = [&](const std::string& body, const Eth::uint columns, const glm::vec2& avoidMin,
+                           const glm::vec2& avoidMax, std::vector<Supersonic::ScreenOverlay::Quad>& quads) {
+        Eth::HudCmd cmd;
+        cmd.kind = Eth::HudCmd::Kind::Text;
+        cmd.text = body;
+        cmd.font = "Arial Narrow";
+        cmd.fontSize = 20.0f;
+        cmd.color = 0xFFFFFFFFu;
+        cmd.pos = glm::vec2(110.0f, 110.0f);
+        cmd.rtlRight = 690.0f;
+        cmd.fit.min = glm::vec2(100.0f, 100.0f);
+        cmd.fit.max = glm::vec2(700.0f, 420.0f);
+        cmd.fit.group = 1;
+        cmd.fit.minScale = 1.0f;
+        cmd.fit.maxScale = 2.0f;
+        cmd.fit.columns = columns;
+        cmd.fit.avoidMin = avoidMin;
+        cmd.fit.avoidMax = avoidMax;
+        Eth::RenderSnapshot one;
+        one.hud.push_back(cmd);
+        quads.clear();
+        hud.Build(one, view, quads);
+    };
+    const auto logical = [&](const Supersonic::ScreenOverlay::Quad& quad) {
+        return std::make_pair(quad.min * glm::vec2(1024.0f, 768.0f), quad.max * glm::vec2(1024.0f, 768.0f));
+    };
+    std::vector<Supersonic::ScreenOverlay::Quad> quads;
+    for (const Language language : {Language::English, Language::Arabic}) {
+        loc.SetLanguage(language);
+        const bool rtl = loc.RightToLeft();
+        const std::string what = Render::LanguageId(language);
+        build(text, 2, glm::vec2(0.0f), glm::vec2(0.0f), quads);
+        CHECK_MSG(hud.FitColumnBreak(1) == 12, what + ": broken at line " + std::to_string(hud.FitColumnBreak(1)));
+        CHECK_MSG(hud.FitScale(1) > 1.0f, what);
+        CHECK_EQ(quads.size(), std::size_t{12 * 3 + 12 * 2});
+        if (quads.size() != std::size_t{60}) continue;
+        // The first 36 quads are the first column's Ws, the rest the second's Is.
+        float firstMin = 1e9f;
+        float firstMax = -1e9f;
+        float secondMin = 1e9f;
+        float secondMax = -1e9f;
+        float bottom = 0.0f;
+        for (std::size_t i = 0; i < quads.size(); ++i) {
+            const auto [min, max] = logical(quads[i]);
+            bottom = std::max(bottom, max.y);
+            if (i < 36) {
+                firstMin = std::min(firstMin, min.x);
+                firstMax = std::max(firstMax, max.x);
+            } else {
+                secondMin = std::min(secondMin, min.x);
+                secondMax = std::max(secondMax, max.x);
+            }
+        }
+        std::printf("  E25 columns %s: x%.2f, the first at x %.0f-%.0f, the second at x %.0f-%.0f, down to y %.0f\n",
+                    what.c_str(), hud.FitScale(1), firstMin, firstMax, secondMin, secondMax, bottom);
+        if (rtl) CHECK_MSG(secondMax < firstMin, what);   // read from the right: the first column is the right one
+        else CHECK_MSG(secondMin > firstMax, what);
+        CHECK_MSG(bottom <= 420.0f + 1.0f && std::min(firstMin, secondMin) >= 100.0f - 1.0f &&
+                      std::max(firstMax, secondMax) <= 700.0f + 3.0f,
+                  what);
+        // An avoid box over the top of the second column's outer edge, in the
+        // corner the lines leave free: the group a little smaller, clear of it.
+        const float free = hud.FitScale(1);
+        const glm::vec2 avoidMin = rtl ? glm::vec2(100.0f, 100.0f) : glm::vec2(secondMax - 5.0f, 100.0f);
+        const glm::vec2 avoidMax = rtl ? glm::vec2(secondMin + 5.0f, 150.0f) : glm::vec2(700.0f, 150.0f);
+        build(text, 2, avoidMin, avoidMax, quads);
+        std::printf("  E25 columns %s with an avoid box: x%.2f\n", what.c_str(), hud.FitScale(1));
+        CHECK_MSG(hud.FitScale(1) < free && hud.FitScale(1) > 1.0f, what);
+        CHECK_MSG(hud.FitColumnBreak(1) == 12, what);
+        for (const Supersonic::ScreenOverlay::Quad& quad : quads) {
+            const auto [min, max] = logical(quad);
+            CHECK_MSG(!(min.x < avoidMax.x - 1.0f && max.x > avoidMin.x + 1.0f && min.y < avoidMax.y - 1.0f &&
+                        max.y > avoidMin.y + 1.0f),
+                      what + ": a glyph in the avoid box");
+        }
+        // One column where the text has no blank line, or fits whole, or may not take two.
+        std::string noBlank = text;
+        noBlank.erase(noBlank.find("\n\n"), 1);
+        build(noBlank, 2, glm::vec2(0.0f), glm::vec2(0.0f), quads);
+        CHECK_EQ(hud.FitColumnBreak(1), -1);
+        build(text, 1, glm::vec2(0.0f), glm::vec2(0.0f), quads);
+        CHECK_EQ(hud.FitColumnBreak(1), -1);
+        CHECK_NEAR(hud.FitScale(1), 1.0f);   // too tall, kept at its least
+        build("WWW\n\nII", 2, glm::vec2(0.0f), glm::vec2(0.0f), quads);
+        CHECK_EQ(hud.FitColumnBreak(1), -1);
+        CHECK_NEAR(hud.FitScale(1), 2.0f);
+    }
+    loc.SetLanguage(Language::English);
+    hud.Detach();
+}
+
 // The real main menu, loaded as the layer loads it with widescreen on, in a
 // 16:9 window, the cursor on New Game: the world goes on past the sides, and
 // everything the scripts placed is where the pillarbox put it - New Game's
@@ -2329,6 +2647,9 @@ void TestWideMenuScene() {
     for (const Eth::SpriteDraw& sprite : barred.sprites) barredIds.push_back(sprite.entityId);
     CHECK(barredIds == screenIds);
     CHECK(Render::CameraRig::Bars(Render::CameraRig::ComputeView(barred, glm::uvec2(1920u, 1080u), true)).size() == 2u);
+
+    machine.SetSidesShown(true);
+    CheckPhonePanels(machine);   // E25
 }
 
 } // namespace
@@ -2352,6 +2673,7 @@ int main() {
     TestArabicShaping();
     TestAtlasBatching();
     TestHudRenderer();
+    TestFitColumns();      // E25
     TestWideMenuHud();
     TestWideMenuBackdrop();
     TestWideMenuScene();   // last: it boots the real game, whose globals outlive it

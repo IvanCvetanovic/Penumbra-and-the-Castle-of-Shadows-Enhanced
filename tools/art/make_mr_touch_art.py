@@ -49,7 +49,11 @@ WHAT EACH FILE IS (Magic Rampage paths are under the base APK's assets/):
                    mirrored across the diagonal onto dpad-frame; Magic Rampage has no down) - each
                    alone on a transparent canvas the size of the control, where the control's
                    sectors put its direction. Each brightens while its direction is held, as a
-                   pressed Magic Rampage button does.
+                   pressed Magic Rampage button does. Since E25 the shipped layout draws only
+                   the left and right ones; dpad_down.png is for a manifest that asks for the
+                   disc's down sector back.
+  exit_down.png    E25's down button, shown only at a level's exit: the down button above,
+                   alone, 128x128 (exactly the pixels dpad_down.png has at (139, 276)).
   dpad.png         the control's base: transparent. Magic Rampage has no disc under its buttons.
   dpad_knob.png    SEF/media/button-highlight.png, the four corner brackets Magic Rampage's UI
                    frames a focused button with: it follows the thumb, onto the button held.
@@ -336,6 +340,7 @@ def main():
         "dpad_left.png": dpad_canvas(mr.image("sprites/dpad-left.png"), "left"),
         "dpad_right.png": dpad_canvas(right, "right"),
         "dpad_down.png": dpad_canvas(down_button(frame, right), "down"),
+        "exit_down.png": down_button(frame, right),
         "dpad_knob.png": mr.image("SEF/media/button-highlight.png"),
     }
     check_dpad_sectors(frame)

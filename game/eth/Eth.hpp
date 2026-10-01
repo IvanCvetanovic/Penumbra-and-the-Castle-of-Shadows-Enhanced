@@ -92,6 +92,10 @@ void DrawText(const vector2& pos, const string& text, const string& font, float 
 // ENHANCEMENT E24 (not in 0.7.12): the same text set in a box whose right edge
 // is rtlRight (HudCmd::rtlRight): a right-to-left language ends it there.
 void DrawText(const vector2& pos, const string& text, const string& font, float size, uint color, float rtlRight);
+// ENHANCEMENT E25 (not in 0.7.12): the same, scaled to fit a box with the rest
+// of its group (HudCmd::fit).
+void DrawText(const vector2& pos, const string& text, const string& font, float size, uint color, float rtlRight,
+              const TextFit& fit);
 void LoadSprite(const string& path);
 void DrawSprite(const string& path, const vector2& pos, uint color);
 void DrawShapedSprite(const string& path, const vector2& pos, const vector2& size, uint color);

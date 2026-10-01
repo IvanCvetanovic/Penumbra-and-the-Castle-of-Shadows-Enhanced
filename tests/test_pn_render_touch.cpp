@@ -13,7 +13,13 @@
 // tap, the fingers held back under a combo, its cancelling - and the combos
 // firing through the ported Combo in a bare Machine, and through the real game
 // in level 1, whose first help sign the HUD draws in touch wording (skipped
-// without the original's files, the rest of the suite is not).
+// without the original's files, the rest of the suite is not). E25: the
+// direction control without its down arrow, the down button shown only while
+// the next_level door offers the way on, the layout at a zoomed screen's
+// scale, and level 1 zoomed as on a phone, left through the button; the
+// princess taking a zoomed level back to E1's screen. E26: the pause button
+// in step with the HUD's frame, and level 1's HUD moved and restyled by it
+// on touch only.
 // No window. Only the combo checks run a Machine.
 
 #include "script/Script.hpp"
@@ -46,6 +52,7 @@
 #include "render/InputMapper.hpp"
 #include "render/Localization.hpp"
 #include "render/PauseMenu.hpp"
+#include "render/PhoneUi.hpp"
 #include "render/Settings.hpp"
 #include "render/TextureCache.hpp"
 #include "render/TextureDecode.hpp"
@@ -242,31 +249,55 @@ void testEachButton() {
     CHECK(Only(step, {}));
 }
 
+// E16's disc, with its down sector: the built-in layout before E25 (the
+// placeholder look's still has it).
+TouchManifest DiscWithDown() {
+    TouchManifest manifest = TouchControls::DefaultManifest();
+    manifest.downSector = true;
+    manifest.dpadDown = "images/touch/dpad_down.png";
+    manifest[TouchControl::ExitDown].enabled = false;
+    return manifest;
+}
+
 void testDirections() {
     const TouchManifest manifest = TouchControls::DefaultManifest();
     const float radius = 0.5f * manifest[TouchControl::Dpad].size.x;
     const float dead = manifest.deadZone * radius;
-    const auto steer = [](glm::vec2 offset) {
+    const auto steerWith = [](const TouchManifest& with, glm::vec2 offset) {
         TouchControls touch;
+        touch.SetManifest(with);
         return touch.Update(Play({Finger(1, Dpad(offset))}));
     };
+    const auto steer = [&](glm::vec2 offset) { return steerWith(manifest, offset); };
+    CHECK(!manifest.downSector);   // E25
     CHECK(Only(steer({0.0f, 0.0f}), {}));
     CHECK(Only(steer({dead - 2.0f, 0.0f}), {}));                 // the dead zone
     CHECK(Only(steer({-dead - 2.0f, 0.0f}), {TouchAction::Left}));
     CHECK(Only(steer({-100.0f, 0.0f}), {TouchAction::Left}));
     CHECK(Only(steer({100.0f, 0.0f}), {TouchAction::Right}));
-    // Straight down is down alone: a thumb held down at the next_level door
-    // (main.as:208) does not walk off it.
-    CHECK(Only(steer({0.0f, 100.0f}), {TouchAction::Down}));
-    CHECK(Only(steer({30.0f, 100.0f}), {TouchAction::Down}));    // 16.7 degrees off: still straight
-    CHECK(Only(steer({-80.0f, 80.0f}), {TouchAction::Left, TouchAction::Down}));
-    CHECK(Only(steer({80.0f, 80.0f}), {TouchAction::Right, TouchAction::Down}));
-    CHECK(Only(steer({-100.0f, 30.0f}), {TouchAction::Left}));   // 16.7 degrees below: still level
-    CHECK(Only(steer({-100.0f, 45.0f}), {TouchAction::Left, TouchAction::Down}));
+    // E25: left and right only. Straight down, as straight up, is nothing;
+    // down-left is left, down-right right.
+    CHECK(Only(steer({0.0f, 100.0f}), {}));
+    CHECK(Only(steer({30.0f, 100.0f}), {}));                     // 16.7 degrees off: still straight
+    CHECK(Only(steer({-80.0f, 80.0f}), {TouchAction::Left}));
+    CHECK(Only(steer({80.0f, 80.0f}), {TouchAction::Right}));
+    CHECK(Only(steer({-100.0f, 30.0f}), {TouchAction::Left}));
+    CHECK(Only(steer({-100.0f, 45.0f}), {TouchAction::Left}));
+    // E16's disc (a manifest's "downSector": true): straight down is down
+    // alone, so a thumb held down at the next_level door (main.as:208) does
+    // not walk off it.
+    const TouchManifest withDown = DiscWithDown();
+    CHECK(Only(steerWith(withDown, {0.0f, 100.0f}), {TouchAction::Down}));
+    CHECK(Only(steerWith(withDown, {30.0f, 100.0f}), {TouchAction::Down}));    // 16.7 degrees off: still straight
+    CHECK(Only(steerWith(withDown, {-80.0f, 80.0f}), {TouchAction::Left, TouchAction::Down}));
+    CHECK(Only(steerWith(withDown, {80.0f, 80.0f}), {TouchAction::Right, TouchAction::Down}));
+    CHECK(Only(steerWith(withDown, {-100.0f, 30.0f}), {TouchAction::Left}));   // 16.7 degrees below: still level
+    CHECK(Only(steerWith(withDown, {-100.0f, 45.0f}), {TouchAction::Left, TouchAction::Down}));
     // No up: straight up is nothing, up-left is left.
     CHECK(Only(steer({0.0f, -100.0f}), {}));
     CHECK(Only(steer({-80.0f, -80.0f}), {TouchAction::Left}));
     CHECK(Only(steer({80.0f, -80.0f}), {TouchAction::Right}));
+    CHECK(Only(steerWith(withDown, {0.0f, -100.0f}), {}));
     // Inside the padding past the rim: still the control's.
     CHECK(Only(steer({-radius - 30.0f, 0.0f}), {TouchAction::Left}));
 
@@ -309,8 +340,10 @@ void testDirections() {
     }
 
     // The spell combo starts with Down, then a side (combo.as records one
-    // command a frame, Left before Down): down first, then down-left.
+    // command a frame, Left before Down): down first, then down-left, on E16's
+    // disc (E25's makes it with its combo button).
     TouchControls spell;
+    spell.SetManifest(withDown);
     InputState spellState;
     spellState.Update(FrameOf(spell.Update(Play({Finger(5, Dpad({0.0f, 100.0f}))}))));
     CHECK(spellState.GetKeyState(K_DOWN) == KS_HIT);
@@ -654,18 +687,22 @@ void testShownWhere() {
     CHECK(!touch.Visible(TouchControl::Jump));
     if (!out.empty()) CHECK(out[0].sprite.find("back.png") != std::string::npos);
 
-    // In play: the disc, its three arrows, four buttons, the two combo
-    // buttons, pause - and no knob, with no thumb on the disc.
+    // In play: the disc, its two arrows (E25: no down), four buttons, the two
+    // combo buttons, pause - and no knob, with no thumb on the disc, and no
+    // down button away from the exit.
     const TouchManifest manifest = TouchControls::DefaultManifest();
     const std::uint8_t idle = static_cast<std::uint8_t>(std::lround(manifest.idleAlpha * 255.0f));
     const std::uint8_t pressed = static_cast<std::uint8_t>(std::lround(manifest.pressedAlpha * 255.0f));
     CHECK(pressed > idle);
     CHECK(!manifest.knobAtRest);
+    CHECK(manifest.dpadDown.empty());
     touch.Update(Play());
     out.clear();
     touch.AppendOverlay(out);
-    CHECK_EQ(out.size(), std::size_t{11});
+    CHECK_EQ(out.size(), std::size_t{10});
     CHECK_EQ(Knobs(out), 0);
+    CHECK(!touch.Visible(TouchControl::ExitDown));
+    for (const HudCmd& cmd : out) CHECK_MSG(cmd.sprite.find("down.png") == std::string::npos, cmd.sprite);
     for (const HudCmd& cmd : out) {
         CHECK(cmd.kind == HudCmd::Kind::ShapedSprite);   // every image found
         CHECK_EQ(static_cast<int>(Alpha(cmd.color)), static_cast<int>(idle));
@@ -696,17 +733,19 @@ void testShownWhere() {
         if (cmd.sprite.find("dpad_knob.png") == std::string::npos) continue;
         CHECK((cmd.pos + cmd.size * 0.5f).x > Dpad({0.0f, 0.0f}).x + 10.0f);
     }
-    // Down and left too, on the button held; none for a thumb pointing no
-    // direction (the dead zone, straight up), nor once it lifts.
+    // Left too, on the button held; none for a thumb pointing no direction
+    // (the dead zone, straight up, and since E25 straight down), nor once it
+    // lifts.
     const auto knobsFor = [&](glm::vec2 offset) {
         touch.Update(Play({Finger(3, Dpad(offset))}));
         std::vector<HudCmd> drawn;
         touch.AppendOverlay(drawn);
         return Knobs(drawn);
     };
-    CHECK_EQ(knobsFor({0.0f, 100.0f}), 1);
+    CHECK_EQ(knobsFor({0.0f, 100.0f}), 0);    // straight down: nothing held
     CHECK_EQ(knobsFor({-100.0f, 0.0f}), 1);
     CHECK_EQ(knobsFor({70.0f, -70.0f}), 1);   // up and right: right
+    CHECK_EQ(knobsFor({70.0f, 70.0f}), 1);    // down and right: right
     CHECK_EQ(knobsFor({5.0f, 5.0f}), 0);      // the dead zone
     CHECK_EQ(knobsFor({0.0f, -100.0f}), 0);   // straight up: nothing held
     touch.Update(Play());
@@ -772,6 +811,110 @@ void testShownWhere() {
     bare.AppendOverlay(out);
     CHECK_EQ(out.size(), std::size_t{8});   // the disc, six buttons, pause; no arrows or knob
     for (const HudCmd& cmd : out) CHECK(cmd.kind == HudCmd::Kind::Rectangle);
+}
+
+// E25's down button: not part of the layout, drawn and touched only while the
+// next_level door offers the way on (TouchInput::nextLevelOffered), above the
+// left and right buttons and centred between them; a tap is K_DOWN alone, as
+// the keyboard's - and the door's hold on it ends with the offer.
+TouchInput AtTheExit(std::vector<TouchContact> contacts = {}, bool offered = true) {
+    TouchInput input = Play(std::move(contacts));
+    input.nextLevelOffered = offered;
+    return input;
+}
+
+void testExitDown() {
+    const TouchManifest manifest = TouchControls::DefaultManifest();
+    const TouchLayout layout = Default();
+    const TouchLayout::Box exit = layout[TouchControl::ExitDown];
+    const TouchLayout::Box dpad = layout[TouchControl::Dpad];
+    // Where the left and right buttons are drawn: 104 px squares at (-113,
+    // -18) and (113, -18) from the disc's centre (images/touch/README.md).
+    const float drawn = dpad.Size().x / 330.0f;
+    const glm::vec2 leftButton = dpad.Centre() + glm::vec2(-113.0f, -18.0f) * drawn;
+    const glm::vec2 rightButton = dpad.Centre() + glm::vec2(113.0f, -18.0f) * drawn;
+    const float half = 52.0f * drawn;
+    std::printf("  down button at (%.0f, %.0f)-(%.0f, %.0f); the arrows' tops at y %.0f, centred at x %.0f\n",
+                exit.min.x, exit.min.y, exit.max.x, exit.max.y, leftButton.y - half, dpad.Centre().x);
+    CHECK(manifest[TouchControl::ExitDown].enabled);
+    CHECK(manifest[TouchControl::ExitDown].image == "images/touch/exit_down.png");
+    CHECK_NEAR(exit.Centre().x, (leftButton.x + rightButton.x) * 0.5f);   // centred between them
+    CHECK(exit.max.y < leftButton.y - half);                              // above them
+    CHECK(exit.max.y > leftButton.y - half - 30.0f);                      // and near
+    CHECK(exit.min.x > leftButton.x + half && exit.max.x < rightButton.x - half);   // in the gap's column
+    CHECK_NEAR(exit.Size().x, 2.0f * half);                                // the arrows' size
+
+    // Away from the exit: not there. A finger where it would be is the disc's
+    // (pointing straight up: nothing), never down.
+    TouchControls touch;
+    touch.SetImageRoot(PENUMBRA_DATA_DIR);
+    TouchStep step = touch.Update(Play({Finger(1, exit.Centre())}));
+    CHECK(!touch.Visible(TouchControl::ExitDown));
+    CHECK(Only(step, {}));
+    CHECK(!step.Held(TouchAction::Down));
+    touch.Update(Play());
+
+    // At the exit: drawn over the rest, at the idle alpha, from its own image.
+    step = touch.Update(AtTheExit());
+    CHECK(touch.Visible(TouchControl::ExitDown));
+    std::vector<HudCmd> out;
+    touch.AppendOverlay(out);
+    CHECK_EQ(out.size(), std::size_t{11});
+    int downs = 0;
+    for (const HudCmd& cmd : out) {
+        if (cmd.sprite.find("exit_down.png") == std::string::npos) continue;
+        ++downs;
+        CHECK(cmd.pos == exit.min && cmd.size == exit.Size());
+    }
+    CHECK_EQ(downs, 1);
+
+    // Its tap is K_DOWN alone: KS_HIT, held, released.
+    InputState state;
+    step = touch.Update(AtTheExit({Finger(2, exit.Centre())}));
+    CHECK(Only(step, {TouchAction::Down}));
+    CHECK(Tick(state, step, K_DOWN) == KS_HIT);
+    CHECK(FrameOf(step).keys[K_DOWN] && !FrameOf(step).keys[K_LMOUSE]);
+    step = touch.Update(AtTheExit({Finger(2, exit.Centre())}));
+    CHECK(Tick(state, step, K_DOWN) == KS_DOWN);
+    step = touch.Update(AtTheExit({Finger(2, exit.Centre(), false)}));
+    CHECK(Only(step, {}));
+    CHECK(Tick(state, step, K_DOWN) == KS_RELEASE);
+    // Its corners too (its padding), and the arrows stay the disc's with it shown.
+    CHECK(Only(touch.Update(AtTheExit({Finger(3, exit.min + glm::vec2(1.0f))})), {TouchAction::Down}));
+    touch.Update(AtTheExit());
+    CHECK(Only(touch.Update(AtTheExit({Finger(4, leftButton)})), {TouchAction::Left}));
+    touch.Update(AtTheExit());
+    CHECK(Only(touch.Update(AtTheExit({Finger(5, rightButton)})), {TouchAction::Right}));
+    touch.Update(AtTheExit());
+    // Walking onto the door with the thumb on right, down tapped with the
+    // other: both, as the keyboard's right and down (getPlayerXYAxis's y > 0).
+    step = touch.Update(AtTheExit({Finger(6, rightButton), Finger(7, exit.Centre())}));
+    CHECK(Only(step, {TouchAction::Right, TouchAction::Down}));
+
+    // The door's fade starts (the offer ends): the button goes, and the finger
+    // on it is dead until it lifts - no more down.
+    step = touch.Update(AtTheExit({Finger(6, rightButton), Finger(7, exit.Centre())}, false));
+    CHECK(!touch.Visible(TouchControl::ExitDown));
+    CHECK(Only(step, {TouchAction::Right}));
+    step = touch.Update(AtTheExit({Finger(7, exit.Centre())}, true));   // offered again: still dead
+    CHECK(Only(step, {}));
+    touch.Update(AtTheExit({}, true));
+    CHECK(Only(touch.Update(AtTheExit({Finger(8, exit.Centre())})), {TouchAction::Down}));   // a new tap
+
+    // Not in a menu, nor in the pause, whatever the offer says.
+    TouchControls menu;
+    TouchInput input = Menu();
+    input.nextLevelOffered = true;
+    menu.Update(input);
+    CHECK(!menu.Visible(TouchControl::ExitDown));
+
+    // A manifest without it ("enabled": false) never shows it: the layout
+    // before E25, the disc's down sector back.
+    TouchControls before;
+    before.SetManifest(DiscWithDown());
+    before.Update(AtTheExit());
+    CHECK(!before.Visible(TouchControl::ExitDown));
+    CHECK(Only(before.Update(AtTheExit({Finger(9, Dpad({0.0f, 100.0f}))})), {TouchAction::Down}));
 }
 
 // The corner button, screen by screen (TouchControls::CornerFor), for every
@@ -1006,6 +1149,18 @@ void CheckLayoutFits(const TouchManifest& manifest, const std::string& name) {
             CHECK_MSG(!Overlap(layout[TouchControl::Pause], {{screen.x - 50.0f, 0.0f}, {screen.x, 30.0f}}), where);
             CHECK_MSG(!Overlap(layout[TouchControl::Pause], {{0.0f, 0.0f}, {452.0f, 74.0f}}), where);
             CHECK_MSG(!Overlap(layout[TouchControl::Dpad], {{0.0f, 0.0f}, {452.0f, 74.0f}}), where);
+            // E25's down button, where a layout has it: over the disc's empty
+            // top (its own two buttons are at its sides), clear of everything
+            // else, drawn and touched.
+            if (manifest[TouchControl::ExitDown].enabled) {
+                CHECK_MSG(layout[TouchControl::ExitDown].max.x < screen.x * 0.5f, where);
+                for (const TouchControl other : play) {
+                    if (other == TouchControl::Dpad) continue;
+                    const std::string pair = where + ": exitDown and " + TouchControls::ControlId(other);
+                    CHECK_MSG(!DrawnOver(layout, manifest, TouchControl::ExitDown, other), pair);
+                    CHECK_MSG(!ReachBoth(layout, manifest, TouchControl::ExitDown, other), pair);
+                }
+            }
             // Nothing drawn over anything else, and no finger reaching two
             // of them (each by its shape, with its padding).
             for (std::size_t a = 0; a < std::size(play); ++a) {
@@ -1108,10 +1263,13 @@ void CheckManifestArt(const TouchManifest& manifest) {
         images.emplace_back(manifest[control].image, manifest[control].size);
     }
     const glm::vec2 dpadSize = manifest[TouchControl::Dpad].size;
-    for (const std::string& arrow : {manifest.dpadLeft, manifest.dpadRight, manifest.dpadDown}) {
+    for (const std::string& arrow : {manifest.dpadLeft, manifest.dpadRight}) {
         CHECK(!arrow.empty());
         images.emplace_back(arrow, dpadSize);
     }
+    // E25: a disc with a down sector draws its down arrow; one without has none.
+    CHECK(manifest.downSector != manifest.dpadDown.empty());
+    if (!manifest.dpadDown.empty()) images.emplace_back(manifest.dpadDown, dpadSize);
     CHECK(!manifest.knobImage.empty());
     CHECK(manifest.knobSize.x > 0.0f && manifest.knobSize.y > 0.0f);
     images.emplace_back(manifest.knobImage, manifest.knobSize);
@@ -1156,6 +1314,7 @@ void CheckArrowsInSectors(const TouchManifest& manifest, const std::string& name
     touch.SetManifest(manifest);
     int finger = 0;
     for (const auto& [image, action] : arrows) {
+        if (image.empty()) continue;   // E25: the shipped disc has no down arrow
         const std::string where = name + ": " + image;
         const Penumbra::Render::DecodedImage decoded = Penumbra::Render::DecodeTexture(
             (dataDir / image).generic_string(), Penumbra::Render::TextureVariant::Plain);
@@ -1287,8 +1446,8 @@ void testManifest() {
     CHECK(manifest == TouchControls::DefaultManifest());
     CHECK(!manifest.knobAtRest);
 
-    const char* const ids[] = {"dpad",       "jump",       "sword", "fire", "light",
-                               "swordCombo", "spellCombo", "pause", "back"};
+    const char* const ids[] = {"dpad",       "jump",       "sword",    "fire",  "light",
+                               "swordCombo", "spellCombo", "exitDown", "pause", "back"};
     CHECK_EQ(std::size(ids), static_cast<std::size_t>(kTouchControlCount));
     for (int i = 0; i < kTouchControlCount; ++i) {
         CHECK(std::string(TouchControls::ControlId(static_cast<TouchControl>(i))) == ids[i]);
@@ -1298,12 +1457,30 @@ void testManifest() {
     // one manifest away, with its own manifest beside it.
     CheckManifestArt(manifest);
     CheckArrowsInSectors(manifest, "shipped");
+    // E25: the shipped disc's down arrow, still in the folder for a manifest
+    // that asks for the disc's down sector back, is where that sector is.
+    CheckManifestArt(DiscWithDown());
+    CheckArrowsInSectors(DiscWithDown(), "shipped, with E16's down sector");
     CHECK_MSG(fs::exists(PlaceholderManifest()), PlaceholderManifest().generic_string());
     const TouchManifest placeholder = TouchControls::LoadManifest(PlaceholderManifest(), &warning);
     CHECK_MSG(warning.empty(), warning);
     CheckManifestArt(placeholder);
     CheckArrowsInSectors(placeholder, "placeholder");
     CHECK(placeholder[TouchControl::Jump].image.find("images/touch/placeholder/") == 0);
+    // The placeholder look is older than E25: its disc has down, and no down button.
+    CHECK(placeholder.downSector);
+    CHECK(!placeholder[TouchControl::ExitDown].enabled);
+    // E25's own fields, read and reported.
+    warning.clear();
+    CHECK(TouchControls::ManifestFromJson(R"({"controls": {"dpad": {"downSector": true}}})", &warning).downSector);
+    CHECK(warning.empty());
+    CHECK(!TouchControls::ManifestFromJson(R"({"controls": {"dpad": {"downSector": 1}}})", &warning).downSector);
+    CHECK(warning.find("dpad.downSector") != std::string::npos);
+    warning.clear();
+    CHECK(!TouchControls::ManifestFromJson(R"({"controls": {"exitDown": {"enabled": false}}})", &warning)
+               [TouchControl::ExitDown]
+               .enabled);
+    CHECK(warning.empty());
 
     // Loaded the way the HUD loads its images: through TextureCache, by the
     // absolute path, one quad each.
@@ -1691,8 +1868,8 @@ void testComboManifest() {
     CHECK(touch.Visible(TouchControl::Jump));
     std::vector<HudCmd> out;
     touch.AppendOverlay(out);
-    // The disc, its three arrows, the four buttons, pause (no knob at rest).
-    CHECK_EQ(out.size(), std::size_t{9});
+    // The disc, its two arrows (E25: no down), the four buttons, pause (no knob at rest).
+    CHECK_EQ(out.size(), std::size_t{8});
     for (const HudCmd& cmd : out) CHECK(cmd.sprite.find("combo_") == std::string::npos);
     step = touch.Update(Play({Finger(1, Centre(TouchControl::SwordCombo)), Finger(2, Centre(TouchControl::Jump))}));
     CHECK(Only(step, {TouchAction::Jump}));
@@ -2328,6 +2505,482 @@ void testPhoneVersusWithPad() {
     fs::remove_all(userRoot, ec);
 }
 
+// E25: the controls keep their size and place on the window when the screen
+// is drawn at another scale - a zoomed level (768 / zoom tall), a phone's
+// larger menu: every size, offset and padding times TouchInput::unit, except
+// that a control hanging from the top keeps below the run's timer, whose
+// 25 px the zoom enlarges.
+void testTouchUnit() {
+    const TouchManifest manifest = TouchControls::DefaultManifest();
+    // A 2400x1080 phone: E1's level screen, and the same at 150%.
+    const glm::vec2 plain(1707.0f, 768.0f);
+    const glm::vec2 zoomed(1138.0f, 512.0f);
+    const float unit = 512.0f / 768.0f;
+    const float px0 = 1080.0f / 768.0f;
+    const float px1 = 1080.0f / 512.0f;
+    const TouchLayout before = TouchControls::ComputeLayout(manifest, plain, TouchInsets{});
+    const TouchLayout after = TouchControls::ComputeLayout(manifest, zoomed, TouchInsets{}, unit);
+    for (int i = 0; i < kTouchControlCount; ++i) {
+        const TouchControl control = static_cast<TouchControl>(i);
+        const std::string what = TouchControls::ControlId(control);
+        const TouchControlSpec& spec = manifest[control];
+        CHECK_MSG(std::fabs(after[control].Size().x * px1 - before[control].Size().x * px0) < 0.5f, what);
+        CHECK_MSG(std::fabs(after[control].Size().y * px1 - before[control].Size().y * px0) < 0.5f, what);
+        const auto index = static_cast<std::size_t>(i);
+        CHECK_MSG(std::fabs(after.hitPadding[index] * px1 - before.hitPadding[index] * px0) < 0.5f, what);
+        const bool left = spec.anchor == TouchAnchor::TopLeft || spec.anchor == TouchAnchor::BottomLeft;
+        const bool top = spec.anchor == TouchAnchor::TopLeft || spec.anchor == TouchAnchor::TopRight;
+        // The same distance from the window's side, give or take the widths' rounding (2400.4 and 2400.5 px).
+        const float sideBefore = left ? before[control].min.x * px0 : (plain.x - before[control].max.x) * px0;
+        const float sideAfter = left ? after[control].min.x * px1 : (zoomed.x - after[control].max.x) * px1;
+        CHECK_MSG(std::fabs(sideAfter - sideBefore) < 1.0f, what);
+        if (!top) {
+            CHECK_MSG(std::fabs((zoomed.y - after[control].max.y) * px1 - (plain.y - before[control].max.y) * px0) < 0.5f,
+                      what);
+        } else {
+            // Below the timer's row (25 px of the zoomed screen), as far below it
+            // as the unzoomed one is, scaled.
+            CHECK_NEAR(after[control].min.y, TouchControls::kTimerRowHeight +
+                                                 (spec.offset.y - TouchControls::kTimerRowHeight) * unit);
+            CHECK_MSG(after[control].min.y > TouchControls::kTimerRowHeight, what);
+        }
+    }
+    // A unit of 1 is the layout as it always was.
+    const TouchLayout same = TouchControls::ComputeLayout(manifest, plain, TouchInsets{}, 1.0f);
+    for (int i = 0; i < kTouchControlCount; ++i) {
+        const TouchControl control = static_cast<TouchControl>(i);
+        CHECK(same[control].min == before[control].min && same[control].max == before[control].max);
+    }
+    // Through Update: a finger on a control where the zoomed layout has it,
+    // and the knob drawn at the unit's size.
+    TouchControls touch;
+    touch.SetImageRoot(PENUMBRA_DATA_DIR);
+    TouchInput input = Play({Finger(1, after[TouchControl::Jump].Centre())}, zoomed);
+    input.unit = unit;
+    CHECK(Only(touch.Update(input), {TouchAction::Jump}));
+    input = Play({Finger(2, after[TouchControl::Dpad].Centre() + glm::vec2(-60.0f, 0.0f))}, zoomed);
+    input.unit = unit;
+    CHECK(Only(touch.Update(input), {TouchAction::Left}));
+    std::vector<HudCmd> out;
+    touch.AppendOverlay(out);
+    CHECK_EQ(Knobs(out), 1);
+    for (const HudCmd& cmd : out) {
+        if (cmd.sprite.find("dpad_knob.png") != std::string::npos) CHECK_NEAR(cmd.size.x, manifest.knobSize.x * unit);
+    }
+}
+
+// E25 through the real game, on a 2400x1080 phone as the layer sets it up:
+// the campaign's levels at the automatic zoom (150%, a 1138x512 screen) and
+// the menu at 1024x768. The camera keeps the wizard inside the smaller
+// screen; the next_level door raises Script::g_nextLevelOffered while he
+// stands at it and not a step before (the layer lowers it before each frame,
+// as done here); the down button, laid out in the zoomed screen, shows from
+// then on, its tap sends the door its down, and level 2 loads, zoomed too.
+void testExitDownInGame() {
+    if (!fs::exists(fs::path(PENUMBRA_ORIGINAL_DIR) / "scenes" / "level1.esc")) {
+        std::printf("  (the original is not at %s: the exit in the real game is skipped)\n", PENUMBRA_ORIGINAL_DIR);
+        return;
+    }
+    std::error_code ec;
+    const fs::path userRoot = fs::temp_directory_path(ec) / ("penumbra-exit-" + std::to_string(std::random_device{}()));
+    fs::remove_all(userRoot, ec);
+    fs::create_directories(userRoot, ec);
+    {
+        const glm::uvec2 phone(2400u, 1080u);
+        const float zoom = Penumbra::Render::CampaignZoom(0, true, phone, true);
+        CHECK_NEAR(zoom, 1.5f);
+        const vector2 levelScreen = Penumbra::Render::ZoomedScreen(phone, true, zoom);
+        MachineConfig config;
+        config.userRoot = userRoot.generic_string();
+        config.screenSizeForScene = [&](const std::string& scene) {
+            return Penumbra::Render::IsCampaignScene(scene) ? levelScreen : vector2(1024.0f, 768.0f);
+        };
+        Machine machine(config);
+        Machine::Scope scope(machine);
+        Script::RegisterAll(machine);
+        machine.Boot(Script::ScriptMain);
+        machine.Frame(InputFrame{});
+
+        TouchControls touch;
+        bool offered = false;
+        const auto tick = [&](std::vector<TouchContact> contacts) {
+            TouchInput input = Play(std::move(contacts), machine.GetScreenSize());
+            input.unit = machine.GetScreenSize().y / 768.0f;
+            input.nextLevelOffered = offered;
+            input.sceneSerial = machine.Snapshot().sceneSerial;
+            const TouchStep step = touch.Update(input);
+            InputFrame frame;
+            TouchControls::ApplyToFrame(step, frame);
+            Script::g_nextLevelOffered = false;
+            machine.Frame(frame);
+            offered = Script::g_nextLevelOffered;
+            return step;
+        };
+
+        CHECK(machine.GetScreenSize() == vector2(1024.0f, 768.0f));
+        const uint setup = Script::g_levelStartTime;
+        Script::newGame("CAMPAIGN");
+        for (int i = 0; i < 5 && Script::g_levelStartTime == setup; ++i) machine.Frame(InputFrame{});
+        CHECK(GetSceneFileName() == "scenes/level1.esc");
+        CHECK(machine.GetScreenSize() == vector2(1138.0f, 512.0f));
+        CHECK(GetScreenSize() == vector2(1138.0f, 512.0f));   // what the scripts see
+        ETHEntity wizard = SeekEntity("bruxo.ent");
+        for (int i = 0; i < 300 && !Standing(wizard); ++i) {
+            tick({});
+            wizard = SeekEntity("bruxo.ent");
+        }
+        if (!Standing(wizard)) {
+            CHECK_MSG(false, "no wizard standing in level 1");
+            return;
+        }
+        // The camera's dead zone in the zoomed screen: he is inside it, walking right.
+        const TouchLayout layout = TouchControls::ComputeLayout(TouchControls::DefaultManifest(), levelScreen,
+                                                                TouchInsets{}, levelScreen.y / 768.0f);
+        const glm::vec2 right = layout[TouchControl::Dpad].Centre() + glm::vec2(80.0f, 0.0f);
+        bool inside = true;
+        bool anyOffer = false;
+        for (int i = 0; i < 90; ++i) {
+            tick({Finger(1, right)});
+            const vector2 onScreen = wizard->GetPositionXY() - GetCameraPos();
+            inside = inside && onScreen.x > 0.0f && onScreen.x < levelScreen.x && onScreen.y > 0.0f &&
+                     onScreen.y < levelScreen.y;
+            anyOffer = anyOffer || offered;
+        }
+        tick({});
+        std::printf("  E25 level 1 at 150%%: the screen %.0fx%.0f, the wizard at (%.0f, %.0f) on it after a walk\n",
+                    GetScreenSize().x, GetScreenSize().y, (wizard->GetPositionXY() - GetCameraPos()).x,
+                    (wizard->GetPositionXY() - GetCameraPos()).y);
+        CHECK(inside);
+        CHECK(!anyOffer);
+        CHECK(!touch.Visible(TouchControl::ExitDown));
+
+        // A step short of the door (176 px): no offer.
+        wizard->SetPositionXY(vector2(1960.0f, -2010.0f));
+        for (int i = 0; i < 40; ++i) {
+            tick({});
+            anyOffer = anyOffer || offered;
+        }
+        CHECK(!anyOffer);
+        CHECK(!touch.Visible(TouchControl::ExitDown));
+
+        // At the door (level1.esc: next_level at (2136, -1991)).
+        wizard->SetPositionXY(vector2(2136.0f, -2010.0f));
+        int ticks = 0;
+        for (; ticks < 60 && !offered; ++ticks) tick({});
+        ETHEntity door = SeekEntity("next_level");
+        const float distance = door != nullptr ? glm::length(wizard->GetPositionXY() - door->GetPositionXY()) : -1.0f;
+        std::printf("  E25 at the door: offered after %d ticks, %.0f px from it\n", ticks, distance);
+        CHECK(offered);
+        CHECK(distance >= 0.0f && distance < 80.0f);
+        tick({});
+        CHECK(touch.Visible(TouchControl::ExitDown));
+        CHECK(touch.Layout()[TouchControl::ExitDown].min == layout[TouchControl::ExitDown].min);
+        const TouchStep tapped = tick({Finger(2, layout[TouchControl::ExitDown].Centre())});
+        CHECK(Only(tapped, {TouchAction::Down}));
+        // The door's fade has started: no offer any more, the button gone.
+        tick({Finger(2, layout[TouchControl::ExitDown].Centre())});
+        CHECK(!offered);
+        tick({});
+        CHECK(!touch.Visible(TouchControl::ExitDown));
+        int loaded = 0;
+        for (; loaded < 600 && GetSceneFileName() != "scenes/level2.esc"; ++loaded) tick({});
+        std::printf("  E25 the down button tapped: %s after %d ticks, the screen %.0fx%.0f\n", GetSceneFileName().c_str(),
+                    loaded, GetScreenSize().x, GetScreenSize().y);
+        CHECK(GetSceneFileName() == "scenes/level2.esc");
+        CHECK(machine.GetScreenSize() == vector2(1138.0f, 512.0f));
+        tick({});
+        CHECK(!offered);
+        CHECK_EQ(machine.ScriptAborts(), 0u);
+    }
+    fs::remove_all(userRoot, ec);
+}
+
+bool Near(float a, float b, float eps = 0.01f) { return std::fabs(a - b) <= eps; }
+
+// E26: the pause button hangs from the HUD frame's top-right corner, as the
+// run's timer does (setupScene.as:337's (width - 50, 0), moved in by the
+// frame), and stays below it; nothing else moves with the frame. The message
+// rule's pause column (PhoneUi.hpp's kPauseColumn) is this manifest's.
+void testPauseInHudFrame() {
+    const TouchManifest manifest = TouchControls::DefaultManifest();
+    const TouchControlSpec& pause = manifest[TouchControl::Pause];
+    CHECK(pause.anchor == TouchAnchor::TopRight);
+    CHECK_NEAR(pause.offset.x + pause.size.x, Penumbra::Render::kPauseColumn);
+    for (const glm::vec2 screen : {glm::vec2(1707.0f, 768.0f), glm::vec2(1138.0f, 512.0f), glm::vec2(929.0f, 697.0f)}) {
+        const float unit = screen.y / 768.0f;
+        const TouchInsets frame{40.0f, 18.0f, 40.0f, 0.0f};
+        const TouchLayout plain = TouchControls::ComputeLayout(manifest, screen, TouchInsets{}, unit);
+        const TouchLayout framed = TouchControls::ComputeLayout(manifest, screen, TouchInsets{}, unit, frame);
+        const std::string what = std::to_string(screen.x) + "x" + std::to_string(screen.y);
+        // In step: moved by the frame's right and top inset, its size kept.
+        CHECK_MSG(Near(framed[TouchControl::Pause].max.x, plain[TouchControl::Pause].max.x - frame.right), what);
+        CHECK_MSG(Near(framed[TouchControl::Pause].min.y, plain[TouchControl::Pause].min.y + frame.top), what);
+        CHECK_MSG(framed[TouchControl::Pause].Size() == plain[TouchControl::Pause].Size(), what);
+        // Below the moved timer's row, and right of its left edge.
+        const glm::vec2 timer(screen.x - 50.0f - frame.right, frame.top);
+        CHECK_MSG(framed[TouchControl::Pause].min.y > timer.y + TouchControls::kTimerRowHeight - 0.01f, what);
+        CHECK_MSG(framed[TouchControl::Pause].max.x > timer.x, what);
+        // The message rule's column: the button's left edge, kPauseColumn at the unit in from the frame.
+        CHECK_MSG(Near(framed[TouchControl::Pause].min.x,
+                       screen.x - frame.right - Penumbra::Render::kPauseColumn * unit, 0.01f),
+                  what);
+        // The rest where the safe area puts them.
+        for (int i = 0; i < kTouchControlCount; ++i) {
+            const TouchControl control = static_cast<TouchControl>(i);
+            if (control == TouchControl::Pause) continue;
+            CHECK_MSG(framed[control].min == plain[control].min && framed[control].max == plain[control].max,
+                      what + " " + TouchControls::ControlId(control));
+        }
+        // A safe area further in than the frame still wins.
+        const TouchInsets notch{0.0f, 0.0f, 90.0f, 0.0f};
+        const TouchLayout both = TouchControls::ComputeLayout(manifest, screen, notch, unit, frame);
+        CHECK_MSG(Near(both[TouchControl::Pause].max.x, plain[TouchControl::Pause].max.x - 90.0f), what);
+    }
+    // Through Update: the frame comes with the input, and the zero frame is the layout as it was.
+    TouchControls touch;
+    TouchInput input = Play({}, glm::vec2(1138.0f, 512.0f));
+    input.unit = 512.0f / 768.0f;
+    touch.Update(input);
+    const TouchLayout::Box before = touch.Layout()[TouchControl::Pause];
+    input.hudFrame = TouchInsets{40.0f, 18.0f, 40.0f, 0.0f};
+    touch.Update(input);
+    CHECK(Near(touch.Layout()[TouchControl::Pause].max.x, before.max.x - 40.0f));
+    CHECK(Near(touch.Layout()[TouchControl::Pause].min.y, before.min.y + 18.0f));
+}
+
+// A booted game at level 1 on a 2400x1080 phone, the campaign's scenes at the
+// automatic zoom: the harness the in-game E25 and E26 checks share. `run`
+// gets the machine once the wizard stands.
+template <typename Run>
+void InLevelOne(const char* what, Run run) {
+    if (!fs::exists(fs::path(PENUMBRA_ORIGINAL_DIR) / "scenes" / "level1.esc")) {
+        std::printf("  (the original is not at %s: %s is skipped)\n", PENUMBRA_ORIGINAL_DIR, what);
+        return;
+    }
+    std::error_code ec;
+    const fs::path userRoot = fs::temp_directory_path(ec) / ("penumbra-l1-" + std::to_string(std::random_device{}()));
+    fs::remove_all(userRoot, ec);
+    fs::create_directories(userRoot, ec);
+    {
+        const glm::uvec2 phone(2400u, 1080u);
+        const vector2 levelScreen =
+            Penumbra::Render::ZoomedScreen(phone, true, Penumbra::Render::CampaignZoom(0, true, phone, true));
+        MachineConfig config;
+        config.userRoot = userRoot.generic_string();
+        config.screenSizeForScene = [&](const std::string& scene) {
+            return Penumbra::Render::IsCampaignScene(scene) ? levelScreen : vector2(1024.0f, 768.0f);
+        };
+        Machine machine(config);
+        Machine::Scope scope(machine);
+        Script::RegisterAll(machine);
+        machine.Boot(Script::ScriptMain);
+        machine.Frame(InputFrame{});
+        const uint setup = Script::g_levelStartTime;
+        Script::newGame("CAMPAIGN");
+        for (int i = 0; i < 5 && Script::g_levelStartTime == setup; ++i) machine.Frame(InputFrame{});
+        ETHEntity wizard = SeekEntity("bruxo.ent");
+        for (int i = 0; i < 300 && !Standing(wizard); ++i) {
+            machine.Frame(InputFrame{});
+            wizard = SeekEntity("bruxo.ent");
+        }
+        CHECK(GetSceneFileName() == "scenes/level1.esc");
+        CHECK(machine.GetScreenSize() == vector2(1138.0f, 512.0f));
+        if (!Standing(wizard)) {
+            CHECK_MSG(false, std::string("no wizard standing in level 1: ") + what);
+        } else {
+            run(machine, wizard, phone);
+        }
+        CHECK_EQ(machine.ScriptAborts(), 0u);
+    }
+    Script::g_touchHud = Script::TouchHud{};
+    fs::remove_all(userRoot, ec);
+}
+
+// E25 with a second player: the princess summoned into a zoomed level 1 takes
+// the scene back to E1's screen (CampaignUnzooms, applied after each frame as
+// the layer applies it) for as long as the scene lasts, so the leash that
+// kills her 3 s off screen (controlCharacters.as:342-360) is E1's. Summoned
+// beside the wizard, then held 540 px below him - the camera keeps their
+// midpoint in the screen's middle 40%, so a 512-tall screen's leash reaches
+// 0.3 x 512 + 76 = 230 px past it and a 768-tall one's 306 - she lives
+// through 5 s at E1's screen, and dies at the zoomed one without the rule.
+void testCoopUnzoomsInGame() {
+    const auto coop = [](const bool rule, bool& alive, vector2& screen, int& unzoomedAt) {
+        InLevelOne("the co-op zoom", [&](Machine& machine, ETHEntity wizard, glm::uvec2 phone) {
+            const vector2 plain = Penumbra::Render::ZoomedScreen(phone, true, 1.0f);
+            // Summoned beside him (controlCharacters.as:700-705), on screen,
+            // then held below him.
+            const vector2 beside(48.0f, -6.0f);
+            ETHEntity princess;
+            AddEntity(Script::MAIN_CHARACTER_ENTITY1, vector3(wizard->GetPositionXY() + beside, 0.0f), princess);
+            CHECK(princess != nullptr);
+            unzoomedAt = -1;
+            for (int tick = 0; tick < 330; ++tick) {
+                princess = SeekEntity(Script::MAIN_CHARACTER_ENTITY1);
+                if (princess == nullptr) break;
+                princess->SetPositionXY(wizard->GetPositionXY() + (tick < 30 ? beside : vector2(0.0f, 540.0f)));
+                princess->AddFloatData("forceX", 0.0f);
+                princess->AddFloatData("forceY", 0.0f);
+                machine.Frame(InputFrame{});
+                if (rule && Penumbra::Render::CampaignUnzooms(GetSceneFileName(), machine.GetScreenSize(),
+                                                              Script::g_gameFinished,
+                                                              SeekEntity(Script::MAIN_CHARACTER_ENTITY1) != nullptr)) {
+                    machine.SetScreenSize(plain);
+                    if (unzoomedAt < 0) unzoomedAt = tick;
+                }
+            }
+            princess = SeekEntity(Script::MAIN_CHARACTER_ENTITY1);
+            alive = princess != nullptr && princess->GetIntData("hp") > 0;
+            screen = machine.GetScreenSize();
+        });
+    };
+    bool alive = false;
+    vector2 screen;
+    int unzoomedAt = -1;
+    coop(true, alive, screen, unzoomedAt);
+    std::printf("  E25 co-op: the princess 540 px below, E1's screen from tick %d: %s after 5 s, the screen %.0fx%.0f\n",
+                unzoomedAt, alive ? "alive" : "dead", screen.x, screen.y);
+    CHECK_EQ(unzoomedAt, 0);                                  // the first frame she is in
+    CHECK(screen == vector2(1707.0f, 768.0f));                // and never zoomed again in the scene
+    CHECK(alive);
+    // Without the rule (E25 before this), the zoomed screen's leash.
+    coop(false, alive, screen, unzoomedAt);
+    std::printf("  E25 co-op without the rule: %s after 5 s at %.0fx%.0f\n", alive ? "alive" : "dead", screen.x,
+                screen.y);
+    CHECK(screen == vector2(1138.0f, 512.0f));
+    CHECK(!alive);
+}
+
+// E26 through the real game: the HUD's commands in level 1, drawn by the
+// ported scripts. With Script::g_touchHud at rest (the desktop) they are the
+// original's, field for field: the bars from (0, 0), each value in the bars'
+// dark colour at the bar's end less 45 (27 for lv), sliding off the left edge
+// as the bar empties; the lives at (448, 0); the timer at (width - 50, 0); the
+// message lines from (10, 70). With a frame (the touch controls on) all of
+// those, and nothing else, move by it - the timer by its top-right corner -
+// and with `on` each value is the HUD's light text over the lives counter's
+// dark shadow, never left of its bar's left end.
+struct HudDrawn {
+    std::vector<HudCmd> bars;       // interface/*.png, the values, the lives
+    std::vector<HudCmd> values;     // "hp: ", "mp: ", "lv: " texts
+    std::vector<HudCmd> timer;      // "m:ss"
+    std::vector<HudCmd> messages;   // Arial 30
+    std::vector<HudCmd> rest;
+};
+
+HudDrawn SortHud(const std::vector<HudCmd>& hud) {
+    HudDrawn out;
+    for (const HudCmd& cmd : hud) {
+        const bool text = cmd.kind == HudCmd::Kind::Text;
+        const bool value = text && (cmd.text.rfind("hp: ", 0) == 0 || cmd.text.rfind("mp: ", 0) == 0 ||
+                                    cmd.text.rfind("lv: ", 0) == 0);
+        const bool timer = text && cmd.font == "Arial Narrow" && cmd.fontSize == 25.0f &&
+                           cmd.text.find(':') != std::string::npos && cmd.text.size() <= 6;
+        if (value) out.values.push_back(cmd);
+        if (value || (!text && cmd.sprite.rfind("interface/", 0) == 0) || (text && cmd.font == "Arial Black")) {
+            out.bars.push_back(cmd);
+        } else if (timer) {
+            out.timer.push_back(cmd);
+        } else if (text && cmd.font == "Arial" && cmd.fontSize == 30.0f) {
+            out.messages.push_back(cmd);
+        } else {
+            out.rest.push_back(cmd);
+        }
+    }
+    return out;
+}
+
+void testTouchHudInGame() {
+    InLevelOne("the HUD's frame", [](Machine& machine, ETHEntity wizard, glm::uvec2) {
+        const vector2 screen = machine.GetScreenSize();
+        // A help sign's message is up in the first seconds of level 1; hp and
+        // mp full, xp 0.
+        // Two frames each: an entity callback's draws (the bars, from the
+        // wizard's) reach the snapshot a frame after the loop's (the timer).
+        const auto frameWith = [&](const Script::TouchHud& hud) {
+            Script::g_touchHud = hud;
+            machine.Frame(InputFrame{});
+            machine.Frame(InputFrame{});
+            return SortHud(machine.Snapshot().hud);
+        };
+        Script::g_messages.addMessage("Checkpoint...");
+        const HudDrawn plain = frameWith(Script::TouchHud{});
+        CHECK(!plain.messages.empty());
+        CHECK(!plain.bars.empty() && plain.values.size() == 3u && plain.timer.size() == 2u);
+        // The original's own: the values' colour and places.
+        const int hp = wizard->GetIntData("hp");
+        const int maxHp = wizard->GetIntData("maxHp");
+        for (const HudCmd& cmd : plain.values) CHECK(cmd.color == 0xD0000000u && cmd.fontSize == 16.0f);
+        for (const HudCmd& cmd : plain.values) {
+            if (cmd.text.rfind("hp: ", 0) != 0) continue;
+            CHECK_NEAR(cmd.pos.x, static_cast<float>(hp) / static_cast<float>(maxHp) * 200.0f - 45.0f);
+            CHECK_NEAR(cmd.pos.y, 0.0f);
+        }
+        for (const HudCmd& cmd : plain.values) {
+            if (cmd.text.rfind("lv: ", 0) == 0) CHECK_NEAR(cmd.pos.x, -27.0f);   // at 0 xp: off the left edge
+        }
+        CHECK_NEAR(plain.timer.back().pos.x, screen.x - 50.0f);
+        CHECK_NEAR(plain.timer.back().pos.y, 0.0f);
+        for (const HudCmd& cmd : plain.messages) CHECK(cmd.pos.x == 10.0f || cmd.pos.x == 13.0f);   // + its shadow
+
+        // The frame alone: moved, nothing restyled.
+        const Script::TouchHud framedOnly{false, 40.0f, 18.0f, 30.0f};
+        const HudDrawn framed = frameWith(framedOnly);
+        CHECK_EQ(framed.bars.size(), plain.bars.size());
+        for (std::size_t i = 0; i < std::min(framed.bars.size(), plain.bars.size()); ++i) {
+            const HudCmd& a = plain.bars[i];
+            const HudCmd& b = framed.bars[i];
+            CHECK_MSG(a.kind == b.kind && a.sprite == b.sprite && a.text == b.text && a.color == b.color &&
+                          a.size == b.size,
+                      b.sprite + b.text);
+            CHECK_MSG(Near(b.pos.x, a.pos.x + 40.0f) && Near(b.pos.y, a.pos.y + 18.0f), b.sprite + b.text);
+        }
+        CHECK_EQ(framed.timer.size(), 2u);
+        if (framed.timer.size() == 2u) {
+            CHECK_NEAR(framed.timer.back().pos.x, screen.x - 50.0f - 30.0f);
+            CHECK_NEAR(framed.timer.back().pos.y, 18.0f);
+        }
+        for (const HudCmd& cmd : framed.messages) CHECK(cmd.pos.x == 50.0f || cmd.pos.x == 53.0f);
+
+        // The touch style: two texts a value, light over the dark shadow.
+        const HudDrawn styled = frameWith(Script::TouchHud{true, 0.0f, 0.0f, 0.0f});
+        CHECK_EQ(styled.values.size(), 6u);
+        for (const HudCmd& cmd : styled.values) {
+            CHECK(cmd.color == 0xF0000000u || cmd.color == ARGB(255, 203, 203, 228));
+            CHECK(cmd.fontSize == 16.0f && cmd.font == "Arial Narrow");
+        }
+        // Low hp and no xp: each value inside its bar's left end, on touch only.
+        wizard->AddIntData("hp", 10);
+        const HudDrawn low = frameWith(Script::TouchHud{true, 40.0f, 18.0f, 30.0f});
+        for (const HudCmd& cmd : low.values) {
+            CHECK_MSG(cmd.pos.x >= 40.0f + 2.0f - 0.01f, cmd.text);
+            if (cmd.color == ARGB(255, 203, 203, 228) && cmd.text.rfind("lv: ", 0) == 0) CHECK_NEAR(cmd.pos.x, 42.0f);
+        }
+        const HudDrawn lowPlain = frameWith(Script::TouchHud{});
+        for (const HudCmd& cmd : lowPlain.values) {
+            if (cmd.text.rfind("hp: ", 0) == 0) CHECK_NEAR(cmd.pos.x, 10.0f / static_cast<float>(maxHp) * 200.0f - 45.0f);
+        }
+        wizard->AddIntData("hp", hp);
+
+        // The loading message (the exit door's fade, a death's) from the
+        // frame's bottom-left corner, at (20, height - 70) without one.
+        const auto loading = [&](const Script::TouchHud& hud) {
+            Script::g_touchHud = hud;
+            Script::loadingMessage();
+            machine.Frame(InputFrame{});
+            vector2 at(-1.0f);
+            for (const HudCmd& cmd : machine.Snapshot().hud) {
+                if (cmd.kind == HudCmd::Kind::Text && cmd.text.rfind("Carregando", 0) == 0 && cmd.color >> 24 == 255u) {
+                    at = cmd.pos;
+                }
+            }
+            return at;
+        };
+        CHECK(loading(Script::TouchHud{}) == vector2(20.0f, screen.y - 70.0f));
+        CHECK(loading(Script::TouchHud{true, 40.0f, 18.0f, 30.0f, 12.0f}) == vector2(60.0f, screen.y - 82.0f));
+    });
+}
+
 void runTests() {
     testKeys();
     testEachButton();
@@ -2338,6 +2991,9 @@ void runTests() {
     testMenus();
     testPlatformMouse();
     testShownWhere();
+    testExitDown();   // E25
+    testTouchUnit();  // E25
+    testPauseInHudFrame();   // E26
     testCorner();
     testSceneChanges();
     testLatch();
@@ -2353,6 +3009,9 @@ void runTests() {
     testComboBuffer();
     // Last: they boot the real game, whose globals outlive it.
     testComboInGame();
+    testExitDownInGame();   // E25
+    testCoopUnzoomsInGame();   // E25
+    testTouchHudInGame();   // E26
     testPhoneVersusWithPad();
 }
 

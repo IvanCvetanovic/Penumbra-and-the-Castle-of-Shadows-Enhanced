@@ -7,7 +7,7 @@
   "scale": 1.0,
   "controls": {
     "dpad": {
-      "_note": "Left, right and down (K_LEFT, K_RIGHT, K_DOWN); no up, which only jumps. The thumb slides without lifting; 'deadZone' is the fraction of the radius at the centre that means nothing. The arrows are drawn over the disc in the same box, each brightened while its direction is held; the knob follows the thumb, and 'atRest' true keeps it at the disc's centre with no thumb there.",
+      "_note": "Left, right and down (K_LEFT, K_RIGHT, K_DOWN; 'downSector', as before E25); no up, which only jumps. The thumb slides without lifting; 'deadZone' is the fraction of the radius at the centre that means nothing. The arrows are drawn over the disc in the same box, each brightened while its direction is held; the knob follows the thumb, and 'atRest' true keeps it at the disc's centre with no thumb there.",
       "image": "images/touch/placeholder/dpad.png",
       "anchor": "bottomLeft",
       "offset": [40, 40],
@@ -15,6 +15,7 @@
       "shape": "circle",
       "hitPadding": 60,
       "deadZone": 0.25,
+      "downSector": true,
       "arrows": {
         "left": "images/touch/placeholder/dpad_left.png",
         "right": "images/touch/placeholder/dpad_right.png",
@@ -81,6 +82,10 @@
       "shape": "circle",
       "hitPadding": 12,
       "enabled": true
+    },
+    "exitDown": {
+      "_note": "E25's down button, which this look, older than it, does without: its disc has down.",
+      "enabled": false
     },
     "pause": {
       "_note": "K_ESC in a level or an arena: E13's pause",

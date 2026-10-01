@@ -523,10 +523,28 @@ void shadowText(const vector2& pos, const string& text, const string& font, cons
     DrawText(pos, text, font, size, ARGB(a,r,g,b), rtlRight);
 }
 
+// ENHANCEMENT E25 (not in the original): the same, both copies in `fit`'s
+// group, so the shadow is scaled with its text and stays size*0.1 behind it.
+void shadowText(const vector2& pos, const string& text, const string& font, const float size,
+                const uint8 a, const uint8 r, const uint8 g, const uint8 b, const float rtlRight, const TextFit& fit)
+{
+    DrawText(pos+vector2(size*0.1f, size*0.1f), text, font, size, ARGB(static_cast<uint8>(a/2),0,0,0), rtlRight+size*0.1f, fit);
+    DrawText(pos, text, font, size, ARGB(a,r,g,b), rtlRight, fit);
+}
+
 // util.as:457. "Carregando..." [Loading...], with the original's trailing \n.
 void loadingMessage()
 {
-    shadowText(vector2(20,GetScreenSize().y-70), "Carregando...\n", "Arial Narrow", 60, 255, 203, 203, 228);
+    // E25: a phone's larger menu leaves the screen's bottom below the window:   // E25
+    // the same corner of what the window shows.                               // E25
+    if (g_phonePanel.on)                                                         // E25
+    {                                                                            // E25
+        shadowText(vector2(g_phonePanel.shownMin.x+20,g_phonePanel.shownMax.y-70), "Carregando...\n", "Arial Narrow", 60, 255, 203, 203, 228);   // E25
+        return;                                                                  // E25
+    }                                                                            // E25
+    // E26: in a level (the exit door's fade, a death's), from the HUD frame's  // E26
+    // bottom-left corner on a touch screen.                                   // E26
+    shadowText(vector2(20,GetScreenSize().y-70)+hudBottomLeft(), "Carregando...\n", "Arial Narrow", 60, 255, 203, 203, 228);   // E26: hudBottomLeft
 }
 
 // util.as:462. The first entity named `name` among the visible buckets' entities.

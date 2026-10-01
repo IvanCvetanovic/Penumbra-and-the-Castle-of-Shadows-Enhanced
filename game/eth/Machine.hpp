@@ -187,8 +187,9 @@ public:
     bool IsPixelShaderSupported() const { return true; }
 
     // rtlRight: E24's HudCmd::rtlRight (0 = none, as 0.7.12 drew every text).
+    // fit: E25's HudCmd::fit (group 0 = none).
     void DrawText(const vector2& pos, const string& text, const string& font, float size, uint color,
-                  float rtlRight = 0.0f);
+                  float rtlRight = 0.0f, const TextFit& fit = TextFit{});
     void LoadSprite(const string& path);
     void DrawSprite(const string& path, const vector2& pos, uint color);
     void DrawShapedSprite(const string& path, const vector2& pos, const vector2& size, uint color);
@@ -241,6 +242,11 @@ public:
     // render collects: that margin while the sides are shown, else 0.
     float SceneSideMargin() const { return m_sceneSideMargin; }
     float SideMargin() const { return m_sidesShown ? m_sceneSideMargin : 0.0f; }
+    // ENHANCEMENT E25: the scripts' screen replaced in the middle of a scene -
+    // a zoomed campaign's end screen, whose best times are laid out for the
+    // unzoomed one (render/PhoneUi.hpp) - from the next frame on. A load sets
+    // it again (MachineConfig::screenSizeForScene).
+    void SetScreenSize(const vector2& size) { m_screenSize = size; }
     // Parsed .ent definitions (entities/<file>), cached by file name; null when
     // the file is missing or malformed.
     const EntityDef* EntityDefinition(const string& file);

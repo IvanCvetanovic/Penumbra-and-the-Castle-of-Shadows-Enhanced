@@ -32,6 +32,8 @@ class ScreenOverlay;
 
 namespace Penumbra::Render {
 
+struct MenuFrame;
+
 class CameraRig {
 public:
     // The camera stands at z = kCameraZ and sees world z in
@@ -69,12 +71,16 @@ public:
     // world in place of the side bars; otherwise the logical screen is scaled to the
     // window's height and centred across it (the widescreen view, where the two
     // aspects match). Attaches itself if Attach was not called.
-    View Update(entt::registry& registry, const Eth::RenderSnapshot& snapshot, bool pillarbox);
+    // `menu`: E25's larger menu (render/PhoneUi.hpp), when active - the screen
+    // at its scale and place instead (null, or inactive: as above).
+    View Update(entt::registry& registry, const Eth::RenderSnapshot& snapshot, bool pillarbox,
+                const MenuFrame* menu = nullptr);
 
     // The View for a snapshot shown in a window of `windowPixels`, with no
     // registry (for suites, and for the layer's first tick, which runs before
     // any Update). viewportMin is rounded to a whole pixel; imageOrigin is 0.
-    static View ComputeView(const Eth::RenderSnapshot& snapshot, glm::uvec2 windowPixels, bool pillarbox);
+    static View ComputeView(const Eth::RenderSnapshot& snapshot, glm::uvec2 windowPixels, bool pillarbox,
+                            const MenuFrame* menu = nullptr);
 
     // The image the game renders into this frame (ViewportInfo), or `fallback`
     // rounded when nothing has published one yet.

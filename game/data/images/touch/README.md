@@ -34,6 +34,7 @@ Every source path is under the base APK's `assets/`.
 | `dpad_left.png` | `sprites/dpad-left.png` | As shipped, placed alone on a transparent 406x406 canvas (the direction control's 330 logical px) where its sector is. |
 | `dpad_right.png` | `sprites/dpad-right.png` | The same. |
 | `dpad_down.png` | `sprites/dpad-right.png`, `sprites/dpad-frame.png` | **Composed.** Magic Rampage has no down button. `dpad-right`'s inner face (pixels 30..97) is mirrored across the main diagonal onto the blank frame, so the right arrow becomes a down arrow and keeps its shadow to the lower right. The face's shading carries over as a ratio to the frame, and the arrow's outline and fill carry over as they are. Placed as the other two. |
+| `exit_down.png` | as `dpad_down.png` | **E25.** The same down button, alone on its own 128x128 image: exactly the pixels `dpad_down.png` has at (139, 276). It is shown only at a level's exit, above the left and right buttons. |
 | `dpad.png` | none | Transparent: Magic Rampage has no disc under its buttons. The control's base image is empty. |
 | `dpad_knob.png` | `SEF/media/button-highlight.png` | As shipped: the four corner brackets its UI frames a focused button with. Here they follow the thumb onto the direction button it holds. |
 | `fire.png` | `sprites/dpad-frame.png`, `sprites/elements/element-fire.png` | **Composed.** The white fire-element glyph redrawn in the style of its pad icons (see below), centred on the blank frame. |
@@ -50,8 +51,10 @@ Every source path is under the base APK's `assets/`.
 The composed glyphs are drawn the same way: fill 215, outline 3.5 px, a shadow offset (3, 3) with
 a 3.5 px blur at 0.6.
 
-**The direction control stays one round control.** The thumb slides between left, right and down
-without lifting. Its three buttons are drawn where its sectors are:
+**The direction control stays one round control.** The thumb slides between left and right without
+lifting. Before E25 it had a down button too, and the shipped layout now draws only the left and
+right ones (`touch_controls.json` can ask for the down one and its sector back). Its three buttons
+are drawn where its sectors are:
 
 - centres (-113, -18), (113, -18) and (0, 111) logical px from its centre;
 - each 104 logical px.

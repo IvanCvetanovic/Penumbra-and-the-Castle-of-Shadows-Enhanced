@@ -3264,6 +3264,26 @@ void ScenarioMobileOptions(Game& g) {
     CHECK(WaitForHud(g, "[\x95] Ativa controles de toque", 3));
     CHECK_EQ(Script::g_windowed.getCurrent(), windowedBefore);   // the hidden switch did not move
 
+    // E25: the zoom's row, beside the keyboard player 2 switch (x 540, the
+    // label at y 424, "[<] value [>]" at 449-474). Its options are the
+    // layer's, given here as the layer gives them; a click moves it.
+    CHECK(HudHas(g.m, "Zoom"));
+    array<string> zooms;
+    zooms.insertLast("Autom\xE1tica");
+    zooms.insertLast("100%");
+    zooms.insertLast("125%");
+    zooms.insertLast("150%");
+    Script::g_zoom.setOptions(zooms, 0);
+    g.Steps(2);
+    CHECK(HudHas(g.m, "Autom\xE1tica"));
+    click(vector2(800.0f, 461.0f));
+    std::printf("  the zoom's [>] clicked: %u\n", Script::g_zoom.getCurrent());
+    CHECK_EQ(Script::g_zoom.getCurrent(), 1u);
+    CHECK(WaitForHud(g, "100%", 3));
+    click(vector2(560.0f, 461.0f));
+    CHECK_EQ(Script::g_zoom.getCurrent(), 0u);
+    Script::g_zoom.setOptions(array<string>(), 0);
+
     // Down again: the desktop's screen, from the next frame.
     Script::g_mobileLayout = false;
     g.Steps(2);
@@ -3271,6 +3291,7 @@ void ScenarioMobileOptions(Game& g) {
     CHECK(HudHas(g.m, "1280x720"));
     CHECK(HudHas(g.m, altEnter));
     CHECK(!HudHas(g.m, "controles de toque"));
+    CHECK(!HudHas(g.m, "Zoom"));   // E25: a phone's row only
 
     g.Step(g.With({K_ESC}));
     CHECK(WaitFor(g, 3, [] { return GetSceneFileName() == "scenes/menu.esc"; }) >= 0);

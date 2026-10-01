@@ -16,7 +16,13 @@
 //                 already two Text commands in the snapshot. Every text's
 //                 characters go to FontAtlas::Prepare before the first is laid
 //                 out, so a frame that brings new ones (E24's scripts) bakes
-//                 each atlas once.
+//                 each atlas once. E25: the texts of a fit group
+//                 (Eth::TextFit, showData's panel on a phone) are first
+//                 scaled by the group's one factor, the largest at which each
+//                 lies in the box and clear of its avoid box
+//                 (FontAtlas::Measure, nothing baked); a text that may take
+//                 two columns is broken at the blank line that sets the group
+//                 largest, where that is clearly larger than one column.
 //   Sprite        the loaded image (TextureCache, magenta key), its current
 //                 rectangle at bitmap size, the colour multiplied in.
 //   ShapedSprite  the same stretched to the command's size.
@@ -41,6 +47,7 @@
 
 #include <cstddef>
 #include <string>
+#include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
@@ -85,6 +92,16 @@ public:
     void Build(const Eth::RenderSnapshot& snapshot, const View& view,
                std::vector<Supersonic::ScreenOverlay::Quad>& out, const std::vector<Eth::HudCmd>* extra = nullptr);
 
+    // ENHANCEMENT E25: the factor each fit group of the last Build was drawn
+    // at (Eth::TextFit), for the suites; 0 for a group it did not draw. And
+    // the blank line its two-column text was broken at (-1: one column).
+    float FitScale(Eth::uint group) const;
+    int FitColumnBreak(Eth::uint group) const;
+    // A text command as it is drawn: scaled by its group's factor about the
+    // fit box's top-left (its right edge, rtlRight, about the box's right);
+    // the command itself when it has no group or its group has no factor.
+    Eth::HudCmd Fitted(const Eth::HudCmd& cmd) const;
+
     // The scripts' ARGB as the overlay's rgba, 0..1.
     static glm::vec4 ToColor(Eth::uint argb);
 
@@ -100,6 +117,9 @@ private:
     bool rightToLeft() const;
     void prepareText(const Eth::HudCmd& cmd);
     void addText(const Eth::HudCmd& cmd, const View& view, std::vector<Quad>& out);
+    // The glyphs of `text` (code points in drawing order) set as `cmd` sets its own.
+    void addTextCodePoints(const Eth::HudCmd& cmd, const std::u32string& text, const View& view,
+                           std::vector<Quad>& out);
     void addSprite(const Eth::HudCmd& cmd, const View& view, bool stretched, std::vector<Quad>& out);
     // The rectangle, and under E1's open sides its continuation past a
     // screen edge it meets (addRectangleQuads draws one rectangle).
@@ -109,6 +129,19 @@ private:
     // The 2x2 texture of a rectangle's corners, uploaded once; "" when there is
     // nowhere to upload it or the budget is spent.
     std::string gradientTexture(const Eth::HudCmd& cmd);
+    // E25: a fit group's factor, where its two-column text is broken (-1:
+    // one column, as every text of a group without one), and how far its
+    // second column is raised, unscaled (0, or up to the box's top where it
+    // clears the title: the column text's distance below it).
+    struct FitChoice {
+        float scale = 1.0f;
+        int columnBreak = -1;
+        float columnRise = 0.0f;
+    };
+    // E25: every fit group's factor for this frame's commands (m_fitScales),
+    // each worked out once per text, box and raster scale (m_fitMemo).
+    void computeFits(const std::vector<Eth::HudCmd>& cmds);
+    FitChoice fitChoice(const std::vector<const Eth::HudCmd*>& group);
 
     TextureCache* m_textures = nullptr;
     FontAtlas* m_fonts = nullptr;
@@ -117,6 +150,11 @@ private:
     std::unordered_set<std::string> m_gradients;
     std::vector<Quad> m_quads;
     VisualText m_visual;   // E24: each text's code points in drawing order
+    // E25: this frame's factor by fit group, and every factor worked out so
+    // far by what decides it (the texts as drawn, their places, the box, the
+    // raster scale) - a panel is measured once, not every frame.
+    std::unordered_map<Eth::uint, FitChoice> m_fitScales;
+    std::unordered_map<std::string, FitChoice> m_fitMemo;
     bool m_loggedDrops = false;
 };
 

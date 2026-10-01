@@ -178,6 +178,8 @@ void shadowText(const vector2& pos, const string& text, const string& font, floa
                 uint8 a, uint8 r, uint8 g, uint8 b);  // util.as:450
 void shadowText(const vector2& pos, const string& text, const string& font, float size,
                 uint8 a, uint8 r, uint8 g, uint8 b, float rtlRight);   // E24: set in a box (HudCmd::rtlRight)
+void shadowText(const vector2& pos, const string& text, const string& font, float size,
+                uint8 a, uint8 r, uint8 g, uint8 b, float rtlRight, const TextFit& fit);   // E25: scaled to fit (HudCmd::fit)
 void loadingMessage();                                // util.as:457
 ETHEntity findEntityInScreen(const string& name);     // util.as:462
 
@@ -493,6 +495,40 @@ extern Chooser g_refreshRate;                         // E23: the layer's option
 extern bool g_refreshRateRow;                         // E23: false leaves the row out (iOS: nothing sets a rate there)
 string videoModeLabel(const videoMode& vm);           // E23: "WxH", and " (nativa)" for the native size
 
+// ENHANCEMENT E25 (not in the original): a phone-sized UI, where the touch     // E25
+// controls are on (render/PhoneUi.hpp). The layer sets all three; left as     // E25
+// they are here (no layer: the suites), every screen is drawn as before.      // E25
+//  - g_zoom: the campaign camera's zoom, a row of a phone's options screen    // E25
+//    (with g_mobileLayout, x 540, y 424-474, beside g_keyboardP2's switch),    // E25
+//    its options "Autom\xE1tica" and the percentages; the layer keeps what     // E25
+//    each index means.                                                         // E25
+//  - g_phonePanel: where showData sets its text on a phone's menu, whose      // E25
+//    scene is scaled up toward the left: the panel's text box (logical px)    // E25
+//    and how far its text may scale (TextFit), and which way the language     // E25
+//    reads, which puts the gamepad icons in the corner its lines leave free   // E25
+//    (detectJoysticks). on = false: menu.as's panel.                          // E25
+//  - g_nextLevelOffered: raised by the next_level door's callback while       // E25
+//    player 1 stands where down would take him on (main.as:204-208); the      // E25
+//    layer lowers it before each frame and shows the touch controls' down     // E25
+//    button while it was up.                                                  // E25
+struct PhonePanel {                                   // E25
+    bool on = false;                                  // E25
+    vector2 min{0.0f};                                // E25: the text box, logical px
+    vector2 max{0.0f};                                // E25
+    float minScale = 1.0f;                            // E25: the text as large as today's, at least
+    float maxScale = 1.0f;                            // E25
+    vector2 shownMin{0.0f};                           // E25: what the window shows of the screen
+    vector2 shownMax{0.0f};                           // E25: (loadingMessage's corner)
+    bool rightToLeft = false;                         // E25: the language's lines end at the box's right
+};                                                    // E25
+extern Chooser g_zoom;                                // E25: 0 = automatic, then the layer's percentages
+extern PhonePanel g_phonePanel;                       // E25
+// E25: the box the gamepad icons take on a phone's panel this frame (none:   // E25
+// max not past min), which showData's text keeps clear of.                   // E25
+extern vector2 g_joystickIconsMin;                    // E25
+extern vector2 g_joystickIconsMax;                    // E25
+extern bool g_nextLevelOffered;                       // E25
+
 string videoModeToString(const videoMode& vm);        // videoModes.as:47
 void screenModesPreLoop();                            // videoModes.as:52
 void ETHCallback_picker(ETHEntity thisEntity);        // videoModes.as:58
@@ -693,6 +729,24 @@ void ETHCallback_paladin_sword(ETHEntity thisEntity); // swords.as:133
 
 void drawPlayerStatus(ETHEntity thisEntity);          // interface.as:43
 void doMpRecovery(ETHEntity thisEntity, uint stride, int incr);   // interface.as:98
+
+// ENHANCEMENT E26 (not in the original): the HUD in a safe frame on a touch    // E26
+// screen (render/PhoneUi.hpp). The layer sets g_touchHud before each frame:   // E26
+// `on` while the touch controls are, the frame (logical px in from the        // E26
+// screen's edges) in a level or an arena. Left as it is here (no layer: the   // E26
+// suites; the desktop), the HUD is drawn as the original drew it.             // E26
+struct TouchHud {                                     // E26
+    bool on = false;                                  // E26: the bars' values in light text (hudValue)
+    float left = 0.0f;                                // E26: the frame
+    float top = 0.0f;                                 // E26
+    float right = 0.0f;                               // E26
+    float bottom = 0.0f;                              // E26
+};                                                    // E26
+extern TouchHud g_touchHud;                           // E26
+vector2 hudTopLeft();                                 // E26: the screen's top-left corner, for the HUD
+vector2 hudTopRight();                                // E26: its top-right corner's offset, for the HUD
+vector2 hudBottomLeft();                              // E26: its bottom-left corner's offset, for the HUD
+void hudValue(const vector2& pos, float barLeft, const string& text);   // E26: a bar's value on a touch screen
 
 // === spells.as (defined in spells.cpp) ===========================================
 

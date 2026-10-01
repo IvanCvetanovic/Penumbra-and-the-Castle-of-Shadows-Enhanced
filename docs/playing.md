@@ -174,7 +174,7 @@ ever written into the original's folder.
 
 | File | What it is |
 |---|---|
-| `settings.json` | Language (`language`: one of `en`, `de`, `es`, `fr`, `it`, `pt`, `ru`, `tr`, `uk`, `ja`, `ar`); the window (`window`: `width`/`height`, `0` for a window fitted to the monitor; `fullscreen`, true on a first launch; the fullscreen mode, `fullscreenWidth`/`fullscreenHeight`, `0` for the desktop's resolution; `fullscreenRefresh` in Hz, `0` for the highest the monitor offers at that resolution); widescreen, volumes, pixel shaders, `smoothMotion`, `pauseOnFocusLoss`, `touchControls` (`"auto"`, `"on"`, `"off"`); and the controls: `joystickLayout`, `keyboardPlayer2`, `firstPadIsPlayer1`, `rawJoysticks`, `stickDeadzone`, and the `player1`/`player2` key lists. A broken or missing field falls back to its default, field by field. |
+| `settings.json` | Language (`language`: one of `en`, `de`, `es`, `fr`, `it`, `pt`, `ru`, `tr`, `uk`, `ja`, `ar`); the window (`window`: `width`/`height`, `0` for a window fitted to the monitor; `fullscreen`, true on a first launch; the fullscreen mode, `fullscreenWidth`/`fullscreenHeight`, `0` for the desktop's resolution; `fullscreenRefresh` in Hz, `0` for the highest the monitor offers at that resolution); widescreen, volumes, pixel shaders, `smoothMotion`, `pauseOnFocusLoss`, `touchControls` (`"auto"`, `"on"`, `"off"`); `zoom` (E25: `"auto"` or a percentage from 100 to 200, the campaign camera's zoom while the touch controls are on); `edgeMargin` (E26: `"auto"` or a percentage from 0 to 8, how far in from a curved screen's edges the HUD is drawn while the touch controls are on); and the controls: `joystickLayout`, `keyboardPlayer2`, `firstPadIsPlayer1`, `rawJoysticks`, `stickDeadzone`, and the `player1`/`player2` key lists. A broken or missing field falls back to its default, field by field. |
 | `hs.enml` | The best times, written after a new record. Until then the original's `hs.enml` is read. |
 | `scenes\checkpoint.esc` | The level saved at the last checkpoint. |
 
@@ -202,6 +202,12 @@ The game's own options:
 | `--hold <KEY>@<a>-<b>` | Hold an Ethanon key from tick *a* to tick *b*, for scripted captures. KEY is one of `UP DOWN LEFT RIGHT CTRL ALT SHIFT SPACE ENTER ESC BACKSPACE PAGEUP PAGEDOWN J S D 1 2 3 LMOUSE RMOUSE`. |
 | `--cursor <x>,<y>` | Pin the scripts' cursor at a point of the 1024x768 menu screen, for menu captures |
 | `--touch [on\|off]` | This run's touch controls (E16); on by itself. On a desktop the held left mouse button is the finger. It is not saved. |
+| `--zoom auto\|<percent>` | This run's campaign zoom while the touch controls are on (E25), 100 to 200. It is not saved. |
+| `--mobile-layout on\|off` | This run's phone layout of the options screen (E20, with E25's Zoom row), for captures on a desktop. It is not saved. |
+| `--edge-margin auto\|<percent>` | This run's HUD edge margin while the touch controls are on (E26), 0 to 8. It is not saved. |
+| `--safe-area <l>,<t>,<r>,<b>` | The display's safe-area insets, in window pixels, in place of what the platform reports (none on a desktop), for captures of a notched phone. |
+| `--princess` | Puts player 2's princess beside the wizard in a campaign level, as a pad's Start would, for captures of co-op. |
+| `--hp <n>` | Sets the wizard's hp once he appears, for captures. |
 | `--refresh auto\|<Hz>` | This run's fullscreen refresh rate (E23). It is not saved; a pick on the options screen replaces it. A rate the monitor does not offer at the fullscreen resolution runs at the highest. |
 | `--modes <W>x<H>@<Hz>,...` | List these display modes on the options screen instead of the monitor's, a `*` after one marking the desktop's (captures). A pick still goes to the real monitor. |
 

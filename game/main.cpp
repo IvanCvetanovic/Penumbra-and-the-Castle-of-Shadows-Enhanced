@@ -74,6 +74,12 @@ constexpr const char* kGameUsage =
     "  --spawn <x>,<y>        put the wizard at a point of the scene (its pixels) once he appears\n"
     "  --touch [on|off]       this run's on-screen touch controls (not saved; on by itself);\n"
     "                         on a desktop the held left mouse button is the finger\n"
+    "  --zoom auto|<percent>  this run's campaign zoom while the touch controls are on (not saved; 100-200)\n"
+    "  --mobile-layout on|off this run's phone layout of the options screen (captures; not saved)\n"
+    "  --edge-margin auto|<percent>  this run's HUD edge margin while the touch controls are on (not saved; 0-8)\n"
+    "  --safe-area <l>,<t>,<r>,<b>  the display's safe-area insets, window pixels (captures of a notched phone)\n"
+    "  --princess             player 2's princess beside the wizard in a campaign level (captures of co-op)\n"
+    "  --hp <n>               the wizard's hp once he appears (captures)\n"
     "  --refresh auto|<Hz>    this run's fullscreen refresh rate (not saved)\n"
     "  --modes <WxH@R,...>    the display modes the options screen lists (captures; not saved);\n"
     "                         a '*' after one makes it the desktop's mode, else the largest is\n";
@@ -252,6 +258,75 @@ int PenumbraMain(int argc, char** argv) {
             layerOptions.touchOverride = true;
             if (hasValue && (std::string(argv[i + 1]) == "on" || std::string(argv[i + 1]) == "off")) {
                 layerOptions.touchOverride = std::string(argv[++i]) == "on";
+            }
+        } else if (arg == "--zoom" && hasValue) {
+            // E25: "auto" or a whole percentage, as settings.json's zoom.
+            const std::string value = argv[++i];
+            try {
+                const unsigned long percent = value == "auto" ? 0ul : std::stoul(value);
+                if ((value != "auto" && (value.find_first_not_of("0123456789") != std::string::npos ||
+                                         percent < 100ul || percent > 200ul))) {
+                    throw std::invalid_argument("not a zoom");
+                }
+                layerOptions.zoomOverride = static_cast<int>(percent);
+            } catch (const std::exception&) {
+                std::cerr << "[Penumbra] --zoom wants auto or a percentage from 100 to 200, got " << value << std::endl;
+                return EXIT_FAILURE;
+            }
+        } else if (arg == "--mobile-layout" && hasValue) {
+            const std::string value = argv[++i];
+            if (value != "on" && value != "off") {
+                std::cerr << "[Penumbra] --mobile-layout wants on or off, got " << value << std::endl;
+                return EXIT_FAILURE;
+            }
+            layerOptions.mobileLayoutOverride = value == "on";
+        } else if (arg == "--princess") {
+            layerOptions.devPrincess = true;
+        } else if (arg == "--hp" && hasValue) {
+            const std::string value = argv[++i];
+            try {
+                std::size_t used = 0;
+                const int hp = std::stoi(value, &used);
+                if (used != value.size() || hp < 1) throw std::invalid_argument("not an hp");
+                layerOptions.devHp = hp;
+            } catch (const std::exception&) {
+                std::cerr << "[Penumbra] --hp wants a whole number from 1, got " << value << std::endl;
+                return EXIT_FAILURE;
+            }
+        } else if (arg == "--edge-margin" && hasValue) {
+            // E26: "auto" or a percentage, as settings.json's edgeMargin.
+            const std::string value = argv[++i];
+            try {
+                std::size_t used = 0;
+                const float percent = value == "auto" ? -1.0f : std::stof(value, &used);
+                if (value != "auto" && (used != value.size() || !(percent >= 0.0f && percent <= 8.0f))) {
+                    throw std::invalid_argument("not a margin");
+                }
+                layerOptions.edgeMarginOverride = percent;
+            } catch (const std::exception&) {
+                std::cerr << "[Penumbra] --edge-margin wants auto or a percentage from 0 to 8, got " << value
+                          << std::endl;
+                return EXIT_FAILURE;
+            }
+        } else if (arg == "--safe-area" && hasValue) {
+            const std::string value = argv[++i];
+            try {
+                float insets[4] = {};
+                std::size_t from = 0;
+                for (int k = 0; k < 4; ++k) {
+                    const std::size_t comma = k < 3 ? value.find(',', from) : value.size();
+                    if (comma == std::string::npos) throw std::invalid_argument("not four");
+                    const std::string part = value.substr(from, comma - from);
+                    std::size_t used = 0;
+                    insets[k] = std::stof(part, &used);
+                    if (used != part.size() || !(insets[k] >= 0.0f)) throw std::invalid_argument("not an inset");
+                    from = comma + 1;
+                }
+                layerOptions.safeAreaOverride = Supersonic::SafeAreaInsets{insets[0], insets[1], insets[2], insets[3]};
+            } catch (const std::exception&) {
+                std::cerr << "[Penumbra] --safe-area wants left,top,right,bottom in window pixels, got " << value
+                          << std::endl;
+                return EXIT_FAILURE;
             }
         } else if (arg == "--cursor" && hasValue) {
             const std::string value = argv[++i];

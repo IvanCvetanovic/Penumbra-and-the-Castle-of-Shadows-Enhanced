@@ -8,9 +8,11 @@
 // Eth::InputFrame InputMapper builds, before the pause and the game read it -
 // so the ported scripts read the original's keys and change nothing:
 //
-//   direction control   K_LEFT, K_RIGHT, K_DOWN   held: walking reads KeyDown
+//   direction control   K_LEFT, K_RIGHT           held: walking reads KeyDown
 //                                                 (getPlayerXYAxis), combos and
 //                                                 the menus' edges read KS_HIT
+//   down (E25)          K_DOWN                    held at the next_level door
+//                                                 (main.as:208), shown only there
 //   jump                K_CTRL                    KS_HIT (getJumpButtonStatus)
 //   sword               K_S                       KS_HIT (getAttack01ButtonStatus)
 //   fire                K_D                       KS_HIT (getAttack02ButtonStatus)
@@ -25,17 +27,27 @@
 // the combos' CMD_UP and the pause's Up, and a pad's stick-up does not jump
 // either (JK_03 does). There is no up on the direction control: nothing in
 // play needs it (up only jumps, and the jump has its own button). Down is
-// needed: held at the next_level door (main.as:208) and first in the spell
-// combo (playerInput.as:380). Every action fires on its KS_HIT and none repeats
-// while held, so a button is simply held while a finger is on it.
+// needed at the next_level door (main.as:208) and first in the spell combo
+// (playerInput.as:380), which its combo button makes in one tap. Every action
+// fires on its KS_HIT and none repeats while held, so a button is simply held
+// while a finger is on it.
 //
 // THE DIRECTION CONTROL is one round control the thumb slides on without
-// lifting: left and right by which side of the centre it is, down within 67.5
-// degrees of straight down, nothing in the dead zone at the centre or within
-// 22.5 degrees of straight up. Straight down is down alone, so a thumb held
-// down at the door does not walk off it. It is drawn as three buttons, left,
-// right and down, each where its sector is (tools/art/make_mr_touch_art.py
-// checks the art against these sectors).
+// lifting: left and right by which side of the centre it is, nothing in the
+// dead zone at the centre or within 22.5 degrees of straight up or down. It is
+// drawn as two buttons, left and right, each where its sector is
+// (tools/art/make_mr_touch_art.py checks the art against these sectors).
+// Before E25 it had a down arrow below them and a down sector - down within
+// 67.5 degrees of straight down, straight down being down alone, so a thumb
+// held at the door did not walk off it - which a manifest can still ask for
+// (dpad "downSector": true and its "down" arrow, as the placeholder look's has).
+//
+// THE DOWN BUTTON (ENHANCEMENT E25) is K_DOWN alone, above the left and right
+// buttons and centred between them, shown only while the next_level door
+// offers player 1 the way on (TouchInput::nextLevelOffered, the scripts'
+// Script::g_nextLevelOffered): the one place in play where down alone does
+// anything. It hides as the door's fade starts, and a finger on it is dead
+// from then on, as on any control that hides under it.
 //
 // FINGERS. A contact belongs to what it first landed on, until it lifts:
 // sliding off a button keeps it held, sliding onto one presses nothing, and a
@@ -103,8 +115,12 @@
 // screen-pad buttons, which tools/art/make_mr_touch_art.py makes from its
 // package, and images/touch/placeholder/ the first look, with its own
 // manifest) and places it - the corner of the logical screen it hangs from,
-// its distance from that corner, its size, in logical pixels (the logical
-// screen is always 768 tall, so these are already relative to the screen).
+// its distance from that corner, its size, in the pixels of a logical screen
+// 768 tall, so relative to the screen's height. E25's zoomed levels and larger
+// menu draw the screen at another scale: TouchInput::unit takes the layout to
+// their logical pixels, so the controls keep their size on the window, and a
+// control hanging from the top keeps below the run's timer (kTimerRowHeight),
+// which the zoom does enlarge.
 // Replacing the art is replacing the PNGs and editing the manifest; a control
 // the manifest marks "enabled": false is not there at all (a layout without
 // the combo buttons, say). Images go through the HUD's TextureCache as the
@@ -183,6 +199,12 @@ enum class TouchCombo { None, Sword, Spell };
 struct TouchInput {
     std::vector<TouchContact> contacts;
     glm::vec2 screen{1024.0f, 768.0f};   // the logical screen (GetScreenSize)
+    // E25: logical px per px of the manifest - 1, but for a zoomed level
+    // (1 / its zoom) and a phone's larger menu (its E1 scale over its own).
+    float unit = 1.0f;
+    // E25: the next_level door offers player 1 the way on (the last frame's
+    // Script::g_nextLevelOffered): the down button shows.
+    bool nextLevelOffered = false;
     // E1's wide menus: the logical rectangle the controls are laid out in,
     // when the view shows past the screen's left and right edges
     // (View::ShownLogicalMin/Max) - so the corner button sits in the window's
@@ -190,6 +212,10 @@ struct TouchInput {
     glm::vec2 areaMin{0.0f};
     glm::vec2 areaMax{0.0f};
     TouchInsets safeArea;
+    // E26: the HUD's frame in play (render/PhoneUi.hpp's HudFrame, logical
+    // px in from the screen's edges; zero elsewhere): the pause button hangs
+    // from its top-right corner, below the run's timer, which is drawn there.
+    TouchInsets hudFrame;
     TouchScene scene = TouchScene::Play;
     TouchCorner corner = TouchCorner::Hidden;
     TouchFacing facing = TouchFacing::Unknown;
@@ -218,8 +244,21 @@ struct TouchStep {
     bool Held(TouchAction action) const { return held[static_cast<std::size_t>(action)]; }
 };
 
-// What is drawn and touched; the manifest's ids, in drawing order.
-enum class TouchControl : int { Dpad = 0, Jump, Sword, Fire, Light, SwordCombo, SpellCombo, Pause, Back, Count };
+// What is drawn and touched; the manifest's ids, in drawing order. ExitDown is
+// E25's down button.
+enum class TouchControl : int {
+    Dpad = 0,
+    Jump,
+    Sword,
+    Fire,
+    Light,
+    SwordCombo,
+    SpellCombo,
+    ExitDown,
+    Pause,
+    Back,
+    Count
+};
 inline constexpr int kTouchControlCount = static_cast<int>(TouchControl::Count);
 
 enum class TouchAnchor { TopLeft, TopRight, BottomLeft, BottomRight };
@@ -241,7 +280,7 @@ struct TouchManifest {
     std::array<TouchControlSpec, kTouchControlCount> controls{};
     // The direction control's arrows, each drawn over its image (the same box)
     // and brightened while its direction is held, and the knob that follows
-    // the thumb. Any may be "" (not drawn).
+    // the thumb. Any may be "" (not drawn): E25's layout has no down arrow.
     std::string dpadLeft;
     std::string dpadRight;
     std::string dpadDown;
@@ -253,6 +292,10 @@ struct TouchManifest {
     // between the left and right buttons, which reads as a missing button).
     bool knobAtRest = true;
     float deadZone = 0.25f;         // of the direction control's radius: the thumb there means nothing
+    // Whether the direction control presses down too (below it, within 67.5
+    // degrees of straight down): E16's disc. E25's has left and right only,
+    // and its down button (TouchControl::ExitDown) instead.
+    bool downSector = false;
     float idleAlpha = 0.45f;        // what a control is drawn at, 0..1
     float pressedAlpha = 0.9f;      // and while it is held
     float scale = 1.0f;             // every size, offset and padding
@@ -284,8 +327,11 @@ public:
     static constexpr const char* kManifestFile = "touch_controls.json";
 
     // "dpad", "jump", "sword", "fire", "light", "swordCombo", "spellCombo",
-    // "pause", "back".
+    // "exitDown", "pause", "back".
     static const char* ControlId(TouchControl control);
+    // E25: the height of the run's timer row at the screen's top (setupScene.as:337,
+    // its 25 px text), which a control hanging from the top keeps below.
+    static constexpr float kTimerRowHeight = 25.0f;
     // How many ticks in a row with nothing newly pressed that the combos read
     // empty the combo buffer: the first whose GetTime (frame * 1000 / 60) is
     // more than BUTTON_STRIDE, 210 ms (combo.as:44, :116), after the last press.
@@ -316,10 +362,15 @@ public:
 
     // Each control's box: from its anchor corner of the safe area, clamped
     // into it. The area is the logical screen (0,0)-screen, or the rectangle
-    // areaMin-areaMax (TouchInput::areaMin/areaMax).
-    static TouchLayout ComputeLayout(const TouchManifest& manifest, const glm::vec2& screen, const TouchInsets& safe);
+    // areaMin-areaMax (TouchInput::areaMin/areaMax). `unit`: E25's
+    // TouchInput::unit (1: the manifest's pixels are the screen's).
+    // `hudFrame`: E26's TouchInput::hudFrame, which the pause button's corner
+    // keeps inside as well (zero: the safe area alone, as before E26).
+    static TouchLayout ComputeLayout(const TouchManifest& manifest, const glm::vec2& screen, const TouchInsets& safe,
+                                     float unit = 1.0f, const TouchInsets& hudFrame = TouchInsets{});
     static TouchLayout ComputeLayout(const TouchManifest& manifest, const glm::vec2& areaMin, const glm::vec2& areaMax,
-                                     const TouchInsets& safe);
+                                     const TouchInsets& safe, float unit = 1.0f,
+                                     const TouchInsets& hudFrame = TouchInsets{});
 
     void SetManifest(TouchManifest manifest);
     const TouchManifest& Manifest() const { return m_manifest; }
@@ -362,7 +413,7 @@ public:
     const TouchLayout& Layout() const { return m_layout; }
 
 private:
-    enum class Owner { None, Dpad, Jump, Sword, Fire, Light, SwordCombo, SpellCombo, Corner, Pointer };
+    enum class Owner { None, Dpad, Jump, Sword, Fire, Light, SwordCombo, SpellCombo, ExitDown, Corner, Pointer };
 
     struct Held {
         Owner owner = Owner::None;
@@ -393,6 +444,7 @@ private:
     TouchScene m_scene = TouchScene::Play;
     TouchCorner m_corner = TouchCorner::Hidden;
     TouchLayout m_layout;
+    float m_unit = 1.0f;                     // E25: the last Update's TouchInput::unit
     std::array<bool, kTouchControlCount> m_visible{};
 
     std::map<int, Held> m_contacts;          // every finger down, by id

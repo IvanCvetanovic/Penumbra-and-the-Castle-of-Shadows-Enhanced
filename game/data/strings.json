@@ -99,6 +99,8 @@
         "Automática": "Automatic",
         "Automática (máxima)": "Automatic (highest)",
         "Vale para a tela cheia": "Applies in fullscreen",
+        "_videoModes.cpp ENHANCEMENT E25: the campaign zoom's row on a phone (its label, then 'Automática' or a percentage - the pattern below - in a 200 px box at x 540, beside the keyboard player 2 switch). The Portuguese is the port's own": "",
+        "Zoom": "Zoom",
 
         "_render/PauseMenu.cpp ENHANCEMENT E13: the pause (not in the original, which had none; the Portuguese is the port's own, Arial Narrow 40 and 30 in a 316 px row)": "",
         "Pausado": "Paused",
@@ -245,6 +247,11 @@
         {
             "pt": "{int} Hz",
             "en": "{1} Hz"
+        },
+        {
+            "_note": "ENHANCEMENT E25: the zoom's row, a percentage: numbers only, listed so it is not reported as untranslated",
+            "pt": "{int}%",
+            "en": "{1}%"
         }
     ],
 
@@ -276,9 +283,10 @@
             "pt": "Bola de fogo: botão do fogo",
             "en": "Fireball: the fire button"
         },
+        "_ENHANCEMENT E25: the direction control has no down arrow any more; a down button shows above the left and right ones only while the next_level door offers the way on": "",
         "Próxima fase: seta para baixo": {
-            "pt": "Próxima fase: seta para baixo, embaixo à esquerda",
-            "en": "Next level: the down arrow at the bottom left"
+            "pt": "Próxima fase: seta para baixo que aparece acima das setas",
+            "en": "Next level: the down arrow that appears above the arrows"
         },
 
         "_menu.as:278 the Versus screen without a second controller. ENHANCEMENT E22: while the touch controls are on, player 1 plays on them and the first gamepad is player 2's (InputMapper::PadOrder), so what Versus needs is a pad for player 2; the original's text names a joystick for a keyboard-and-joystick PC. Drawn in the showData column (381 px, Arial Narrow 25)": "",
