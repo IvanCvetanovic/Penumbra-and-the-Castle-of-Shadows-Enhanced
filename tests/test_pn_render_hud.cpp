@@ -3172,7 +3172,7 @@ void TestOptionsArt() {
 
     // Every file loaded, at the size its PNG has; the icons are square but the pad.
     const char* const squares[] = {"panel", "check_on", "check_off", "arrow_left", "arrow_right", "minus", "plus",
-                                   "speaker", "music", "globe", "monitor", "globe_button"};
+                                   "speaker", "music", "globe", "monitor"};   // E29: no "globe_button" (the main menu's language button is gone)
     for (const char* name : Script::kOptionsArt) {
         const std::string path = Script::optionsArtPath(std::string(name) + ".png");
         const Eth::vector2 size = Eth::GetSpriteSize(path);
@@ -3187,7 +3187,6 @@ void TestOptionsArt() {
     }
     CHECK(Eth::GetSpriteSize(Script::optionsArtPath("panel.png")) == Eth::vector2(92.0f, 92.0f));
     CHECK(Eth::GetSpriteSize(Script::optionsArtPath("pad.png")) == Eth::vector2(96.0f, 47.0f));
-    CHECK(Eth::GetSpriteSize(Script::optionsArtPath("globe_button.png")) == Eth::vector2(96.0f, 96.0f));
     CHECK(Script::kPanelSlice * 2.0f < 92.0f);
 
     // No file shares a name with one of the original's: a sprite is found by its file name.

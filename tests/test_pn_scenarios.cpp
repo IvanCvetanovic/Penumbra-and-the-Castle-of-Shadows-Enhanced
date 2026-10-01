@@ -10,8 +10,8 @@
 // summon's price and refusals, arenas 2 to 6 - and the menu's Quit. Last, a
 // second runtime booted for a player with one gamepad and nothing else (E12),
 // and a third for the options screen as a phone lays it out (E20), where the
-// later options-screen additions (E23, E27, E28's button to the touch controls'
-// editor) follow.
+// later options-screen additions (E23, E28's button to the touch controls'
+// editor) follow, and E29's menu song through the settings.   // E29
 //
 // The harness is test_pn_boot's: one Machine (the script module's globals live
 // for the whole program, as they lived for the whole of machine.exe),
@@ -120,6 +120,7 @@ public:
         bool loop = false;
         uint start = 0;
         bool stopped = false;
+        float volume = 1.0f;   // E29: what Play gave it and Set last gave it
     };
     struct PlayEvent {
         string file;
@@ -135,10 +136,9 @@ public:
         return ok;
     }
     VoiceId Play(const string& absolutePath, const bool loop, const float volume, const float pan) override {
-        (void)volume;
         (void)pan;
         const string file = BaseName(absolutePath);
-        voices[++m_next] = Voice{file, loop, NowFrame(), false};
+        voices[++m_next] = Voice{file, loop, NowFrame(), false, volume};   // E29: volume
         plays.push_back(PlayEvent{file, NowFrame(), loop});
         return m_next;
     }
@@ -147,16 +147,21 @@ public:
         if (it != voices.end()) it->second.stopped = true;
     }
     void Set(const VoiceId voice, const float volume, const float pan) override {
-        (void)voice;
-        (void)volume;
         (void)pan;
+        const auto it = voices.find(voice);   // E29
+        if (it != voices.end()) it->second.volume = volume;   // E29
     }
     bool IsPlaying(const VoiceId voice) override {
         const auto it = voices.find(voice);
         if (it == voices.end() || it->second.stopped) return false;
         return it->second.loop || NowFrame() < it->second.start + kOneShotFrames;
     }
-    void UnloadAll() override {}
+    // E29: as the device's does (AudioOutEngine::UnloadAll stops every voice of every clip it loaded): nothing
+    // that sounds survives it. SampleBank::ReleaseAll has stopped each voice one by one before it, so this
+    // changes nothing for a load that keeps nothing; one that carries a sample over must not call it.
+    void UnloadAll() override {
+        for (auto& entry : voices) entry.second.stopped = true;
+    }
 
     // Whether `file` (a basename) was played on frame `since` or later.
     bool PlayedSince(const string& file, const uint since) const {
@@ -179,6 +184,13 @@ public:
             if (e.file == file && e.frame >= since) ++n;
         }
         return n;
+    }
+    // E29: the newest voice `file` has had; 0 when it never played.
+    VoiceId NewestVoice(const string& file) const {
+        for (auto it = voices.rbegin(); it != voices.rend(); ++it) {
+            if (it->second.file == file) return it->first;
+        }
+        return 0;
     }
     // The newest voice of `file` loops and has not been stopped.
     bool Looping(const string& file) const {
@@ -3310,100 +3322,6 @@ void ScenarioMobileOptions(Game& g) {
 // layer would, and reads back what a click asks for (the Machine's
 // SetWindowProperties request) and where the row's index moved. Run in the
 // third runtime after 21, so no scenario before it sees a frame of it.
-// E27: the main menu's language button. A globe at the bottom left of the 1024x768
-// screen (76 px, 24 from the corner) opens a list of the language chooser's rows, each
-// drawn as that language's own name; a row sets the chooser, a click outside the list
-// or cancel closes it, and nothing under it answers while it is open. Without the added
-// art (g_artDir empty, as the other scenarios run) there is no button.
-void ScenarioLanguageListE27(Game& g) {
-    array<string> languages;
-    languages.insertLast(string("Autom\xE1tica"));
-    for (const char* id : {"en", "de", "es", "fr", "it", "pt", "ru", "tr", "uk", "ja", "ar"}) {
-        languages.insertLast(string("{language:") + id + "}");
-    }
-    Script::g_language.setOptions(languages, 6u);   // Portuguese, the script's own
-    const vector2 globe(62.0f, 706.0f);                // its centre: 24 + 38, 768 - 24 - 38
-    const auto press = [&g](const vector2& at) {
-        g.base.cursor = at;
-        g.Steps(2);
-        g.Step(g.With({K_RETURN}));
-        g.Steps(2);
-    };
-    const auto reloadMenu = [&g] {
-        LoadScene("scenes/menu.esc", "menuPreLoop", "menuLoop", vector2(1024.0f, 256.0f));
-        WaitFor(g, 3, [] { return GetSceneFileName() == "scenes/menu.esc"; });
-        g.Steps(5);
-    };
-
-    // No art: the globe is not there, so a press where it would be opens nothing.
-    Script::g_artDir.clear();
-    CHECK(EnsureMenu(g));
-    reloadMenu();
-    press(globe);
-    CHECK(!HudHas(g.m, "{language:de}"));
-
-    // With the art, the menu's preloop loads it; the press opens the list.
-    // game/data, two folders up from tests/data (this suite does not link the game library, which
-    // is what defines PENUMBRA_DATA_DIR).
-    Script::g_artDir = (std::filesystem::path(PENUMBRA_TESTS_DATA_DIR).parent_path().parent_path() / "game" / "data").generic_string();
-    reloadMenu();
-    g.base.cursor = vector2(512.0f, 100.0f);
-    g.Steps(3);
-    CHECK(!HudHas(g.m, "{language:de}"));   // not open until the globe is pressed
-    // The menu's buttons answer to the cursor until the list opens: Versus is the last one touched.
-    g.base.cursor = kVersusButton;
-    g.Steps(3);
-    CHECK(LastButton() == "versus");
-    press(globe);
-    CHECK(HudHas(g.m, "{language:de}"));
-    CHECK(HudHas(g.m, "{language:ar}"));
-    // Open, it is modal: the cursor over another button (under the list's panel) is not that button's.
-    g.base.cursor = kHowToPlayButton;
-    g.Steps(3);
-    CHECK(LastButton() == "versus");
-    CHECK(HudHas(g.m, "{language:de}"));
-    CHECK(HudHas(g.m, "Autom\xE1tica"));
-    std::printf("  the globe opened the list\n");
-
-    // The list is 360 x 476 at (332, 146); a row is 32 px from y 216. Deutsch is the third row.
-    press(vector2(446.0f, 296.0f));
-    CHECK_EQ(Script::g_language.getCurrent(), 2u);
-    CHECK(!HudHas(g.m, "{language:de}"));   // closed by the pick
-    CHECK(GetSceneFileName() == "scenes/menu.esc");
-
-    // Cancel closes it, leaving the choice as it was.
-    press(globe);
-    CHECK(HudHas(g.m, "{language:de}"));
-    g.Step(g.With({K_ESC}));
-    g.Steps(2);
-    CHECK(!HudHas(g.m, "{language:de}"));
-    CHECK_EQ(Script::g_language.getCurrent(), 2u);
-
-    // A press inside the panel but on no row (the globe in its title) keeps it open.
-    press(globe);
-    press(vector2(512.0f, 170.0f));
-    CHECK(HudHas(g.m, "{language:de}"));
-    CHECK_EQ(Script::g_language.getCurrent(), 2u);
-
-    // A press outside it closes it (the menu's buttons all lie under the list while it is open).
-    press(vector2(900.0f, 700.0f));
-    CHECK(!HudHas(g.m, "{language:de}"));
-    CHECK(GetSceneFileName() == "scenes/menu.esc");
-    CHECK_EQ(Script::g_language.getCurrent(), 2u);
-
-    // The automatic row, and the last one, are reachable.
-    press(globe);
-    press(vector2(446.0f, 232.0f));   // the first row
-    CHECK_EQ(Script::g_language.getCurrent(), 0u);
-    press(globe);
-    press(vector2(446.0f, 584.0f));   // the twelfth
-    CHECK_EQ(Script::g_language.getCurrent(), 11u);
-
-    Script::g_language.setOptions(array<string>(), 0u);
-    Script::g_artDir.clear();
-    reloadMenu();
-}
-
 void ScenarioDisplayModeE23(Game& g) {
     g.m.SetVideoModes({videoMode{800, 600, PF32BIT}, videoMode{1280, 800, PF32BIT}, videoMode{1920, 1200, PF32BIT}});
     Script::g_nativeVideoMode = videoMode{1920, 1200, PF32BIT};
@@ -3664,6 +3582,148 @@ void ScenarioTouchEditorEntryE28(Game& g) {                                     
     g.Steps(5);                                                                                     // E28
 }                                                                                                   // E28
 
+// === 25. The menu song through the settings (E29) ===========================================   // E29
+//                                                                                                // E29
+// ENHANCEMENT E29 (game/script/menu.cpp, eth/Audio.hpp's KeepOnNextLoad): the menu's song is not   // E29
+// started again by the loads between the menu's screens - the settings, the arena select and the   // E29
+// way back - where the original, which released every sample on a load and started it again in     // E29
+// each screen's preLoop, restarted it from its first note every time. SoundLog stands for the       // E29
+// speakers and what it sees is the DEVICE's: the voice that sounds (the same id, never stopped),    // E29
+// the plays it was asked for, and the volume it was left at. Run last in the third runtime: its     // E29
+// level load reshuffles no random roll of the scenarios before it.                                  // E29
+void ScenarioMenuSongE29(Game& g) {                                                                // E29
+    Script::g_artDir.clear();                                                                      // E29
+    Script::g_mobileLayout = false;                                                                // E29
+    CHECK(EnsureMenu(g));                                                                          // E29
+    g.Steps(5);                                                                                    // E29
+
+    // The song as it sounds now: its voice, and how many times it has been started (a cold start    // E29
+    // is two plays: PlaySample, then LoopSample's restart with the loop flag, menu.as:43-47).        // E29
+    const VoiceId song = g.sound.NewestVoice("menu.mp3");                                           // E29
+    const uint starts = g.sound.PlayCount("menu.mp3", 0);                                           // E29
+    CHECK(song != 0);                                                                               // E29
+    CHECK(g.sound.Looping("menu.mp3"));                                                             // E29
+    CHECK(IsSamplePlaying("soundfx/menu.mp3"));                                                     // E29
+    CHECK_EQ(g.sound.voices.at(song).volume, 1.0f);                                                 // E29
+    std::printf("  the song: voice %llu, %u plays so far\n", static_cast<unsigned long long>(song), starts);   // E29
+
+    // The same voice, alive, the only one the song has had, at `volume`, and the bank still counts it    // E29
+    // as playing.                                                                                    // E29
+    const auto goesOn = [&](const char* where, const float volume) {                                // E29
+        const SoundLog::Voice& v = g.sound.voices.at(song);                                         // E29
+        std::printf("  %-34s the song's voice %s, %u plays, volume %.2f\n", where, v.stopped ? "STOPPED" : "alive",   // E29
+                    g.sound.PlayCount("menu.mp3", 0), v.volume);                                    // E29
+        CHECK_MSG(!v.stopped, string(where) + ": the voice was stopped");                           // E29
+        CHECK_MSG(g.sound.PlayCount("menu.mp3", 0) == starts, string(where) + ": the song was started again");   // E29
+        CHECK_MSG(g.sound.NewestVoice("menu.mp3") == song, string(where) + ": a new voice took over");   // E29
+        CHECK_MSG(v.loop, string(where) + ": the voice does not loop");                             // E29
+        CHECK_MSG(v.volume == volume, string(where) + ": the volume is " + std::to_string(v.volume));   // E29
+        CHECK_MSG(IsSamplePlaying("soundfx/menu.mp3"), string(where) + ": the bank does not see it playing");   // E29
+    };                                                                                              // E29
+    const auto toSettings = [&g] {                                                                  // E29
+        g.base.cursor = kOptionsButton;                                                             // E29
+        g.Steps(3);                                                                                 // E29
+        CHECK(LastButton() == "opcoes_de_video");                                                   // E29
+        g.Step(g.With({K_RETURN}));                                                                 // E29
+        CHECK(WaitFor(g, 3, [] { return GetSceneFileName() == "scenes/videoModes.esc"; }) >= 0);    // E29
+        g.Steps(30);                                                                                // E29
+    };                                                                                              // E29
+    const auto toMenuByEsc = [&g] {                                                                 // E29
+        g.Step(g.With({K_ESC}));                                                                    // E29
+        CHECK(WaitFor(g, 3, [] { return GetSceneFileName() == "scenes/menu.esc"; }) >= 0);          // E29
+        g.Steps(30);                                                                                // E29
+    };                                                                                              // E29
+
+    std::printf("-- menu -> settings -> menu by ESC\n");                                             // E29
+    toSettings();                                                                                   // E29
+    goesOn("in the settings", 1.0f);                                                                // E29
+    // The music volume of the layer's options reaches the voice that was carried over, as it does a     // E29
+    // voice that was started in this scene (SetMasterVolumes: the sample stayed in the bank).         // E29
+    g.m.Samples().SetMasterVolumes(0.4f, 1.0f);                                                     // E29
+    goesOn("in the settings, music at 0.4", 0.4f);                                                  // E29
+    toMenuByEsc();                                                                                  // E29
+    goesOn("back in the menu, music at 0.4", 0.4f);                                                 // E29
+    g.m.Samples().SetMasterVolumes(1.0f, 1.0f);                                                     // E29
+    goesOn("music back at 1", 1.0f);                                                                // E29
+
+    std::printf("-- menu -> settings -> menu by the Back arrow\n");                                  // E29
+    toSettings();                                                                                   // E29
+    goesOn("in the settings again", 1.0f);                                                          // E29
+    g.base.cursor = vector2(540.0f, 80.0f);   // inside the arrow, interface/arrow_button.png at (500,40), 123x92   // E29
+    g.Steps(2);                                                                                     // E29
+    g.Step(g.With({K_RETURN}));                                                                     // E29
+    CHECK(WaitFor(g, 3, [] { return GetSceneFileName() == "scenes/menu.esc"; }) >= 0);              // E29
+    g.Steps(30);                                                                                    // E29
+    goesOn("back in the menu by the arrow", 1.0f);                                                  // E29
+
+    std::printf("-- menu -> arena select -> menu (the same song, menuPreLoop)\n");                   // E29
+    g.base.pads[0].connected = true;   // a second controller: Versus opens only for one            // E29
+    g.base.cursor = kVersusButton;                                                                  // E29
+    g.Steps(3);                                                                                     // E29
+    CHECK(LastButton() == "versus");                                                                // E29
+    g.Step(g.With({K_RETURN}));                                                                     // E29
+    CHECK(WaitFor(g, 3, [] { return GetSceneFileName() == "scenes/arena_select.esc"; }) >= 0);      // E29
+    g.Steps(30);                                                                                    // E29
+    goesOn("in the arena select", 1.0f);                                                            // E29
+    toMenuByEsc();                                                                                  // E29
+    goesOn("back in the menu from the arenas", 1.0f);                                               // E29
+
+    // The one way a song that was faded down is carried: confirm an arena (the 3 s fade-out starts and    // E29
+    // lowers it, menu.as:351-356) and leave by ESC while it runs. The arena select's loop still reads     // E29
+    // cancel, so the way back to the menu loads (keeping the song, lowered) and the menu's preLoop must    // E29
+    // put it back to full - the original got that from the restart.                                      // E29
+    g.base.cursor = kVersusButton;                                                                  // E29
+    g.Steps(3);                                                                                     // E29
+    g.Step(g.With({K_RETURN}));                                                                     // E29
+    CHECK(WaitFor(g, 3, [] { return GetSceneFileName() == "scenes/arena_select.esc"; }) >= 0);      // E29
+    g.Steps(30);                                                                                    // E29
+    g.base.cursor = kArena1Thumbnail;                                                               // E29
+    g.Steps(3);                                                                                     // E29
+    CHECK(LastButton() == "thumbnail");                                                             // E29
+    g.Step(g.With({K_RETURN}));                                                                     // E29
+    g.Steps(60);                                                                                    // E29
+    std::printf("  a start's fade-out, 60 frames in: the song's volume %.2f\n", g.sound.voices.at(song).volume);   // E29
+    CHECK(GetSceneFileName() == "scenes/arena_select.esc");                                         // E29
+    CHECK(g.sound.voices.at(song).volume < 0.8f);                                                   // E29
+    toMenuByEsc();                                                                                  // E29
+    goesOn("back in the menu mid-fade", 1.0f);                                                      // E29
+    g.base.pads[0].connected = false;                                                               // E29
+
+    // A start is not a menu screen. The fade-out takes the song down (menu.as:351-356), the level's     // E29
+    // load releases it, and the level plays its own music; the way back to the menu starts a NEW song    // E29
+    // at full volume - nothing of the fade may be left on it.                                         // E29
+    std::printf("-- New game, and ESC back to the menu\n");                                          // E29
+    g.base.cursor = kNewGameButton;                                                                 // E29
+    g.Steps(3);                                                                                     // E29
+    CHECK(LastButton() == "novo_jogo");                                                             // E29
+    g.Step(g.With({K_RETURN}));                                                                     // E29
+    float lowest = 1.0f;                                                                            // E29
+    const int loaded = WaitFor(g, 240, [&] {                                                        // E29
+        lowest = std::min(lowest, g.sound.voices.at(song).volume);                                  // E29
+        return GetSceneFileName() == "scenes/level1.esc";                                           // E29
+    });                                                                                             // E29
+    std::printf("  level1.esc %d frames later; the song faded down to %.3f; its voice %s\n", loaded, lowest,   // E29
+                g.sound.voices.at(song).stopped ? "stopped" : "STILL SOUNDING");                    // E29
+    CHECK(loaded >= 0);                                                                             // E29
+    CHECK(lowest < 0.05f);                                                                          // E29
+    CHECK(g.sound.voices.at(song).stopped);                                                         // E29
+    CHECK(!SampleExists("soundfx/menu.mp3"));   // released by the load, volume and all                // E29
+    g.Steps(30);                                                                                    // E29
+    CHECK(!g.sound.Looping("menu.mp3"));   // nothing of the menu's song is left under the level      // E29
+    const uint beforeMenu = g.Frame();                                                              // E29
+    CHECK(EnsureMenu(g));                                                                           // E29
+    g.Steps(5);                                                                                     // E29
+    const VoiceId again = g.sound.NewestVoice("menu.mp3");                                          // E29
+    std::printf("  the menu again: voice %llu (was %llu), volume %.2f, %u plays since\n",            // E29
+                static_cast<unsigned long long>(again), static_cast<unsigned long long>(song),      // E29
+                g.sound.voices.at(again).volume, g.sound.PlayCount("menu.mp3", beforeMenu));       // E29
+    CHECK(again != song);                                                                           // E29
+    CHECK(g.sound.PlayCount("menu.mp3", beforeMenu) >= 1u);                                         // E29
+    CHECK(g.sound.Looping("menu.mp3"));                                                             // E29
+    CHECK(IsSamplePlaying("soundfx/menu.mp3"));                                                     // E29
+    CHECK_EQ(g.sound.voices.at(again).volume, 1.0f);                                                // E29
+}                                                                                                   // E29
+
 } // namespace
 
 int main() {
@@ -3793,13 +3853,14 @@ int main() {
         Script::g_mobileLayout = false;   // whatever the scenario reached
         RunScenario(g, "22. the display mode, automatic and by hand (E23)", ScenarioDisplayModeE23);
         Script::g_mobileLayout = false;
-        RunScenario(g, "23. the main menu's language list (E27)", ScenarioLanguageListE27);
-        Script::g_mobileLayout = false;   // E28
+        // E29: scenario 23, the main menu's language list (E27), went with the list.
         RunScenario(g, "24. the touch controls' editor entry (E28)", ScenarioTouchEditorEntryE28);   // E28
         Script::g_mobileLayout = false;   // E28: whatever the scenario reached
         Script::g_adjustTouchControls = false;   // E28: a Script global outlives a Machine
+        RunScenario(g, "25. the menu song through the settings (E29)", ScenarioMenuSongE29);   // E29
+        Script::g_mobileLayout = false;   // E29
         std::printf("\n=== third runtime (frame %u)\n", machine.FrameIndex());
-        for (std::size_t i = g_results.size() - 4; i < g_results.size(); ++i) {   // E28: - 4 (was - 3): scenarios 21-24
+        for (std::size_t i = g_results.size() - 4; i < g_results.size(); ++i) {   // E29: - 4 still: scenarios 21, 22, 24, 25
             const Result& r = g_results[i];
             std::printf("  %-50s %s  %d failed checks, %u aborts%s\n", r.name.c_str(),
                         (r.failures == 0 && r.aborts == 0 && !r.threw) ? "PASS" : "FAIL", r.failures, r.aborts,

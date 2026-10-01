@@ -251,6 +251,8 @@ bool SampleExists(const string& path) { return M().Samples().SampleExists(path);
 
 bool IsSamplePlaying(const string& path) { return M().Samples().IsSamplePlaying(path); }
 
+bool KeepSampleOnNextLoad(const string& path) { return M().Samples().KeepOnNextLoad(path); }   // E29
+
 // --- Input ---------------------------------------------------------------------------------
 
 InputState& GetInputHandle() { return M().Input(); }

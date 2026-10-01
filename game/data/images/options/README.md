@@ -1,13 +1,12 @@
-# The options screen's and the language button's art (E27), and the touch controls' editor's tiles (E28)
+# The options screen's art (E27), and the touch controls' editor's tiles (E28)
 
 The PNGs in this folder are the pieces the options screen is built from (stone-frame panels,
-check boxes, arrow, minus and plus buttons, icons) and the main menu's language button, and, since E28,
+check boxes, arrow, minus and plus buttons, icons) and, since E28,
 the seven tiles of the touch controls' editor (`edit_*.png`: shrink, enlarge, dim, brighten, the closed and
 the open padlock, the circular arrow), which `game/render/TouchEditor.cpp` draws by their path - they are
 not in the `kOptionsArt` list of `game/script/Script.hpp`. Most are
 **Magic Rampage 7.8.7 (Asantee Games)** user-interface art, taken from its Android package
-`com.asanteegames.magicrampage.apk` (the base APK inside the APKPure `.xapk`); two icons and the button's
-globe are drawn here. Asantee also made the original Penumbra.
+`com.asanteegames.magicrampage.apk` (the base APK inside the APKPure `.xapk`); two icons are drawn here. Asantee also made the original Penumbra.
 
 `tools/art/make_options_art.py` makes them from that package and only reads it:
 
@@ -39,7 +38,6 @@ Every source path is under the base APK's `assets/`.
 | `pad.png` | 96x47 | `sprites/fighter-controller.png` | The cream gamepad, cut to its pixels (122x60) and scaled to 96 wide. The one image that is not square. |
 | `globe.png` | 64x64 | none | **Drawn.** Magic Rampage has no globe: a white disc with a meridian ellipse, the central meridian, the equator and two latitudes cut out of it, supersampled, with the soft shadow of its icons. |
 | `monitor.png` | 64x64 | none | **Drawn.** A rounded screen in a bezel on a short stand, white, the same way. |
-| `globe_button.png` | 96x96 | `sprites/dpad-frame.png` | **Composed.** The touch buttons' blank pad frame with the globe styled as their icons are (fill, black outline, shadow). The main menu's language button. |
 | `edit_shrink.png` | 96x96 | `sprites/smaller-frame-bg.png`, `sprites/resize-symbol-shrink.png` | **Composed.** The dark stone frame (cut to its body, scaled to 96) with Magic Rampage's own shrink symbol, scaled to 48 and centred. The touch controls' editor: every control smaller (E28). |
 | `edit_enlarge.png` | 96x96 | `sprites/smaller-frame-bg.png`, `sprites/resize-symbol-enlarge.png` | **Composed.** The same frame with its enlarge symbol: every control larger (E28). |
 | `edit_dim.png` | 96x96 | `sprites/smaller-frame-bg.png`, `sprites/adjust-symbol-transparent.png` | **Composed.** The same frame with its see-through square: every control fainter (E28). |

@@ -15,6 +15,7 @@
 
 #include <algorithm>
 #include <filesystem>
+#include <utility>   // E29
 
 #include "core/Log.hpp"
 #include "eth/Paths.hpp"
@@ -234,13 +235,32 @@ void SampleBank::ReleaseAll() {
     // ETHEngine::LoadScene -> ETHAudioResourceManager::ReleaseResources
     // (ETHEngine.cpp:826): every sample stops and is forgotten, with its volume,
     // pan and loop flag.
-    if (m_out != nullptr) {
-        for (auto& [ignoredKey, sample] : m_samples) {
-            if (sample.voice != 0) m_out->Stop(sample.voice);
+    // E29: but a sample that asked to go on through this load (KeepOnNextLoad) and still sounds
+    // is carried over whole. The request is spent here, kept or not.
+    std::map<string, Sample> kept;   // E29
+    for (auto& [key, sample] : m_samples) {
+        const bool carry = sample.keepOnLoad && m_out != nullptr && sample.voice != 0 && m_out->IsPlaying(sample.voice);   // E29
+        sample.keepOnLoad = false;   // E29
+        if (carry) {   // E29
+            kept.emplace(key, sample);   // E29
+            continue;   // E29
         }
-        m_out->UnloadAll();
+        if (m_out != nullptr && sample.voice != 0) m_out->Stop(sample.voice);
     }
-    m_samples.clear();
+    // E29: UnloadAll stops every voice of every clip the output has loaded, the carried one's too
+    // (AudioOutEngine::UnloadAll), so it is not asked while a sample is carried. Every other voice
+    // was stopped one by one just above, which is all UnloadAll adds for voices, and the layer keeps
+    // the decoded clips across loads anyway (SetKeepDecodedClips): the one load with a carried
+    // sample leaves a clip decoded a scene longer in a configuration that would have released it.
+    if (m_out != nullptr && kept.empty()) m_out->UnloadAll();   // E29: was unconditional
+    m_samples = std::move(kept);   // E29: was m_samples.clear()
+}
+
+bool SampleBank::KeepOnNextLoad(const string& path) {   // E29
+    Sample* sample = Find(path);
+    if (sample == nullptr || sample->voice == 0) return false;
+    sample->keepOnLoad = true;
+    return true;
 }
 
 } // namespace Penumbra::Eth

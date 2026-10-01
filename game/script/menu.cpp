@@ -12,123 +12,34 @@
 
 namespace Penumbra::Script {
 
-// ENHANCEMENT E27 (Script.hpp, optionsArt.cpp): the main menu's language button. Every button of    // E27
-// the menu is a picture of words in the current language, so a player who cannot read it has no    // E27
-// way to find the options, and the language row on them: a globe, which needs no words, opens a    // E27
-// list of the languages each in its own script. The list is modal; a row sets the options screen's  // E27
-// language chooser (index 0 automatic, then Languages.hpp's order), which the layer applies as it    // E27
-// does a pick there. Only when the added art is loaded.                                            // E27
-namespace {                                                                                          // E27
-bool g_languageListOpen = false;                                                                     // E27: reset by the menu's preloop
-constexpr float kGlobeSize = 76.0f;                                                                  // E27
-constexpr float kGlobeMargin = 24.0f;                                                                // E27: from the visible corner (above the Alt+Enter line, y 753)
-constexpr float kListRow = 32.0f;                                                                    // E27
-constexpr float kListWidth = 360.0f;                                                                 // E27
-constexpr float kListInset = 14.0f;                                                                  // E27: the rows' room inside the panel's stone
-
-// The part of the menu's screen the window shows: a phone's larger menu shows less to the right    // E27
-// (and starts at its safe area); elsewhere it is the logical screen.                                // E27
-void shownArea(vector2& lo, vector2& hi)                                                             // E27
-{                                                                                                    // E27
-    if (g_phonePanel.on)                                                                             // E27
-    {                                                                                                // E27
-        lo = g_phonePanel.shownMin;                                                                  // E27
-        hi = g_phonePanel.shownMax;                                                                  // E27
-        return;                                                                                      // E27
-    }                                                                                                // E27
-    lo = vector2(0.0f, 0.0f);                                                                        // E27
-    hi = GetScreenSize();                                                                            // E27
-}                                                                                                    // E27
-
-bool inside(const vector2& p, const vector2& lo, const vector2& size)                                // E27
-{                                                                                                    // E27
-    return p.x > lo.x && p.y > lo.y && p.x < lo.x+size.x && p.y < lo.y+size.y;                       // E27
-}                                                                                                    // E27
-
-// The open list, over a dim menu. Returns whether it is open, in which case the rest of the cursor   // E27
-// callback is skipped: the buttons below do not answer while a language is being chosen.            // E27
-bool languageList()                                                                                  // E27
-{                                                                                                    // E27
-    if (!g_languageListOpen)                                                                         // E27
-        return false;                                                                                // E27
-    InputState& input = GetInputHandle();                                                            // E27
-    const vector2 cursor = input.GetCursorPos();                                                     // E27
-    vector2 lo, hi;                                                                                  // E27
-    shownArea(lo, hi);                                                                               // E27
-    const uint rows = g_language.getCount();                                                         // E27
-    const float height = 78.0f+kListRow*static_cast<float>(rows)+14.0f;                              // E27
-    const vector2 size(kListWidth, height);                                                          // E27
-    const vector2 pos((lo.x+hi.x-size.x)*0.5f, max(lo.y+10.0f, (lo.y+hi.y-size.y)*0.5f));           // E27
-
-    const uint dim = ARGB(165, 0, 0, 0);                                                             // E27
-    DrawRectangle(vector2(0.0f, 0.0f), GetScreenSize(), dim, dim, dim, dim);                         // E27
-    drawPanel(pos, size, 246, 13.0f);                                                                // E27
-    drawOptionsIcon("globe", vector2(pos.x+(size.x-46.0f)*0.5f, pos.y+16.0f), 46.0f, 255);           // E27
-
-    // The language the game is in: the row the chooser stands on (0 automatic).                      // E27
-    const uint current = g_language.getCurrent();                                                    // E27
-    int hover = -1;                                                                                  // E27
-    for (uint i = 0; i < rows; i++)                                                                  // E27
-    {                                                                                                // E27
-        const vector2 rowPos(pos.x+kListInset, pos.y+70.0f+kListRow*static_cast<float>(i));          // E27
-        const vector2 rowSize(size.x-2.0f*kListInset, kListRow);                                     // E27
-        const bool over = inside(cursor, rowPos, rowSize);                                           // E27
-        if (over)                                                                                    // E27
-            hover = static_cast<int>(i);                                                             // E27
-        if (over)                                                                                    // E27
-        {                                                                                            // E27
-            const uint glow = ARGB(70, 203, 203, 228);                                               // E27
-            DrawRectangle(rowPos, rowSize, glow, glow, glow, glow);                                  // E27
-        }                                                                                            // E27
-        const uint8 alpha = static_cast<uint8>((over || i == current) ? 255 : 190);                  // E27
-        drawOptionsIcon((i == current) ? "check_on" : "check_off", rowPos+vector2(6.0f, 5.0f), 22.0f, alpha);   // E27
-        shadowText(rowPos+vector2(44.0f, 3.0f), g_language.getOption(i), "Arial Narrow", 25.0f, alpha, 203,203,228);   // E27
-    }                                                                                                // E27
-
-    // The menu's own cursor is a light in the world, under everything drawn here: a small mark.      // E27
-    const uint shade = ARGB(210, 0, 0, 0);                                                           // E27
-    const uint mark = ARGB(240, 255, 255, 255);                                                      // E27
-    DrawRectangle(cursor-vector2(7.0f, 7.0f), vector2(14.0f, 14.0f), shade, shade, shade, shade);    // E27
-    DrawRectangle(cursor-vector2(5.0f, 5.0f), vector2(10.0f, 10.0f), mark, mark, mark, mark);        // E27
-
-    // A pick sets the chooser and closes the list; a click outside the panel, or cancel, closes it.   // E27
-    if (getConfirmButtonStatus(0) == KS_HIT)                                                         // E27
-    {                                                                                                // E27
-        if (hover >= 0)                                                                              // E27
-        {                                                                                            // E27
-            g_language.setCurrent(static_cast<uint>(hover));                                         // E27
-            g_languageListOpen = false;                                                              // E27
-        }                                                                                            // E27
-        else if (!inside(cursor, pos, size))                                                         // E27
-            g_languageListOpen = false;                                                              // E27
-    }                                                                                                // E27
-    else if (getCancelButtonStatus(0) == KS_HIT)                                                     // E27
-        g_languageListOpen = false;                                                                  // E27
-    return true;                                                                                     // E27
-}                                                                                                    // E27
-
-// The globe, bottom left of what the window shows: the panels' text (the credits, the best times)    // E27
-// runs down the right side, and the buttons end well above (y 600); drawn last, over the picture.    // E27
-// A confirm on it opens the list from the next frame.
-void languageButton()                                                                                // E27
-{                                                                                                    // E27
-    if (!optionsArtReady() || GetSceneFileName() != "scenes/menu.esc" || g_languageListOpen)         // E27
-        return;                                                                                      // E27
-    vector2 lo, hi;                                                                                  // E27
-    shownArea(lo, hi);                                                                               // E27
-    const vector2 pos(lo.x+kGlobeMargin, hi.y-kGlobeMargin-kGlobeSize);                              // E27
-    const vector2 cursor = GetInputHandle().GetCursorPos();                                          // E27
-    const bool over = inside(cursor, pos, vector2(kGlobeSize, kGlobeSize));                          // E27
-    drawOptionsIcon("globe_button", pos, kGlobeSize, over ? 255 : 225);                              // E27
-    if (over && getConfirmButtonStatus(0) == KS_HIT)                                                 // E27
-        g_languageListOpen = true;                                                                   // E27
-}                                                                                                    // E27
-} // namespace                                                                                       // E27
+namespace {                                                                                          // E29
+// ENHANCEMENT E29 (not in the original): the menu song goes on through the scene loads between the     // E29
+// menu's screens. The original's every load released every sample, and each of these screens' preLoops // E29
+// started the song again from its first note (loopMenuSong, below); here the load that leaves one     // E29
+// menu screen for another asks for the song to be kept (Audio.hpp's KeepOnNextLoad), and loopMenuSong // E29
+// finds it playing. Asked only before the loads to a menu screen - the settings, the arena select and // E29
+// the way back - and never before a start (newGame), so a level still begins in its own music.        // E29
+// A song that is not playing (a menu entered from a level, the first screen of a run) is not kept:   // E29
+// the call is then a no-op and loopMenuSong starts it as the original did.                           // E29
+void keepMenuSong()                                                                                  // E29
+{                                                                                                    // E29
+    KeepSampleOnNextLoad("soundfx/menu.mp3");                                                        // E29
+}                                                                                                    // E29
+} // namespace                                                                                       // E29
 
 // menu.as:43
 void loopMenuSong()
 {
     LoadMusic("soundfx/menu.mp3");
+    // E29: a song kept through the load (keepMenuSong) is found playing and goes on. The original    // E29
+    // started it from its first note on every one of these loads: its load released every sample,   // E29
+    // so this always found it silent. A kept song gets its full volume explicitly: the original     // E29
+    // had that from the release that forgot the sample, which a kept one has not had.               // E29
+    if (SampleExists("soundfx/menu.mp3") && IsSamplePlaying("soundfx/menu.mp3"))                           // E29
+    {                                                                                                      // E29
+        SetSampleVolume("soundfx/menu.mp3", 1.0f);                                                         // E29
+        return;                                                                                            // E29
+    }                                                                                                      // E29
     PlaySample("soundfx/menu.mp3");
     LoopSample("soundfx/menu.mp3", true);
 }
@@ -145,8 +56,6 @@ void menuPreLoop()
     LoadSoundEffect("soundfx/fail.ogg");
 
     LoadSprite("interface/joystick.png");
-    loadOptionsArt();                                                 // E27: the language button's and list's art
-    g_languageListOpen = false;                                       // E27: a scene load closes the list
 
     SetBorderBucketsDrawing(false);
 
@@ -313,14 +222,6 @@ void ETHCallback_cursor(ETHEntity thisEntity)
     input.SetCursorPos(input.GetCursorAbsolutePos()+getPlayerXYAxis(0)*5.0f);
     thisEntity->SetPositionXY(cursorPos);
 
-    // E27: the language list, when open, is all the menu answers to.
-    if (languageList())                                               // E27
-    {                                                                 // E27
-        showToggleFullscreenMessage();                                // E27: Alt+Enter and its line, as under the buttons
-        fadeIn(thisEntity->GetUIntData("menuStartTime"));             // E27: as the callback's last line
-        return;                                                       // E27
-    }                                                                 // E27
-
     ETHEntity handle;                                                 // menu.as:242
 
     if (thisEntity->CheckCustomData("newGame") == DT_NODATA)          // menu.as:244
@@ -349,6 +250,7 @@ void ETHCallback_cursor(ETHEntity thisEntity)
                     showData("Jogador versus Jogador", versus);
                     if (confirmed)
                     {
+                        keepMenuSong();                               // E29
                         goToPvp();
                     }
                 }
@@ -392,6 +294,7 @@ void ETHCallback_cursor(ETHEntity thisEntity)
                 showData("Configura\xE7\xF5" "es", config);
                 if (confirmed)
                 {
+                    keepMenuSong();                                   // E29
                     LoadScene("scenes/videoModes.esc", "screenModesPreLoop", "screenModesLoop");
                 }
             } else if (entityName == "thumbnail")                      // menu.as:311
@@ -448,8 +351,6 @@ void ETHCallback_cursor(ETHEntity thisEntity)
         SetSampleVolume("soundfx/menu.mp3", 1.0f-bias);
         loadingMessage();
     }
-    if (thisEntity->CheckCustomData("newGame") == DT_NODATA)         // E27: not while a start's fade runs
-        languageButton();                                             // E27: over the picture, under the fade
     fadeIn(thisEntity->GetUIntData("menuStartTime"));                 // menu.as:359
 }
 
@@ -481,6 +382,7 @@ bool goToMenu()
 {
     if (GetSceneFileName() != "scenes/menu.esc")
     {
+        keepMenuSong();                                               // E29: from the settings or the arena select
         LoadScene("scenes/menu.esc", "menuPreLoop", "menuLoop", vector2(1024,256));
         return true;
     }

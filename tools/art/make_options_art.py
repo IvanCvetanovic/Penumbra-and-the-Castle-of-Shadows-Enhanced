@@ -1,19 +1,19 @@
-"""The options screen's and the main menu's language button's art (ENHANCEMENT E27), from Magic Rampage.
+"""The options screen's art (ENHANCEMENT E27), from Magic Rampage.
 
     python tools/art/make_options_art.py --xapk "<path>/Magic+Rampage_7.8.7_APKPure.xapk"
     python tools/art/make_options_art.py --assets <a folder of the base APK's assets/>  [--sheet sheet.png]
 
 Writes game/data/images/options/ (--out): the stone-frame panel the screens' groups of rows sit on
 (nine-sliced by game/script/optionsArt.cpp), the check boxes, the arrow, minus and plus buttons, the
-speaker, music and gamepad icons, a globe and a monitor, and a globe button for the main menu.
+speaker, music and gamepad icons, a globe and a monitor.
 images/options/README.md says which Magic Rampage file each one is and what was composed or drawn.
 ENHANCEMENT E28 adds seven more, the tiles of the touch controls' editor (game/render/TouchEditor): a stone
 frame with one of Magic Rampage's own symbols on it, 96x96 - shrink, enlarge, dim, brighten, the closed and
 the open padlock (on a red frame) and the circular arrow.
 
 It reads the package and writes nothing into it. It uses the touch art's helpers (make_mr_touch_art.py:
-the package reader, the premultiplied resampling, the soft shadow the pad icons have, the styled glyph
-and the blank pad frame), so the icons look like the touch buttons.
+the package reader, the premultiplied resampling and the soft shadow the pad icons have), so the icons look
+like the touch buttons.
 """
 
 import argparse
@@ -191,14 +191,6 @@ def glyph_button(frame, mask):
     return out
 
 
-def globe_alpha_glyph():
-    """The globe as the styled-glyph helper wants it: a white shape with an alpha channel (its cuts clear)."""
-    mask = globe_mask()
-    glyph = Image.new("RGBA", (ICON * S, ICON * S), (255, 255, 255, 0))
-    glyph.putalpha(Image.fromarray((mask * 255 + 0.5).astype(np.uint8), "L"))
-    return glyph.resize((ICON * 2, ICON * 2), Image.Resampling.LANCZOS)
-
-
 def edit_button(pack, frame, symbol, symbol_px=EDIT_SYMBOL):
     """E28: one of Magic Rampage's stone frames at the editor's tile size with one of its own 64 px symbols
     centred on it. Both are resampled premultiplied; the symbol keeps the shading it comes with. The two
@@ -240,10 +232,6 @@ def make_images(pack):
     images["pad.png"] = T.resize(pad, (96, round(96 * pad.height / pad.width)))
     images["globe.png"] = white_icon(globe_mask())
     images["monitor.png"] = white_icon(monitor_mask())
-    # The main menu's globe button: the touch buttons' blank pad frame with the globe styled as their icons are.
-    frame = pack.image("sprites/dpad-frame.png")
-    button = T.on_frame(frame, T.styled_glyph(globe_alpha_glyph(), 62))
-    images["globe_button.png"] = T.resize(button, (96, 96))
     return images
 
 

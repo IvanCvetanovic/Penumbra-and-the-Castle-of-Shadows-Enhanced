@@ -133,6 +133,9 @@ bool SetSampleVolume(const string& path, float volume);
 bool SetSamplePan(const string& path, float pan);
 bool SampleExists(const string& path);
 bool IsSamplePlaying(const string& path);
+// E29 (not in 0.7.12): the sample, while it sounds, goes on through the next LoadScene instead of being
+// released by it (SampleBank::KeepOnNextLoad). False, and nothing asked, when it is not sounding.
+bool KeepSampleOnNextLoad(const string& path);   // E29
 
 // --- Input ------------------------------------------------------------------------------
 // GetInputHandle() returns the machine's InputState; `@input` handles in the
