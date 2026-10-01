@@ -27,9 +27,12 @@ relevant spec file before touching a system; where the spec and the original dis
 ## Layout
 
 ```
-CMakeLists.txt       engine/ as a subproject, then game/ and tests/
+CMakeLists.txt       engine/ as a subproject, then game/ and tests/ (its project VERSION is the release's)
+LICENSE, LICENSE.md  MIT-0 for the enhanced edition and the engine, and the table of every part's terms;
+                     licenses/ holds the GPL and LGPL texts
 engine/              Supersonic, git submodule pinned to a commit
 game/
+  third_party/       TinyXML and dr_mp3, vendored
   eth/               PenumbraEth: the Ethanon 0.7.12 runtime emulation (no renderer)
   script/            the .as files ported to C++, one .cpp per .as, on the Eth API
   render/            presentation on the engine: sprites, lights, shadows, particles, text, HUD

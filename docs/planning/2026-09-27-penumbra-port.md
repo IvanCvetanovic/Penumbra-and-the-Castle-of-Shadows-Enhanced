@@ -57,7 +57,7 @@ Engine, in this repository, with the engine improved where the game needs it.
 | E21 | The enhanced edition's credit (Step 26): the Credits panel draws the original team's credits untouched, then one blank line, "Ivan Cvetanović" and one role, " -Edição aprimorada (Supersonic Engine)" / " -Enhanced edition (Supersonic Engine)" (Script.hpp creditosEnhanced after menu.as's creditos; the English by a strings.json pattern). One role, not three: the panel has three lines left below the original's (the last ends at y 745 of 768) and 381 px across. The c with acute: cp1252 has none, so 0x8D, a byte cp1252 leaves undefined and none of the original's 261 text files (.as .enml .esc .ent .par .txt .cg .ethproj) holds, is the port's byte for U+0107 (eth/Text: logs, strings.json; FontAtlas: every face and both stand-ins have the glyph). Not switchable: it changes no play | the panel credited the 2010 team only |
 | E23 | The display mode chosen for the player, and by hand (Step 27). Automatic: fullscreen at the desktop's size - the monitor's native size as the system runs it, not the largest listed mode (NVIDIA DSR and AMD VSR list virtual modes above the panel's; a virtual X server lists one oversized mode) - at the highest refresh rate the monitor offers at that size, which switches the display only when the desktop does not run that rate already (engine: SetFullscreenMode's kHighestRefreshRate); a window fitted to its monitor, the largest of the monitor's own shape within 85% of its work area each way, centred (engine: FitWindowToMonitor; 1566x979 on a 1920x1200 panel over a 48 px taskbar), fitted before the first swapchain at launch (GameManifest::fitWindowToMonitor) and again on each way out of fullscreen; a first launch (no settings.json) is fullscreen. By hand, on the options screen: the mode list's first line "Automático (melhor)" / "Automatic (best)" (automatic in the window or in fullscreen, whichever the game is in), the sizes as "WxH" with the monitor's native one marked "(nativa)" / "(native)", the current choice marked "[•]" and drawn at full alpha as a Switch row's is; a window picked from the list is centred on its monitor; a refresh-rate row at x 540 beside the window switch, "Taxa de atualização" / "Refresh rate", "[<] Automática (165 Hz) [>]" and every rate the monitor offers at the fullscreen size, applied at once in fullscreen and at the next fullscreen from a window ("Vale para a tela cheia" / "Applies in fullscreen"). Saved as window.width/height and fullscreenWidth/Height (0 x 0 automatic) and fullscreenRefresh (0 automatic; a rate the size lacks runs at the highest and is kept); --refresh auto\|Hz for one run. On Android the row, beside the touch controls' (E20), asks the display for "Automática (máxima)" / "Automatic (highest)" or "60 Hz" (engine: SetPreferredRefreshRate - the activity's preferredDisplayModeId, and ANativeWindow_setFrameRate from API 30). Not switchable as a whole: automatic is a line of the list and of the row | fullscreen at the mode picked, at whatever rate the driver gave it, a window at 1024x768 or the size picked; the list's lines "WxHx32", each size once per refresh rate; no refresh rate to choose |
 | E22 | The touch controls are player 1 (Step 26; InputMapper::PadOrder, set with them by the layer's SetTouchEnabled): while they are on, real pads start at player 2's index and never take player 1's, so on a phone one Bluetooth gamepad plays player 2 - Versus opens, the co-op princess comes with its Start - and a second pad changes nothing for player 1 (it goes to an index no player reads); off (E20's row, or a desktop without --touch), E12 as before. Versus without a pad says so in touch wording, "Conecte um gamepad para o jogador 2." / "Connect a gamepad for player 2." (strings.json "touch") | winmm's order made a lone pad player 2's; E12 made it player 1's, which on a phone (touch on, keyboard player 2 off) left Versus closed and the princess never summoned |
-| E25 | A phone-sized UI while the touch controls are on (Step 31; render/PhoneUi): the campaign's levels and checkpoint.esc get a logical screen the zoom times smaller than E1's (auto 150% on a phone-shaped window, aspect >= 1.9, 125% elsewhere; settings.zoom "auto" or 100-200, a phone's options row "Zoom", --zoom; no further than a message line keeps 795 px to the pause button, E26's frame included (Step 32's message rule: on 20:9 the row offers up to 175% and a higher saved value draws at about 183%, a 4:3 tablet's 125% at about 110%; the row offers no step past the limit), the end screen and a scene with the princess back at E1's (Machine::SetScreenSize, CampaignUnzooms); menu.esc and arena_select.esc keep 1024x768 for the scripts, but the view scales them until the logo and buttons (30..632.8 x 20..600) fill the window's height, from the left, where that is at least 1.1 times E1's scale and leaves the panel E1's width (CameraRig's MenuFrame); showData sets its title and body in what the window's safe area shows of the panel, one factor for both (HudCmd::fit, HudRenderer, FontAtlas::Measure), from E1's size up to 1.6 times it, a long body in two columns (TextFit::columns) and clear of the gamepad icons (TextFit::avoid); the direction disc is left/right only and a down button (images/touch/exit_down.png) shows above it while Script::g_nextLevelOffered (the next_level callback, main.as:204-208) says the door offers the way on; the touch layout is scaled by TouchInput::unit so it keeps its size on the window; without touch nothing changes | 1024x768 on every screen; the disc had a down arrow, needed only at the exit |
+| E25 | A phone-sized UI while the touch controls are on (Step 31; render/PhoneUi): the campaign's levels and checkpoint.esc get a logical screen the zoom times smaller than E1's (auto 175% on a phone-shaped window, aspect >= 1.9 - held to what the screen has room for, about 162% on 18:9 - 125% elsewhere; 150% until 1.0.2, Step 33; settings.zoom "auto" or 100-200, a phone's options row "Zoom", --zoom; no further than a message line keeps 795 px to the pause button, E26's frame included (Step 32's message rule: on 20:9 the row offers up to 175% and a higher saved value draws at about 183%, a 4:3 tablet's 125% at about 110%; the row offers no step past the limit), the end screen and a scene with the princess back at E1's (Machine::SetScreenSize, CampaignUnzooms); menu.esc and arena_select.esc keep 1024x768 for the scripts, but the view scales them until the logo and buttons (30..632.8 x 20..600) fill the window's height, from the left, where that is at least 1.1 times E1's scale and leaves the panel E1's width (CameraRig's MenuFrame); showData sets its title and body in what the window's safe area shows of the panel, one factor for both (HudCmd::fit, HudRenderer, FontAtlas::Measure), from E1's size up to 1.6 times it, a long body in two columns (TextFit::columns) and clear of the gamepad icons (TextFit::avoid); the direction disc is left/right only (400 units across since 1.0.2, Step 33) and a down button (images/touch/exit_down.png) shows above it while Script::g_nextLevelOffered (the next_level callback, main.as:204-208) says the door offers the way on; the touch layout is scaled by TouchInput::unit so it keeps its size on the window; without touch nothing changes | 1024x768 on every screen; the disc had a down arrow, needed only at the exit |
 | E26 | The HUD in a safe frame while the touch controls are on (Step 32; render/PhoneUi's HudFrame): in a level's or an arena's loop the layer sets Script::g_touchHud - the frame, the display's safe area (SafeArea, --safe-area) or settings.edgeMargin ("auto": 3.5% of the width at the sides and of the height at the top on a phone-shaped screen, 1% elsewhere; 0-8; --edge-margin) whichever is more, in the screen's logical px less the bars - and interface.cpp (the bars, the values, the lives, the PvP points), setupScene.cpp (the timer, the message lines), loadingMessage and detectJoysticks draw from its corners (hudTopLeft, hudTopRight, hudBottomLeft); the values as hudValue (light text over the lives counter's 0xF0000000 shadow, never left of the bar's left end) while touch is on; the pause button hangs from the frame's corner (TouchInput::hudFrame). A hand-set margin is held to the message rule on E1's screen (FittedEdgeMargin) | The HUD at the screen's edges, the values in the bars' dark colours, sliding off the left edge as a bar empties |
 
 ## Steps
@@ -119,8 +119,9 @@ points, 3 to win) - with only teleports, marker moves and direct hp writes as sh
   'Voltar' -> 'Back' (arrow_button) and 'Jogador 1/2' -> 'Player 1/2' (input_options1/2). The logo
   subtitle and 'Back' use Matura MT Script Capitals in place of the original's hand-cut uncial.
   **Decision (R4 exception):** these generated variants carry some original pixels (the Penumbra letters,
-  the pad art, the arrow body) and are committed; they are new art the English game needs, in a
-  private repository that already holds every original asset.
+  the pad art, the arrow body) and are committed; they are new art the English game needs, in what was
+  then a private repository that already held every original asset (it has been public since
+  2026-09-30; LICENSE.md lists these images as derived from the original authors' art).
 - **E2 window (engine a516b7c, WindowControl).** Alt+Enter and the options screen's switch really go
   fullscreen - borderless, at the monitor's current mode - and back; settings.fullscreen persists it;
   --fullscreen/--windowed for one run. The options screen lists each 32-bit size once (0.7.12 repeated
@@ -276,8 +277,8 @@ Gates: build zero warnings (full build, then Penumbra alone); test_pn_all 16/16.
 - Driven with real input events (a desktop rig): Esc in level 1 opened the pause and froze the game (two
   frames 1.5 s apart byte-identical), the selection moved, and Main menu reached the main menu. Two
   anomalies (Main menu preselected on opening; an Enter that did not resume) traced to the test, not the
-  game: the rig moves the window under a resting mouse on its first screenshot, and the Magic Portals
-  project's game windows were opening on the same desktop, taking the focus (auto-pause) and some of the
+  game: the rig moves the window under a resting mouse on its first screenshot, and another project's
+  game windows were opening on the same desktop, taking the focus (auto-pause) and some of the
   rig's input. Live desktop tests stopped while the other project drives windows here.
 - The pause's pointer now selects a row only when it moves at least 2 logical pixels between ticks: a
   wobble of a pixel (DPI or rounding) no longer takes the selection from the keys. It does not cover
@@ -536,7 +537,7 @@ Gates: Windows build zero warnings, test_pn_all once, 17 suites, 7539 checks, 0 
 7450, 0 failures; Android both ABIs build.
 
 ### Step 20 - the touch controls: the knob at rest, the options' back, hints in touch wording (E16 addendum, 2026-09-28)
-Three of Step 19's "to be looked at by hand" points, approved as fixes.
+Three of Step 19's "to be looked at by hand" points, taken as fixes.
 - **The knob at rest.** Magic Rampage's focus brackets were drawn at the direction control's centre
   with no thumb on it, framing the empty gap between left and right like a missing button. They are
   now drawn only while the thumb points a direction (past the dead zone and not within 22.5 degrees
@@ -1364,6 +1365,30 @@ one rate.
   changes only with `on`.
 - **Checked.** See DEVLOG.md (2026-10-01, E25's review and E26).
 
+### Step 33 - round two and three of the phone feedback; release 1.0.2 (2026-10-01)
+Played on a phone, E25 and E26 changed in four ways, and the version went to 1.0.2 (the first release
+since 1.0.0 to carry the eleven languages and the phone UI; 1.0.1 was a development build).
+- **The HUD panel is a plaque.** `frame.png` is the original's border for a screen corner: stone along
+  its bottom and right only. On a touch screen the panel now stands at the safe area's corner, with no
+  edge margin, and has stone on all four sides: the missing top and left are cut from `frame.png`'s
+  own strips with the new Eth call `DrawSpritePart` (a sprite's sub-rectangle), 16 px thick, so the
+  bars start 16 logical px in; the stone runs on between two players' panels. The timer, the pause
+  button, the messages and the controls keep E26's frame.
+- **The direction buttons.** The control's box hangs below the screen's edge (`overhang`, a per-control
+  manifest field), which puts the left and right buttons level with the jump button without changing
+  the disc's input. It is 400 units across (was 330): each button is 126 units with a face of about
+  118, as large as the action buttons; the down button is their size (offset [161, 160]).
+- **The zoom.** The automatic phone zoom is 175% (was 150%).
+- **The icon.** The Android launcher icon is an adaptive icon on a deep-violet tile, with a
+  monochrome layer for Android 13's themed icons: a plain square icon is put on a white plate by the
+  launcher, and a transparent adaptive background is drawn black (seen on an Android 13 emulator),
+  so the skull has its own tile. The iOS icon is the same tile (iOS fills what is transparent).
+- **Release 1.0.2** (Android versionCode 3): Penumbra-Windows.zip and Penumbra-Android.apk made on the
+  development machine, Penumbra-Linux.tar.gz, Penumbra-macOS.zip and Penumbra-iOS.ipa by the release
+  workflow from the same commit, and SHA256SUMS.txt over all five. Windows and Android have been played by
+  a person (Android on a real phone); Linux and macOS are verified by automated tests; iOS only builds.
+- **Checked.** See DEVLOG.md (2026-10-01).
+
 ### Open
 - **E24: a native speaker's read of each language.** The nine translations are machine-made and
   machine-reviewed (an independent back-translation each), not checked by native speakers;
@@ -1399,8 +1424,7 @@ one rate.
   in the scene, the port's live lights come from visible buckets (unverified at screen edges).
 - **Touch (E16), open points:** a combo button (Left-Left-Sword and Down-Forward-Fire are hard with a
   thumb); Versus on a phone needs a pad for player 2 (E22, Step 26: the touchscreen is player 1); the
-  layout and the placeholder art until the Magic Rampage
-  buttons (not on this laptop) are given.
+  layout is tuned by playing (Step 33).
 - **Decided (2026-09-28):** the misnamed horror markers play (E15, switchable). A solo
   player counts as having a second controller while keyboard player 2 is on (E4): Versus opens and the
   AI may look for a princess that is not there - intended, harmless. The original's off-screen second
@@ -1420,15 +1444,14 @@ one rate.
 - **test_pn_all's child processes** (17 starts of one file per run) against rule 5's "once per
   build": run once this build as instructed, every start accepted. A full build now compiles every
   suite twice.
-- **The public release (2026-09-30).** This repository goes public with its full history,
+- **The public release (2026-09-30).** This repository is public with its full history,
   the original's files (`extracted/`, `penumbra_setup.exe`) and the Magic Rampage buttons included
-  (they stay their authors'); the engine goes public too. The enhanced edition's own code and
+  (they stay their authors'); the engine is public too. The enhanced edition's own code and
   the engine are MIT No Attribution (`LICENSE`, `engine/LICENSE`); `game/script/` and `game/eth/`
-  stay LGPL-3.0-or-later; `LICENSE.md` lists every part. README.md rewritten for the public (the
-  platform status says only Windows was played by a person, and that the work was done with
-  Claude Code); its long reference moved to `docs/` (enhancements, controls, playing, building,
-  testing), screenshots in `docs/images/`. Left for the release itself: R4 above and CLAUDE.md
-  still call the repository private; `tools/package.bat` copies `LICENSE.md` but not `LICENSE`, and
-  the README it copies links to `docs/`; `engine/THIRD_PARTY_LICENSES.md` asks for the provenance
-  of the engine's `assets/audio/ambient.wav` before a public release; `extracted/app` holds the
-  original's runtime DLLs (D3DX9, NVIDIA Cg, Audiere), under their makers' terms (`LICENSE.md`).
+  stay LGPL-3.0-or-later; `LICENSE.md` lists every part. README.md was rewritten for the public (the
+  platform status says which platforms a person played, and that the work was done with Claude
+  Code); its long reference moved to `docs/` (enhancements, controls, playing, building, testing),
+  screenshots in `docs/images/`. `tools/package.bat` carries `LICENSE` (as `LICENSE.txt`),
+  `LICENSE.md`, the licence texts, README.md and `docs/` in every package; the README's links to
+  files that are not in a package point at the repository. `extracted/app` holds the original's
+  runtime DLLs (D3DX9, NVIDIA Cg, Audiere), under their makers' terms (`LICENSE.md`).

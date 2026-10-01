@@ -32,7 +32,7 @@ executable this project builds for players. Nothing else in the zip is signed by
 - `msvcp140.dll`, `vcruntime140.dll`, `vcruntime140_1.dll` (and the other Visual C++ runtime files)
   are Microsoft's redistributable runtime, already signed by Microsoft, copied unchanged;
 - `original/` holds the data of the 2010 game (art, music, sounds, levels). It is data read by the
-  game, never executed, and it belongs to the original game's authors (see [`LICENSE.md`](../LICENSE.md));
+  game, never executed, and it belongs to the original game's authors (see [`LICENSE.md`](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/blob/main/LICENSE.md));
 - `data/`, `assets/shaders/`, the licences and the documents are data and text.
 
 The signed program must have its product name set to *Penumbra and the Castle of Shadows - Enhanced*
@@ -51,7 +51,7 @@ Anyone can check a downloaded APK with the Android SDK: `apksigner verify --prin
 Penumbra-Android.apk` must print this fingerprint as the signer's SHA-256 digest.
 
 **Mac.** `Penumbra.app` inside `Penumbra-macOS.zip` is signed ad hoc (`codesign --sign -`, in
-[`tools/apple/make_app.sh`](../tools/apple/make_app.sh)): a signature with no certificate and no
+[`tools/apple/make_app.sh`](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/blob/main/tools/apple/make_app.sh)): a signature with no certificate and no
 identity, which seals the bundle, so that macOS can tell whether anything in it changed, and which
 Apple silicon Macs require before they run a program at all. It is not notarised by Apple. The
 release workflow unpacks the zip again and checks that seal strictly (`codesign --verify --deep
@@ -68,7 +68,7 @@ checksum, as it does for every other download.
 ## How a signed release is made
 
 1. The release is built from the public source in this repository, at a commit on `main`, by
-   GitHub Actions: the Windows job of [`.github/workflows/ci.yml`](../.github/workflows/ci.yml)
+   GitHub Actions: the Windows job of [`.github/workflows/ci.yml`](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/blob/main/.github/workflows/ci.yml)
    builds with `tools\build.bat`, runs the test suites, and makes the release folder with
    `tools\make_release.bat` (the same scripts a developer runs; see [`building.md`](building.md)).
 2. The job uploads that folder, unsigned, as the build artifact `Penumbra-Windows-unsigned`.
@@ -79,12 +79,12 @@ checksum, as it does for every other download.
 
 Files built on a personal computer are never submitted for signing.
 
-This is how Windows releases will be made once signing starts. The 1.0.0 Windows zip was made on
+This is how Windows releases will be made once signing starts. The Windows zip is made on
 the development machine (`tools\make_release.bat`) and is not signed; the Android APK is also made
 there (`tools/build_android.sh --release`) and signed with the offline release key.
 
 The Linux, Mac and iPhone/iPad files are built by GitHub Actions, by the
-[release workflow](../.github/workflows/release.yml), from the public source at a commit of this
+[release workflow](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/blob/main/.github/workflows/release.yml), from the public source at a commit of this
 repository. It is run by hand and only builds and checks, unless it is asked to publish. It runs
 every test suite on Linux, and runs the Linux and Mac downloads as a player gets them before it
 keeps them: unpacked into a folder outside the source tree, the Linux one read-only and run as an

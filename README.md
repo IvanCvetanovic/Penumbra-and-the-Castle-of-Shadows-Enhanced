@@ -21,7 +21,7 @@ The Windows download is not code-signed yet, and the Mac app is not notarised by
 [![Apple](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/actions/workflows/apple.yml/badge.svg)](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/actions/workflows/apple.yml)
 ![C++20](https://img.shields.io/badge/C%2B%2B-20-00599C?logo=cplusplus&logoColor=white)
 ![Vulkan](https://img.shields.io/badge/Vulkan-1.2-AC162C?logo=vulkan&logoColor=white)
-[![Licence: MIT-0](https://img.shields.io/badge/licence-MIT--0-FF7A3D)](LICENSE.md)
+[![Licence: MIT-0](https://img.shields.io/badge/licence-MIT--0-FF7A3D)](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/blob/main/LICENSE.md)
 [![Built with Claude Code](https://img.shields.io/badge/built%20with-Claude%20Code-D97757?logo=anthropic&logoColor=white)](#how-it-was-made)
 
 <img src="docs/images/menu.jpg" alt="The main menu, filling a 16:9 window" width="860">
@@ -83,7 +83,7 @@ git clone --recurse-submodules https://github.com/IvanCvetanovic/Penumbra-and-th
 | Windows | `cmd //c "tools\build.bat"`, then `build\game\Penumbra.exe` | Visual Studio Build Tools (C++), CMake, Ninja |
 | Linux | `bash tools/build_linux.sh`, then `~/pn-build-linux/game/Penumbra` | [packages](docs/building.md#linux-x64), X11 or XWayland |
 | Android | `bash tools/build_android.sh --abi all` (APK in `out/android/`) | Android SDK and NDK, JDK 17, Python 3 |
-| macOS, iOS | The [Apple workflow](.github/workflows/apple.yml) on GitHub Actions; the downloads, the [release workflow](.github/workflows/release.yml) | |
+| macOS, iOS | The [Apple workflow](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/blob/main/.github/workflows/apple.yml) on GitHub Actions; the downloads, the [release workflow](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/blob/main/.github/workflows/release.yml) | |
 
 A GPU with **Vulkan 1.2** is required. Details: [`docs/building.md`](docs/building.md) ·
 [`docs/playing.md`](docs/playing.md).
@@ -106,8 +106,8 @@ A GPU with **Vulkan 1.2** is required. Details: [`docs/building.md`](docs/buildi
 > [!NOTE]
 > The enhanced edition was directed and reviewed by **Ivan Cvetanović** and developed with
 > **[Claude Code](https://claude.com/claude-code)**, Anthropic's AI coding tool: the porting, the
-> engine work, the tests and the documentation. [`CLAUDE.md`](CLAUDE.md), [`DEVLOG.md`](DEVLOG.md)
-> and [`docs/planning/`](docs/planning/2026-09-27-penumbra-port.md) are the working record.
+> engine work, the tests and the documentation. [`CLAUDE.md`](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/blob/main/CLAUDE.md), [`DEVLOG.md`](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/blob/main/DEVLOG.md)
+> and [`docs/planning/`](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/blob/main/docs/planning/2026-09-27-penumbra-port.md) are the working record.
 
 Tests: 17 suites check the port against the original's files, and five of them play the game
 headless ([`docs/testing.md`](docs/testing.md)).
@@ -119,12 +119,12 @@ headless ([`docs/testing.md`](docs/testing.md)).
   (music); thanks to James Hastings-Trew, José Rodolfo Ortale, Rafael "Pet" Alencar, Taina Monclaire.
 - **Enhanced edition:** Ivan Cvetanović, developed with Claude Code.
 - **Touch buttons:** from *Magic Rampage*, by Asantee Games.
-- **Third-party:** TinyXML, dr_mp3, Liberation and DejaVu fonts, and the engine's libraries
+- **Third-party:** TinyXML, dr_mp3, Liberation, DejaVu and Noto fonts, and the engine's libraries
   ([list](https://github.com/IvanCvetanovic/Supersonic-Engine/blob/main/THIRD_PARTY_LICENSES.md)).
 
 ## Licence
 
-- **Ivan Cvetanović's code and the Supersonic Engine:** [MIT No Attribution](LICENSE), completely
+- **Ivan Cvetanović's code and the Supersonic Engine:** [MIT No Attribution](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/blob/main/LICENSE), completely
   free to use.
 - **The ported scripts** (`game/script/`) **and the Ethanon runtime** (`game/eth/`): LGPL-3.0.
 - **The original game's files and the Magic Rampage buttons:** their authors' property.
@@ -133,4 +133,4 @@ headless ([`docs/testing.md`](docs/testing.md)).
 > Provided **as is, without any warranty**. Ivan Cvetanović is not responsible for anything that
 > happens through its use, including lost data, damage to hardware, or display problems (the game
 > can change a monitor's resolution and refresh rate). Use it at your own risk. Full terms:
-> [`LICENSE.md`](LICENSE.md).
+> [`LICENSE.md`](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/blob/main/LICENSE.md).

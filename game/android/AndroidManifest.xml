@@ -12,6 +12,15 @@
     and every configuration change handled in place, because a NativeActivity
     that is recreated starts its native thread again over a running game.
 
+    The launcher icon, @mipmap/ic_launcher, is an adaptive icon
+    (tools/android_package.py writes it from the original's penumbra.ico:
+    res/mipmap-anydpi-v26/ic_launcher.xml, a deep-violet gradient background,
+    a foreground layer, and a monochrome one for Android 13's themed icons),
+    so a launcher masks the skull on its tile: a plain square PNG alone is put
+    on a white plate, and a transparent background is drawn as black, the
+    system composing the layers over black. There is no android:roundIcon; a launcher
+    that wants a round icon masks this one.
+
     tools/build_android.sh links this with aapt2 and signs the APK: by default
     in debug mode (debuggable, so run-as works) with the debug keystore; with
     release not debuggable, with the release key (the build_android.sh flag).
@@ -21,8 +30,8 @@
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.ivancvetanovic.penumbra"
-    android:versionCode="2"
-    android:versionName="1.0.1">
+    android:versionCode="3"
+    android:versionName="1.0.2">
 
     <uses-feature android:name="android.hardware.vulkan.level" android:version="0" android:required="true" />
     <uses-feature android:name="android.hardware.vulkan.version" android:version="0x402000" android:required="true" />

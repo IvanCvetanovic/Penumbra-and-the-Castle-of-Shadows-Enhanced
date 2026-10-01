@@ -1,3 +1,10 @@
+"""Print a Windows PE file's header facts: machine, section table, timestamp and imports.
+
+Used while decoding the original's executables (docs/spec); nothing in the build uses it.
+
+    python tools/pe_info.py <file.exe or file.dll>...
+"""
+
 import struct, datetime
 
 def parse_pe(path):

@@ -25,3 +25,11 @@ imgui.ini
 Thumbs.db
 __pycache__/
 *.py[cod]
+
+# Signing keys and run logs: never committed.
+*.jks
+*.keystore
+*.p12
+*.pfx
+*.pem
+*.log

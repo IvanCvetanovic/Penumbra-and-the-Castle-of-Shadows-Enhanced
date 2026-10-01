@@ -36,10 +36,12 @@ and the Magic Rampage art **belong to their authors**.
 | The runtime libraries the original shipped with: D3DX9 (`d3dx9_42.dll`, Microsoft), NVIDIA Cg (`cg.dll`, `cgD3D9.dll`) and Audiere (`audiere.dll`, LGPL) | `extracted/app/` | Their makers' redistribution terms, included as the original's installer distributed them. The enhanced edition neither uses them nor puts them in its packages. |
 | The English variants of the original's menu and interface images (the original's art with English lettering, made by `tools/art/make_english_art.py`) | `game/data/images/en/` | Derived from the original authors' art, which stays theirs. The script that makes them is MIT-0. |
 | Magic Rampage's on-screen buttons (Magic Rampage 7.8.7, Asantee Games, from its Android package), some composed from its parts, for the touch controls | `game/data/images/touch/*.png` (not `placeholder/`), made by `tools/art/make_mr_touch_art.py` | **Asantee Games' property.** `game/data/images/touch/README.md` says which of its files each image is and what was composed. The placeholder buttons in `placeholder/` are Ivan's (MIT-0). |
-| TinyXML 2.5 | `game/third_party/tinyxml/` | zlib (notice in each file) |
+| TinyXML 2.6.1 | `game/third_party/tinyxml/` | zlib (notice in each file) |
 | dr_mp3 (David Reid, based on minimp3), for MP3 where the engine has no decoder | `game/third_party/dr_mp3/` | Public domain (Unlicense) or MIT No Attribution, the user's choice (end of `dr_mp3.h`) |
 | Liberation Sans Bold 2.1.5, stand-in for Arial and Arial Narrow | `game/data/fonts/LiberationSans-Bold.ttf` | SIL Open Font License 1.1 (`game/data/fonts/LICENSE-LiberationFonts.txt`) |
 | DejaVu Sans Bold 2.37, stand-in for Arial Black and Verdana | `game/data/fonts/DejaVuSans-Bold.ttf` | Bitstream Vera and Arev font licences, DejaVu changes public domain (`game/data/fonts/LICENSE-DejaVuFonts.txt`) |
+| Noto Sans JP Bold, a subset, the face that draws Japanese | `game/data/fonts/NotoSansJP-Bold.ttf` | SIL Open Font License 1.1 (`game/data/fonts/LICENSE-NotoSansJP.txt`) |
+| Noto Sans Arabic Bold, a subset, the face that draws Arabic | `game/data/fonts/NotoSansArabic-Bold.ttf` | SIL Open Font License 1.1 (`game/data/fonts/LICENSE-NotoSansArabic.txt`) |
 
 Where a file of Ivan's quotes, translates or shows the original (the English text in
 `game/data/strings.json`, the specification in `docs/spec/`, the screenshots in `docs/images/`),
@@ -55,10 +57,11 @@ on top of the GPL, so both are needed). A packaged build (`tools/package.bat`) c
 
 **Fonts.** On Windows the game draws text with the Microsoft fonts installed there (Arial, Arial
 Narrow, Arial Black, Verdana) and never ships them. Where a face is missing, and on every other
-platform, it draws two open-licence stand-ins bundled in `game/data/fonts/`. That folder's
+platform, it draws open-licence fonts bundled in `game/data/fonts/`: Liberation and DejaVu stand-ins for the Microsoft faces, and Noto subsets for the Japanese and Arabic text on every platform. That folder's
 README.md gives their sources, versions and checksums, and each licence text sits beside its font
 there. A packaged build carries that folder whole. The generated English menu art was rendered from
-Courier New and Matura MT Script Capitals; the images, not the fonts, are in the repository.
+Courier New and Matura MT Script Capitals, and the other languages' from Aref Ruqaa, Kurale, Yuji Syuku and the Noto faces (their
+licence texts are in `tools/art/fonts/`); the images, not those fonts, are in the repository.
 
 ## MIT No Attribution
 
