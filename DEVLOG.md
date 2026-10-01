@@ -687,3 +687,64 @@ behind the list do not answer; the credits name the options screen's Magic Rampa
   folder's README say which.
 - The globe and the list read the window's shown area (`g_phonePanel`), which starts at the safe area's
   left, so a notch on that side keeps clear of them.
+
+---
+
+## 2026-10-01 (evening) — E28: adjustable touch controls
+
+**Why.** The touch buttons had one size, one opacity and one place, set only in `touch_controls.json`, which a player cannot edit on a phone. Magic
+Rampage has a screen for this (its own pad, decoded for the purpose: docs/spec/42-magic-rampage-screenpad.md), and its ranges and its look were taken as
+the reference; the record of what was built and where it differs is docs/planning/2026-10-01-e28-adjustable-touch-controls.md.
+
+**Built.**
+- *The editor.* On a touch-enabled options screen an "Adjust controls" button under the touch switch (videoModes.cpp, marked E28) opens a full-screen
+  editor (render/TouchEditor, pure like PauseMenu) over the frozen options scene: the real controls, size tiles (one global size, 0.4 to 1.4 by 0.1; Pause
+  and Back keep theirs), opacity tiles (0.2 to 1.8 by 0.2, a multiplier of the manifest's 0.45), a padlock (opens locked; unlock and drag; a size step or a
+  restore re-locks), a circular arrow (Restore: the moves only, nothing asked), and the back arrow at the top left (Esc leaves too). The icons are Magic
+  Rampage's symbols on its stone frames (tools/art/make_options_art.py writes game/data/images/options/edit_*.png; LICENSE.md and the folder's README say so).
+- *The model.* render/TouchTuning: size, opacity and a move per control in manifest pixels, in the screen's direction, from the control's anchor, so they
+  survive a window or rotation change; snapped to their grids so a chain of steps ends exactly on the limits. `TouchControls::WithTuning` lays it over the
+  manifest as one derived manifest (the default returns the base itself), `MoveFor` runs `ComputeLayout`'s own placement backwards for the drag (that
+  function was split into `BoundsFor`, `PlaceControl` and `LayOut` with every expression kept), `GrabBox` is what a finger can take (the direction control's
+  strip, not its 400-unit disc). `settings.json` holds `touchTuning`, read as tolerantly as the other fields.
+- *The layer.* `ApplyTouch`'s first half is `BuildTouchInput()`; with the editor open the scene is `TouchScene::Edit`. Four things keep the closing Esc, a click
+  or a finger from reaching the options screen: the Machine does not tick while the editor is open, `step.touching` forces `K_LMOUSE` false, fingers in the
+  Edit scene have no owner, and `PauseMenu::HoldPressed()` arms the input filter on close. `HudCmd::stretchToSides` (default true) lets the outlines stay
+  thin on a wide menu. Three dev flags, `--touch-tuning`, `--touch-editor` and `--finger`, set `noSave`: a run with any of them writes no settings.
+- *Words.* Two strings (the button, the title) in eleven languages, each with a room in tests/data/l10n_rooms.json.
+- *Tools.* tools/check.bat defines `PENUMBRA_TESTS_DATA_DIR`, so the two suites that read tests/data can be compile-checked on their own.
+
+**Numbers.** WSL: zero warnings; test_pn_all 17 suites, 28556 checks, 0 failures (22109 before). Per suite now: render_touch 6936, render_input 2438,
+render_pause 4083, render_hud 11440, scenarios 1085 (scenario 24 added); the others are as they were.
+- *The size ceiling.* Magic Rampage pushes overlapping buttons apart and Penumbra does not, so `testSizeCeiling` measures, in play (E26's frame, E25's
+  automatic zoom, a notch, a gesture bar, a tablet's bars, the Pause in every overlap check), the largest size at which the shipped layout draws no control
+  over another: **1.1** on the nine standard cases, **1.0** once a 100 px bottom bar is added (at 1.1 the spell combo button meets the Pause on the 20:9, the
+  16:9 and the 4:3 shape), **1.2** on the unzoomed screens the layout was always checked on. Above the ceiling the spell combo button grows into the pause
+  button on every screen. The editor offers every size to 1.4 and every one keeps every control inside the safe area; only overlap is left to the player.
+- *MoveFor:* 11232 round trips through the real layout (every control, three screen shapes, three insets, two scales, with and without the HUD frame, the wide
+  menu's area, four sizes, eight targets each), the result always inside the room it must keep to.
+- *Byte identity.* The default captures are byte-identical to those taken at ff3cde8 before any E28 code: `--touch on --mobile-layout on --lang en --fixed-step
+  --start level1 --frames 120` at 2400x1080 (SHA-256 3da7437d...) and at 1024x768 (481bff92...).
+- *Captures* (headless, Linux/lavapipe, each in a throwaway user directory; none committed): the entry button at 1280x720, 1024x768 and in Portuguese; the
+  editor locked at 1024x768 and 2400x1080; unlocked and tuned (`size=1.2,opacity=0.6,jump=-40:30,pause=-30:20,dpad=12:0`) at both; a notch
+  (`--safe-area 132,0,132,48 --edge-margin 3.5`); a drag by `--finger` through the layer; the entry tap, with the options scene frozen between frame 12 and
+  frame 30; the tuning in level 1; the title in de, ja, ar and ru; size 1.4 and size 0.4 with
+  opacity 0.2, in the editor and in play. A pair meant to show a finger pressing a moved jump button (and not its old place) came out identical at frame 60 and shows
+  nothing; that the hit areas follow the drawn ones is pinned by test_pn_render_touch instead.
+- *Windows* (MSVC, this laptop, with the real Arial Narrow installed): Penumbra and test_pn_all build with zero warnings; `test_pn_all.exe` was launched once
+  and ran: 16 suites pass.
+
+**Open.**
+- Windows: `test_pn_render_hud` has 18 failures, all of one check, E25's panels check, in Spanish, French and Italian at 2400x1080, 2532x1170 and 1920x1080 (the same 18 with the
+  language files and the rooms file put back to their pre-E28 text, so the data is not the cause):
+  the first glyph of a panel's line starts up to 0.115 px left of the 2 px slack the check allows, which looks like the side bearing of the real face. It
+  passes on Linux with the stand-in fonts. E28 does not touch text layout; the check is not changed here.
+- The translations of the two strings are drafts in the vocabulary of the existing touch strings; Arabic, Japanese, Turkish and Ukrainian have not been read by
+  a native speaker.
+- Android's system Back closed the editor in the emulator (an adb KEYCODE_BACK, back on the options screen); a real phone is not checked. A pad's Back or B cannot close the editor: with the
+  touch controls on, no pad is player 1.
+- Real touch contacts: one pass on the Android emulator (`adb shell input`, debug APK, x86_64): the button opens the editor, the padlock unlocks, a swipe moves the jump
+  button, a size step is taken, Back closes it with the options screen still showing, `settings.json` holds `touchTuning` (size 1.1, jump -69,-69.8) and, after
+  force-stopping and relaunching the app, level 1 draws the controls so (the swipe's last sample is lost at the lift, so the button stops short of the swipe's end).
+  A real phone has not been tried. The headless captures use `--finger`'s synthetic fingers.
+- Not built: sounds, per-control size, a restore confirmation, a flash on a drag while locked, an entry in the pause menu, Magic Rampage's push-apart.

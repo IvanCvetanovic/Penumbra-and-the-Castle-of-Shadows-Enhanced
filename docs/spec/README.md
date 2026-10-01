@@ -14,6 +14,7 @@ shipped on, disassembly of `machine.exe` / `GameSpace.dll`, and the Supersonic e
 | `30-ethanon-runtime.md` | the 0.7.12 frame loop, buckets, ids, callbacks, custom data, draw order, blend modes, input, audio |
 | `40-engine-capabilities.md` | what Supersonic offers and lacks for this game |
 | `41-magic-portals-reuse.md` | what the Magic Portals port (also Ethanon) solved that applies here |
+| `42-magic-rampage-screenpad.md` | what Magic Rampage 7.8.7's screen that adjusts the on-screen pad does (size, transparency, lock, move, restore, storage), decoded on 2026-10-01 from its Android package as the reference for E28; its paths are inside that package, not in this repository |
 | `90-synthesis.md` | corrections to the above, gaps, engine-gap list, module breakdown and build order |
 
 **Precedence.** Where these files disagree with each other, `90-synthesis.md`'s corrections win;

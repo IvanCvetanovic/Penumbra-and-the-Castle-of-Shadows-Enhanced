@@ -136,3 +136,34 @@ the mouse, held down, is the finger.
   does, which is what puts its two buttons level with the jump button). The first,
   placeholder look is kept in `game/data/images/touch/placeholder/` with its own manifest: copy that
   over `game/data/touch_controls.json` to go back to it.
+
+### Adjusting the buttons (E28)
+
+The buttons' size, opacity and places are the player's to change. With the touch controls on, the options screen has an **Adjust controls** button
+under the touch controls' switch. It opens a full-screen editor that shows the real buttons on a dark background, as they are in a level.
+
+![The editor on a 20:9 phone, with the size at 1.2, the opacity at 0.6, the padlock open and some buttons moved](images/touch-editor.jpg)
+
+*A tuned example: size 1.2, opacity 0.6, the padlock open (red) and a few buttons moved. The thin frames show where a finger takes each button.*
+
+| Control | What it does |
+|---|---|
+| The two tiles of the top row (shrink, enlarge) | Make every button smaller or larger, 0.4 to 1.4 times, a tenth a tap; the number between them shows the size. The pause and back buttons keep their size. |
+| The two tiles of the second row (dim, brighten) | Make every button fainter or stronger, 0.2 to 1.8 times the normal look, a fifth a tap. |
+| The padlock | The editor opens locked. Unlock it (its tile turns red) and a finger can drag any button, which keeps its place under the finger; a size step or a restore locks it again. |
+| The circular arrow | Puts every button back where it was. The size and the opacity stay. It is dim while nothing is moved, and asks nothing. |
+| The arrow at the top left, or Esc | Leaves the editor. |
+
+- A tile acts when the finger lifts inside it. A tile at its limit is dim and does nothing. A change shows at once, on the buttons behind the tiles.
+- The padlock is never saved; the size, the opacity and the places are: `touchTuning` in `settings.json`
+  ([playing.md](playing.md#settings-and-saves)). They apply from the next tick, in levels, arenas and the menus' corner button.
+- A button's place is kept as its distance from the corner it hangs from, not as a screen position, so it follows a rotation or another window size.
+- `touch_controls.json` stays the base look and layout, and the tuning is laid over it: a button's size is the manifest's `scale` times the tuning's
+  size times its own `size`, and the placeholder look is adjusted the same way. With nothing changed the buttons are exactly the manifest's.
+- Every button stays inside the screen's safe area, and the pause button below the run's timer. The direction control keeps its overhang below the
+  screen's edge, and the down button (E25) moves with it. The back button, in the arena select and on the end screens, never moves.
+- Nothing stops a button from covering the HUD or another button, and the circular arrow puts the places back, not the size. With the shipped layout,
+  no button is drawn over another in play up to size 1.1 (1.0 with a tall bottom bar; 1.2 on a screen that is not zoomed). Above that the spell combo
+  button grows into the pause button on every screen, and the buttons are moved apart by hand, the editor being a live preview of it.
+- The editor is opened by hand from the options screen. For captures, `--touch-editor`, `--touch-tuning` and `--finger`
+  ([playing.md](playing.md#command-line)) open it, set a tuning and put a finger on the screen; a run with any of them saves nothing.
