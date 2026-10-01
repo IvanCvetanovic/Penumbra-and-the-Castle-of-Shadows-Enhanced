@@ -193,6 +193,9 @@ public:
     void LoadSprite(const string& path);
     void DrawSprite(const string& path, const vector2& pos, uint color);
     void DrawShapedSprite(const string& path, const vector2& pos, const vector2& size, uint color);
+    // E26: DrawSprite of the pixels [rectMin, rectMax) of the image (see Eth.hpp).
+    void DrawSpritePart(const string& path, const vector2& pos, const vector2& rectMin, const vector2& rectMax,
+                        uint color);
     vector2 GetSpriteSize(const string& path) const;
     void DrawRectangle(const vector2& pos, const vector2& size, uint c0, uint c1, uint c2, uint c3);
 

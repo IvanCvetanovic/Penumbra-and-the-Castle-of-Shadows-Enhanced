@@ -31,7 +31,7 @@ Every source path is under the base APK's `assets/`.
 | `sword.png` | `sprites/attack-pad-button.png` | Its melee attack button (a dagger), as shipped. |
 | `pause.png` | `sprites/pause-pad-button.png` | Cropped to its pill, `(0, 42, 128, 128)`, giving 128x86 (the pill sits in the lower part of a 128 square). |
 | `back.png` | `sprites/inventory-back-button.png` | Its back button (on about forty of its screens), as shipped. |
-| `dpad_left.png` | `sprites/dpad-left.png` | As shipped, placed alone on a transparent 406x406 canvas (the direction control's 330 logical px) where its sector is. |
+| `dpad_left.png` | `sprites/dpad-left.png` | As shipped, placed alone on a transparent 406x406 canvas (the direction control's 400 logical px) where its sector is. |
 | `dpad_right.png` | `sprites/dpad-right.png` | The same. |
 | `dpad_down.png` | `sprites/dpad-right.png`, `sprites/dpad-frame.png` | **Composed.** Magic Rampage has no down button. `dpad-right`'s inner face (pixels 30..97) is mirrored across the main diagonal onto the blank frame, so the right arrow becomes a down arrow and keeps its shadow to the lower right. The face's shading carries over as a ratio to the frame, and the arrow's outline and fill carry over as they are. Placed as the other two. |
 | `exit_down.png` | as `dpad_down.png` | **E25.** The same down button, alone on its own 128x128 image: exactly the pixels `dpad_down.png` has at (139, 276). It is shown only at a level's exit, above the left and right buttons. |
@@ -56,8 +56,14 @@ lifting. Before E25 it had a down button too, and the shipped layout now draws o
 right ones (`touch_controls.json` can ask for the down one and its sector back). Its three buttons
 are drawn where its sectors are:
 
-- centres (-113, -18), (113, -18) and (0, 111) logical px from its centre;
-- each 104 logical px.
+- centres (-137, -21.8), (137, -21.8) and (0, 134.5) logical px from its centre;
+- each 126 logical px (a face of about 118, as large as the action buttons).
+
+The art is all in the control's 400 px box and is not moved by where the box is. The shipped layout
+puts the box 138 logical px below the screen's bottom edge (`touch_controls.json`: `offset` y -138,
+`overhang` y 150), because the lower half of the disc is empty: the left and right buttons' centres
+are then 83.7 px above the edge, level with the jump button's, and only the buttons show. The disc's
+input is the same wherever the box is.
 
 The script feeds every opaque pixel through the sectors that `TouchControls.cpp` reads, and
 `test_pn_render_touch` checks the same:

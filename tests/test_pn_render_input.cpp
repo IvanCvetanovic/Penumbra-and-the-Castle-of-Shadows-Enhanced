@@ -1366,7 +1366,7 @@ void testWideMenuWarp() {
 // === E25: a phone-sized UI (render/PhoneUi.hpp) =================================================
 
 // settings.json "zoom" read, written and read back, and the zoom's rules: none
-// without the touch controls, whatever it says; automatic 150% on a
+// without the touch controls, whatever it says; automatic 175% on a
 // phone-shaped screen and 125% on any other; and never past where a message
 // line would lose its room before the pause button (MaxZoom; E26's frame is
 // testPhoneHudFrame's). The screen a campaign level gets at it.
@@ -1416,7 +1416,7 @@ void testPhoneZoom() {
     // What is asked.
     CHECK_EQ(ZoomPercent(0, false, {2400u, 1080u}), 100);     // no touch controls: no zoom
     CHECK_EQ(ZoomPercent(175, false, {2400u, 1080u}), 100);   // whatever the setting says
-    CHECK_EQ(ZoomPercent(0, true, {2400u, 1080u}), 150);
+    CHECK_EQ(ZoomPercent(0, true, {2400u, 1080u}), 175);
     CHECK_EQ(ZoomPercent(0, true, {1920u, 1080u}), 125);
     CHECK_EQ(ZoomPercent(0, true, {2048u, 1536u}), 125);
     CHECK_EQ(ZoomPercent(175, true, {2048u, 1536u}), 175);
@@ -1433,7 +1433,7 @@ void testPhoneZoom() {
         glm::vec2 screen;
     };
     const Case cases[] = {
-        {{2400u, 1080u}, true, true, 0, 1.5f, {1138.0f, 512.0f}},          // a 20:9 phone, automatic
+        {{2400u, 1080u}, true, true, 0, 1.75f, {976.0f, 439.0f}},          // a 20:9 phone, automatic
         {{2400u, 1080u}, true, true, 125, 1.25f, {1364.0f, 614.0f}},
         {{2400u, 1080u}, true, true, 175, 1.75f, {976.0f, 439.0f}},
         // Held where a message keeps 795 px to the pause button: 197% (no frame; E26's is

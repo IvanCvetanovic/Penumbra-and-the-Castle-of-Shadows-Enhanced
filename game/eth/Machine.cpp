@@ -546,9 +546,19 @@ void Machine::Render() {
             const SpriteResource* resource = FindSpriteResource(cmd.sprite);
             if (resource == nullptr) continue;   // not loaded: nothing drawn (ETHPrimitiveDrawer.cpp:158-168)
             cmd.sprite = resource->path;
-            if (cmd.kind == HudCmd::Kind::Sprite || cmd.size == vector2(0.0f)) cmd.size = resource->size;
-            cmd.spriteRectMin = vector2(0.0f);
-            cmd.spriteRectMax = resource->size;
+            // E26: a part of the image (DrawSpritePart) keeps its rectangle, within the
+            // image; one with nothing of the image in it draws nothing. Every other
+            // sprite command takes the whole image, as 0.7.12 drew it.
+            if (cmd.spriteRectMax.x > cmd.spriteRectMin.x && cmd.spriteRectMax.y > cmd.spriteRectMin.y) {
+                cmd.spriteRectMin = glm::max(cmd.spriteRectMin, vector2(0.0f));
+                cmd.spriteRectMax = glm::min(cmd.spriteRectMax, resource->size);
+                if (!(cmd.spriteRectMax.x > cmd.spriteRectMin.x && cmd.spriteRectMax.y > cmd.spriteRectMin.y)) continue;
+                cmd.size = cmd.spriteRectMax - cmd.spriteRectMin;
+            } else {
+                if (cmd.kind == HudCmd::Kind::Sprite || cmd.size == vector2(0.0f)) cmd.size = resource->size;
+                cmd.spriteRectMin = vector2(0.0f);
+                cmd.spriteRectMax = resource->size;
+            }
         }
         snap.hud.push_back(std::move(cmd));
     }
@@ -831,6 +841,21 @@ void Machine::DrawShapedSprite(const string& path, const vector2& pos, const vec
     cmd.size = size;
     cmd.sprite = path;
     cmd.color = color;
+    m_hudQueue.push_back(std::move(cmd));
+}
+
+void Machine::DrawSpritePart(const string& path, const vector2& pos, const vector2& rectMin, const vector2& rectMax,
+                             const uint color) {
+    // A Sprite command like DrawSprite's, with its rectangle set: the queue's
+    // resolve keeps it (clamped to the image) instead of taking the whole image.
+    HudCmd cmd;
+    cmd.kind = HudCmd::Kind::Sprite;
+    cmd.pos = pos;
+    cmd.sprite = path;
+    cmd.color = color;
+    cmd.spriteRectMin = rectMin;
+    cmd.spriteRectMax = rectMax;
+    cmd.size = rectMax - rectMin;
     m_hudQueue.push_back(std::move(cmd));
 }
 

@@ -328,8 +328,9 @@ void doLoop(const bool pvp)
     g_numNpcs = 0;
 
     // E26: the message lines from the frame's top-left corner on a touch
-    // screen; their half-size copy under the wizard is where he is.
-    g_messages.showMessages(vector2(10,70)+hudTopLeft(), "Arial", 30, 203, 203, 228, g_camera);   // E26: hudTopLeft
+    // screen, never above the end of the HUD's plaque; their half-size copy
+    // under the wizard is where he is.
+    g_messages.showMessages(hudMessagesTopLeft(), "Arial", 30, 203, 203, 228, g_camera);   // E26: hudMessagesTopLeft (vector2(10,70)+hudTopLeft())
     g_camera.adjustCameraPos(pvp);
     const float textSize = 25.0f;
 

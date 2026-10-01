@@ -121,6 +121,11 @@ TouchLayout Default(glm::vec2 screen = kFourThree) {
 }
 glm::vec2 Centre(TouchControl control, glm::vec2 screen = kFourThree) { return Default(screen)[control].Centre(); }
 glm::vec2 Dpad(glm::vec2 offset) { return Centre(TouchControl::Dpad) + offset; }
+// The same in another manifest's layout: a finger `offset` from the direction control's centre where
+// that manifest puts it (E16's disc sits on the screen, the shipped box hangs below its edge).
+glm::vec2 DpadIn(const TouchManifest& manifest, glm::vec2 offset) {
+    return TouchControls::ComputeLayout(manifest, kFourThree, TouchInsets{})[TouchControl::Dpad].Centre() + offset;
+}
 
 // Exactly these are held (and no pointer).
 bool Only(const TouchStep& step, const std::vector<TouchAction>& actions) {
@@ -256,6 +261,10 @@ TouchManifest DiscWithDown() {
     manifest.downSector = true;
     manifest.dpadDown = "images/touch/dpad_down.png";
     manifest[TouchControl::ExitDown].enabled = false;
+    // E16's disc sat on the screen: its down arrow is drawn below the centre,
+    // which the shipped box, hanging below the edge, would take off the screen.
+    manifest[TouchControl::Dpad].offset = glm::vec2(24.0f, 24.0f);
+    manifest[TouchControl::Dpad].overhang = glm::vec2(0.0f);
     return manifest;
 }
 
@@ -266,7 +275,7 @@ void testDirections() {
     const auto steerWith = [](const TouchManifest& with, glm::vec2 offset) {
         TouchControls touch;
         touch.SetManifest(with);
-        return touch.Update(Play({Finger(1, Dpad(offset))}));
+        return touch.Update(Play({Finger(1, DpadIn(with, offset))}));
     };
     const auto steer = [&](glm::vec2 offset) { return steerWith(manifest, offset); };
     CHECK(!manifest.downSector);   // E25
@@ -345,10 +354,10 @@ void testDirections() {
     TouchControls spell;
     spell.SetManifest(withDown);
     InputState spellState;
-    spellState.Update(FrameOf(spell.Update(Play({Finger(5, Dpad({0.0f, 100.0f}))}))));
+    spellState.Update(FrameOf(spell.Update(Play({Finger(5, DpadIn(withDown, {0.0f, 100.0f}))}))));
     CHECK(spellState.GetKeyState(K_DOWN) == KS_HIT);
     CHECK(spellState.GetKeyState(K_LEFT) == KS_UP);
-    spellState.Update(FrameOf(spell.Update(Play({Finger(5, Dpad({-80.0f, 80.0f}))}))));
+    spellState.Update(FrameOf(spell.Update(Play({Finger(5, DpadIn(withDown, {-80.0f, 80.0f}))}))));
     CHECK(spellState.GetKeyState(K_DOWN) == KS_DOWN);
     CHECK(spellState.GetKeyState(K_LEFT) == KS_HIT);
 
@@ -828,12 +837,12 @@ void testExitDown() {
     const TouchLayout layout = Default();
     const TouchLayout::Box exit = layout[TouchControl::ExitDown];
     const TouchLayout::Box dpad = layout[TouchControl::Dpad];
-    // Where the left and right buttons are drawn: 104 px squares at (-113,
-    // -18) and (113, -18) from the disc's centre (images/touch/README.md).
-    const float drawn = dpad.Size().x / 330.0f;
-    const glm::vec2 leftButton = dpad.Centre() + glm::vec2(-113.0f, -18.0f) * drawn;
-    const glm::vec2 rightButton = dpad.Centre() + glm::vec2(113.0f, -18.0f) * drawn;
-    const float half = 52.0f * drawn;
+    // Where the left and right buttons are drawn: 126 px squares at (-137,
+    // -21.8) and (137, -21.8) from the disc's centre (images/touch/README.md).
+    const float drawn = dpad.Size().x / 400.0f;
+    const glm::vec2 leftButton = dpad.Centre() + glm::vec2(-137.0f, -21.8f) * drawn;
+    const glm::vec2 rightButton = dpad.Centre() + glm::vec2(137.0f, -21.8f) * drawn;
+    const float half = 63.0f * drawn;
     std::printf("  down button at (%.0f, %.0f)-(%.0f, %.0f); the arrows' tops at y %.0f, centred at x %.0f\n",
                 exit.min.x, exit.min.y, exit.max.x, exit.max.y, leftButton.y - half, dpad.Centre().x);
     CHECK(manifest[TouchControl::ExitDown].enabled);
@@ -914,7 +923,7 @@ void testExitDown() {
     before.SetManifest(DiscWithDown());
     before.Update(AtTheExit());
     CHECK(!before.Visible(TouchControl::ExitDown));
-    CHECK(Only(before.Update(AtTheExit({Finger(9, Dpad({0.0f, 100.0f}))})), {TouchAction::Down}));
+    CHECK(Only(before.Update(AtTheExit({Finger(9, DpadIn(DiscWithDown(), {0.0f, 100.0f}))})), {TouchAction::Down}));
 }
 
 // The corner button, screen by screen (TouchControls::CornerFor), for every
@@ -1050,6 +1059,20 @@ bool Inside(const TouchLayout::Box& box, const glm::vec2& lo, const glm::vec2& h
            box.max.y <= hi.y + kSlack;
 }
 
+// Inside, but for the overhang past the edges the control hangs from: the
+// manifest's, half the control's size at most (TouchControlSpec::overhang).
+bool InsideHanging(const TouchLayout::Box& box, const TouchControlSpec& spec, const glm::vec2& lo,
+                   const glm::vec2& hi) {
+    const glm::vec2 hang = glm::min(spec.overhang, spec.size * 0.5f);
+    glm::vec2 from = lo;
+    glm::vec2 to = hi;
+    if (spec.anchor == TouchAnchor::TopLeft || spec.anchor == TouchAnchor::BottomLeft) from.x -= hang.x;
+    else to.x += hang.x;
+    if (spec.anchor == TouchAnchor::TopLeft || spec.anchor == TouchAnchor::TopRight) from.y -= hang.y;
+    else to.y += hang.y;
+    return Inside(box, from, to);
+}
+
 bool Overlap(const TouchLayout::Box& a, const TouchLayout::Box& b) {
     return a.min.x < b.max.x && b.min.x < a.max.x && a.min.y < b.max.y && b.min.y < a.max.y;
 }
@@ -1122,14 +1145,15 @@ void CheckLayoutFits(const TouchManifest& manifest, const std::string& name) {
             const glm::vec2 hi = screen - glm::vec2(safe.right, safe.bottom);
             for (int i = 0; i < kTouchControlCount; ++i) {
                 const TouchControl control = static_cast<TouchControl>(i);
-                CHECK_MSG(Inside(layout[control], lo, hi), where + ": " + TouchControls::ControlId(control));
+                CHECK_MSG(InsideHanging(layout[control], manifest[control], lo, hi),
+                          where + ": " + TouchControls::ControlId(control));
                 CHECK(layout[control].Size() == manifest[control].size);
             }
             // Where each is: the disc under the left thumb, the buttons under
             // the right, the pause at the top right, below the run's timer
             // (setupScene.as:337, (W-50, 0), 25 px) and clear of the status
             // frames at the top left (interface.as, 226x74 each).
-            CHECK_MSG(layout[TouchControl::Dpad].max.x < screen.x * 0.5f, where);
+            CHECK_MSG(layout[TouchControl::Dpad].max.x <= screen.x * 0.5f, where);   // the left half
             CHECK_MSG(layout[TouchControl::Dpad].min.y > screen.y * 0.5f, where);
             for (const TouchControl button : kButtonControls) {
                 CHECK_MSG(layout[button].min.x > screen.x * 0.5f, where);
@@ -1249,6 +1273,213 @@ void testLayout() {
     TouchInput input = Play({Finger(1, wide[TouchControl::Jump].Centre())}, kWide);
     input.safeArea = {88.0f, 0.0f, 88.0f, 24.0f};
     CHECK(Only(inset.Update(input), {TouchAction::Jump}));
+}
+
+// Where an arrow's button is drawn: the opaque part of its image (the control's
+// box is the image), as a rectangle of the logical screen.
+TouchLayout::Box ArrowFace(const std::string& image, const TouchLayout::Box& dpad) {
+    const Penumbra::Render::DecodedImage decoded = Penumbra::Render::DecodeTexture(
+        (fs::path(PENUMBRA_DATA_DIR) / image).generic_string(), Penumbra::Render::TextureVariant::Plain);
+    CHECK_MSG(decoded.Valid(), image);
+    if (!decoded.Valid()) return {};
+    glm::ivec2 lo(decoded.width, decoded.height);
+    glm::ivec2 hi(0);
+    for (int y = 0; y < decoded.height; ++y) {
+        for (int x = 0; x < decoded.width; ++x) {
+            const std::size_t texel = static_cast<std::size_t>(y) * static_cast<std::size_t>(decoded.width) +
+                                      static_cast<std::size_t>(x);
+            if (decoded.rgba[texel * 4u + 3u] < 128u) continue;
+            lo = glm::min(lo, glm::ivec2(x, y));
+            hi = glm::max(hi, glm::ivec2(x + 1, y + 1));
+        }
+    }
+    const glm::vec2 texel =
+        dpad.Size() / glm::vec2(static_cast<float>(decoded.width), static_cast<float>(decoded.height));
+    return {dpad.min + glm::vec2(lo) * texel, dpad.min + glm::vec2(hi) * texel};
+}
+
+// The direction control's box hangs below the screen's bottom edge (the lower
+// half of its disc is empty), which puts its two buttons level with the jump
+// button; its input is the same, and so are the rules that keep a hand-edited
+// manifest on the screen.
+void testDpadLowered() {
+    const TouchManifest manifest = TouchControls::DefaultManifest();
+    const TouchControlSpec& dpad = manifest[TouchControl::Dpad];
+    CHECK(dpad.offset == glm::vec2(24.0f, -138.0f));
+    CHECK(dpad.overhang == glm::vec2(0.0f, 150.0f));
+    CHECK(dpad.size == glm::vec2(400.0f, 400.0f));
+    CHECK(dpad.shape == Penumbra::Render::TouchShape::Circle);
+    CHECK(manifest[TouchControl::ExitDown].offset == glm::vec2(161.0f, 160.0f));
+    CHECK(manifest[TouchControl::ExitDown].size == glm::vec2(126.0f, 126.0f));   // the arrows' size
+    // Nothing else hangs.
+    for (int i = 1; i < kTouchControlCount; ++i) {
+        CHECK_MSG(manifest.controls[static_cast<std::size_t>(i)].overhang == glm::vec2(0.0f),
+                  TouchControls::ControlId(static_cast<TouchControl>(i)));
+    }
+    const auto closeTo = [](float a, float b, float eps) { return std::fabs(a - b) <= eps; };
+
+    // On every screen and safe area: 138 below the safe area's bottom edge, the
+    // buttons whole inside it and centred 84 above it (83.7), as the jump button is.
+    const glm::vec2 screens[] = {kFourThree, kWide, {1707.0f, 768.0f}};
+    const TouchInsets insets[] = {{}, {88.0f, 0.0f, 88.0f, 24.0f}, {0.0f, 30.0f, 0.0f, 20.0f}};
+    for (const glm::vec2& screen : screens) {
+        for (const TouchInsets& safe : insets) {
+            const std::string where = std::to_string(static_cast<int>(screen.x)) + "x768, inset " +
+                                      std::to_string(static_cast<int>(safe.left)) + "/" +
+                                      std::to_string(static_cast<int>(safe.top)) + "/" +
+                                      std::to_string(static_cast<int>(safe.bottom));
+            const TouchLayout layout = TouchControls::ComputeLayout(manifest, screen, safe);
+            const glm::vec2 lo(safe.left, safe.top);
+            const glm::vec2 hi = screen - glm::vec2(safe.right, safe.bottom);
+            const TouchLayout::Box box = layout[TouchControl::Dpad];
+            CHECK_MSG(closeTo(box.max.y, hi.y + 138.0f, 0.01f), where);
+            CHECK_MSG(closeTo(box.min.x, lo.x + 24.0f, 0.01f), where);
+            const TouchLayout::Box left = ArrowFace(manifest.dpadLeft, box);
+            const TouchLayout::Box right = ArrowFace(manifest.dpadRight, box);
+            CHECK_MSG(Inside(left, lo, hi) && Inside(right, lo, hi), where + ": the buttons show whole");
+            CHECK_MSG(closeTo(left.Centre().y, hi.y - 84.0f, 1.0f), where + ": 84 above the edge");
+            CHECK_MSG(closeTo(right.Centre().y, left.Centre().y, 0.01f), where);
+            CHECK_MSG(closeTo(left.Centre().y, layout[TouchControl::Jump].Centre().y, 1.0f), where + ": level with jump");
+            // E25's down button above them: centred in the gap, a little above their tops (the button's
+            // own 126 px squares are about 12 px below it, its faint shadow rim 17), touching neither.
+            const TouchLayout::Box exit = layout[TouchControl::ExitDown];
+            const float gap = left.min.y - exit.max.y;
+            CHECK_MSG(closeTo(exit.Centre().x, 0.5f * (left.Centre().x + right.Centre().x), 1.0f), where);
+            CHECK_MSG(gap > 14.0f && gap < 26.0f, where + ": the down button's gap " + std::to_string(gap));
+            CHECK_MSG(Inside(exit, lo, hi), where);
+            const TouchLayout::Box reach = Padded(layout, TouchControl::ExitDown);
+            CHECK_MSG(!Overlap(reach, left) && !Overlap(reach, right), where);
+        }
+    }
+    // On a 768-tall screen with no inset, the numbers the manifest's note gives.
+    const TouchLayout plain = Default();
+    CHECK(closeTo(plain[TouchControl::Dpad].max.y, 906.0f, 0.01f));
+    CHECK(closeTo(plain[TouchControl::ExitDown].min.y, 482.0f, 0.01f));
+    CHECK(closeTo(plain[TouchControl::ExitDown].max.y, 608.0f, 0.01f));
+
+    // A zoomed level (E25): offsets and overhang scale together, so the same
+    // fraction of the screen's height hangs and the buttons keep their height
+    // above the window's edge.
+    const glm::vec2 zoomed(1138.0f, 512.0f);
+    const float unit = 512.0f / 768.0f;
+    const TouchLayout small = TouchControls::ComputeLayout(manifest, zoomed, TouchInsets{}, unit);
+    CHECK(closeTo(small[TouchControl::Dpad].max.y, zoomed.y + 138.0f * unit, 0.01f));
+    CHECK(closeTo(ArrowFace(manifest.dpadLeft, small[TouchControl::Dpad]).Centre().y, zoomed.y - 84.0f * unit, unit));
+
+    // A finger on a lowered button is the disc's, as before: left or right
+    // alone, on the screen, down to its bottom row.
+    {
+        const TouchLayout::Box left = ArrowFace(manifest.dpadLeft, plain[TouchControl::Dpad]);
+        const TouchLayout::Box right = ArrowFace(manifest.dpadRight, plain[TouchControl::Dpad]);
+        int finger = 0;
+        for (const auto& [face, action] :
+             std::initializer_list<std::pair<TouchLayout::Box, TouchAction>>{{left, TouchAction::Left},
+                                                                             {right, TouchAction::Right}}) {
+            const glm::vec2 at = face.Centre();
+            CHECK(at.y > 0.0f && at.y < kFourThree.y);
+            TouchControls touch;
+            CHECK(Only(touch.Update(Play({Finger(++finger, at)})), {action}));
+            touch.Update(Play());
+            const glm::vec2 low(at.x, kFourThree.y - 2.0f);
+            CHECK(Only(touch.Update(Play({Finger(++finger, low)})), {action}));
+        }
+        TouchControls corner;
+        CHECK(Only(corner.Update(Play({Finger(1, glm::vec2(2.0f, kFourThree.y - 2.0f))})), {TouchAction::Left}));
+    }
+
+    // The down button, shown, takes a finger on it and in its padding, and the
+    // lowered buttons stay the disc's with it shown.
+    {
+        const TouchLayout::Box exit = plain[TouchControl::ExitDown];
+        TouchControls touch;
+        touch.Update(AtTheExit());
+        CHECK(touch.Visible(TouchControl::ExitDown));
+        CHECK(Only(touch.Update(AtTheExit({Finger(1, exit.Centre())})), {TouchAction::Down}));
+        touch.Update(AtTheExit());
+        const glm::vec2 padded(exit.Centre().x, exit.max.y + 5.0f);   // its padding is 6
+        CHECK(Only(touch.Update(AtTheExit({Finger(2, padded)})), {TouchAction::Down}));
+        touch.Update(AtTheExit());
+        const TouchLayout::Box left = ArrowFace(manifest.dpadLeft, plain[TouchControl::Dpad]);
+        CHECK(Only(touch.Update(AtTheExit({Finger(3, left.Centre())})), {TouchAction::Left}));
+    }
+
+    // The overhang is the allowance and nothing more. None: the box is held on
+    // the screen, as every layout was before it.
+    const auto laid = [](const TouchManifest& with) {
+        return TouchControls::ComputeLayout(with, kFourThree, TouchInsets{});
+    };
+    TouchManifest hang = manifest;
+    hang[TouchControl::Dpad].overhang = glm::vec2(0.0f);
+    CHECK(closeTo(laid(hang)[TouchControl::Dpad].max.y, 768.0f, 0.01f));
+    CHECK(closeTo(laid(hang)[TouchControl::Dpad].min.x, 24.0f, 0.01f));
+    // 30: that far and no further.
+    hang[TouchControl::Dpad].overhang = glm::vec2(0.0f, 30.0f);
+    CHECK(closeTo(laid(hang)[TouchControl::Dpad].max.y, 768.0f + 30.0f, 0.01f));
+    // Whatever is written, half of the control stays on the screen.
+    hang[TouchControl::Dpad].overhang = glm::vec2(0.0f, 1000.0f);
+    hang[TouchControl::Dpad].offset = glm::vec2(24.0f, -1000.0f);
+    CHECK(closeTo(laid(hang)[TouchControl::Dpad].max.y, 768.0f + 200.0f, 0.01f));
+    // Past the left edge it hangs from, by its x overhang; the far edges still hold it.
+    hang = manifest;
+    hang[TouchControl::Dpad].offset = glm::vec2(-50.0f, -138.0f);
+    hang[TouchControl::Dpad].overhang = glm::vec2(40.0f, 150.0f);
+    CHECK(closeTo(laid(hang)[TouchControl::Dpad].min.x, -40.0f, 0.01f));
+    hang[TouchControl::Dpad].offset = glm::vec2(5000.0f, 5000.0f);
+    CHECK(closeTo(laid(hang)[TouchControl::Dpad].min.x, 1024.0f - 400.0f, 0.01f));
+    CHECK(closeTo(laid(hang)[TouchControl::Dpad].min.y, 0.0f, 0.01f));
+    // The right and the top, for the controls that hang from them.
+    hang = manifest;
+    hang[TouchControl::Jump].offset = glm::vec2(-50.0f, 24.0f);
+    hang[TouchControl::Jump].overhang = glm::vec2(50.0f, 0.0f);
+    CHECK(closeTo(laid(hang)[TouchControl::Jump].max.x, 1024.0f + 50.0f, 0.01f));
+    hang[TouchControl::Pause].offset = glm::vec2(20.0f, -20.0f);
+    hang[TouchControl::Pause].overhang = glm::vec2(0.0f, 20.0f);
+    CHECK(closeTo(laid(hang)[TouchControl::Pause].min.y, -20.0f, 0.01f));
+    // A negative offset with no overhang is held at the edge, as before.
+    hang = manifest;
+    hang[TouchControl::Jump].offset = glm::vec2(-50.0f, -50.0f);
+    CHECK(laid(hang)[TouchControl::Jump].max == glm::vec2(1024.0f, 768.0f));
+
+    // In the file: an offset may be negative as far as the overhang says, in
+    // whichever order the keys are written; past it, or with none, it is
+    // reported and left as it was.
+    std::string warning;
+    TouchManifest parsed =
+        TouchControls::ManifestFromJson(R"({"controls": {"jump": {"offset": [5, -3]}}})", &warning);
+    CHECK(warning.find("jump.offset is below 0") != std::string::npos);
+    CHECK(parsed[TouchControl::Jump].offset == manifest[TouchControl::Jump].offset);
+    warning.clear();
+    parsed = TouchControls::ManifestFromJson(
+        R"({"controls": {"jump": {"offset": [5, -3], "overhang": [0, 10]}}})", &warning);
+    CHECK_MSG(warning.empty(), warning);
+    CHECK(parsed[TouchControl::Jump].offset == glm::vec2(5.0f, -3.0f));
+    CHECK(parsed[TouchControl::Jump].overhang == glm::vec2(0.0f, 10.0f));
+    warning.clear();
+    parsed = TouchControls::ManifestFromJson(
+        R"({"controls": {"jump": {"overhang": [0, 10], "offset": [5, -30]}}})", &warning);
+    CHECK(warning.find("jump.offset is below -10") != std::string::npos);
+    CHECK(parsed[TouchControl::Jump].offset == manifest[TouchControl::Jump].offset);
+    warning.clear();
+    parsed = TouchControls::ManifestFromJson(R"({"controls": {"jump": {"overhang": [-1, 0]}}})", &warning);
+    CHECK(warning.find("jump.overhang is below 0") != std::string::npos);
+    CHECK(parsed[TouchControl::Jump].overhang == glm::vec2(0.0f));
+    warning.clear();
+    TouchControls::ManifestFromJson(R"({"controls": {"jump": {"overhang": "far"}}})", &warning);
+    CHECK(warning.find("jump.overhang is not [x, y]") != std::string::npos);
+    // The shipped disc's own allowance covers a file that only moves it.
+    warning.clear();
+    parsed = TouchControls::ManifestFromJson(R"({"controls": {"dpad": {"offset": [24, -50]}}})", &warning);
+    CHECK_MSG(warning.empty(), warning);
+    CHECK(parsed[TouchControl::Dpad].offset == glm::vec2(24.0f, -50.0f));
+    CHECK(parsed[TouchControl::Dpad].overhang == glm::vec2(0.0f, 150.0f));
+    // The placeholder look's disc is wholly on the screen (it has no offset below the edge, so the
+    // overhang it inherits from the defaults is not used).
+    warning.clear();
+    const TouchManifest placeholder = TouchControls::LoadManifest(PlaceholderManifest(), &warning);
+    CHECK_MSG(warning.empty(), warning);
+    CHECK(placeholder[TouchControl::Dpad].offset.y >= 0.0f);
+    CHECK(Inside(TouchControls::ComputeLayout(placeholder, kFourThree, TouchInsets{})[TouchControl::Dpad],
+                 glm::vec2(0.0f), kFourThree));
 }
 
 // Every image a manifest names is there, decodes, fits its box undistorted,
@@ -2570,7 +2801,7 @@ void testTouchUnit() {
 }
 
 // E25 through the real game, on a 2400x1080 phone as the layer sets it up:
-// the campaign's levels at the automatic zoom (150%, a 1138x512 screen) and
+// the campaign's levels at the automatic zoom (175%, a 976x439 screen) and
 // the menu at 1024x768. The camera keeps the wizard inside the smaller
 // screen; the next_level door raises Script::g_nextLevelOffered while he
 // stands at it and not a step before (the layer lowers it before each frame,
@@ -2588,7 +2819,7 @@ void testExitDownInGame() {
     {
         const glm::uvec2 phone(2400u, 1080u);
         const float zoom = Penumbra::Render::CampaignZoom(0, true, phone, true);
-        CHECK_NEAR(zoom, 1.5f);
+        CHECK_NEAR(zoom, 1.75f);
         const vector2 levelScreen = Penumbra::Render::ZoomedScreen(phone, true, zoom);
         MachineConfig config;
         config.userRoot = userRoot.generic_string();
@@ -2622,8 +2853,8 @@ void testExitDownInGame() {
         Script::newGame("CAMPAIGN");
         for (int i = 0; i < 5 && Script::g_levelStartTime == setup; ++i) machine.Frame(InputFrame{});
         CHECK(GetSceneFileName() == "scenes/level1.esc");
-        CHECK(machine.GetScreenSize() == vector2(1138.0f, 512.0f));
-        CHECK(GetScreenSize() == vector2(1138.0f, 512.0f));   // what the scripts see
+        CHECK(machine.GetScreenSize() == vector2(976.0f, 439.0f));
+        CHECK(GetScreenSize() == vector2(976.0f, 439.0f));   // what the scripts see
         ETHEntity wizard = SeekEntity("bruxo.ent");
         for (int i = 0; i < 300 && !Standing(wizard); ++i) {
             tick({});
@@ -2647,7 +2878,7 @@ void testExitDownInGame() {
             anyOffer = anyOffer || offered;
         }
         tick({});
-        std::printf("  E25 level 1 at 150%%: the screen %.0fx%.0f, the wizard at (%.0f, %.0f) on it after a walk\n",
+        std::printf("  E25 level 1 at 175%%: the screen %.0fx%.0f, the wizard at (%.0f, %.0f) on it after a walk\n",
                     GetScreenSize().x, GetScreenSize().y, (wizard->GetPositionXY() - GetCameraPos()).x,
                     (wizard->GetPositionXY() - GetCameraPos()).y);
         CHECK(inside);
@@ -2687,7 +2918,7 @@ void testExitDownInGame() {
         std::printf("  E25 the down button tapped: %s after %d ticks, the screen %.0fx%.0f\n", GetSceneFileName().c_str(),
                     loaded, GetScreenSize().x, GetScreenSize().y);
         CHECK(GetSceneFileName() == "scenes/level2.esc");
-        CHECK(machine.GetScreenSize() == vector2(1138.0f, 512.0f));
+        CHECK(machine.GetScreenSize() == vector2(976.0f, 439.0f));
         tick({});
         CHECK(!offered);
         CHECK_EQ(machine.ScriptAborts(), 0u);
@@ -2784,7 +3015,7 @@ void InLevelOne(const char* what, Run run) {
             wizard = SeekEntity("bruxo.ent");
         }
         CHECK(GetSceneFileName() == "scenes/level1.esc");
-        CHECK(machine.GetScreenSize() == vector2(1138.0f, 512.0f));
+        CHECK(machine.GetScreenSize() == vector2(976.0f, 439.0f));
         if (!Standing(wizard)) {
             CHECK_MSG(false, std::string("no wizard standing in level 1: ") + what);
         } else {
@@ -2847,7 +3078,7 @@ void testCoopUnzoomsInGame() {
     coop(false, alive, screen, unzoomedAt);
     std::printf("  E25 co-op without the rule: %s after 5 s at %.0fx%.0f\n", alive ? "alive" : "dead", screen.x,
                 screen.y);
-    CHECK(screen == vector2(1138.0f, 512.0f));
+    CHECK(screen == vector2(976.0f, 439.0f));
     CHECK(!alive);
 }
 
@@ -2992,6 +3223,7 @@ void runTests() {
     testPlatformMouse();
     testShownWhere();
     testExitDown();   // E25
+    testDpadLowered();   // E25
     testTouchUnit();  // E25
     testPauseInHudFrame();   // E26
     testCorner();

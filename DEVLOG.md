@@ -538,3 +538,96 @@ title row, as in the original; a half-size row there would need its own right-to
 
 **Numbers.** WSL: zero warnings; test_pn_all 17 suites, 21250 checks, 0 failures. Without touch
 the twenty Portuguese and English reference captures are pixel-identical to before E24's polish.
+
+---
+
+## 2026-10-01 — The HUD panel as a plaque, lower direction buttons, an adaptive icon
+
+**Why.** Three things on a phone. E26's hp/mp/xp panel floated inside its frame: `frame.png` is the
+original's border for a screen corner, with stone along its bottom and right only, so once the panel
+stood in from the edge its top and left ended in bare black. The left and right buttons were drawn
+207 px above the screen's bottom edge, higher than a thumb rests. And a recent Android drew the icon
+on a white plate, because the APK carried only plain square mipmaps, which launchers from Android 8
+put on a white background.
+
+**Built.**
+- *The plaque.* `DrawSpritePart` (Eth): a sprite command carrying a sub-rectangle of its image, which the
+  queue keeps clamped to the image. With the touch controls on the panel stands at the safe area's
+  corner (the display's own insets, no margin) with stone on all four sides: `drawPlaqueStone`
+  (interface.cpp) cuts six pieces per player out of `frame.png`'s own strips, none overlapping another or
+  the frame's stone, so the bars start 16 logical px in; from one player's panel to the next the stone
+  runs on. `TouchHud` gained `plaque`, `panelLeft` and `panelTop`, which the layer fills from
+  `ComputeHudFrame(..., 0)`. The lives counter keeps the bars' row, and `hudMessagesTopLeft` keeps the
+  message lines below the plaque. The timer, the pause button, the messages' left edge and the loading
+  message keep the margin's frame; the other controls hang from the safe area as before. Without the
+  touch controls the commands are unchanged.
+- *The arrows.* The direction control draws its two buttons above the disc's centre and its lower half is
+  empty, so the box now hangs below the screen's edge: `TouchControlSpec::overhang` (a per-control
+  manifest field: how far a box may lie past the edges it hangs from, and how far negative its offset may
+  go; at most half the control) and the shipped `dpad` at offset y -99 put the buttons' centres 84 px above
+  the edge, level with the jump button's. The disc, its dead zone, sectors, knob and hit test are
+  unchanged. The down button moved down by the same 123 px (offset 150).
+- *The icon.* tools/android_package.py also writes `res/mipmap-anydpi-v26/ic_launcher.xml`: an adaptive
+  icon with a deep-violet gradient background (`res/drawable/ic_launcher_background.xml`, #2A1536 to
+  #0F0716, the iOS tile's colours), a foreground and a monochrome layer for Android 13's themed icons,
+  both layers at five densities (108 dp, 108 to 432 px). A transparent background was tried first and
+  the system draws it as a black disc (an adaptive icon's layers are composed over black), so a
+  transparent launcher icon is not possible on Android: the skull gets a deliberate tile. The skull's smallest enclosing circle over its
+  visible pixels (alpha 16 or more of 255) is fitted to the 66 dp circle no launcher mask cuts, and the
+  stage stops if a visible pixel lies outside it. The plain `ic_launcher.png` files are unchanged. iOS fills
+  what is transparent and the App Store refuses an alpha channel, so the AppIcon PNGs are now the icon over
+  an opaque deep-violet gradient (#2A1536 to #0F0716, from the menus' cave): tools/apple/ico_to_png.py
+  takes `--flatten TOP[,BOTTOM]` (standard library only) and make_app.sh uses it for iOS only; macOS's
+  `.icns` stays transparent.
+
+**Numbers.** WSL: zero warnings; test_pn_all 17 suites, 21586 checks, 0 failures (21250 before). The twenty
+Portuguese and English desktop captures are pixel-identical to before. Phone-sized captures (2400x1080):
+the arrow buttons moved 173 px down (123 logical px), the gap between the exit button and the arrows is
+unchanged (53 px), and at 12 hp "hp: 12" stays on the bar's left end, never on the stone.
+The screenshots docs/images/touch-controls.jpg and site/images/touch-controls.jpg are retaken with the new
+layout (1280x720). With a 132 px side and a 63 px bottom inset (2532x1170) the plaque starts at the inset
+line and both arrows lie above the bottom inset. A review by four independent readers, each finding checked by two skeptics, found two cosmetic seams in the plaque's soft
+shadow: the top-right sliver restarts the frame's own shadow ramp (a notch of about 7 px), and player 2's
+left stone lies over the first panel's shadow (about 3 px darker). Neither shows over the dark stretch
+behind the HUD; the cuts were not changed. Android: build_android.sh --package-only, zero warnings; aapt2
+dump badging gives `res/mipmap-anydpi-v26/ic_launcher.xml` for the application icon at every density, the
+farthest visible pixel 32.5 dp from the layer's centre (limit 33). On the Android 13 emulator
+(Penumbra_API33_x86_64, Pixel launcher) the 1.0.0 icon sits on a white circle, the transparent-background
+adaptive icon on a black one, and the violet-tile icon on its own tile; the launch splash shows the same
+tile on the window's black, with no white disc.
+
+**Open.**
+- The icon was seen on the emulator's Pixel launcher only, not on a phone (another maker's launcher may
+  mask or tint it differently, and Android 13's themed colours were previewed in Pillow only); the iOS PNGs
+  were not run through sips here (no Apple tools on this machine).
+- The two shadow seams above.
+
+---
+
+## 2026-10-01 — A closer camera, larger direction buttons; version 1.0.2
+
+**Why.** Played again on a phone, the levels still showed more than needed and the left and right
+buttons were smaller than the action buttons beside the thumb.
+
+**Built.**
+- *The zoom.* The automatic campaign zoom on a phone-shaped screen is 175% (was 150%), the next of
+  the options screen's steps. A tablet-shaped screen stays at 125%. The existing rule that holds the
+  zoom where a message line would lose its room still applies: a 20:9 phone (2400x1080, a 976x439
+  screen) gets the full 175%, an 18:9 one about 162%.
+- *The direction buttons.* The direction control is 400 logical px across (was 330): its art is the
+  same 406 px canvas, drawn larger, so each button is 126 px with a face of about 118, as large as
+  the action buttons (120). The box hangs 138 px below the screen's edge (`dpad` offset y -138,
+  `overhang` y 150), which keeps the buttons' centres 83.7 px above it, level with the jump button's.
+  The down button is the buttons' new size (126), centred over them and about 17 px above their
+  faces (offset [161, 160]). The finger padding around the disc is 30 (was 60), so the larger disc
+  still never reaches the sword button on a notched 4:3 screen; the knob's brackets are the art's own
+  128 px. tools/art/make_mr_touch_art.py has the new box and centres; run on the Magic Rampage
+  package it writes the same fourteen PNGs byte for byte (only the drawn size changed).
+- *Version 1.0.2.* CMakeLists.txt (and with it the Windows resources), the Windows manifest
+  (1.0.2.0), the Android manifest (versionName 1.0.2, versionCode 3) and both Info.plists (1.0.2,
+  build 3) agree (`tools/make_release.py check`); the release workflow's default tag is v1.0.2.
+
+**Numbers.** WSL: zero warnings; test_pn_all 17 suites, 21587 checks, 0 failures. The suites that
+quote the old numbers (the automatic zoom, the direction control's box and the down button's place)
+were updated; test_pn_render_touch now also says that the box lies in the screen's left half "at
+most" (a 4:3 screen with an 88 px inset has it end exactly at the middle).

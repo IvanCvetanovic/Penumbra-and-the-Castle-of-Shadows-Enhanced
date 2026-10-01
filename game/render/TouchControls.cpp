@@ -95,7 +95,7 @@ unsigned ComboInputs(const Eth::InputFrame& frame, int player1Pad) {
 }
 
 TouchControlSpec Spec(const char* image, TouchAnchor anchor, glm::vec2 offset, glm::vec2 size, TouchShape shape,
-                      float hitPadding) {
+                      float hitPadding, glm::vec2 overhang = glm::vec2(0.0f)) {
     TouchControlSpec spec;
     spec.image = image;
     spec.anchor = anchor;
@@ -103,6 +103,7 @@ TouchControlSpec Spec(const char* image, TouchAnchor anchor, glm::vec2 offset, g
     spec.size = size;
     spec.shape = shape;
     spec.hitPadding = hitPadding;
+    spec.overhang = overhang;
     return spec;
 }
 
@@ -154,9 +155,9 @@ void ReadFloat(const Value& object, const char* key, const std::string& where, f
     out = std::clamp(static_cast<float>(number), minimum, maximum);
 }
 
-// [x, y], each finite and at least `minimum`.
-void ReadPair(const Value& object, const char* key, const std::string& where, float minimum, glm::vec2& out,
-              std::string* warning) {
+// [x, y], each finite and at least `minimum` on its axis.
+void ReadPair(const Value& object, const char* key, const std::string& where, const glm::vec2& minimum,
+              glm::vec2& out, std::string* warning) {
     if (!object.Has(key)) return;
     const Value& value = object[key];
     const auto& items = value.AsArray();
@@ -166,8 +167,10 @@ void ReadPair(const Value& object, const char* key, const std::string& where, fl
         return;
     }
     const glm::vec2 pair(static_cast<float>(items[0].AsNumber()), static_cast<float>(items[1].AsNumber()));
-    if (pair.x < minimum || pair.y < minimum) {
-        Warn(warning, where + "." + key + " is below " + std::to_string(static_cast<int>(minimum)));
+    const bool lowX = pair.x < minimum.x;
+    if (lowX || pair.y < minimum.y) {
+        const float floor = lowX ? minimum.x : minimum.y;
+        Warn(warning, where + "." + key + " is below " + std::to_string(static_cast<int>(floor)));
         return;
     }
     out = pair;
@@ -243,8 +246,12 @@ TouchManifest TouchControls::DefaultManifest() {
     constexpr glm::vec2 kButton{120.0f, 120.0f};
     constexpr glm::vec2 kComboButton{100.0f, 100.0f};
     constexpr TouchShape kSquare = TouchShape::Rect;
-    m[TouchControl::Dpad] = Spec("images/touch/dpad.png", TouchAnchor::BottomLeft, {24.0f, 24.0f}, {330.0f, 330.0f},
-                                 TouchShape::Circle, 60.0f);
+    // The disc's two buttons are drawn 21.7 above its centre and its lower half is empty, so the
+    // box hangs 138 below the screen's bottom edge: the buttons' centres are then 200 - 138 + 21.7
+    // = 83.7 above it, level with the jump button's (24 + 60). overhang is the allowance for that.
+    // The box is 400 across (the art's 406 px): each button 126 units, a face of about 118.
+    m[TouchControl::Dpad] = Spec("images/touch/dpad.png", TouchAnchor::BottomLeft, {24.0f, -138.0f}, {400.0f, 400.0f},
+                                 TouchShape::Circle, 30.0f, {0.0f, 150.0f});
     m[TouchControl::Jump] =
         Spec("images/touch/jump.png", TouchAnchor::BottomRight, {152.0f, 24.0f}, kButton, kSquare, 4.0f);
     m[TouchControl::Sword] =
@@ -259,10 +266,10 @@ TouchManifest TouchControls::DefaultManifest() {
     m[TouchControl::SpellCombo] =
         Spec("images/touch/combo_spell.png", TouchAnchor::BottomRight, {102.0f, 412.0f}, kComboButton, kSquare, 6.0f);
     // E25's down button: the arrows' size, centred over the gap between the left and right buttons
-    // (the disc's centre, 24 + 165 across) and 14 px above their tops (the disc's centre, 768 - 24
-    // - 165 = 579, less 18 to theirs, less 52): x 137-241, y 391-495.
+    // (the disc's centre, 24 + 200 across) and about 17 px above their faces (the disc's centre,
+    // 768 + 138 - 200 = 706, less 21.7 to theirs, less 59): x 161-287, y 482-608.
     m[TouchControl::ExitDown] =
-        Spec("images/touch/exit_down.png", TouchAnchor::BottomLeft, {137.0f, 273.0f}, {104.0f, 104.0f}, kSquare, 6.0f);
+        Spec("images/touch/exit_down.png", TouchAnchor::BottomLeft, {161.0f, 160.0f}, {126.0f, 126.0f}, kSquare, 6.0f);
     // Magic Rampage's pause is a pill, 128x86.
     m[TouchControl::Pause] =
         Spec("images/touch/pause.png", TouchAnchor::TopRight, {20.0f, 44.0f}, {96.0f, 64.5f}, kSquare, 12.0f);
@@ -273,7 +280,7 @@ TouchManifest TouchControls::DefaultManifest() {
     m.dpadDown.clear();   // E25: no down arrow on the disc, and no down sector
     m.downSector = false;
     m.knobImage = "images/touch/dpad_knob.png";
-    m.knobSize = {112.0f, 112.0f};
+    m.knobSize = {128.0f, 128.0f};   // the art's own size: the brackets just frame a 126 px button
     m.knobAtRest = false;   // the brackets only on the button the thumb holds
     m.deadZone = 0.25f;
     m.idleAlpha = 0.45f;
@@ -324,8 +331,10 @@ TouchManifest TouchControls::ManifestFromJson(const std::string& text, std::stri
         TouchControlSpec& spec = manifest.controls[static_cast<std::size_t>(i)];
         ReadString(entry, "image", where, spec.image, warning);
         ReadAnchor(entry, where, spec.anchor, warning);
-        ReadPair(entry, "offset", where, 0.0f, spec.offset, warning);
-        ReadPair(entry, "size", where, 1.0f, spec.size, warning);
+        ReadPair(entry, "overhang", where, glm::vec2(0.0f), spec.overhang, warning);
+        // Negative only as far as the control may hang past its edge (read just above).
+        ReadPair(entry, "offset", where, -spec.overhang, spec.offset, warning);
+        ReadPair(entry, "size", where, glm::vec2(1.0f), spec.size, warning);
         ReadShape(entry, where, spec.shape, warning);
         ReadFloat(entry, "hitPadding", where, 0.0f, 1000.0f, spec.hitPadding, warning);
         if (entry.Has("enabled")) {
@@ -353,7 +362,7 @@ TouchManifest TouchControls::ManifestFromJson(const std::string& text, std::stri
             const Value& knob = entry["knob"];
             if (knob.IsObject()) {
                 ReadString(knob, "image", where + ".knob", manifest.knobImage, warning);
-                ReadPair(knob, "size", where + ".knob", 1.0f, manifest.knobSize, warning);
+                ReadPair(knob, "size", where + ".knob", glm::vec2(1.0f), manifest.knobSize, warning);
                 if (knob.Has("atRest")) {
                     if (knob["atRest"].IsBool()) manifest.knobAtRest = knob["atRest"].AsBool();
                     else Warn(warning, where + ".knob.atRest is not true/false");
@@ -447,7 +456,10 @@ TouchLayout TouchControls::ComputeLayout(const TouchManifest& manifest, const gl
         const glm::vec2 lo = framed ? frameLo : safeLo;
         const glm::vec2 hi = framed ? frameHi : safeHi;
         const glm::vec2 size = glm::max(spec.size, glm::vec2(1.0f)) * scale;
-        glm::vec2 offset = glm::max(spec.offset, glm::vec2(0.0f)) * scale;
+        // How far the box may lie past the edges it hangs from: what the manifest allows, and never
+        // more than half of it, so a hand-edited manifest cannot take a control off the screen.
+        const glm::vec2 hang = glm::min(glm::max(spec.overhang, glm::vec2(0.0f)) * scale, size * 0.5f);
+        glm::vec2 offset = glm::max(spec.offset * scale, -hang);
         const bool left = spec.anchor == TouchAnchor::TopLeft || spec.anchor == TouchAnchor::BottomLeft;
         const bool top = spec.anchor == TouchAnchor::TopLeft || spec.anchor == TouchAnchor::TopRight;
         // E25: a zoom enlarges the run's timer at the top (its 25 px are the
@@ -460,8 +472,15 @@ TouchLayout TouchControls::ComputeLayout(const TouchManifest& manifest, const gl
         glm::vec2 min(left ? lo.x + offset.x : hi.x - offset.x - size.x,
                       top ? lo.y + offset.y : hi.y - offset.y - size.y);
         // Inside the safe area whatever the offsets say: a hand-edited
-        // manifest, or a screen smaller than it was laid out for.
-        min = glm::clamp(min, lo, glm::max(lo, hi - size));
+        // manifest, or a screen smaller than it was laid out for - but for
+        // the overhang past the edges the control hangs from.
+        glm::vec2 minLimit = lo;
+        glm::vec2 maxLimit = glm::max(lo, hi - size);
+        if (left) minLimit.x -= hang.x;
+        else maxLimit.x += hang.x;
+        if (top) minLimit.y -= hang.y;
+        else maxLimit.y += hang.y;
+        min = glm::clamp(min, minLimit, glm::max(minLimit, maxLimit));
         layout.boxes[index].min = min;
         layout.boxes[index].max = min + size;
         layout.hitPadding[index] = std::max(0.0f, spec.hitPadding) * scale;

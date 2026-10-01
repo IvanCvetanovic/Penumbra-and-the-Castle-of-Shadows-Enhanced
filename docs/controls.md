@@ -22,7 +22,7 @@ Esc in the menus, the options and game over goes back, as in the original. In th
 arrows choose, Enter confirms and Esc resumes; the mouse works too.
 
 **Combos.** Each gap between presses must be at most about 210 ms (`combo.as`;
-[`spec/11-logic-player-combat.md`](spec/11-logic-player-combat.md) §10):
+[`spec/11-logic-player-combat.md`](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/blob/main/docs/spec/11-logic-player-combat.md) §10):
 
 - **Sword combo (5 mana):** ← ← S or → → S. A stronger sword and a beam; the screen shakes.
 - **Blast (25 mana):** ↓ ← D or ↓ → D. A big fireball with 225 damage.
@@ -82,7 +82,7 @@ the mouse, held down, is the finger.
 
 | Action | Touch | The key it presses |
 |---|---|---|
-| Walk | The two buttons at the bottom left (left, right): one control, the thumb slides between them | Left, Right |
+| Walk | The two buttons at the bottom left (left, right), level with the jump button: one control, the thumb slides between them | Left, Right |
 | Next level (E25) | The down button that shows above the two, only while the wizard stands at a level's exit | Down |
 | Jump | Bottom button of the four at the bottom right | Ctrl |
 | Sword | Left button | S |
@@ -96,14 +96,15 @@ the mouse, held down, is the finger.
 - The down button (E25) appears only where down does something on its own: at a level's exit
   door, where it takes the wizard to the next level. Everywhere else the direction control is
   left and right only; the spell combo's down is its combo button's.
-- The camera is zoomed in on the campaign's levels while the touch controls are on (E25): 150% on
-  a phone, 125% on a tablet (a 4:3 one has room for about 110%), or what the options screen's Zoom
-  row says. The controls keep their size. Once the princess is summoned the level goes back to the
+- The camera is zoomed in on the campaign's levels while the touch controls are on (E25): 175% on
+  a phone (held at what the screen has room for: about 162% on an 18:9 one), 125% on a tablet (a 4:3
+  one has room for about 110%), or what the options screen's Zoom row says. The controls keep their size. Once the princess is summoned the level goes back to the
   unzoomed view, so she can follow the wizard as far as she could in the original.
-- The HUD keeps clear of a phone's curved edges, rounded corners and camera (E26): the bars, the
-  lives, the timer and the messages are drawn a little way in, the pause button with them, and
-  the hp, mp and level values are light on a dark shadow. `edgeMargin` in `settings.json` sets how
-  far in (`"auto"`, or 0 to 8 percent).
+- The HUD keeps clear of a phone's curved edges, rounded corners and camera (E26): the timer and
+  the messages are drawn a little way in, the pause button with them, and the hp, mp and level
+  values are light on a dark shadow. `edgeMargin` in `settings.json` sets how far in (`"auto"`,
+  or 0 to 8 percent). The hp, mp and level panel is a stone plaque, stone on all four sides,
+  standing in the corner of the display's safe area instead of floating in that margin.
 - Two players on one phone (E22): player 1 plays on the touchscreen and player 2 on a Bluetooth
   gamepad. Versus opens once a pad is connected (until then its entry says "Connect a gamepad for
   player 2"), and in the campaign the pad's Start summons the princess. The pad never moves the
@@ -130,6 +131,8 @@ the mouse, held down, is the finger.
   fire, light, the two combos) are made in its style from its parts: its blank button with one of
   its glyphs or rune gems (`game/data/images/touch/README.md` says which is which). The images and
   layout are in `game/data/touch_controls.json` and `game/data/images/touch/`, so new art is a data
-  change; `"enabled": false` there removes a button (the combo buttons, say). The first,
+  change; `"enabled": false` there removes a button (the combo buttons, say), and `"overhang"` lets a
+  control's box lie past the screen edge it hangs from (the direction control's empty lower half
+  does, which is what puts its two buttons level with the jump button). The first,
   placeholder look is kept in `game/data/images/touch/placeholder/` with its own manifest: copy that
   over `game/data/touch_controls.json` to go back to it.

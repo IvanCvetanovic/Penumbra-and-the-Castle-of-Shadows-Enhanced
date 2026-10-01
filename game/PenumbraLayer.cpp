@@ -264,12 +264,13 @@ float PenumbraLayer::EdgeMargin() const {
     return Render::FittedEdgeMargin(asked, m_options.windowPixels, Widescreen(), SafeInsets());
 }
 
-Render::HudFrame PenumbraLayer::CurrentHudFrame() const {
+Render::HudFrame PenumbraLayer::CurrentHudFrame(const bool withMargin) const {
     // The loops the HUD is drawn under, their end screens included (the
     // bars stay where they were); the menus have none.
     const std::string& loop = m_machine->LoopFunction();
     if (!m_touchEnabled || (loop != "levelLoop" && loop != "pvpLoop")) return Render::HudFrame{};
-    return Render::ComputeHudFrame(m_view.windowPixels, m_machine->GetScreenSize(), SafeInsets(), EdgeMargin());
+    return Render::ComputeHudFrame(m_view.windowPixels, m_machine->GetScreenSize(), SafeInsets(),
+                                   withMargin ? EdgeMargin() : 0.0f);
 }
 
 Render::MenuFrame PenumbraLayer::MenuFrameFor(const std::string& sceneFile, const glm::uvec2 image) const {
@@ -701,11 +702,13 @@ void PenumbraLayer::OnFixedUpdate(entt::registry& registry, float fixedDelta) {
     // button is laid out in it and the scripts draw in it.
     if (!(SafeInsets() == m_zoomChoicesSafe)) RefreshZoomChoices();   // E25: insets that came after attach
     m_hudFrame = CurrentHudFrame();
+    m_panelFrame = CurrentHudFrame(false);
     if (!(m_hudFrame == m_hudFrameLogged)) {
         SUPERSONIC_LOG_INFO("Penumbra") << "E26 HUD frame: left " << m_hudFrame.left << " top " << m_hudFrame.top
                                         << " right " << m_hudFrame.right << " (edge margin " << EdgeMargin()
                                         << "%, screen " << m_machine->GetScreenSize().x << "x"
-                                        << m_machine->GetScreenSize().y << ") | tick " << m_ticks << std::endl;
+                                        << m_machine->GetScreenSize().y << "; plaque corner " << m_panelFrame.left
+                                        << ", " << m_panelFrame.top << ") | tick " << m_ticks << std::endl;
         m_hudFrameLogged = m_hudFrame;
     }
     // E16: the fingers press player 1's keys, or click in a menu, before
@@ -768,8 +771,11 @@ void PenumbraLayer::OnFixedUpdate(entt::registry& registry, float fixedDelta) {
                                                       panel.shownMax, m_localization.RightToLeft()};
         }
         // E26: the HUD's values and frame (zero outside a level or an arena).
-        Script::g_touchHud =
-            Script::TouchHud{m_touchEnabled, m_hudFrame.left, m_hudFrame.top, m_hudFrame.right, m_hudFrame.bottom};
+        // The player panel's plaque stands at the safe area's corner, not in the
+        // margin: wherever the touch controls are.
+        Script::g_touchHud = Script::TouchHud{m_touchEnabled,   m_hudFrame.left,  m_hudFrame.top,
+                                              m_hudFrame.right, m_hudFrame.bottom, m_touchEnabled,
+                                              m_panelFrame.left, m_panelFrame.top};
         // E25: the door raises it again in this frame if it still offers the way on.
         Script::g_nextLevelOffered = false;
         m_machine->Frame(frame);   // steps the key and button state machines itself
@@ -787,7 +793,7 @@ void PenumbraLayer::OnFixedUpdate(entt::registry& registry, float fixedDelta) {
         // 365-373, down to y 566) - or once player 2's princess is there, in
         // a scene loaded with her or summoned into it: the leash that kills
         // her 3 s off screen (controlCharacters.as:342-360) is the screen,
-        // which the zoom would pull in by a third.
+        // which the zoom would pull in (by a fifth at 125%, two-fifths at 175%).
         // SeekEntity walks the whole scene: only where the answer can matter,
         // a zoomed campaign scene.
         const bool zoomedCampaign = Render::IsCampaignScene(m_machine->GetSceneFileName()) &&

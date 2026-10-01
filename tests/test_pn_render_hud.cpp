@@ -29,6 +29,7 @@
 #include <iterator>
 #include <map>
 #include <optional>
+#include <random>
 #include <set>
 #include <string>
 #include <vector>
@@ -2654,6 +2655,323 @@ void TestWideMenuScene() {
 
 } // namespace
 
+// E26's DrawSpritePart, through the runtime and the renderer: a part of a
+// sprite keeps its rectangle (clamped to the image) and draws at the part's
+// own size, a part with nothing of the image in it draws nothing, and every
+// other sprite command is what it was - the whole image.
+void TestSpritePart() {
+    Eth::MachineConfig config;
+    config.userRoot.clear();
+    config.screenSize = Eth::vector2(1024.0f, 768.0f);
+    Eth::Machine machine(config);
+    Eth::Machine::Scope scope(machine);
+    machine.RegisterFunction("pre", [] {});
+    machine.RegisterFunction("loop", [] {
+        Eth::LoadSprite("interface/frame.png");   // 226 x 74
+        Eth::DrawSprite("interface/frame.png", Eth::vector2(4.0f, 5.0f), 0xA0FFFFFFu);
+        Eth::DrawSpritePart("interface/frame.png", Eth::vector2(10.0f, 20.0f), Eth::vector2(176.0f, 47.0f),
+                            Eth::vector2(192.0f, 63.0f), 0xA0FFFFFFu);
+        // Partly past the image's edges: what is inside them.
+        Eth::DrawSpritePart("interface/frame.png", Eth::vector2(30.0f, 40.0f), Eth::vector2(200.0f, -5.0f),
+                            Eth::vector2(300.0f, 10.0f), 0xFFFFFFFFu);
+        // Wholly past them: nothing.
+        Eth::DrawSpritePart("interface/frame.png", Eth::vector2(0.0f), Eth::vector2(300.0f, 0.0f),
+                            Eth::vector2(310.0f, 10.0f), 0xFFFFFFFFu);
+        Eth::DrawShapedSprite("interface/frame.png", Eth::vector2(60.0f, 70.0f), Eth::vector2(50.0f, 30.0f),
+                              0xFFFFFFFFu);
+    });
+    machine.Boot([] { Eth::LoadScene("", "pre", "loop"); });
+    for (int i = 0; i < 3; ++i) machine.Frame(Eth::InputFrame{});
+
+    const Eth::RenderSnapshot snapshot = machine.Snapshot();
+    CHECK_EQ(snapshot.hud.size(), std::size_t{4});
+    if (snapshot.hud.size() != 4u) return;
+    const Eth::HudCmd& whole = snapshot.hud[0];
+    const Eth::HudCmd& part = snapshot.hud[1];
+    const Eth::HudCmd& clamped = snapshot.hud[2];
+    const Eth::HudCmd& shaped = snapshot.hud[3];
+    // The plain sprite: the whole image at bitmap size, as 0.7.12 drew it.
+    CHECK(whole.kind == Eth::HudCmd::Kind::Sprite);
+    CHECK(whole.pos == Eth::vector2(4.0f, 5.0f) && whole.size == Eth::vector2(226.0f, 74.0f));
+    CHECK(whole.spriteRectMin == Eth::vector2(0.0f) && whole.spriteRectMax == Eth::vector2(226.0f, 74.0f));
+    // The part: its rectangle, its own size, the colour it was given.
+    CHECK(part.kind == Eth::HudCmd::Kind::Sprite && part.sprite == whole.sprite);
+    CHECK(part.pos == Eth::vector2(10.0f, 20.0f) && part.size == Eth::vector2(16.0f, 16.0f));
+    CHECK(part.spriteRectMin == Eth::vector2(176.0f, 47.0f) && part.spriteRectMax == Eth::vector2(192.0f, 63.0f));
+    CHECK_EQ(part.color, 0xA0FFFFFFu);
+    CHECK(clamped.spriteRectMin == Eth::vector2(200.0f, 0.0f) && clamped.spriteRectMax == Eth::vector2(226.0f, 10.0f));
+    CHECK(clamped.size == Eth::vector2(26.0f, 10.0f));
+    // The stretched sprite is still the whole image, stretched.
+    CHECK(shaped.kind == Eth::HudCmd::Kind::ShapedSprite && shaped.size == Eth::vector2(50.0f, 30.0f));
+    CHECK(shaped.spriteRectMin == Eth::vector2(0.0f) && shaped.spriteRectMax == Eth::vector2(226.0f, 74.0f));
+
+    // Drawn: the quad's texture coordinates are the rectangle's share of the image.
+    entt::registry registry;
+    Render::TextureCache textures(kApp);
+    Render::FontAtlas fonts;
+    Render::Localization loc;
+    loc.Load();
+    Render::HudRenderer hud;
+    hud.Attach(registry, textures, fonts, loc);
+    Render::View view;
+    view.logicalScreen = glm::vec2(1024.0f, 768.0f);
+    view.windowPixels = glm::uvec2(1024, 768);
+    view.scale = 1.0f;
+    view.viewportMin = glm::vec2(0.0f);
+    view.viewportMax = glm::vec2(1024.0f, 768.0f);
+    std::vector<Supersonic::ScreenOverlay::Quad> quads;
+    hud.Build(snapshot, view, quads);
+    CHECK_EQ(quads.size(), std::size_t{4});
+    if (quads.size() == 4u) {
+        CHECK_NEAR(quads[0].uvMin.x, 0.0f);
+        CHECK_NEAR(quads[0].uvMax.x, 1.0f);
+        CHECK_NEAR(quads[0].uvMax.y, 1.0f);
+        CHECK_NEAR(quads[1].uvMin.x, 176.0f / 226.0f);
+        CHECK_NEAR(quads[1].uvMin.y, 47.0f / 74.0f);
+        CHECK_NEAR(quads[1].uvMax.x, 192.0f / 226.0f);
+        CHECK_NEAR(quads[1].uvMax.y, 63.0f / 74.0f);
+        // At the part's own size: 16 px of the 1024 x 768 screen.
+        CHECK_NEAR(quads[1].min.x, 10.0f / 1024.0f);
+        CHECK_NEAR(quads[1].max.x, 26.0f / 1024.0f);
+        CHECK_NEAR(quads[1].min.y, 20.0f / 768.0f);
+        CHECK_NEAR(quads[1].max.y, 36.0f / 768.0f);
+        CHECK_NEAR(quads[2].uvMin.x, 200.0f / 226.0f);
+        CHECK_NEAR(quads[2].uvMax.x, 1.0f);
+        CHECK_NEAR(quads[2].uvMin.y, 0.0f);
+        CHECK_NEAR(quads[2].uvMax.y, 10.0f / 74.0f);
+        // The stretched sprite takes the whole image.
+        CHECK_NEAR(quads[3].uvMin.x, 0.0f);
+        CHECK_NEAR(quads[3].uvMax.y, 1.0f);
+    }
+    hud.Detach();
+}
+
+// E26's plaque through the real game: level 1 on a 2400x1080 phone, the HUD's
+// commands drawn by the ported scripts. Without the plaque (the desktop, or a
+// frame alone) the panel is the original's: one frame.png, whole, at the
+// bars. With it the bars start 16 px inside the plaque's corner, and frame.png
+// has the stone it lacks on its top and left, as parts of itself - for the
+// first player a whole strip at the left, for the second the 10 px between the
+// first's right strip and its bars - none overlapping another or the frame's
+// own stone (the frame is drawn translucent: it would show twice).
+struct PanelDrawn {
+    std::vector<Eth::HudCmd> frames;    // interface/frame.png, whole
+    std::vector<Eth::HudCmd> parts;     // parts of it
+    std::vector<Eth::HudCmd> rails;     // interface/rail.png, one per bar
+    std::vector<Eth::HudCmd> hp;        // interface/hp.png
+    std::vector<Eth::HudCmd> skulls;    // interface/skull_interface.png
+    std::vector<Eth::HudCmd> values;    // "hp: ", "mp: ", "lv: "
+    std::vector<Eth::HudCmd> messages;  // Arial 30
+};
+
+PanelDrawn SortPanel(const std::vector<Eth::HudCmd>& hud) {
+    PanelDrawn out;
+    for (const Eth::HudCmd& cmd : hud) {
+        const auto named = [&cmd](const char* file) {
+            return cmd.kind != Eth::HudCmd::Kind::Text && cmd.sprite.find(file) != std::string::npos;
+        };
+        if (named("frame.png")) {
+            const bool whole = cmd.spriteRectMin == glm::vec2(0.0f) && cmd.spriteRectMax == glm::vec2(226.0f, 74.0f);
+            (whole ? out.frames : out.parts).push_back(cmd);
+        } else if (named("rail.png")) {
+            out.rails.push_back(cmd);
+        } else if (named("/hp.png")) {
+            out.hp.push_back(cmd);
+        } else if (named("skull_interface.png")) {
+            out.skulls.push_back(cmd);
+        } else if (cmd.kind == Eth::HudCmd::Kind::Text) {
+            if (cmd.text.rfind("hp: ", 0) == 0 || cmd.text.rfind("mp: ", 0) == 0 || cmd.text.rfind("lv: ", 0) == 0) {
+                out.values.push_back(cmd);
+            } else if (cmd.font == "Arial" && cmd.fontSize == 30.0f) {
+                out.messages.push_back(cmd);
+            }
+        }
+    }
+    return out;
+}
+
+// A destination rectangle and the part of frame.png it shows, for one panel
+// whose bars start at `bars`; `player` 0 is the first.
+struct Piece {
+    glm::vec2 dest;
+    glm::vec2 srcMin;
+    glm::vec2 srcMax;
+};
+
+std::vector<Piece> PlaquePieces(const glm::vec2& bars, const int player) {
+    const glm::vec2 o = bars + glm::vec2(226.0f * static_cast<float>(player), 0.0f);
+    const float left = player == 0 ? 16.0f : 10.0f;   // 226 - (200 + 16)
+    return {
+        {o + glm::vec2(0.0f, -16.0f), {0.0f, 47.0f}, {200.0f, 63.0f}},                           // the top strip
+        {o + glm::vec2(200.0f, -16.0f), {176.0f, 47.0f}, {192.0f, 63.0f}},                       // its right corner
+        {o + glm::vec2(216.0f, -16.0f), {216.0f, 0.0f}, {222.0f, 16.0f}},                        // that corner's shadow
+        {o + glm::vec2(-left, -16.0f), {48.0f - left, 47.0f}, {48.0f, 63.0f}},                   // the left top corner
+        {o + glm::vec2(-left, 0.0f), {200.0f, 0.0f}, {200.0f + left, 47.0f}},                    // the left side
+        {o + glm::vec2(-left, 47.0f), {112.0f - left, 47.0f}, {112.0f, 67.0f}},                  // the left bottom corner
+    };
+}
+
+bool SameRect(const Eth::HudCmd& cmd, const Piece& piece) {
+    return Near(cmd.pos.x, piece.dest.x) && Near(cmd.pos.y, piece.dest.y) &&
+           cmd.spriteRectMin == piece.srcMin && cmd.spriteRectMax == piece.srcMax &&
+           cmd.size == piece.srcMax - piece.srcMin && cmd.color == 0xA0FFFFFFu;
+}
+
+bool Overlaps(const glm::vec2& aMin, const glm::vec2& aMax, const glm::vec2& bMin, const glm::vec2& bMax) {
+    return aMin.x < bMax.x - 0.001f && bMin.x < aMax.x - 0.001f && aMin.y < bMax.y - 0.001f &&
+           bMin.y < aMax.y - 0.001f;
+}
+
+template <typename Run>
+void InLevelOneForPlaque(const char* what, Run run) {
+    namespace fs = std::filesystem;
+    if (!fs::exists(fs::path(PENUMBRA_ORIGINAL_DIR) / "scenes" / "level1.esc")) {
+        std::printf("  (the original is not at %s: %s is skipped)\n", PENUMBRA_ORIGINAL_DIR, what);
+        return;
+    }
+    std::error_code ec;
+    const fs::path userRoot = fs::temp_directory_path(ec) / ("penumbra-plaque-" + std::to_string(std::random_device{}()));
+    fs::remove_all(userRoot, ec);
+    fs::create_directories(userRoot, ec);
+    {
+        const glm::uvec2 phone(2400u, 1080u);
+        const Eth::vector2 levelScreen =
+            Render::ZoomedScreen(phone, true, Render::CampaignZoom(0, true, phone, true));
+        Eth::MachineConfig config;
+        config.userRoot = userRoot.generic_string();
+        config.screenSizeForScene = [&](const std::string& scene) {
+            return Render::IsCampaignScene(scene) ? levelScreen : Eth::vector2(1024.0f, 768.0f);
+        };
+        Eth::Machine machine(config);
+        Eth::Machine::Scope scope(machine);
+        Script::RegisterAll(machine);
+        machine.Boot(Script::ScriptMain);
+        machine.Frame(Eth::InputFrame{});
+        const Eth::uint setup = Script::g_levelStartTime;
+        Script::newGame("CAMPAIGN");
+        for (int i = 0; i < 5 && Script::g_levelStartTime == setup; ++i) machine.Frame(Eth::InputFrame{});
+        Eth::ETHEntity wizard = Eth::SeekEntity("bruxo.ent");
+        const auto standing = [](const Eth::ETHEntity& e) {
+            return e != nullptr && e->IsAlive() && e->GetIntData("hp") > 0 &&
+                   e->CheckCustomData("deathTime") == Eth::DT_NODATA && e->GetUIntData("touchingGround") != 0;
+        };
+        for (int i = 0; i < 300 && !standing(wizard); ++i) {
+            machine.Frame(Eth::InputFrame{});
+            wizard = Eth::SeekEntity("bruxo.ent");
+        }
+        if (!standing(wizard)) {
+            CHECK_MSG(false, std::string("no wizard standing in level 1: ") + what);
+        } else {
+            run(machine, wizard);
+        }
+        CHECK_EQ(machine.ScriptAborts(), 0u);
+    }
+    Script::g_touchHud = Script::TouchHud{};
+    fs::remove_all(userRoot, ec);
+}
+
+void TestPlaqueInGame() {
+    InLevelOneForPlaque("the HUD's plaque", [](Eth::Machine& machine, Eth::ETHEntity wizard) {
+        // Two frames each: an entity callback's draws (the bars, from the
+        // wizard's) reach the snapshot a frame after the loop's (the timer).
+        const auto frameWith = [&](const Script::TouchHud& hud) {
+            Script::g_touchHud = hud;
+            machine.Frame(Eth::InputFrame{});
+            machine.Frame(Eth::InputFrame{});
+            return SortPanel(machine.Snapshot().hud);
+        };
+        Script::g_messages.addMessage("Checkpoint...");
+
+        // Off the plaque: the original's panel, from (0, 0), and E26's frame
+        // alone moves it, whole.
+        const PanelDrawn plain = frameWith(Script::TouchHud{});
+        CHECK_EQ(plain.frames.size(), std::size_t{1});
+        CHECK(plain.parts.empty());
+        if (plain.frames.size() == 1u) CHECK(plain.frames[0].pos == Eth::vector2(0.0f) && plain.frames[0].color == 0xA0FFFFFFu);
+        CHECK_EQ(plain.rails.size(), std::size_t{3});
+        CHECK_EQ(plain.skulls.size(), std::size_t{1});
+        if (plain.skulls.size() == 1u) CHECK(plain.skulls[0].pos == Eth::vector2(448.0f, 0.0f));
+        const PanelDrawn framed = frameWith(Script::TouchHud{true, 40.0f, 18.0f, 30.0f});
+        CHECK(framed.parts.empty());
+        CHECK_EQ(framed.frames.size(), std::size_t{1});
+        if (framed.frames.size() == 1u) CHECK(framed.frames[0].pos == Eth::vector2(40.0f, 18.0f));
+        CHECK(Script::hudBarsTopLeft() == Eth::vector2(40.0f, 18.0f));
+        float framedMessageTop = 1.0e9f;
+        for (const Eth::HudCmd& cmd : framed.messages) framedMessageTop = std::min(framedMessageTop, cmd.pos.y);
+        CHECK(!framed.messages.empty());
+
+        // On it: the panel's corner at the safe area's (12, 5), the bars 16 in.
+        Script::TouchHud on{true, 40.0f, 18.0f, 30.0f, 0.0f, true, 12.0f, 5.0f};
+        const PanelDrawn plaque = frameWith(on);
+        const glm::vec2 bars(28.0f, 21.0f);
+        CHECK(Script::hudBarsTopLeft() == Eth::vector2(28.0f, 21.0f));
+        CHECK_EQ(plaque.frames.size(), std::size_t{1});
+        if (plaque.frames.size() == 1u) CHECK(plaque.frames[0].pos == bars);
+        for (const Eth::HudCmd& rail : plaque.rails) CHECK(Near(rail.pos.x, bars.x));
+        CHECK_EQ(plaque.skulls.size(), std::size_t{1});
+        if (plaque.skulls.size() == 1u) CHECK(plaque.skulls[0].pos == glm::vec2(bars.x + 448.0f, bars.y));   // the bars' row
+        for (const Eth::HudCmd& cmd : plaque.values) CHECK_MSG(cmd.pos.x >= bars.x + 2.0f - 0.01f, cmd.text);
+        // The pieces of the first player's plaque, each drawn once, and nothing else of frame.png.
+        const std::vector<Piece> first = PlaquePieces(bars, 0);
+        CHECK_EQ(plaque.parts.size(), first.size());
+        for (const Piece& piece : first) {
+            const bool drawn = std::any_of(plaque.parts.begin(), plaque.parts.end(),
+                                           [&](const Eth::HudCmd& cmd) { return SameRect(cmd, piece); });
+            CHECK_MSG(drawn, "a plaque piece at " + std::to_string(piece.dest.x) + ", " + std::to_string(piece.dest.y));
+        }
+        // The message lines start no higher than the plaque's end (its stone and the shadow under it) and 6 px more.
+        float plaqueMessageTop = 1.0e9f;
+        for (const Eth::HudCmd& cmd : plaque.messages) plaqueMessageTop = std::min(plaqueMessageTop, cmd.pos.y);
+        CHECK_NEAR(plaqueMessageTop, std::max(framedMessageTop, 5.0f + 16.0f + 67.0f + 6.0f));
+        CHECK(plaque.messages.size() == framed.messages.size());
+
+        // The plaque is the safe area's, whatever the margin: the margin's
+        // frame moves the timer, the messages' left and the pause, never the panel.
+        Script::TouchHud wide = on;
+        wide.left = 90.0f;
+        wide.top = 60.0f;
+        const PanelDrawn moved = frameWith(wide);
+        CHECK_EQ(moved.frames.size(), std::size_t{1});
+        if (moved.frames.size() == 1u) CHECK(moved.frames[0].pos == bars);
+        float movedMessageTop = 1.0e9f;
+        for (const Eth::HudCmd& cmd : moved.messages) movedMessageTop = std::min(movedMessageTop, cmd.pos.y);
+        CHECK_NEAR(movedMessageTop, 70.0f + 60.0f);   // already below the plaque
+
+        // A second player's panel (the princess, summoned beside the wizard):
+        // its left piece is the gap before its bars, and the stone runs on.
+        Eth::ETHEntity princess;
+        Eth::AddEntity(Script::MAIN_CHARACTER_ENTITY1, Eth::vector3(wizard->GetPositionXY() + Eth::vector2(48.0f, -6.0f), 0.0f), princess);
+        CHECK(princess != nullptr);
+        PanelDrawn pair;
+        for (int i = 0; i < 4; ++i) pair = frameWith(on);
+        CHECK_EQ(pair.frames.size(), std::size_t{2});
+        const std::vector<Piece> second = PlaquePieces(bars, 1);
+        CHECK_EQ(pair.parts.size(), first.size() + second.size());
+        for (const Piece& piece : second) {
+            const bool drawn = std::any_of(pair.parts.begin(), pair.parts.end(),
+                                           [&](const Eth::HudCmd& cmd) { return SameRect(cmd, piece); });
+            CHECK_MSG(drawn, "a second plaque piece at " + std::to_string(piece.dest.x) + ", " + std::to_string(piece.dest.y));
+        }
+        // The stone never doubles: no stone piece meets another, or either frame's stone (shadow slivers excepted).
+        std::vector<std::pair<glm::vec2, glm::vec2>> stone;
+        for (const Eth::HudCmd& cmd : pair.parts) {
+            if (cmd.spriteRectMin.x >= 216.0f) continue;   // the shadow
+            stone.push_back({glm::vec2(cmd.pos.x, cmd.pos.y), glm::vec2(cmd.pos.x, cmd.pos.y) + cmd.size});
+        }
+        for (const Eth::HudCmd& frame : pair.frames) {
+            const glm::vec2 at(frame.pos.x, frame.pos.y);
+            stone.push_back({at + glm::vec2(0.0f, 47.0f), at + glm::vec2(216.0f, 63.0f)});   // the bottom strip
+            stone.push_back({at + glm::vec2(200.0f, 0.0f), at + glm::vec2(216.0f, 47.0f)});   // the right one
+        }
+        for (std::size_t a = 0; a < stone.size(); ++a) {
+            for (std::size_t b = a + 1; b < stone.size(); ++b) {
+                CHECK_MSG(!Overlaps(stone[a].first, stone[a].second, stone[b].first, stone[b].second),
+                          "stone pieces " + std::to_string(a) + " and " + std::to_string(b) + " overlap");
+            }
+        }
+    });
+}
+
 int main() {
     if (!std::filesystem::exists(PENUMBRA_ORIGINAL_DIR "/main.as")) {
         std::printf("SKIP: the original is not at %s\n", PENUMBRA_ORIGINAL_DIR);
@@ -2673,9 +2991,11 @@ int main() {
     TestArabicShaping();
     TestAtlasBatching();
     TestHudRenderer();
+    TestSpritePart();      // E26
     TestFitColumns();      // E25
     TestWideMenuHud();
     TestWideMenuBackdrop();
-    TestWideMenuScene();   // last: it boots the real game, whose globals outlive it
+    TestWideMenuScene();   // it boots the real game, whose globals outlive it
+    TestPlaqueInGame();    // E26: last, booting level 1 afresh (a new game)
     return test::summary("test_pn_render_hud", 150);
 }

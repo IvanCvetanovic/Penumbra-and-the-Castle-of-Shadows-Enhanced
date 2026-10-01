@@ -741,12 +741,20 @@ struct TouchHud {                                     // E26
     float top = 0.0f;                                 // E26
     float right = 0.0f;                               // E26
     float bottom = 0.0f;                              // E26
+    // The player panel (hp, mp, xp) is not set in that frame but drawn as a        // E26
+    // stone plaque whose outer corner is the safe area's (panelLeft, panelTop:    // E26
+    // the display's own insets, no margin), the stone on all four sides.          // E26
+    bool plaque = false;                              // E26
+    float panelLeft = 0.0f;                           // E26
+    float panelTop = 0.0f;                            // E26
 };                                                    // E26
 extern TouchHud g_touchHud;                           // E26
 vector2 hudTopLeft();                                 // E26: the screen's top-left corner, for the HUD
 vector2 hudTopRight();                                // E26: its top-right corner's offset, for the HUD
 vector2 hudBottomLeft();                              // E26: its bottom-left corner's offset, for the HUD
 void hudValue(const vector2& pos, float barLeft, const string& text);   // E26: a bar's value on a touch screen
+vector2 hudBarsTopLeft();                             // E26: where the bars start: hudTopLeft(), or inside the plaque's stone
+vector2 hudMessagesTopLeft();                         // E26: where the message lines start, clear of the plaque
 
 // === spells.as (defined in spells.cpp) ===========================================
 

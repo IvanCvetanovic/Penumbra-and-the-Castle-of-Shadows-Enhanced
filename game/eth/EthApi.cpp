@@ -195,6 +195,11 @@ void DrawShapedSprite(const string& path, const vector2& pos, const vector2& siz
     M().DrawShapedSprite(path, pos, size, color);
 }
 
+void DrawSpritePart(const string& path, const vector2& pos, const vector2& rectMin, const vector2& rectMax,
+                    const uint color) {
+    M().DrawSpritePart(path, pos, rectMin, rectMax, color);
+}
+
 vector2 GetSpriteSize(const string& path) { return M().GetSpriteSize(path); }
 
 void DrawRectangle(const vector2& pos, const vector2& size, const uint c0, const uint c1, const uint c2,

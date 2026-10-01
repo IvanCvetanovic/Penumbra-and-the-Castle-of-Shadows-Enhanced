@@ -246,7 +246,9 @@ private:
     // E26: the HUD's frame for this tick: in a level's or an arena's loop
     // with the touch controls on, from the screen the scripts have now;
     // zero anywhere else.
-    Render::HudFrame CurrentHudFrame() const;
+    // The frame of this tick's HUD: the edge margin and the safe area's insets, or,
+    // asked without the margin, the safe area's alone (where E26's plaque stands).
+    Render::HudFrame CurrentHudFrame(bool withMargin = true) const;
 
     Options m_options;
     Render::Settings m_settings;
@@ -300,6 +302,8 @@ private:
     // E26: this tick's HUD frame (CurrentHudFrame), which the scripts and the
     // pause button get, and the last one logged.
     Render::HudFrame m_hudFrame;
+    // E26: the same without the margin, the corner of the player panel's stone plaque.
+    Render::HudFrame m_panelFrame;
     Render::HudFrame m_hudFrameLogged;
     // E25: the safe insets RefreshZoomChoices last counted with; insets can
     // arrive after attach (SafeArea.hpp), and the zoom's limit follows them.

@@ -80,13 +80,13 @@ BASE_APK = "com.asanteegames.magicrampage.apk"
 
 # The direction control, as touch_controls.json has it: its box (logical px, square) and where each
 # button's centre is from the box's centre (logical px, +y down). The canvas is DPAD_CANVAS px, so
-# a 128 px button is 128 * DPAD_BOX / DPAD_CANVAS = 104 logical px.
-DPAD_BOX = 330.0
+# a 128 px button is 128 * DPAD_BOX / DPAD_CANVAS = 126 logical px.
+DPAD_BOX = 400.0
 DPAD_CANVAS = 406
 DPAD_CENTRES = {
-    "left": (-113.0, -18.0),
-    "right": (113.0, -18.0),
-    "down": (0.0, 111.0),
+    "left": (-137.0, -21.8),
+    "right": (137.0, -21.8),
+    "down": (0.0, 134.5),
 }
 # TouchControls.cpp: the dead zone (touch_controls.json "deadZone", of the radius) and tan(22.5).
 DEAD_ZONE = 0.25

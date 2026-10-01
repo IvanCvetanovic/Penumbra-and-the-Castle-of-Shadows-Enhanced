@@ -41,6 +41,10 @@
 // 67.5 degrees of straight down, straight down being down alone, so a thumb
 // held at the door did not walk off it - which a manifest can still ask for
 // (dpad "downSector": true and its "down" arrow, as the placeholder look's has).
+// Its two buttons are drawn above the disc's centre and its lower half is empty,
+// so the shipped layout lets the box hang below the screen's bottom edge
+// (overhang, below): the buttons then sit at the thumb's resting height, level
+// with the jump button, with the disc's input unchanged.
 //
 // THE DOWN BUTTON (ENHANCEMENT E25) is K_DOWN alone, above the left and right
 // buttons and centred between them, shown only while the next_level door
@@ -121,6 +125,9 @@
 // their logical pixels, so the controls keep their size on the window, and a
 // control hanging from the top keeps below the run's timer (kTimerRowHeight),
 // which the zoom does enlarge.
+// A control may also hang past the edge it is anchored to: "overhang" ([x, y],
+// default none) says how far, and its offset may then go that far negative. The
+// layout keeps at least half of a control on the screen whatever the manifest says.
 // Replacing the art is replacing the PNGs and editing the manifest; a control
 // the manifest marks "enabled": false is not there at all (a layout without
 // the combo buttons, say). Images go through the HUD's TextureCache as the
@@ -269,6 +276,12 @@ struct TouchControlSpec {
     std::string image;              // under the data folder; "" is drawn as a plain square
     TouchAnchor anchor = TouchAnchor::BottomRight;
     glm::vec2 offset{0.0f};         // from the anchor corner to the control's nearest edges, inward
+    // How far the box may lie past the edges of the safe area it is anchored
+    // to (a bottom-left control: past the left and the bottom), in the
+    // manifest's pixels; the offset may be negative down to minus this. The
+    // direction control's lower half is empty, and hangs there. At most half
+    // the control's size is allowed, whatever is written.
+    glm::vec2 overhang{0.0f};
     glm::vec2 size{100.0f};
     TouchShape shape = TouchShape::Circle;
     float hitPadding = 0.0f;        // how far past its edge a finger still lands on it
@@ -361,7 +374,8 @@ public:
     static TouchInsets WindowInsetsToLogical(const TouchInsets& windowPixels, const View& view);
 
     // Each control's box: from its anchor corner of the safe area, clamped
-    // into it. The area is the logical screen (0,0)-screen, or the rectangle
+    // into it - past the edges it hangs from by the control's overhang. The
+    // area is the logical screen (0,0)-screen, or the rectangle
     // areaMin-areaMax (TouchInput::areaMin/areaMax). `unit`: E25's
     // TouchInput::unit (1: the manifest's pixels are the screen's).
     // `hudFrame`: E26's TouchInput::hudFrame, which the pause button's corner

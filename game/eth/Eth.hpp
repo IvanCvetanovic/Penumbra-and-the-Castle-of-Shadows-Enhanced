@@ -99,6 +99,11 @@ void DrawText(const vector2& pos, const string& text, const string& font, float 
 void LoadSprite(const string& path);
 void DrawSprite(const string& path, const vector2& pos, uint color);
 void DrawShapedSprite(const string& path, const vector2& pos, const vector2& size, uint color);
+// ENHANCEMENT E26 (not in 0.7.12): DrawSprite of one part of the image, the
+// pixels [rectMin, rectMax), drawn at its own size (HudCmd::spriteRectMin/Max):
+// what a border is cut from when the art has it on two sides only.
+void DrawSpritePart(const string& path, const vector2& pos, const vector2& rectMin, const vector2& rectMax,
+                    uint color);
 vector2 GetSpriteSize(const string& path);
 void DrawRectangle(const vector2& pos, const vector2& size, uint c0, uint c1, uint c2, uint c3);
 

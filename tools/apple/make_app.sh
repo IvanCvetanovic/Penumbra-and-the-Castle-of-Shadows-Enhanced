@@ -22,7 +22,9 @@
 #   LICENSE.txt, licenses/
 #                      the licence texts, as tools/package.bat puts them beside Penumbra.exe.
 #   the icon           the original's penumbra.ico (48 px at most), scaled up: Penumbra.icns on a
-#                      Mac, AppIcon*.png on iOS.
+#                      Mac (transparent, as a Mac icon may be), AppIcon*.png on iOS (laid over an
+#                      opaque deep-violet tile: iOS fills what is transparent and the App Store
+#                      refuses an alpha channel, so the tile is chosen, not left to the system).
 # In Contents/Resources on a Mac; at the root of the bundle on iOS, which is flat.
 #
 # Signed ad hoc (codesign -s -), which is no identity: what arm64 needs to run it at all, and what
@@ -130,10 +132,19 @@ if python3 "$REPO/tools/apple/ico_to_png.py" "$REPO/extracted/app/penumbra.ico" 
         iconutil -c icns "$SET" -o "$RES/Penumbra.icns" || echo "warning: iconutil failed; no icon" >&2
     else
         # CFBundleIconFiles in game/ios/Info.plist: 60 pt (iPhone), 76 and 83.5 pt (iPad).
-        sips -z 120 120 "$ICONWORK/icon.png" --out "$RES/AppIcon60x60@2x.png" >/dev/null
-        sips -z 180 180 "$ICONWORK/icon.png" --out "$RES/AppIcon60x60@3x.png" >/dev/null
-        sips -z 152 152 "$ICONWORK/icon.png" --out "$RES/AppIcon76x76@2x~ipad.png" >/dev/null
-        sips -z 167 167 "$ICONWORK/icon.png" --out "$RES/AppIcon83.5x83.5@2x~ipad.png" >/dev/null
+        # Over an opaque tile first (no alpha channel in what sips scales): the menus' cave, a deep
+        # violet from #2A1536 at the top to #0F0716 at the bottom. Should that fail, the icon with
+        # its transparent corners is still better than none.
+        IOSICON="$ICONWORK/icon_ios.png"
+        IOSTILE="2A1536,0F0716"
+        if ! python3 "$REPO/tools/apple/ico_to_png.py" "$REPO/extracted/app/penumbra.ico" "$IOSICON" --flatten "$IOSTILE"; then
+            echo "warning: the icon could not be flattened onto its tile; the iOS icon stays transparent" >&2
+            IOSICON="$ICONWORK/icon.png"
+        fi
+        sips -z 120 120 "$IOSICON" --out "$RES/AppIcon60x60@2x.png" >/dev/null
+        sips -z 180 180 "$IOSICON" --out "$RES/AppIcon60x60@3x.png" >/dev/null
+        sips -z 152 152 "$IOSICON" --out "$RES/AppIcon76x76@2x~ipad.png" >/dev/null
+        sips -z 167 167 "$IOSICON" --out "$RES/AppIcon83.5x83.5@2x~ipad.png" >/dev/null
     fi
 else
     echo "warning: the icon could not be converted; the app has none" >&2

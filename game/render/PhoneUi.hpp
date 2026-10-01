@@ -14,7 +14,7 @@
 //   see it as GetScreenSize(), so the camera's dead zone, the HUD, the
 //   messages and the pause are all laid out in it, as they are in E1's wider
 //   one. Not the menus, the options, game over or the Versus arenas (both
-//   players must stay on screen). settings.json "zoom": "auto" (150% on a
+//   players must stay on screen). settings.json "zoom": "auto" (175% on a
 //   phone-shaped screen, 125% on any other touchscreen) or a percentage from
 //   100 to 200; a phone's options screen has the row. The zoom stops where a
 //   message line would lose its room (MaxZoom, with E26's frame), and E1's
@@ -22,7 +22,7 @@
 //   once the king is beaten, whose end screen lays its best times out for it
 //   (down to y 566), and while player 2's princess is in the campaign, whom
 //   controlCharacters.as:342-360 kills 3 s after she leaves the screen - a
-//   zoomed screen would pull that leash in by a third.
+//   zoomed screen would pull that leash in by a fifth at 125%, two-fifths at 175%.
 //
 //   THE MENU, LARGER. menu.esc and arena_select.esc keep their 1024x768 for
 //   the scripts, but the view scales them up until the logo and the seven
@@ -90,7 +90,7 @@ inline constexpr int kZoomSteps[] = {100, 125, 150, 175, 200};
 // A screen at least this long for its height (landscape) is a phone's: 18:9,
 // 19.5:9, 20:9 and 21:9 are; 16:9 and every tablet (4:3, 3:2, 16:10) are not.
 inline constexpr float kPhoneAspect = 1.9f;
-inline constexpr int kPhoneZoomPercent = 150;
+inline constexpr int kPhoneZoomPercent = 175;
 inline constexpr int kTabletZoomPercent = 125;
 // The original's height, which E1's view keeps and the zoom divides.
 inline constexpr float kUnzoomedHeight = 768.0f;

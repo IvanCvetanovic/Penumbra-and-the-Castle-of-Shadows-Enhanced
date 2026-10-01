@@ -152,7 +152,7 @@ struct Settings {
     // "off" force them. The original was played with a keyboard and pads.
     std::string touchControls = "auto";
     // E25: the campaign camera's zoom while the touch controls are on
-    // (render/PhoneUi.hpp): 0 is automatic (written "auto": 150% on a
+    // (render/PhoneUi.hpp): 0 is automatic (written "auto": 175% on a
     // phone-shaped screen, 125% on another), else a percentage, 100 to 200.
     // Without the touch controls the levels are not zoomed, whatever it says.
     int zoom = 0;

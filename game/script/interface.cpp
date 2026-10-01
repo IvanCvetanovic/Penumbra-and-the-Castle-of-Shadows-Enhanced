@@ -27,6 +27,67 @@ vector2 hudBottomLeft()
     return vector2(g_touchHud.left, -g_touchHud.bottom);
 }
 
+// E26: the HUD panel as a stone plaque. frame.png is the original's border
+// for a screen's corner: stone along its bottom and right only, the top and
+// left being the screen's edges. Inside a phone's safe area those two edges
+// are bare, so the touch HUD adds them (drawPlaqueStone) and puts the panel
+// at the safe area's corner instead of in the edge margin: the stone is the
+// margin. Art measurements (px of frame.png): the stone strips are 16 thick,
+// the bottom one is rows 47-62 with its shadow to row 66, the right one is
+// columns 200-215 with its shadow to column 221.
+namespace {
+const float kStone = 16.0f;
+const float kStoneTop = 47.0f;          // the bottom strip's first row
+const float kStoneEnd = kStoneTop+16.0f;
+const float kShadowEnd = 67.0f;         // the first row below the bottom strip's shadow
+const float kPlaqueGap = 6.0f;          // the message lines' clearance below the plaque
+}
+
+vector2 hudBarsTopLeft()
+{
+    if (!g_touchHud.plaque) return hudTopLeft();
+    return vector2(g_touchHud.panelLeft+kStone, g_touchHud.panelTop+kStone);
+}
+
+// interface.as's message lines start at (10, 70) below the frame's top; on a
+// plaque no higher than its bottom edge (the stone and the shadow under it).
+vector2 hudMessagesTopLeft()
+{
+    vector2 at = vector2(10,70)+hudTopLeft();
+    if (g_touchHud.plaque)
+        at.y = max(at.y, g_touchHud.panelTop+kStone+kShadowEnd+kPlaqueGap);
+    return at;
+}
+
+// E26: the plaque's missing top and left stone for the panel at `idOffset`,
+// each piece cut from frame.png's own strips so the stone matches. They touch
+// but never overlap each other or frame.png's stone (the frame is drawn
+// translucent, so an overlap would show twice), and most cuts fall on the
+// strips' mortar joints (bottom strip: x 48, 112, 176, 192); the top strip's
+// seam at x 200 does not, and reads as one more crack in the stone. The soft
+// shadow beside the top-right corner and under the bottom-left one restarts
+// frame.png's own ramp where the pieces meet (a few px, faint).
+// The left piece is a whole strip beside the first player's bars; beside the
+// next player's it is what the frame's pitch leaves past the previous panel's
+// right strip, so the stone runs on from panel to panel along the top.
+namespace {
+void drawPlaqueStone(const vector2& idOffset, const uint playerId, const float framePitch, const float rail)
+{
+    const string frame = "interface/frame.png";
+    const uint color = 0xA0FFFFFF;   // as the frame itself is drawn
+    const float left = playerId == 0 ? kStone : framePitch-(rail+kStone);
+    if (left <= 0.0f) return;
+    // The top strip along the bars, its right corner (and that corner's share of the right shadow).
+    DrawSpritePart(frame, idOffset+vector2(0,-kStone), vector2(0,kStoneTop), vector2(rail,kStoneEnd), color);
+    DrawSpritePart(frame, idOffset+vector2(rail,-kStone), vector2(176,kStoneTop), vector2(192,kStoneEnd), color);
+    DrawSpritePart(frame, idOffset+vector2(rail+kStone,-kStone), vector2(rail+kStone,0), vector2(rail+kStone+6,kStone), color);
+    // The left strip: its top corner, its side (the right strip's own stone), its bottom corner and that corner's shadow.
+    DrawSpritePart(frame, idOffset+vector2(-left,-kStone), vector2(48-left,kStoneTop), vector2(48,kStoneEnd), color);
+    DrawSpritePart(frame, idOffset+vector2(-left,0), vector2(rail,0), vector2(rail+left,kStoneTop), color);
+    DrawSpritePart(frame, idOffset+vector2(-left,kStoneTop), vector2(112-left,kStoneTop), vector2(112,kShadowEnd), color);
+}
+}
+
 // E26: a bar's value on a touch screen. The original draws it in the bars'
 // own dark colour (0xD0000000) riding the bar's end, where on a phone's red
 // and blue it could not be read, and slides it off the screen's left edge as
@@ -52,7 +113,7 @@ void drawPlayerStatus(ETHEntity thisEntity)
     const uint playerId = thisEntity->GetUIntData("playerId");
     const vector2 frameSize = GetSpriteSize("interface/frame.png");
     // E26: from the frame's top-left corner on a touch screen ((0, 0) otherwise).
-    const vector2 idOffset = vector2(frameSize.x*static_cast<float>(playerId), 0)+hudTopLeft();   // E26: hudTopLeft
+    const vector2 idOffset = vector2(frameSize.x*static_cast<float>(playerId), 0)+hudBarsTopLeft();   // E26: hudBarsTopLeft (hudTopLeft off the plaque)
 
     // interface.as:54 read global.lv<level> directly; data.enml has no lv20,
     // which left nextExp 0 and aborted this callback at the division below.
@@ -96,9 +157,9 @@ void drawPlayerStatus(ETHEntity thisEntity)
         // Campaign: only player 0 shows the lives, with a drop shadow.
         if (playerId == 0)
         {
-            DrawSprite("interface/skull_interface.png", vector2(rail*2+48.0f,0)+hudTopLeft(), 0xFFFFFFFF);   // E26: hudTopLeft
-            DrawText(vector2(rail*2+48.0f+21.5f,1.5f)+hudTopLeft(), "" + Str(g_lives), "Arial Black", 17, 0xF0000000);   // E26
-            DrawText(vector2(rail*2+48.0f+20,0)+hudTopLeft(), "" + Str(g_lives), "Arial Black", 17, textColor);   // E26
+            DrawSprite("interface/skull_interface.png", vector2(rail*2+48.0f,0)+hudBarsTopLeft(), 0xFFFFFFFF);   // E26: hudBarsTopLeft
+            DrawText(vector2(rail*2+48.0f+21.5f,1.5f)+hudBarsTopLeft(), "" + Str(g_lives), "Arial Black", 17, 0xF0000000);   // E26
+            DrawText(vector2(rail*2+48.0f+20,0)+hudBarsTopLeft(), "" + Str(g_lives), "Arial Black", 17, textColor);   // E26
         }
     }
     else
@@ -113,6 +174,8 @@ void drawPlayerStatus(ETHEntity thisEntity)
     }
 
     DrawSprite("interface/frame.png", idOffset+vector2(0,0), 0xA0FFFFFF);   // interface.as:94
+    if (g_touchHud.plaque)                                                    // E26
+        drawPlaqueStone(idOffset, playerId, frameSize.x, rail);               // E26
     DrawSprite("interface/blend.png", idOffset+vector2(0,0), textColor);
 }
 
