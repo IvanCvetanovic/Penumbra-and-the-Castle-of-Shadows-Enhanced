@@ -1987,12 +1987,14 @@ void ScenarioCoop(Game& g) {
 void ScenarioOptionsE10(Game& g) {
     // E24: what PenumbraLayer gives the chooser - a key per language, in the
     // picker's order, each drawn as that language's name - with Portuguese,
-    // the row E10's switch started on, current. No frame is spent on it.
+    // the row E10's switch started on, current. E27: automatic comes first, so
+    // a language sits one place later (Portuguese at 6). No frame is spent on it.
     array<string> languages;
+    languages.insertLast(string("Autom\xE1tica"));
     for (const char* id : {"en", "de", "es", "fr", "it", "pt", "ru", "tr", "uk", "ja", "ar"}) {
         languages.insertLast(string("{language:") + id + "}");
     }
-    Script::g_language.setOptions(languages, 5u);
+    Script::g_language.setOptions(languages, 6u);
     CHECK(EnsureMenu(g));
     g.base.cursor = kOptionsButton;
     g.Steps(3);
@@ -2066,14 +2068,14 @@ void ScenarioOptionsE10(Game& g) {
     // E24: the language, a chooser in E10's switch's place (x 255, y 564-614):
     // its label, then "[<]" in x 255-295 and "[>]" in x 471-511 at y 589-614.
     // Two clicks, as the switch took, so the frames after it are the same.
-    CHECK_EQ(Script::g_language.getCurrent(), 5u);
+    CHECK_EQ(Script::g_language.getCurrent(), 6u);
     click(vector2(491.0f, 601.0f));
     std::printf("  language: [>] from pt to option %u\n", Script::g_language.getCurrent());
-    CHECK_EQ(Script::g_language.getCurrent(), 6u);
+    CHECK_EQ(Script::g_language.getCurrent(), 7u);
     CHECK(WaitForHud(g, "{language:ru}", 3));
     CHECK(!HudHas(g.m, "{language:pt}"));
     click(vector2(275.0f, 601.0f));
-    CHECK_EQ(Script::g_language.getCurrent(), 5u);
+    CHECK_EQ(Script::g_language.getCurrent(), 6u);
     CHECK(WaitForHud(g, "{language:pt}", 3));
     switchRow(e10Switches[2]);
     // None of them moved the original's switches, nor E8's beside E13's.
@@ -3306,6 +3308,100 @@ void ScenarioMobileOptions(Game& g) {
 // layer would, and reads back what a click asks for (the Machine's
 // SetWindowProperties request) and where the row's index moved. Run in the
 // third runtime after 21, so no scenario before it sees a frame of it.
+// E27: the main menu's language button. A globe at the bottom left of the 1024x768
+// screen (76 px, 24 from the corner) opens a list of the language chooser's rows, each
+// drawn as that language's own name; a row sets the chooser, a click outside the list
+// or cancel closes it, and nothing under it answers while it is open. Without the added
+// art (g_artDir empty, as the other scenarios run) there is no button.
+void ScenarioLanguageListE27(Game& g) {
+    array<string> languages;
+    languages.insertLast(string("Autom\xE1tica"));
+    for (const char* id : {"en", "de", "es", "fr", "it", "pt", "ru", "tr", "uk", "ja", "ar"}) {
+        languages.insertLast(string("{language:") + id + "}");
+    }
+    Script::g_language.setOptions(languages, 6u);   // Portuguese, the script's own
+    const vector2 globe(62.0f, 706.0f);                // its centre: 24 + 38, 768 - 24 - 38
+    const auto press = [&g](const vector2& at) {
+        g.base.cursor = at;
+        g.Steps(2);
+        g.Step(g.With({K_RETURN}));
+        g.Steps(2);
+    };
+    const auto reloadMenu = [&g] {
+        LoadScene("scenes/menu.esc", "menuPreLoop", "menuLoop", vector2(1024.0f, 256.0f));
+        WaitFor(g, 3, [] { return GetSceneFileName() == "scenes/menu.esc"; });
+        g.Steps(5);
+    };
+
+    // No art: the globe is not there, so a press where it would be opens nothing.
+    Script::g_artDir.clear();
+    CHECK(EnsureMenu(g));
+    reloadMenu();
+    press(globe);
+    CHECK(!HudHas(g.m, "{language:de}"));
+
+    // With the art, the menu's preloop loads it; the press opens the list.
+    // game/data, two folders up from tests/data (this suite does not link the game library, which
+    // is what defines PENUMBRA_DATA_DIR).
+    Script::g_artDir = (std::filesystem::path(PENUMBRA_TESTS_DATA_DIR).parent_path().parent_path() / "game" / "data").generic_string();
+    reloadMenu();
+    g.base.cursor = vector2(512.0f, 100.0f);
+    g.Steps(3);
+    CHECK(!HudHas(g.m, "{language:de}"));   // not open until the globe is pressed
+    // The menu's buttons answer to the cursor until the list opens: Versus is the last one touched.
+    g.base.cursor = kVersusButton;
+    g.Steps(3);
+    CHECK(LastButton() == "versus");
+    press(globe);
+    CHECK(HudHas(g.m, "{language:de}"));
+    CHECK(HudHas(g.m, "{language:ar}"));
+    // Open, it is modal: the cursor over another button (under the list's panel) is not that button's.
+    g.base.cursor = kHowToPlayButton;
+    g.Steps(3);
+    CHECK(LastButton() == "versus");
+    CHECK(HudHas(g.m, "{language:de}"));
+    CHECK(HudHas(g.m, "Autom\xE1tica"));
+    std::printf("  the globe opened the list\n");
+
+    // The list is 360 x 476 at (332, 146); a row is 32 px from y 216. Deutsch is the third row.
+    press(vector2(446.0f, 296.0f));
+    CHECK_EQ(Script::g_language.getCurrent(), 2u);
+    CHECK(!HudHas(g.m, "{language:de}"));   // closed by the pick
+    CHECK(GetSceneFileName() == "scenes/menu.esc");
+
+    // Cancel closes it, leaving the choice as it was.
+    press(globe);
+    CHECK(HudHas(g.m, "{language:de}"));
+    g.Step(g.With({K_ESC}));
+    g.Steps(2);
+    CHECK(!HudHas(g.m, "{language:de}"));
+    CHECK_EQ(Script::g_language.getCurrent(), 2u);
+
+    // A press inside the panel but on no row (the globe in its title) keeps it open.
+    press(globe);
+    press(vector2(512.0f, 170.0f));
+    CHECK(HudHas(g.m, "{language:de}"));
+    CHECK_EQ(Script::g_language.getCurrent(), 2u);
+
+    // A press outside it closes it (the menu's buttons all lie under the list while it is open).
+    press(vector2(900.0f, 700.0f));
+    CHECK(!HudHas(g.m, "{language:de}"));
+    CHECK(GetSceneFileName() == "scenes/menu.esc");
+    CHECK_EQ(Script::g_language.getCurrent(), 2u);
+
+    // The automatic row, and the last one, are reachable.
+    press(globe);
+    press(vector2(446.0f, 232.0f));   // the first row
+    CHECK_EQ(Script::g_language.getCurrent(), 0u);
+    press(globe);
+    press(vector2(446.0f, 584.0f));   // the twelfth
+    CHECK_EQ(Script::g_language.getCurrent(), 11u);
+
+    Script::g_language.setOptions(array<string>(), 0u);
+    Script::g_artDir.clear();
+    reloadMenu();
+}
+
 void ScenarioDisplayModeE23(Game& g) {
     g.m.SetVideoModes({videoMode{800, 600, PF32BIT}, videoMode{1280, 800, PF32BIT}, videoMode{1920, 1200, PF32BIT}});
     Script::g_nativeVideoMode = videoMode{1920, 1200, PF32BIT};
@@ -3571,8 +3667,9 @@ int main() {
         Script::g_mobileLayout = false;   // whatever the scenario reached
         RunScenario(g, "22. the display mode, automatic and by hand (E23)", ScenarioDisplayModeE23);
         Script::g_mobileLayout = false;
+        RunScenario(g, "23. the main menu's language list (E27)", ScenarioLanguageListE27);
         std::printf("\n=== third runtime (frame %u)\n", machine.FrameIndex());
-        for (std::size_t i = g_results.size() - 2; i < g_results.size(); ++i) {
+        for (std::size_t i = g_results.size() - 3; i < g_results.size(); ++i) {
             const Result& r = g_results[i];
             std::printf("  %-50s %s  %d failed checks, %u aborts%s\n", r.name.c_str(),
                         (r.failures == 0 && r.aborts == 0 && !r.threw) ? "PASS" : "FAIL", r.failures, r.aborts,

@@ -297,6 +297,11 @@ private:
     // way on in the last frame, and in which scene (a load drops it).
     std::vector<int> m_zoomChoices;
     uint32_t m_zoomChoiceSeeded = 0;
+    // E27: the language row's choice as it was last seeded or applied. The row
+    // is 0 = automatic (the system's language), then Render::kLanguages in
+    // order: index i + 1 is kLanguages[i]. A different index is a pick; what
+    // the run shows (--lang) is only ever the seed, so a flag never reads as one.
+    uint32_t m_languageChoiceSeeded = 0;
     bool m_nextLevelOffered = false;
     unsigned m_nextLevelSerial = 0;
     // E26: this tick's HUD frame (CurrentHudFrame), which the scripts and the

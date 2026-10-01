@@ -174,14 +174,20 @@ ever written into the original's folder.
 
 | File | What it is |
 |---|---|
-| `settings.json` | Language (`language`: one of `en`, `de`, `es`, `fr`, `it`, `pt`, `ru`, `tr`, `uk`, `ja`, `ar`); the window (`window`: `width`/`height`, `0` for a window fitted to the monitor; `fullscreen`, true on a first launch; the fullscreen mode, `fullscreenWidth`/`fullscreenHeight`, `0` for the desktop's resolution; `fullscreenRefresh` in Hz, `0` for the highest the monitor offers at that resolution); widescreen, volumes, pixel shaders, `smoothMotion`, `pauseOnFocusLoss`, `touchControls` (`"auto"`, `"on"`, `"off"`); `zoom` (E25: `"auto"` or a percentage from 100 to 200, the campaign camera's zoom while the touch controls are on); `edgeMargin` (E26: `"auto"` or a percentage from 0 to 8, how far in from a curved screen's edges the HUD is drawn while the touch controls are on); and the controls: `joystickLayout`, `keyboardPlayer2`, `firstPadIsPlayer1`, `rawJoysticks`, `stickDeadzone`, and the `player1`/`player2` key lists. A broken or missing field falls back to its default, field by field. |
+| `settings.json` | Language (`language`: `auto`, the default, or one of `en`, `de`, `es`, `fr`, `it`, `pt`, `ru`, `tr`, `uk`, `ja`, `ar`); the window (`window`: `width`/`height`, `0` for a window fitted to the monitor; `fullscreen`, true on a first launch; the fullscreen mode, `fullscreenWidth`/`fullscreenHeight`, `0` for the desktop's resolution; `fullscreenRefresh` in Hz, `0` for the highest the monitor offers at that resolution); widescreen, volumes, pixel shaders, `smoothMotion`, `pauseOnFocusLoss`, `touchControls` (`"auto"`, `"on"`, `"off"`); `zoom` (E25: `"auto"` or a percentage from 100 to 200, the campaign camera's zoom while the touch controls are on); `edgeMargin` (E26: `"auto"` or a percentage from 0 to 8, how far in from a curved screen's edges the HUD is drawn while the touch controls are on); and the controls: `joystickLayout`, `keyboardPlayer2`, `firstPadIsPlayer1`, `rawJoysticks`, `stickDeadzone`, and the `player1`/`player2` key lists. A broken or missing field falls back to its default, field by field. |
 | `hs.enml` | The best times, written after a new record. Until then the original's `hs.enml` is read. |
 | `scenes\checkpoint.esc` | The level saved at the last checkpoint. |
 
-The first language follows the system when the game speaks it: Windows' display language, the
-POSIX locale (`LC_ALL`, `LC_MESSAGES`, `LANG`), or the device's language on Android, macOS and
-iOS. It is English otherwise. The options screen's Language row changes it, naming each language
-in its own script. On Linux the
+The language is automatic until it is chosen: it follows the system when the game speaks it
+(Windows' display language, the POSIX locale (`LC_ALL`, `LC_MESSAGES`, `LANG`), or the device's
+language on Android, macOS and iOS) and is English otherwise, looked up again at every start, so a
+device switched to another language is drawn in it the next time. The options screen's Language row
+names each language in its own script, with Automatic first; picking a language fixes it (`language`
+holds its id), and picking Automatic goes back to following the system (`language` is `auto`). A
+globe button at the bottom left of the main menu opens the same list for a player who cannot read
+the menu's words: each language in its own script, the current one ticked; a click on a row applies it
+at once, and a click outside the list, or cancel, closes it. A
+`settings.json` written by an earlier version names a language and keeps it. On Linux the
 files go to `$XDG_DATA_HOME/Penumbra`, else `~/.local/share/Penumbra`. On macOS they go to
 `~/Library/Application Support/Penumbra`, and the graphics cache to
 `~/Library/Caches/com.ivancvetanovic.penumbra`. On an iPhone or iPad they are inside the app's own

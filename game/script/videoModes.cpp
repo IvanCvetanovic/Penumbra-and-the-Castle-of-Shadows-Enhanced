@@ -68,6 +68,70 @@ constexpr float kZoomX = kRefreshRateX;                                         
 constexpr float kZoomValueWidth = kRefreshRateValueWidth;                        // E25
 } // namespace                                                                   // E23
 
+// ENHANCEMENT E27 (Script.hpp, optionsArt.cpp): the options screen on a stone-frame panel, in     // E27
+// groups with icons. Every row keeps its place and its box (the rooms in tests/data/l10n_rooms.json  // E27
+// still hold); the frame, the rules between the groups and the icons are drawn under and beside     // E27
+// them, and only when the added art is loaded: without it the screen is the original's.             // E27
+namespace {                                                                                          // E27
+constexpr float kPanelX = 242.0f;                                                                    // E27: a little left of the rows (x 255)
+constexpr float kPanelY = 92.0f;                                                                     // E27: above the first row (y 100)
+constexpr float kPanelWidth = 680.0f;                                                                // E27: to x 922, past the refresh row's last box (x 820) and the longest right-hand label (Italian, x 879)
+constexpr float kPanelBottom = 750.0f;                                                               // E27: above the Alt+Enter line (y 753)
+constexpr float kPanelAlpha = 232.0f;                                                                // E27
+constexpr float kPanelCorner = 13.0f;                                                                // E27: the stone's border, half of the art's 26
+constexpr float kRowMark = 20.0f;                                                                    // E27: a mode list row's check box
+constexpr float kRowMarkWidth = 24.0f;                                                               // E27: where its text starts: the brackets' own width, the list's column is tight (200 px)
+// The gaps between the groups of rows (y 237-260, 474-494, 544-564, 614-634, 684-694).               // E27
+constexpr float kRuleY[] = {248.0f, 484.0f, 554.0f, 624.0f, 689.0f};                                 // E27
+
+// A rule across the panel, fading out at both ends.                                                // E27
+void drawRule(const float y)                                                                        // E27
+{                                                                                                    // E27
+    const float x0 = kPanelX+22.0f;                                                                  // E27
+    const float half = (kPanelWidth-44.0f)*0.5f;                                                     // E27
+    const uint clear = ARGB(0, 203, 203, 228);                                                       // E27
+    const uint line = ARGB(110, 203, 203, 228);                                                      // E27
+    DrawRectangle(vector2(x0, y), vector2(half, 2.0f), clear, line, clear, line);                    // E27
+    DrawRectangle(vector2(x0+half, y), vector2(half, 2.0f), line, clear, line, clear);               // E27
+}                                                                                                    // E27
+
+// The frame under the rows: the mode list's panel (its height from its lines), the rows' panel,      // E27
+// the rules and each group's icon, drawn first so the rows come over them.                          // E27
+void drawOptionsFrame(const uint listLines)                                                         // E27
+{                                                                                                    // E27
+    if (!optionsArtReady())                                                                          // E27
+        return;                                                                                      // E27
+    const uint8 alpha = static_cast<uint8>(kPanelAlpha);                                             // E27
+    if (listLines > 0)                                                                               // E27
+        drawPanel(vector2(22.0f, kPanelY), vector2(216.0f, min(16.0f+25.0f*static_cast<float>(listLines), kPanelBottom-kPanelY)),
+                  alpha, kPanelCorner);                                                              // E27
+    drawPanel(vector2(kPanelX, kPanelY), vector2(kPanelWidth, kPanelBottom-kPanelY), alpha, kPanelCorner);   // E27
+    for (const float y : kRuleY)                                                                     // E27
+        drawRule(y);                                                                                 // E27
+    // One icon to a group, at the right where the rows leave room: the display's, the players'       // E27
+    // input, the language's (beside its chooser, the cue a player who cannot read the screen looks     // E27
+    // for) and the audio's (a note and a speaker on their rows).                                      // E27
+    drawOptionsIcon("monitor", vector2(864.0f, 102.0f), 40.0f, 230);                                  // E27
+    drawOptionsIcon("pad", vector2(850.0f, 318.0f), 56.0f, 230);                                      // E27
+    drawOptionsIcon("globe", vector2(530.0f, 564.0f), 46.0f, 255);                                    // E27
+    drawOptionsIcon("music", vector2(600.0f, 634.0f), 24.0f, 230);                                    // E27
+    drawOptionsIcon("speaker", vector2(600.0f, 659.0f), 24.0f, 230);                                  // E27
+}                                                                                                    // E27
+
+// A line of the mode list: the original's "[x] label", or a check box and the label.                 // E27
+void putModeRow(const vector2& pos, const bool current, const string& label, const uint8 alpha, const float fontSize)   // E27
+{                                                                                                    // E27
+    if (optionsArtReady())                                                                           // E27
+    {                                                                                                // E27
+        drawOptionsIcon(current ? "check_on" : "check_off", pos+vector2(0.0f, (fontSize-kRowMark)*0.5f), kRowMark, alpha);   // E27
+        shadowText(pos+vector2(kRowMarkWidth, 0.0f), label, "Arial Narrow", fontSize, alpha, 203,203,228);   // E27
+        return;                                                                                      // E27
+    }                                                                                                // E27
+    const string mark = string("[") + (current ? "\x95" : " ") + "] ";                               // E27
+    shadowText(pos, mark+label, "Arial Narrow", fontSize, alpha, 203,203,228);                       // E27
+}                                                                                                    // E27
+} // namespace                                                                                       // E27
+
 // videoModes.as:47
 string videoModeToString(const videoMode& vm)
 {
@@ -89,6 +153,7 @@ void screenModesPreLoop()
 {
     loopMenuSong();
     LoadSprite("interface/arrow_button.png");
+    loadOptionsArt();                                                 // E27
 }
 
 // videoModes.as:58. The picker reads the cursor after requesting the move (the
@@ -140,6 +205,18 @@ void screenModesLoop()
     // E20: a phone's screen has one mode, the one it is in.                     // E20
     const uint videoModeCount = g_mobileLayout ? 0u : GetVideoModeCount();       // E20
 
+    // E27: the frame under the rows, first so they draw over it; the mode list's panel is as   // E27
+    // tall as the lines the loop below makes (the automatic one and each 32-bit mode of at      // E27
+    // least 800x600).                                                                           // E27
+    uint listLines = g_mobileLayout ? 0u : 1u;                                   // E27
+    for (uint t=0; t<videoModeCount; t++)                                        // E27
+    {                                                                            // E27
+        const videoMode mode = GetVideoMode(t);                                  // E27
+        if (mode.format == PF32BIT && mode.width >= 800 && mode.height >= 600)   // E27
+            listLines++;                                                         // E27
+    }                                                                            // E27
+    drawOptionsFrame(listLines);                                                 // E27
+
     // E23: the list's first line, the automatic mode, hit and drawn as the      // E23
     // lines below it are; 0 x 0 asks the layer for "automatic" in whichever of   // E23
     // window and fullscreen the game is in. The current choice is marked on     // E23
@@ -157,8 +234,7 @@ void screenModesLoop()
                 SetWindowProperties(APPLICATION_TITLE, 0, 0, Windowed(), true, PF32BIT);   // E23
             }                                                                    // E23
         }                                                                        // E23
-        const string mark = string("[") + (current ? "\x95" : " ") + "] ";        // E23
-        shadowText(cursor, mark+"Autom\xE1tico (melhor)", "Arial Narrow", fontSize, alpha, 203,203,228);   // E23
+        putModeRow(cursor, current, "Autom\xE1tico (melhor)", alpha, fontSize);   // E23, E27: putModeRow draws "[x] label" or a check box and the label
         cursor.y += fontSize;                                                    // E23
     }                                                                            // E23
 
@@ -184,8 +260,7 @@ void screenModesLoop()
         }
 
         // E23: "[x] WxH" rather than videoModeToString's "WxHx32".            // E23
-        const string mark = string("[") + (current ? "\x95" : " ") + "] ";        // E23
-        shadowText(cursor, mark+videoModeLabel(mode), "Arial Narrow", fontSize, alpha, 203,203,228);   // E23: videoModeToString(mode)
+        putModeRow(cursor, current, videoModeLabel(mode), alpha, fontSize);   // E23: videoModeToString(mode); E27: putModeRow
 
         // Past the bottom of the screen the list continues in a new column
         // (videoModes.as:116-121).
@@ -239,7 +314,8 @@ void screenModesLoop()
     showToggleFullscreenMessage();                                    // videoModes.as:131
     waitForInputToMenu();
 
-    if(putBackButton(vector2(500, 40)))
+    // E27: on the panel's right, out of its way (the original's place, x 500, is over it).
+    if(putBackButton(optionsArtReady() ? vector2(906, 6) : vector2(500, 40)))
         goToMenu();
 }
 

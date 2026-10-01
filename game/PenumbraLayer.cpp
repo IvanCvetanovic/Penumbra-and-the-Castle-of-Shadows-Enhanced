@@ -166,12 +166,23 @@ void PenumbraLayer::OnAttach(entt::registry& registry) {
     // E10: the enhanced settings' own rows on the options screen. Language and
     // view from what this run shows (a --lang or --widescreen flag included),
     // as g_windowed is, so the screen's first frame changes nothing. E24: the
-    // languages in the picker's order, each drawn as its own name.
+    // languages in the picker's order, each drawn as its own name. E27: and
+    // before them automatic, the script's own word as the refresh rate's row
+    // has it (strings.json translates it): index 0, then kLanguages[i] at i + 1.
+    // A --lang run shows its language, so it seeds that language's own entry.
+    // E27: the folder the options screen's and the menu's added art is read from.
+    Script::g_artDir = m_options.dataDir.generic_string();
     Eth::array<Eth::string> languageNames;
+    languageNames.insertLast(Eth::string("Autom\xE1tica"));
     for (const Render::LanguageInfo& info : Render::kLanguages) {
         languageNames.insertLast(Render::Localization::LanguageNameKey(info.language));
     }
-    Script::g_language.setOptions(languageNames, static_cast<Eth::uint>(Render::LanguageIndex(CurrentLanguage())));
+    const bool languageShownAuto = m_settings.languageAuto && !m_options.languageOverride.has_value();
+    Script::g_language.setOptions(languageNames,
+                                  languageShownAuto
+                                      ? 0u
+                                      : static_cast<Eth::uint>(Render::LanguageIndex(CurrentLanguage()) + 1));
+    m_languageChoiceSeeded = Script::g_language.getCurrent();
     Script::g_widescreen.setCurrent(Widescreen() ? 0u : 1u);
     Script::g_keyboardP2.setCurrent(m_settings.controls.keyboardPlayer2 ? 0u : 1u);
     Script::g_musicVolume.setCurrent(Script::g_musicVolume.stepFor(m_settings.musicVolume));
@@ -886,20 +897,35 @@ void PenumbraLayer::OnFixedUpdate(entt::registry& registry, float fixedDelta) {
     // until the player moves it. The language, the volumes and smooth motion
     // apply at once (SaveSettings); the view at the next scene load
     // (LogicalScreenFor).
-    const Eth::uint languageRow = Script::g_language.getCurrent();   // E24: an index into kLanguages
-    const Render::Language language =
-        languageRow < Render::kLanguageCount ? Render::kLanguages[languageRow].language : CurrentLanguage();
+    // E27: the language row is 0 = automatic, i + 1 = kLanguages[i]; a pick is
+    // a row other than the one last seeded or applied (m_languageChoiceSeeded),
+    // which a --lang run seeds with its own language, so only the player moves it.
+    // Automatic is the system's language (English when the game does not speak
+    // it), applied at once like any pick, and written as "auto".
+    const Eth::uint languageRow = Script::g_language.getCurrent();
+    const bool languagePicked = languageRow != m_languageChoiceSeeded && languageRow <= Render::kLanguageCount;
     const bool widescreen = Script::g_widescreen.getCurrent() == 0;
     const bool smoothMotion = Script::g_smoothMotion.getCurrent() == 0;
     const bool pauseOnFocusLoss = Script::g_pauseOnFocusLoss.getCurrent() == 0;
     const bool musicMoved = Script::g_musicVolume.getCurrent() != Script::g_musicVolume.stepFor(m_settings.musicVolume);
     const bool effectsMoved =
         Script::g_effectsVolume.getCurrent() != Script::g_effectsVolume.stepFor(m_settings.effectsVolume);
-    if (language != CurrentLanguage() || widescreen != Widescreen() || smoothMotion != SmoothMotion() ||
+    if (languagePicked || widescreen != Widescreen() || smoothMotion != SmoothMotion() ||
         pauseOnFocusLoss != PauseOnFocusLoss() || musicMoved || effectsMoved) {
-        if (language != CurrentLanguage()) {
+        if (languagePicked) {
             m_options.languageOverride.reset();
-            m_settings.language = Render::LanguageId(language);
+            m_languageChoiceSeeded = languageRow;
+            if (languageRow == 0) {
+                m_settings.languageAuto = true;
+                m_settings.language = Render::Settings::SystemLanguage();
+            } else {
+                m_settings.languageAuto = false;
+                m_settings.language = Render::LanguageId(Render::kLanguages[languageRow - 1].language);
+            }
+            SUPERSONIC_LOG_INFO("Penumbra") << "E27 language picked: "
+                                            << (m_settings.languageAuto ? "automatic (" + m_settings.language + ")"
+                                                                        : m_settings.language)
+                                            << std::endl;
         }
         const bool viewChanged = widescreen != Widescreen();
         if (viewChanged) {

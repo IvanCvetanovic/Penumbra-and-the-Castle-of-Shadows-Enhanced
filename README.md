@@ -118,7 +118,7 @@ headless ([`docs/testing.md`](docs/testing.md)).
   Santee (3D modelling, game design), Gabriel Duarte (soundtrack), Approaching Thunderstorm
   (music); thanks to James Hastings-Trew, José Rodolfo Ortale, Rafael "Pet" Alencar, Taina Monclaire.
 - **Enhanced edition:** Ivan Cvetanović, developed with Claude Code.
-- **Touch buttons:** from *Magic Rampage*, by Asantee Games.
+- **Touch buttons, and the options screen's frames, buttons and icons:** from *Magic Rampage*, by Asantee Games (the globe and the monitor icons are drawn for this edition).
 - **Third-party:** TinyXML, dr_mp3, Liberation, DejaVu and Noto fonts, and the engine's libraries
   ([list](https://github.com/IvanCvetanovic/Supersonic-Engine/blob/main/THIRD_PARTY_LICENSES.md)).
 
@@ -127,7 +127,7 @@ headless ([`docs/testing.md`](docs/testing.md)).
 - **Ivan Cvetanović's code and the Supersonic Engine:** [MIT No Attribution](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/blob/main/LICENSE), completely
   free to use.
 - **The ported scripts** (`game/script/`) **and the Ethanon runtime** (`game/eth/`): LGPL-3.0.
-- **The original game's files and the Magic Rampage buttons:** their authors' property.
+- **The original game's files and the Magic Rampage art (the touch buttons, the options screen's frames and icons):** their authors' property.
 
 > [!WARNING]
 > Provided **as is, without any warranty**. Ivan Cvetanović is not responsible for anything that

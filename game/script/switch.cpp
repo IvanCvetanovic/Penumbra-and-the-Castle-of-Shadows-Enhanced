@@ -9,6 +9,17 @@
 
 namespace Penumbra::Script {
 
+// ENHANCEMENT E27 (Script.hpp, optionsArt.cpp): when the port's added art is loaded, a row's   // E27
+// "[x]" is a stone-frame check box and a stepper's or chooser's "[<]" a button of the same     // E27
+// stone, in the places the text occupied (the boxes and the hit areas are unchanged). Without   // E27
+// the art (the suites, a build without the images) the text is drawn as it always was.          // E27
+namespace {                                                           // E27
+constexpr float kMarkIcon = 22.0f;                                    // E27: a switch row's check box
+constexpr float kMarkWidth = 26.0f;                                   // E27: where its label starts: the box and a gap (the brackets took about 24)
+constexpr float kButtonIcon = 24.0f;                                  // E27: an arrow, minus or plus button, in its 40 x 25 box
+constexpr float kButtonBoxWidth = 40.0f;                              // E27: kStepperArrowWidth, which is declared below
+} // namespace                                                        // E27
+
 // switch.as:45. A text switch: m_image stays empty.
 Switch::Switch(const string& b0, const string& b1)
 {
@@ -47,7 +58,9 @@ void Switch::put(const vector2& pos, const string& font, const float size, const
             LoadSprite(m_image[t]);
 
         // 0x95 is cp1252's bullet: "[\x95] " marks the selected row (switch.as:76).
-        string str = string("[") + ((m_current == t) ? "\x95" : " ") + "] ";
+        // E27: with the art, the mark is a check box (drawn below) and the label starts after it.
+        const bool art = optionsArtReady();                           // E27
+        string str = art ? string() : string("[") + ((m_current == t) ? "\x95" : " ") + "] ";   // E27
         if (m_image.length() == 0)
             str += m_button[t];
 
@@ -69,7 +82,15 @@ void Switch::put(const vector2& pos, const string& font, const float size, const
 
         // The conditional is an int in C++; its value is 255 or alpha either way.
         const uint8 currentAlpha = static_cast<uint8>((m_current == t) ? 255 : alpha);   // switch.as:94
-        shadowText(drawCursor, str, font, size, currentAlpha, 203, 203, 228);
+        if (art)                                                      // E27
+        {                                                             // E27
+            drawOptionsIcon((m_current == t) ? "check_on" : "check_off", drawCursor+vector2(0.0f, (size-kMarkIcon)*0.5f),
+                            kMarkIcon, currentAlpha);                 // E27
+            if (!str.empty())                                       // E27
+                shadowText(drawCursor+vector2(kMarkWidth, 0.0f), str, font, size, currentAlpha, 203, 203, 228);   // E27
+        }                                                             // E27
+        else                                                          // E27
+            shadowText(drawCursor, str, font, size, currentAlpha, 203, 203, 228);
         if (m_image.length() > 0)
         {
             DrawSprite(m_image[t], drawCursor+vector2(30,0), ARGB(currentAlpha, 255, 255, 255));
@@ -138,6 +159,10 @@ void Stepper::put(const vector2& pos, const string& font, const float size, cons
                 m_current = (t == 0) ? m_current-1 : m_current+1;     // E10
             }                                                         // E10
         }                                                             // E10
+        if (optionsArtReady())                                        // E27: a minus and a plus button
+            drawOptionsIcon((t == 0) ? "minus" : "plus", arrowPos+vector2((kButtonBoxWidth-kButtonIcon)*0.5f, (size-kButtonIcon)*0.5f),
+                            kButtonIcon, alpha);                      // E27
+        else                                                          // E27
         shadowText(arrowPos+vector2(kStepperArrowInset, 0), (t == 0) ? "[<]" : "[>]", font, size, alpha, 203, 203, 228);   // E10
     }                                                                 // E10
 
@@ -223,6 +248,10 @@ void Chooser::put(const vector2& pos, const string& font, const float size, cons
                 m_current = (t == 0) ? m_current-1 : m_current+1;     // E23
             }                                                         // E23
         }                                                             // E23
+        if (optionsArtReady())                                        // E27: a left and a right arrow button
+            drawOptionsIcon((t == 0) ? "arrow_left" : "arrow_right", arrowPos+vector2((kButtonBoxWidth-kButtonIcon)*0.5f, (size-kButtonIcon)*0.5f),
+                            kButtonIcon, alpha);                      // E27
+        else                                                          // E27
         shadowText(arrowPos+vector2(kStepperArrowInset, 0), (t == 0) ? "[<]" : "[>]", font, size, alpha, 203, 203, 228);   // E23
     }                                                                 // E23
 
@@ -249,5 +278,11 @@ uint Chooser::getCount() const                                        // E23
 {                                                                     // E23
     return m_options.length();                                        // E23
 }                                                                     // E23
+
+// E27 (Script.hpp)
+string Chooser::getOption(const uint i) const                         // E27
+{                                                                     // E27
+    return i < m_options.length() ? m_options[i] : string();          // E27
+}                                                                     // E27
 
 } // namespace Penumbra::Script

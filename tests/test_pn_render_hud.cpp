@@ -49,6 +49,7 @@
 #include "render/Localization.hpp"
 #include "render/PhoneUi.hpp"
 #include "render/TextureCache.hpp"
+#include "render/TextureDecode.hpp"
 #include "render/View.hpp"
 #include "render/WideMenus.hpp"
 
@@ -1197,6 +1198,11 @@ void TestLanguages() {
                 widest = std::max(widest, width);
                 CHECK_MSG(width > 0.0f && 4.0f + width < 176.0f, Overflow(language, Render::Localization::LanguageNameKey(named.language), name, 4.0f + width, 176.0f));
             }
+            // E27: automatic, the chooser's first entry (the script's "Autom\xE1tica").
+            const std::string automatic = loc.Translate("Autom\xE1tica", language);
+            const float automaticWidth = Laid(fonts, automatic, language, "Arial Narrow", 25.0f).width;
+            CHECK_MSG(automaticWidth > 0.0f && 4.0f + automaticWidth < 176.0f,
+                      Overflow(language, "Autom\xE1tica", automatic, 4.0f + automaticWidth, 176.0f));
             if (language == Language::English) {
                 std::printf("  E24 chooser (%s): the widest name %.0f px of the 172 the box leaves\n",
                             system ? "system faces" : "stand-ins", widest);
@@ -1519,6 +1525,14 @@ void TestRooms() {
             room.face = entry["face"].AsString();
             room.size = entry["size"].AsFloat();
             room.maxWidth = entry["maxWidth"].AsFloat();
+            // E27: with the added art a row's "[x] " is a 26 px check box and its gap, where the model
+            // measures the brackets at about 24: the label has that much less room (videoModes.cpp,
+            // switch.cpp: kMarkWidth). The rooms themselves are unchanged, so the rows still answer to
+            // the original's geometry.
+            // A row whose column is tight keeps the brackets' own width (the mode list's 24 px box:
+            // "markReserve": 0).
+            if (entry["prefix"].AsString().rfind("[", 0) == 0)
+                room.maxWidth -= entry["markReserve"].IsNumber() ? entry["markReserve"].AsFloat() : 2.5f;
             room.maxLines = static_cast<int>(entry["maxLines"].AsNumber());
             room.visual = entry["rule"].AsString() == "visual";
             room.cap = entry["cap"].AsFloat();
@@ -2972,6 +2986,284 @@ void TestPlaqueInGame() {
     });
 }
 
+// E27's DrawShapedSpritePart, through the runtime and the renderer: a part of a
+// sprite stretched to the size it was given (its own, for 0), the destination
+// cut in the same proportion as a rectangle that runs past the image, a part
+// with nothing of the image in it queued as nothing, and DrawSpritePart and
+// DrawShapedSprite what they were.
+void TestShapedSpritePart() {
+    Eth::MachineConfig config;
+    config.userRoot.clear();
+    config.screenSize = Eth::vector2(1024.0f, 768.0f);
+    Eth::Machine machine(config);
+    Eth::Machine::Scope scope(machine);
+    machine.RegisterFunction("pre", [] {});
+    machine.RegisterFunction("loop", [] {
+        Eth::LoadSprite("interface/frame.png");   // 226 x 74
+        // The left half of the image, stretched to 80 x 40.
+        Eth::DrawShapedSpritePart("interface/frame.png", Eth::vector2(10.0f, 20.0f), Eth::vector2(80.0f, 40.0f),
+                                  Eth::vector2(0.0f), Eth::vector2(113.0f, 37.0f), 0x80FFFFFFu);
+        // 100 x 20 px of rectangle past the image's right and top edges, stretched to 50 x 20: the 26 x 10
+        // inside the image is what 13 x 10 of it covers.
+        Eth::DrawShapedSpritePart("interface/frame.png", Eth::vector2(30.0f, 40.0f), Eth::vector2(50.0f, 20.0f),
+                                  Eth::vector2(200.0f, -10.0f), Eth::vector2(300.0f, 10.0f), 0xFFFFFFFFu);
+        // A size of 0 is the part's own.
+        Eth::DrawShapedSpritePart("interface/frame.png", Eth::vector2(5.0f, 6.0f), Eth::vector2(0.0f),
+                                  Eth::vector2(176.0f, 47.0f), Eth::vector2(192.0f, 63.0f), 0xFFFFFFFFu);
+        // Nothing of the image in it, or nothing in it: not drawn, and not the whole image.
+        Eth::DrawShapedSpritePart("interface/frame.png", Eth::vector2(0.0f), Eth::vector2(10.0f, 10.0f),
+                                  Eth::vector2(300.0f, 0.0f), Eth::vector2(310.0f, 10.0f), 0xFFFFFFFFu);
+        Eth::DrawShapedSpritePart("interface/frame.png", Eth::vector2(0.0f), Eth::vector2(10.0f, 10.0f),
+                                  Eth::vector2(5.0f, 5.0f), Eth::vector2(5.0f, 9.0f), 0xFFFFFFFFu);
+        // What was there before.
+        Eth::DrawShapedSprite("interface/frame.png", Eth::vector2(60.0f, 70.0f), Eth::vector2(50.0f, 30.0f),
+                              0xFFFFFFFFu);
+        Eth::DrawSpritePart("interface/frame.png", Eth::vector2(1.0f, 2.0f), Eth::vector2(176.0f, 47.0f),
+                            Eth::vector2(192.0f, 63.0f), 0xFFFFFFFFu);
+    });
+    machine.Boot([] { Eth::LoadScene("", "pre", "loop"); });
+    for (int i = 0; i < 3; ++i) machine.Frame(Eth::InputFrame{});
+
+    const Eth::RenderSnapshot snapshot = machine.Snapshot();
+    CHECK_EQ(snapshot.hud.size(), std::size_t{5});
+    if (snapshot.hud.size() != 5u) return;
+    const Eth::HudCmd& half = snapshot.hud[0];
+    const Eth::HudCmd& cut = snapshot.hud[1];
+    const Eth::HudCmd& own = snapshot.hud[2];
+    const Eth::HudCmd& shaped = snapshot.hud[3];
+    const Eth::HudCmd& part = snapshot.hud[4];
+    CHECK(half.kind == Eth::HudCmd::Kind::ShapedSprite);
+    CHECK(half.pos == Eth::vector2(10.0f, 20.0f) && half.size == Eth::vector2(80.0f, 40.0f));
+    CHECK(half.spriteRectMin == Eth::vector2(0.0f) && half.spriteRectMax == Eth::vector2(113.0f, 37.0f));
+    CHECK_EQ(half.color, 0x80FFFFFFu);
+    // The rectangle is cut to the image, the destination in the same proportion (x 1/2, y 1): the
+    // pixels still cover what they covered.
+    CHECK(cut.kind == Eth::HudCmd::Kind::ShapedSprite);
+    CHECK(cut.spriteRectMin == Eth::vector2(200.0f, 0.0f) && cut.spriteRectMax == Eth::vector2(226.0f, 10.0f));
+    CHECK_NEAR(cut.pos.x, 30.0f);
+    CHECK_NEAR(cut.pos.y, 50.0f);
+    CHECK_NEAR(cut.size.x, 13.0f);
+    CHECK_NEAR(cut.size.y, 10.0f);
+    CHECK(own.kind == Eth::HudCmd::Kind::ShapedSprite && own.size == Eth::vector2(16.0f, 16.0f));
+    // DrawShapedSprite stretches the whole image; DrawSpritePart is the part at its own size.
+    CHECK(shaped.kind == Eth::HudCmd::Kind::ShapedSprite && shaped.size == Eth::vector2(50.0f, 30.0f));
+    CHECK(shaped.spriteRectMin == Eth::vector2(0.0f) && shaped.spriteRectMax == Eth::vector2(226.0f, 74.0f));
+    CHECK(part.kind == Eth::HudCmd::Kind::Sprite && part.size == Eth::vector2(16.0f, 16.0f));
+
+    entt::registry registry;
+    Render::TextureCache textures(kApp);
+    Render::FontAtlas fonts;
+    Render::Localization loc;
+    loc.Load();
+    Render::HudRenderer hud;
+    hud.Attach(registry, textures, fonts, loc);
+    Render::View view;
+    view.logicalScreen = glm::vec2(1024.0f, 768.0f);
+    view.windowPixels = glm::uvec2(1024, 768);
+    view.scale = 1.0f;
+    view.viewportMin = glm::vec2(0.0f);
+    view.viewportMax = glm::vec2(1024.0f, 768.0f);
+    std::vector<Supersonic::ScreenOverlay::Quad> quads;
+    hud.Build(snapshot, view, quads);
+    CHECK_EQ(quads.size(), std::size_t{5});
+    if (quads.size() == 5u) {
+        // The half: its texture coordinates are the left half, its quad the 80 x 40 it was given.
+        CHECK_NEAR(quads[0].uvMin.x, 0.0f);
+        CHECK_NEAR(quads[0].uvMax.x, 113.0f / 226.0f);
+        CHECK_NEAR(quads[0].uvMax.y, 37.0f / 74.0f);
+        CHECK_NEAR(quads[0].min.x, 10.0f / 1024.0f);
+        CHECK_NEAR(quads[0].max.x, 90.0f / 1024.0f);
+        CHECK_NEAR(quads[0].min.y, 20.0f / 768.0f);
+        CHECK_NEAR(quads[0].max.y, 60.0f / 768.0f);
+        CHECK_NEAR(quads[1].uvMin.x, 200.0f / 226.0f);
+        CHECK_NEAR(quads[1].uvMax.x, 1.0f);
+        CHECK_NEAR(quads[1].min.x, 30.0f / 1024.0f);
+        CHECK_NEAR(quads[1].max.x, 43.0f / 1024.0f);
+    }
+    hud.Detach();
+}
+
+namespace {
+
+// What drawPanel queued for a panel at `pos`, `size` (cmds[first, first + count)): pieces that are
+// the cells of a grid and so fill the rectangle with no gap (their areas add up to it) and no
+// overlap, in the art as well as on the screen.
+void CheckPanelPieces(const std::vector<Eth::HudCmd>& cmds, const std::size_t first, const std::size_t count,
+                      const glm::vec2& pos, const glm::vec2& size, const uint32_t color, const std::string& what) {
+    CHECK_MSG(first + count <= cmds.size(), what + ": its pieces are all there");
+    if (first + count > cmds.size()) return;
+    float area = 0.0f;
+    for (std::size_t a = 0; a < count; ++a) {
+        const Eth::HudCmd& c = cmds[first + a];
+        CHECK_MSG(c.kind == Eth::HudCmd::Kind::ShapedSprite && c.color == color, what + ": a stretched part in the colour");
+        CHECK_MSG(c.size.x > 0.0f && c.size.y > 0.0f, what + ": no empty piece");
+        CHECK_MSG(c.pos.x >= pos.x - 0.001f && c.pos.y >= pos.y - 0.001f &&
+                      c.pos.x + c.size.x <= pos.x + size.x + 0.001f && c.pos.y + c.size.y <= pos.y + size.y + 0.001f,
+                  what + ": inside the panel");
+        area += c.size.x * c.size.y;
+        for (std::size_t b = a + 1; b < count; ++b) {
+            const Eth::HudCmd& d = cmds[first + b];
+            CHECK_MSG(!Overlaps(c.pos, c.pos + c.size, d.pos, d.pos + d.size), what + ": pieces overlap");
+            CHECK_MSG(!Overlaps(c.spriteRectMin, c.spriteRectMax, d.spriteRectMin, d.spriteRectMax),
+                      what + ": pieces of the art overlap");
+        }
+    }
+    CHECK_MSG(std::fabs(area - size.x * size.y) < 0.01f, what + ": the pieces fill the rectangle (" +
+                                                             std::to_string(area) + " of " +
+                                                             std::to_string(size.x * size.y) + ")");
+}
+
+} // namespace
+
+// E27's helpers for the art the port added (game/script/optionsArt.cpp): the file's path, every
+// file loading and none of them named as a file of the original is (sprites are looked up by file
+// name), icons at their proportions, panels in nine slices whose pieces fill the rectangle exactly -
+// also a panel smaller than two slices - and nothing at all drawn without a data folder.
+void TestOptionsArt() {
+    const std::string savedDir = Script::g_artDir;
+    // The path: absolute, forward slashes, no doubled slash.
+    Script::g_artDir = "C:\\x\\data\\";
+    CHECK_MSG(Script::optionsArtPath("globe.png") == "C:/x/data/images/options/globe.png", Script::optionsArtPath("globe.png"));
+    Script::g_artDir = "/opt/penumbra/data";
+    CHECK_MSG(Script::optionsArtPath("panel.png") == "/opt/penumbra/data/images/options/panel.png", Script::optionsArtPath("panel.png"));
+    Script::g_artDir.clear();
+    CHECK(Script::optionsArtPath("globe.png").empty());
+
+    const std::string dataDir = PENUMBRA_DATA_DIR;
+    Script::g_artDir = dataDir;
+    Eth::MachineConfig config;
+    config.userRoot.clear();
+    config.screenSize = Eth::vector2(1024.0f, 768.0f);
+    Eth::Machine machine(config);
+    Eth::Machine::Scope scope(machine);
+    machine.RegisterFunction("pre", [] { Script::loadOptionsArt(); });
+    machine.RegisterFunction("loop", [] {
+        // 0-8: a big panel; 9-12: one narrower than two slices; 13-16: exactly two slices; 17-25: half-size
+        // corners at alpha 128 (the room for a middle and edges, so nine); then two icons.
+        Script::drawPanel(Eth::vector2(10.0f, 20.0f), Eth::vector2(300.0f, 140.0f));
+        Script::drawPanel(Eth::vector2(0.0f), Eth::vector2(40.0f, 30.0f));
+        Script::drawPanel(Eth::vector2(5.0f, 5.0f), Eth::vector2(52.0f, 52.0f));
+        Script::drawPanel(Eth::vector2(0.0f), Eth::vector2(200.0f, 100.0f), 128, 13.0f);
+        Script::drawOptionsIcon("globe", Eth::vector2(100.0f, 50.0f), 40.0f, 200);
+        Script::drawOptionsIcon("pad", Eth::vector2(100.0f, 50.0f), 60.0f);
+        Script::drawOptionsIcon("nothing_like_this", Eth::vector2(0.0f), 40.0f);   // not an art file: not drawn
+        Script::drawOptionsIcon("globe", Eth::vector2(0.0f), 0.0f);                // no size: not drawn
+        Script::drawOptionsIcon("globe", Eth::vector2(0.0f), 40.0f, 0);            // invisible: not drawn
+    });
+    machine.Boot([] { Eth::LoadScene("", "pre", "loop"); });
+    for (int i = 0; i < 3; ++i) machine.Frame(Eth::InputFrame{});
+
+    // Every file loaded, at the size its PNG has; the icons are square but the pad.
+    const char* const squares[] = {"panel", "check_on", "check_off", "arrow_left", "arrow_right", "minus", "plus",
+                                   "speaker", "music", "globe", "monitor", "globe_button"};
+    for (const char* name : Script::kOptionsArt) {
+        const std::string path = Script::optionsArtPath(std::string(name) + ".png");
+        const Eth::vector2 size = Eth::GetSpriteSize(path);
+        const glm::ivec2 probed = Render::ProbeImageSize(path);
+        CHECK_MSG(size.x > 0.0f && size.y > 0.0f, std::string(name) + " loaded");
+        CHECK_MSG(static_cast<int>(size.x) == probed.x && static_cast<int>(size.y) == probed.y,
+                  std::string(name) + " has its PNG's size");
+        const bool square = std::find_if(std::begin(squares), std::end(squares), [&](const char* n) {
+                                return std::string(n) == name;
+                            }) != std::end(squares);
+        CHECK_MSG(square == (size.x == size.y), std::string(name) + (square ? " is square" : " is not square"));
+    }
+    CHECK(Eth::GetSpriteSize(Script::optionsArtPath("panel.png")) == Eth::vector2(92.0f, 92.0f));
+    CHECK(Eth::GetSpriteSize(Script::optionsArtPath("pad.png")) == Eth::vector2(96.0f, 47.0f));
+    CHECK(Eth::GetSpriteSize(Script::optionsArtPath("globe_button.png")) == Eth::vector2(96.0f, 96.0f));
+    CHECK(Script::kPanelSlice * 2.0f < 92.0f);
+
+    // No file shares a name with one of the original's: a sprite is found by its file name.
+    std::set<std::string> originals;
+    std::error_code ec;
+    for (std::filesystem::recursive_directory_iterator it(
+             kApp, std::filesystem::directory_options::skip_permission_denied, ec), end;
+         !ec && it != end; it.increment(ec)) {
+        std::string name = it->path().filename().string();
+        std::transform(name.begin(), name.end(), name.begin(),
+                       [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+        originals.insert(name);
+    }
+    CHECK(originals.size() > 100u);
+    for (const char* name : Script::kOptionsArt) {
+        CHECK_MSG(originals.count(std::string(name) + ".png") == 0u,
+                  std::string(name) + ".png is also a file of the original");
+    }
+
+    const Eth::RenderSnapshot snapshot = machine.Snapshot();
+    const std::vector<Eth::HudCmd>& cmds = snapshot.hud;
+    CHECK_EQ(cmds.size(), std::size_t{9 + 4 + 4 + 9 + 2});
+    if (cmds.size() != 28u) return;
+    // The big panel: nine pieces on the grid x 10, 36, 284, 310 and y 20, 46, 134, 160, from the art's
+    // 0, 26, 66, 92 on both axes.
+    CheckPanelPieces(cmds, 0, 9, glm::vec2(10.0f, 20.0f), glm::vec2(300.0f, 140.0f), 0xFFFFFFFFu, "300x140");
+    CHECK(cmds[0].pos == Eth::vector2(10.0f, 20.0f) && cmds[0].size == Eth::vector2(26.0f, 26.0f));
+    CHECK(cmds[0].spriteRectMin == Eth::vector2(0.0f) && cmds[0].spriteRectMax == Eth::vector2(26.0f, 26.0f));
+    CHECK(cmds[4].pos == Eth::vector2(36.0f, 46.0f) && cmds[4].size == Eth::vector2(248.0f, 88.0f));
+    CHECK(cmds[4].spriteRectMin == Eth::vector2(26.0f) && cmds[4].spriteRectMax == Eth::vector2(66.0f));
+    CHECK(cmds[8].pos == Eth::vector2(284.0f, 134.0f) && cmds[8].size == Eth::vector2(26.0f, 26.0f));
+    CHECK(cmds[8].spriteRectMin == Eth::vector2(66.0f) && cmds[8].spriteRectMax == Eth::vector2(92.0f));
+    // Its source pieces are the whole image: no part of the art is left out or drawn twice.
+    float sourceArea = 0.0f;
+    for (std::size_t i = 0; i < 9; ++i) {
+        sourceArea += (cmds[i].spriteRectMax.x - cmds[i].spriteRectMin.x) *
+                      (cmds[i].spriteRectMax.y - cmds[i].spriteRectMin.y);
+    }
+    CHECK_NEAR(sourceArea, 92.0f * 92.0f);
+    // Narrower than two slices: corners of 20 x 15, still cut from the art's 26 x 26, and no middle.
+    CheckPanelPieces(cmds, 9, 4, glm::vec2(0.0f), glm::vec2(40.0f, 30.0f), 0xFFFFFFFFu, "40x30");
+    CHECK(cmds[9].size == Eth::vector2(20.0f, 15.0f) && cmds[9].spriteRectMax == Eth::vector2(26.0f, 26.0f));
+    // Exactly two slices: four corners.
+    CheckPanelPieces(cmds, 13, 4, glm::vec2(5.0f, 5.0f), glm::vec2(52.0f, 52.0f), 0xFFFFFFFFu, "52x52");
+    // Corners drawn 13 px from the art's 26, at alpha 128: 200 x 100 has room for a middle and edges.
+    CheckPanelPieces(cmds, 17, 9, glm::vec2(0.0f), glm::vec2(200.0f, 100.0f), 0x80FFFFFFu, "200x100 at 13");
+    CHECK(cmds[17].size == Eth::vector2(13.0f, 13.0f) && cmds[17].spriteRectMax == Eth::vector2(26.0f, 26.0f));
+    // The icons: the globe square at its size, the pad at its proportions centred in its square.
+    const Eth::HudCmd& globe = cmds[26];
+    CHECK(globe.pos == Eth::vector2(100.0f, 50.0f) && globe.size == Eth::vector2(40.0f, 40.0f));
+    CHECK_EQ(globe.color, 0xC8FFFFFFu);
+    const Eth::HudCmd& pad = cmds[27];
+    CHECK_NEAR(pad.size.x, 60.0f);
+    CHECK_NEAR(pad.size.y, 60.0f * 47.0f / 96.0f);
+    CHECK_NEAR(pad.pos.y, 50.0f + (60.0f - 60.0f * 47.0f / 96.0f) * 0.5f);
+
+    // Drawn: the big panel's corner takes the art's corner, its middle the art's middle.
+    entt::registry registry;
+    Render::TextureCache textures(kApp);
+    Render::FontAtlas fonts;
+    Render::Localization loc;
+    loc.Load();
+    Render::HudRenderer hud;
+    hud.Attach(registry, textures, fonts, loc);
+    Render::View view;
+    view.logicalScreen = glm::vec2(1024.0f, 768.0f);
+    view.windowPixels = glm::uvec2(1024, 768);
+    view.scale = 1.0f;
+    view.viewportMin = glm::vec2(0.0f);
+    view.viewportMax = glm::vec2(1024.0f, 768.0f);
+    std::vector<Supersonic::ScreenOverlay::Quad> quads;
+    hud.Build(snapshot, view, quads);
+    CHECK_EQ(quads.size(), cmds.size());
+    if (quads.size() == cmds.size()) {
+        CHECK_NEAR(quads[0].uvMin.x, 0.0f);
+        CHECK_NEAR(quads[0].uvMax.x, 26.0f / 92.0f);
+        CHECK_NEAR(quads[0].min.x, 10.0f / 1024.0f);
+        CHECK_NEAR(quads[0].max.x, 36.0f / 1024.0f);
+        CHECK_NEAR(quads[4].uvMin.x, 26.0f / 92.0f);
+        CHECK_NEAR(quads[4].uvMax.x, 66.0f / 92.0f);
+        CHECK_NEAR(quads[4].min.x, 36.0f / 1024.0f);
+        CHECK_NEAR(quads[4].max.x, 284.0f / 1024.0f);
+        CHECK_NEAR(quads[4].max.y, 134.0f / 768.0f);
+    }
+    hud.Detach();
+
+    // Without a data folder: nothing at all, and nothing broken.
+    Script::g_artDir.clear();
+    machine.Frame(Eth::InputFrame{});
+    CHECK_EQ(machine.Snapshot().hud.size(), std::size_t{0});
+    Script::g_artDir = savedDir;
+}
+
 int main() {
     if (!std::filesystem::exists(PENUMBRA_ORIGINAL_DIR "/main.as")) {
         std::printf("SKIP: the original is not at %s\n", PENUMBRA_ORIGINAL_DIR);
@@ -2992,6 +3284,8 @@ int main() {
     TestAtlasBatching();
     TestHudRenderer();
     TestSpritePart();      // E26
+    TestShapedSpritePart();   // E27
+    TestOptionsArt();      // E27
     TestFitColumns();      // E25
     TestWideMenuHud();
     TestWideMenuBackdrop();

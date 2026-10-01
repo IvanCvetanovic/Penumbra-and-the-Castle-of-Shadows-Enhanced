@@ -771,6 +771,45 @@ void testSystemLocale() {
     CHECK(Settings::Defaults(Settings::SystemLanguage()).language == "en");
     Settings::SetSystemLocale("en-GB");
     CHECK(!Settings::SystemLanguageIsPortuguese());
+
+    // E27: automatic follows the system. What main() does: Defaults() in the
+    // system's language, then the file read over it; a file that says "auto",
+    // says nothing about the language, or says something unknown is in the
+    // system's language, one that names a language is in that one, and none of
+    // it depends on the machine the test runs on.
+    const std::pair<const char*, const char*> systems[] = {
+        {"en-US", "en"}, {"de_DE.UTF-8", "de"}, {"ja-JP", "ja"}, {"ar", "ar"},   {"pt-BR", "pt"},
+        {"uk_UA", "uk"}, {"xx_XX", "en"},       {"zh-Hans-CN", "en"}, {"C", "en"},
+    };
+    for (const auto& [locale, id] : systems) {
+        Settings::SetSystemLocale(locale);
+        const Settings defaults = Settings::Defaults(Settings::SystemLanguage());
+        CHECK_MSG(defaults.languageAuto && defaults.language == id, locale);
+        for (const char* json : {R"({"language": "auto"})", R"({"language": "AUTO"})", R"({"language": "Auto"})", "{}",
+                                 R"({"volume": {"music": 0.5}})"}) {
+            const Settings read = Settings::FromJson(json, defaults);
+            CHECK_MSG(read.languageAuto && read.language == id, std::string(locale) + " " + json);
+        }
+        // A language written by name is that language, and no longer automatic.
+        const Settings german = Settings::FromJson(R"({"language": "de"})", defaults);
+        CHECK_MSG(!german.languageAuto && german.language == "de", locale);
+        // Unknown: a warning, and automatic.
+        std::string warning;
+        const Settings unknown = Settings::FromJson(R"({"language": "klingon"})", defaults, &warning);
+        CHECK_MSG(unknown.languageAuto && unknown.language == id && !warning.empty(), locale);
+        // What is saved says "auto", not the id it resolved to, so the next start resolves it again.
+        CHECK_MSG(defaults.ToJson().find("\"language\": \"auto\"") != std::string::npos, locale);
+        CHECK_MSG(Settings::FromJson(defaults.ToJson(), defaults) == defaults, locale);
+    }
+    // Defaults that are not automatic are no stand-in for the system: "auto" in
+    // the file asks it.
+    {
+        Settings::SetSystemLocale("ja-JP");
+        Settings explicitPortuguese = Settings::Defaults("pt");
+        explicitPortuguese.languageAuto = false;
+        const Settings read = Settings::FromJson(R"({"language": "auto"})", explicitPortuguese);
+        CHECK(read.languageAuto && read.language == "ja");
+    }
     Settings::SetSystemLocale("");   // back to the system's own answer, whatever it is
 }
 
@@ -812,6 +851,7 @@ void testSettings() {
 
     Settings changed = en;
     changed.language = "pt";
+    changed.languageAuto = false;            // E27: an id in the file is a choice; "auto" would read as en
     changed.windowWidth = 1920;
     changed.windowHeight = 1080;
     changed.fullscreen = true;
@@ -860,6 +900,7 @@ void testSettings() {
             "controls": {"player1": {"sword": ["A", "bogus"]}}})",
         en, &warning);
     CHECK(partial.language == "pt");
+    CHECK(!partial.languageAuto);   // E27: named, so no longer automatic
     CHECK(partial.musicVolume == 1.0f);
     CHECK(partial.effectsVolume == en.effectsVolume);
     CHECK_EQ(partial.windowWidth, 640);
@@ -971,13 +1012,23 @@ void testSettings() {
     CHECK(changed.ToJson().find("\"fullscreenRefresh\": 144") != std::string::npos);
     CHECK(en.ToJson().find("\"version\": 2") != std::string::npos);
     CHECK(en.ToJson().find("\"width\": 0, \"height\": 0, \"fullscreen\": true") != std::string::npos);
-    CHECK(Settings::FromJson(en.ToJson(), Settings::Defaults("pt")) == en);
+    // E27: automatic is saved as "auto" and read in the language the defaults
+    // carry (main() hands it the system's), whichever that is.
+    CHECK(Settings::FromJson(en.ToJson(), en) == en);
+    CHECK(en.languageAuto && pt.languageAuto);
+    CHECK(en.ToJson().find("\"language\": \"auto\"") != std::string::npos);
+    CHECK(en.ToJson().find("\"language\": \"en\"") == std::string::npos);
+    CHECK(Settings::FromJson(en.ToJson(), pt).languageAuto);
+    CHECK(Settings::FromJson(en.ToJson(), pt).language == "pt");
 
     // E24: every language the game speaks is saved and read back; a file from
     // before E24 ("pt", "en") reads as it did; anything else keeps the default.
+    // E27: a language that is named is written as its id and is a choice.
     for (const Penumbra::Render::LanguageInfo& info : Penumbra::Render::kLanguages) {
         Settings speaking = en;
         speaking.language = info.id;
+        speaking.languageAuto = false;
+        CHECK_MSG(speaking.ToJson().find(std::string("\"language\": \"") + info.id + "\"") != std::string::npos, info.id);
         warning.clear();
         const Settings back = Settings::FromJson(speaking.ToJson(), Settings::Defaults("pt"), &warning);
         CHECK_MSG(back == speaking, info.id);
@@ -990,9 +1041,12 @@ void testSettings() {
     for (const char* unknown : {"zh", "xx", "", "english", "pt-BR"}) {
         warning.clear();
         const std::string json = std::string("{\"language\": \"") + unknown + "\"}";
-        CHECK_MSG(Settings::FromJson(json, pt, &warning).language == "pt", unknown);
+        const Settings read = Settings::FromJson(json, pt, &warning);
+        CHECK_MSG(read.language == "pt" && read.languageAuto, unknown);   // E27: unknown is automatic
         CHECK_MSG(!warning.empty(), unknown);
     }
+    CHECK(!Settings::FromJson(R"({"language": "pt"})", en).languageAuto);   // E27: a file from before it stays a choice
+    CHECK(!Settings::FromJson(R"({"language": "en"})", pt).languageAuto);
 
     // Nowhere to save.
     CHECK(!en.Save(fs::path(), &error));

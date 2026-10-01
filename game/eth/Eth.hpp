@@ -104,6 +104,12 @@ void DrawShapedSprite(const string& path, const vector2& pos, const vector2& siz
 // what a border is cut from when the art has it on two sides only.
 void DrawSpritePart(const string& path, const vector2& pos, const vector2& rectMin, const vector2& rectMax,
                     uint color);
+// ENHANCEMENT E27 (not in 0.7.12): DrawShapedSprite of one part of the image, the pixels
+// [rectMin, rectMax), stretched to `size` (a size of 0 is the part's own): what a panel's
+// nine slices are drawn with, the corners at their size and the edges and the middle stretched.
+// A part with nothing of the image in it draws nothing.
+void DrawShapedSpritePart(const string& path, const vector2& pos, const vector2& size, const vector2& rectMin,
+                          const vector2& rectMax, uint color);
 vector2 GetSpriteSize(const string& path);
 void DrawRectangle(const vector2& pos, const vector2& size, uint c0, uint c1, uint c2, uint c3);
 

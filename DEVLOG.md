@@ -631,3 +631,59 @@ buttons were smaller than the action buttons beside the thumb.
 quote the old numbers (the automatic zoom, the direction control's box and the down button's place)
 were updated; test_pn_render_touch now also says that the box lies in the screen's left half "at
 most" (a 4:3 screen with an 88 px inset has it end exactly at the middle).
+
+---
+
+## 2026-10-01 — E27: an automatic language, a way to find it without reading, a framed options screen
+
+**Why.** Every button of the main menu is a picture of words in the current language, and the options
+screen's rows are translated too: a player in a language they cannot read had nothing to look for
+to change it. The language was also chosen once, at the first run, and then fixed. And the options
+screen was a column of text rows with "[x]" and "[<]" marks over the menu's background.
+
+**Built.**
+- *Automatic language.* `Settings::languageAuto` is the default: `settings.json` holds `"language":
+  "auto"` (or no key), and each start resolves it again - the system's language when the game speaks it
+  (Windows' display language, the POSIX locale, the device's language on Android, macOS and iOS),
+  English otherwise. A named id is a choice, so a file from an earlier version keeps its language. The
+  options screen's Language chooser lists Automatic first, then the eleven languages each in its own
+  script (index 0, then `kLanguages[i]` at i + 1); a pick is a row other than the one last seeded, so
+  a `--lang` run never reads as one.
+- *Shared art and calls.* `tools/art/make_options_art.py` makes game/data/images/options/ from Magic
+  Rampage's package: a stone-frame panel, check boxes, arrow, minus and plus buttons, a speaker, a note
+  and a controller, plus a globe and a monitor drawn in the same style. `DrawShapedSpritePart` (Eth) is
+  a stretched sub-rectangle of an image; the script helpers `drawPanel` (nine slices that tile the
+  rectangle exactly), `drawOptionsIcon`, `loadOptionsArt` and `optionsArtReady` draw it, and
+  `Script::g_artDir` (set by the layer) says where the folder is. Without the art, or without a data
+  folder as in the suites, every screen is exactly the original's.
+- *The options screen.* On a stone-framed panel (the video mode list on one of its own), "[x]" is a
+  check box, "[<]" and "[>]" arrow buttons, a stepper's arrows minus and plus; rules divide the groups
+  and each has an icon at the right (a monitor, a controller, a globe beside the Language row, a note
+  and a speaker beside the volumes). Every row keeps its place and its box, so the rooms in
+  tests/data/l10n_rooms.json hold (the switch rows' check box is 26 px where the brackets were 24:
+  the room test reserves 2.5 px for it; the mode list's own mark is 24 px wide, its column being 200).
+  The Back arrow moves to the top right, out of the panel's way.
+- *The main menu's language button.* A globe at the bottom left of what the window shows (a phone's
+  larger menu shows less; the right side is where the panels' text runs) opens a list of the chooser's rows, each in its own script with the current
+  one ticked; a row sets the chooser, which the layer applies as it does on the options screen, and a
+  click outside the list, or cancel, closes it. It is modal: the menu's buttons do not answer while it
+  is open. Scenario 23 drives it (opening, picking, cancelling, clicking outside, the first and last
+  rows, and no button without the art).
+
+**Numbers.** WSL: zero warnings; test_pn_all 17 suites, 22109 checks, 0 failures (21587 before). The
+languages' automatic label fits the chooser's 176 px value box in all eleven (widest, German, about
+109 px). The desktop's level, pause and arena-select captures are pixel-identical to before; the menu
+(the globe) and the options screen differ on purpose. A review by four independent readers, each
+finding checked by a skeptic, found and had fixed: a click on the globe during the New Game fade froze
+the start (the globe now draws only when no start is running); the globe covered the side panels' text
+(it moved to the bottom left); the menu's own cursor is under everything the list draws (the list draws
+a pointer mark); Alt+Enter was dead while the list was open; a few right-hand labels (Italian, Arabic)
+ran past the options panel (it is 680 px wide now, the Back arrow and the right-hand icons moved with
+it, and the room data holds those rows to its inner edge); the scenario now checks that the buttons
+behind the list do not answer; the credits name the options screen's Magic Rampage art.
+
+**Open.**
+- The icons and panel are Magic Rampage's (Asantee Games') with two drawn icons; LICENSE.md and the
+  folder's README say which.
+- The globe and the list read the window's shown area (`g_phonePanel`), which starts at the safe area's
+  left, so a notch on that side keeps clear of them.

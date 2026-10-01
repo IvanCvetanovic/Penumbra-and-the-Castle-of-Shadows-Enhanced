@@ -532,10 +532,24 @@ Settings Settings::FromJson(const std::string& text, const Settings& defaults, s
     if (root.Has("language")) {
         const std::string language = root["language"].AsString();
         Language known = Language::English;
-        if (LanguageFromId(language, known)) {
+        // E27: automatic means the language the defaults carry (main() hands
+        // Defaults(SystemLanguage())), so reading a file does not depend on the
+        // machine it is read on; defaults that are not automatic ask the system.
+        const auto automatic = [&settings, &defaults] {
+            settings.languageAuto = true;
+            settings.language = defaults.languageAuto ? defaults.language : SystemLanguage();
+        };
+        std::string lower = language;
+        std::transform(lower.begin(), lower.end(), lower.begin(),
+                       [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+        if (lower == "auto") {
+            automatic();
+        } else if (LanguageFromId(language, known)) {
+            settings.languageAuto = false;   // E27: a written id is a choice
             settings.language = LanguageId(known);
         } else {
             Warn(warning, "language \"" + language + "\" is not one the game speaks");
+            automatic();
         }
     }
 
@@ -622,7 +636,10 @@ std::string Settings::ToJson() const {
     std::ostringstream out;
     out << "{\n";
     out << "  \"version\": " << kVersion << ",\n";
-    out << "  \"language\": \"" << Supersonic::Json::Escape(language) << "\",\n";
+    // E27: "auto" while the language follows the system's; the resolved id is
+    // not written, so the next start resolves it again.
+    out << "  \"language\": \"" << (languageAuto ? std::string("auto") : Supersonic::Json::Escape(language))
+        << "\",\n";
     out << "  \"window\": { \"width\": " << windowWidth << ", \"height\": " << windowHeight
         << ", \"fullscreen\": " << FormatBool(fullscreen) << ", \"fullscreenWidth\": " << fullscreenWidth
         << ", \"fullscreenHeight\": " << fullscreenHeight << ", \"fullscreenRefresh\": " << fullscreenRefresh

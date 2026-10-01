@@ -105,6 +105,14 @@ struct Settings {
     // "ru", "tr", "uk", "ja" or "ar"); a file written before E24 holds "pt" or
     // "en" and reads as it always did.
     std::string language = "en";
+    // ENHANCEMENT E27: whether `language` follows the system's, which is the
+    // default: settings.json "language": "auto", or no such key. The file then
+    // holds no id, and each start takes the language main() hands Defaults()
+    // (SystemLanguage(): the system's when the game speaks it, English when it
+    // does not), so a phone switched to another language is drawn in it the
+    // next time. A language picked on the options screen, or written as an id,
+    // clears it; the options screen's first choice sets it again.
+    bool languageAuto = true;
     // The windowed size: a line of the options screen's mode list picked in a
     // window. 0 x 0 is automatic (E23, the default): the window fitted to the
     // monitor it opens on - the largest of the monitor's own shape within
@@ -168,8 +176,9 @@ struct Settings {
     bool operator==(const Settings& other) const = default;
 
     // Everything at its default, in `language` (a Languages.hpp id; anything
-    // else is English). main() passes SystemLanguage(): the language the
-    // system is set to when the game speaks it, English otherwise (E24).
+    // else is English), automatic (E27). main() passes SystemLanguage(): the
+    // language the system is set to when the game speaks it, English otherwise
+    // (E24).
     static Settings Defaults(const std::string& language = "en");
     // The system's UI language as a Languages.hpp id, "en" when the game does
     // not speak it:

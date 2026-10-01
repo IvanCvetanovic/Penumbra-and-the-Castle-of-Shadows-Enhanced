@@ -549,11 +549,25 @@ void Machine::Render() {
             // E26: a part of the image (DrawSpritePart) keeps its rectangle, within the
             // image; one with nothing of the image in it draws nothing. Every other
             // sprite command takes the whole image, as 0.7.12 drew it.
+            // E27: a stretched part (DrawShapedSpritePart) keeps the size it was given
+            // as well (its own, when that is 0); when the rectangle is cut to the image
+            // the destination is cut in the same proportion, so the pixels are not
+            // stretched over a size meant for more of them.
             if (cmd.spriteRectMax.x > cmd.spriteRectMin.x && cmd.spriteRectMax.y > cmd.spriteRectMin.y) {
-                cmd.spriteRectMin = glm::max(cmd.spriteRectMin, vector2(0.0f));
-                cmd.spriteRectMax = glm::min(cmd.spriteRectMax, resource->size);
-                if (!(cmd.spriteRectMax.x > cmd.spriteRectMin.x && cmd.spriteRectMax.y > cmd.spriteRectMin.y)) continue;
-                cmd.size = cmd.spriteRectMax - cmd.spriteRectMin;
+                const vector2 asked = cmd.spriteRectMax - cmd.spriteRectMin;
+                const vector2 min = glm::max(cmd.spriteRectMin, vector2(0.0f));
+                const vector2 max = glm::min(cmd.spriteRectMax, resource->size);
+                if (!(max.x > min.x && max.y > min.y)) continue;
+                if (cmd.kind == HudCmd::Kind::Sprite || cmd.size == vector2(0.0f)) {
+                    cmd.size = max - min;
+                } else if (min != cmd.spriteRectMin || max != cmd.spriteRectMax) {
+                    // Only a cut rectangle is scaled: an intact one keeps its size to the bit.
+                    const vector2 perPixel = cmd.size / asked;
+                    cmd.pos += (min - cmd.spriteRectMin) * perPixel;
+                    cmd.size = (max - min) * perPixel;
+                }
+                cmd.spriteRectMin = min;
+                cmd.spriteRectMax = max;
             } else {
                 if (cmd.kind == HudCmd::Kind::Sprite || cmd.size == vector2(0.0f)) cmd.size = resource->size;
                 cmd.spriteRectMin = vector2(0.0f);
@@ -856,6 +870,23 @@ void Machine::DrawSpritePart(const string& path, const vector2& pos, const vecto
     cmd.spriteRectMin = rectMin;
     cmd.spriteRectMax = rectMax;
     cmd.size = rectMax - rectMin;
+    m_hudQueue.push_back(std::move(cmd));
+}
+
+void Machine::DrawShapedSpritePart(const string& path, const vector2& pos, const vector2& size,
+                                   const vector2& rectMin, const vector2& rectMax, const uint color) {
+    // A ShapedSprite command with its rectangle set, which the queue's resolve keeps (cut to the
+    // image) with the size. A rectangle with nothing in it is not queued: left with no rectangle
+    // the resolve would take the whole image.
+    if (!(rectMax.x > rectMin.x && rectMax.y > rectMin.y)) return;
+    HudCmd cmd;
+    cmd.kind = HudCmd::Kind::ShapedSprite;
+    cmd.pos = pos;
+    cmd.size = size;
+    cmd.sprite = path;
+    cmd.color = color;
+    cmd.spriteRectMin = rectMin;
+    cmd.spriteRectMax = rectMax;
     m_hudQueue.push_back(std::move(cmd));
 }
 
