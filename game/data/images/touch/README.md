@@ -62,8 +62,8 @@ are drawn where its sectors are:
 The art is all in the control's 400 px box and is not moved by where the box is. The shipped layout
 puts the box 138 logical px below the screen's bottom edge (`touch_controls.json`: `offset` y -138,
 `overhang` y 150), because the lower half of the disc is empty: the left and right buttons' centres
-are then 83.7 px above the edge, level with the jump button's, and only the buttons show. The disc's
-input is the same wherever the box is.
+are then 83.7 px above the edge, level with the sword button's (since E29 the jump button is 30 px higher: the six
+action buttons are two columns of three), and only the buttons show. The disc's input is the same wherever the box is.
 
 The script feeds every opaque pixel through the sectors that `TouchControls.cpp` reads, and
 `test_pn_render_touch` checks the same:
