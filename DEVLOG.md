@@ -748,3 +748,103 @@ render_pause 4083, render_hud 11440, scenarios 1085 (scenario 24 added); the oth
   force-stopping and relaunching the app, level 1 draws the controls so (the swipe's last sample is lost at the lift, so the button stops short of the swipe's end).
   A real phone has not been tried. The headless captures use `--finger`'s synthetic fingers.
 - Not built: sounds, per-control size, a restore confirmation, a flash on a drag while locked, an entry in the pause menu, Magic Rampage's push-apart.
+
+---
+
+## 2026-10-01 (night) — E29 to E31: two columns of buttons, a quiet menu song, a settings screen for a phone
+
+**Why.** Three things were wrong on a phone once E28 let the touch buttons grow. The six action buttons were a diamond with the two combos in a row above it,
+400 px wide and 512 tall, and enlarged, the spell combo button ran into the pause button (E28's size ceiling was 1.1, and 1.0 with a tall bottom bar). Going into the
+settings and back, or into the arena select and back, started the menu song again from its first note: the original released every sample on every scene load and
+started `menu.mp3` again in each menu screen's preLoop (`loopMenuSong`, menu.as:43). And the phone's settings screen was E27's panel over the original's single
+column: 25 px rows with 22 px check boxes and 24 px arrows (about 13 dp on a 2400x1080 screen at density 2.625), the unselected half of every pair at 100 of 255 alpha,
+and the Back arrow at the top right of the 4:3 box.
+
+**Built.**
+- *E29, the buttons.* The six action buttons are two columns of three at the bottom right. From the bottom, the left column is the sword (at the very bottom), the sword
+  combo (the heavy attack) and the light; the right column, to its right and 30 px higher, is jump, the spell combo (the strong fire attack) and fire. Offsets from the
+  bottom right in manifest pixels, with the old ones after: jump 24, 54 (152, 24); sword 160, 24 (280, 152); fire 24, 306 (24, 152); light 160, 276 (152, 280); sword
+  combo 170, 160 (222, 412); spell combo 34, 190 (102, 412). The rules: the right column keeps the 24 px margin the cluster always had, 16 px between the columns and
+  between neighbours, each combo (100) centred over its column (120), the sword 24 px above the edge and the right column 30 higher, the arc of a thumb pivoting at the
+  corner. Sizes, art and hit paddings are as they were (4 for the four buttons, 6 for the combos), so neighbouring hit areas stay at least 6 px apart. The cluster is 256 px
+  wide (was 400) and 426 tall (was 512), and the direction control's two buttons are now level with the sword button. The offsets are in game/data/touch_controls.json and
+  `TouchControls::DefaultManifest()` (a test compares them); the E28 model, the editor and the layout rules work on top unchanged, and the placeholder look keeps E16's
+  arrangement with its own manifest. A saved tuning's moves are deltas from where the manifest puts each control, so they now apply from the new places and Restore
+  returns to them; nothing is migrated. One sentence became false and is replaced in all eleven languages: How to Play's "Combos: the two buttons above them" is now "the two
+  middle buttons".
+- *E30, the menu song.* `SampleBank::KeepOnNextLoad(path)` (eth/Audio.hpp, `KeepSampleOnNextLoad` in the Eth API) asks for one sample to go through the next `ReleaseAll`
+  whole: the same voice, volume, pan and loop flag, still keyed by its name, so the music volume reaches it. `Machine::DoLoad` calls `ReleaseAll` before any preLoop runs,
+  so skipping the play in `loopMenuSong` could not work alone. The request is consumed by that load and counts only for a voice that is sounding; while a sample is carried,
+  `ReleaseAll` does not call the output's `UnloadAll`, which stops every voice of every clip it loaded (every other voice is stopped one by one, as before). menu.cpp asks
+  (`keepMenuSong`) only before the loads to a menu screen, Settings, Versus and `goToMenu`, which is the way back from both; never before a New Game and not on a level's way
+  back, so a level begins in its own music and a menu entered from a level starts the song as the original did. `loopMenuSong` finds a kept song playing, sets its volume to 1
+  explicitly (a song carried while faded, by Esc during a New Game's fade-out, comes back at full volume) and returns; a cold start is the original's three calls. The code and
+  scenario 25 of this carry the tag E30.
+- *E30, the main menu's language button (E27) is removed:* the globe, its list, their hooks and the `globe_button` art (with its row in the art folder's README, the LICENSE.md
+  wording and its generation in tools/art/make_options_art.py). The options screen's Language row, with its globe icon, is as it was, and so is the chooser.
+- *E31, the settings screen on a phone.* With the phone layout up and the options art loaded, `screenModesLoop` hands the frame to `phoneOptionsLoop()`
+  (game/script/optionsPhone.cpp): a stone panel of two columns of 474 px cells, rows 88 px tall (82 under an iPhone's home indicator, down to 68 under a tall bottom bar), 30 px
+  text, 44 px check boxes, arrow, minus and plus buttons drawn at 56 px and hit over 86 x 88 px. A two-way Switch is one cell, a ticked box and the wording of the state it is in, and a
+  tap anywhere in it flips it, so the six pairs and E28's Adjust button take four rows; Refresh rate and Zoom, and Music and Effects, sit side by side. The Back arrow is at the top left of
+  what the window shows (inside the safe area or E26's edge margin, whichever is more, in every language) and the language chooser with its globe at the top right. A cell lights only
+  while it is pressed, a gap between cells does nothing, and a pressed button is drawn at its art's own 64 px. All 14 controls and all eleven languages stay, with no new string. Back
+  and Esc leave through `goToMenu()`, so the menu song goes on. The geometry is pure (`phoneOptionsLayout`, Script.hpp); the layer publishes what the window shows of the scene as
+  `Script::g_optionsArea` from a pure `Render::ComputeFixedLayoutArea` (PhoneUi); the cells read and write the globals the old rows did. The desktop's layout and E20's art-less phone
+  layout are untouched. docs/planning/2026-10-01-e31-phone-options-screen.md has the geometry and what differs from the first model.
+- *Docs.* docs/enhancements.md has rows E29 to E31, and E27's row no longer claims the main-menu globe; playing.md, testing.md and controls.md follow the three changes, and the E28
+  planning page notes the new place of its button and the new size ceiling.
+
+**Numbers.** Linux (WSL, gcc): test_pn_all 17 suites, 39140 checks, 0 failures (28556 at E28). Per suite now: render_touch 7307 (6936), render_pause 4088 (4083), render_input 10224
+(2438), render_hud 13112 (11440), scenarios 1788 (1085; scenario 23 removed, 25 and 26 added), audio 304 (257); the others are as they were. MSVC `tools\check.bat`: zero warnings at /W4
+on the touched files.
+- *E29's size ceiling.* `testSizeCeiling`, measured with the real layout (E26's frame, E25's zoom, a notch, a gesture bar, a tablet's bars, the Pause in every check): the largest size at
+  which no control is drawn over another in play is **1.2** in every case, where it was 1.1 on the nine standard cases and 1.0 once a 100 px bottom bar is added; unzoomed screens
+  stay at 1.2. The spell combo no longer reaches the Pause. At 1.3 exactly these pairs overlap: on a 4:3 screen with an 88 px notch, the direction control's right button and the sword
+  button; under the 100 px bottom bar, the fire button and the Pause (a 20:9 phone, a 16:9 and a 4:3 tablet); at 1.4 the fire button also meets the Pause on a 20:9 phone with a notch. The
+  fire button's least clearance of the Pause over the 15 in-play cases, in 768ths of the screen, is 87.9 at size 1.0, 2.7 at 1.2, -39.9 at 1.3 and -82.5 at 1.4 (bottom bars read in
+  E1's pixels). `kMaxSize` stays 1.4: above 1.2 the player moves buttons apart by hand, as in E28.
+- *E29's checks.* `CheckLayoutFits` keeps the rules every arrangement obeys (inside the safe area, nothing drawn over anything, no finger reaching two controls, the halves, the
+  Pause's clearance of the combos), the new `CheckColumns` holds the columns' own and runs on the built-in and the shipped manifests, and `testButtonColumns` pins every box on 4:3, 16:9,
+  20:9 and a notched 16:9, the sizes and paddings, a finger on each button's centre, and the six gaps between neighbours as fingerless. Every number the old arrangement owned was
+  recomputed with the real code. Two finger checks in `testTuningSize` moved from the jump to the fire button, the jump's old centre being inside the sword combo's padded box at size 0.5.
+- *E30's checks.* Scenario 23 (the language list) is removed. Scenario 25 plays menu, settings, menu by Esc and by the Back arrow, and menu, arena select, menu, and asserts on the stand-in
+  speakers: the same voice id, never stopped, no new play of menu.mp3, volume 1, the music volume setting reaching the carried voice, and the faded case (an arena confirmed, Esc 60
+  frames into the 3 s fade-out: the song at 0.67 through the load, back to 1 by `loopMenuSong`); then a New Game (the song fades below 0.05, its voice is stopped by the level's load, the
+  sample is forgotten) and Esc back to the menu (a new voice, looping, volume 1). `SoundLog` records the volume per voice and its `UnloadAll` stops every voice, as the device's does, so a fix that only
+  handled `ReleaseAll`'s own `Stop` calls could not pass. With `keepMenuSong` emptied (the original's behaviour) scenario 25 fails 3 to 4 checks per screen. test_pn_audio gained a bank-level
+  test (47 checks): carried through one load only, volume and loop kept, the music volume reaching it, not carried when it ended or was never played, no effect without an output.
+- *E31's checks.* The layout is pinned from three sides. Rooms: every options text carries a `phone` room in tests/data/l10n_rooms.json (22 rooms, 6 null), measured in all eleven languages
+  like the others and tied to the layout's own numbers; the tightest are Italian "Pausa quando il gioco perde il focus" 372 of 396 px and German "Automática" 130 of 148 px, and a check proves
+  the measurement fails on a room one pixel too narrow. test_pn_render_input pins `ComputeFixedLayoutArea` in five shapes and a zero window and against the camera's own shown rectangle in 20
+  window and side combinations, and `phoneOptionsLayout` rect by rect in eight shapes with its invariants. Scenario 26 (606 checks), with the art on, clicks every cell, button, gap and corner
+  through the Machine in four window shapes (a 4:3 window, a 20:9 phone, a notched phone, a 4:3 window with 88 px cut-outs), counts the frame's 18 front texts, checks the narrow body's fit, the
+  iOS slot without the refresh row, no rectangle meeting x 0 or 1024, and the menu song through Back, the corner and Esc. The layer-driven test keeps E28's editor and the options Back arrow
+  apart: a tap on the editor's arrow (one tick or three) and a finger held across the Esc that closes it leave the options screen where it is, and a fresh tap there leaves. Mutations tried in
+  a scratch copy, each caught: the Back box not reaching past the corner, a card lit on hover, the Adjust cell live with touch off, a hit not strictly inside, Back by a bare `LoadScene`, a
+  toggle flipping every frame the confirm is held. Scenarios 21 and 24 run art-less and keep pinning E20's layout.
+- *Found in review.* In a narrow body (a 4:3 window with cut-outs, or a hand-set edge margin) the options text is drawn through a fit box, and every text there was
+  smaller than it needed to be: the box was exactly one font size tall while its shadow sits a tenth lower (about 0.91 for every language), and `HudRenderer`'s fit solver measured a
+  right-to-left line from the box's right even when the Text has no `rtlRight`, which the placement just above it anchors at the left, so every Arabic text came out at the
+  minimum 0.7. The box is now a line and a shadow tall (`optionsPhone.cpp`), and the solver reaches each line from the side it is anchored at (`line.rightInBox`); only a right-to-left
+  Text without `rtlRight` changes. Tests in test_pn_render_hud: the same untranslated text gets the same factor in English and Arabic in wide and narrowing boxes, the
+  largest-fit search agrees with the solver within 6 % (its estimate is never refined upward), a right-anchored line is as before, and the real narrow-body screen in all eleven
+  languages never goes below 0.7, keeps a text that fits at full size, and fits its box; each fails on the old line or the old box. Linux: 39140 checks, render_hud 13112, scenarios 1788.
+- *Byte identity.* The desktop's options screen (`--mobile-layout off`) in five captures (1280x720, 1024x768 in Portuguese, 1920x1080 in German with touch off, a hover and a click) is
+  byte-identical to the build before E31 (SHA-256 of the 1280x720 one begins 599060e7).
+- *Captures* (headless, Linux/lavapipe, none committed): E29, level 1 at 2400x1080, 1280x720 and 1024x768 and the editor locked and unlocked at 2400x1080 (the columns at the bottom right, the
+  right one higher; the Pause and the top-right level sign clear of the cluster); E30, the main menu at 1280x720 and 2400x1080 with no globe, and the settings screen with its Language row and
+  globe; E31, 2400x1080 in all eleven languages, 1920x1080, 1280x720, 1280x800, 1920x1200, 3120x1440, 2532x1170 with `--safe-area 132,0,132,63`, 1024x768, 1024x768 with 88/0/88/24 px cut-outs
+  (the 848 px body), touch off, widescreen off and a 150 px bottom bar, and presses by `--finger`, `--pointer` and `--cursor` on every kind of cell, button and gap, the editor opened from Adjust
+  and Back and Esc leaving; they match the mockups the geometry was worked out on.
+- *Windows* (this laptop, real Arial Narrow): test_pn_all still shows the 18 failures described under E28's Open.
+
+**Open.**
+- No real phone has been tried. E31's dp figures are model values (a row is 47.1 dp at density 2.625, 44.2 at 2.8, 41.2 at 3.0), and the new button places have been seen only in headless
+  captures.
+- The menu song's survival through a scene load is verified through the stand-in speakers only (a headless run has no audio device); a listen on a phone and on a desktop is worth one pass.
+- Arabic, Japanese, Turkish and Ukrainian wordings have not been read by a native speaker, including E29's one line.
+- The collapsed switch shows only the wording of its current state. Where a narrow body (a 4:3 window with cut-outs) shrinks a text, the line's top stays where it was, so it sits a little
+  high. A boot straight into the options screen (`--start videoModes`) lays its first frame out for the 4:3 box, the window not being known yet.
+- A player who moved buttons to suit the old arrangement may want Restore once.
+- The screenshots docs/images/menu.jpg (also the site's) show the old main-menu globe, and touch-controls.jpg (also the site's) and touch-editor.jpg the old arrangement of the buttons; they
+  are retaken with the next release, and the README and the download page still describe 1.0.2.

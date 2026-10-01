@@ -6,7 +6,7 @@ still open. The player's view is in [`../enhancements.md`](../enhancements.md) a
 
 ## What it is
 
-On a touch-enabled options screen an **Adjust controls** button, under the touch controls' switch, opens a full-screen editor that shows the real
+On a touch-enabled options screen an **Adjust controls** button, under the touch controls' switch (a cell beside it on a phone's large layout, E31), opens a full-screen editor that shows the real
 controls at their real size, opacity and place on a dark backdrop:
 
 - **Size tiles** (shrink, enlarge): one global size for every control but Pause and Back, 0.4 to 1.4, a tenth a tap, default 1.0. Pause and Back keep
@@ -28,6 +28,11 @@ rule is at y 248, and the refresh rate's hint starts at x 540. It is drawn only 
 as an `arrow_right` icon and "Adjust controls" in Arial Narrow 25 (without the options art, `[>] ` and the label), alpha 200, 255 under the cursor.
 A confirm with the cursor strictly inside raises `Script::g_adjustTouchControls`; the layer reads and lowers it at the end of that tick and opens
 the editor. The finger that tapped is dead until it lifts: it cannot press a tile or grab a control.
+
+On the phone's large options layout (E31, [`2026-10-01-e31-phone-options-screen.md`](2026-10-01-e31-phone-options-screen.md)) the button is a cell of the third row's right
+column, (522, 314) with 474 x 88 px on a 1024x768 window (frame 10/8/10/0), with the same label and condition; the (255, 222) box above is the art-less
+layout's. The editor's Back arrow (64 px, 41 in from the shown area's top-left corner) and the options screen's own Back arrow (123 x 92 px, at the
+frame's corner plus 8) share that corner; the four leak guards below keep a tap on the one from reaching the other.
 
 ### The editor's screen
 
@@ -148,6 +153,10 @@ pinned ceiling the spell-combo button grows into the Pause button on every scree
 inside the safe area; only overlap is left to the player. A cap that depends on the screen's shape was not built: a size saved on a phone would have to
 be re-clamped when the window changes shape.
 
+These figures are E28's, for the arrangement E16 gave the buttons. E29 put the action buttons in two columns of three, and the same measurement then gives **1.2** in
+every in-play case, the spell combo button no longer reaching the Pause. Above 1.2 the direction control's right button meets the sword button on a 4:3 screen
+with an 88 px notch, and the fire button meets the Pause under a 100 px bottom bar; the editor's top size, `kMaxSize`, stays 1.4.
+
 ## Tests
 
 `test_pn_all` on Linux: 17 suites, 28,556 checks, 0 failures, 0 warnings (22,109 before). New code is in the existing suites (a new `tests/test_pn_*.cpp`
@@ -185,6 +194,7 @@ Headless, Linux/lavapipe, `--touch on --mobile-layout on --lang en --fixed-step`
 | c11 | 2400x1080; 12 and 120 | `--touch-tuning "size=1.4"`, `"size=0.4,opacity=0.2"` | the limits, in the editor and in play |
 
 The default captures (`--start level1` at 2400x1080 and 1024x768, 120 frames) are byte-identical to the ones taken at the previous commit.
+Since E29's arrangement, c3's `jump=-40:30` would put the jump button over the sword button; an example for the two columns is `--touch-tuning "size=1.2,opacity=0.6,light=-60:-20,pause=-30:20,dpad=12:0"`.
 A capture of a finger at a moved jump button's new centre and at its old one (`--start level1 --zoom 100 --touch-tuning "jump=-40:30" --finger 1:772,714@40-44`, and `1:812,684` for the old centre) came out identical at frame 60, so it shows nothing: that the hit areas follow the drawn ones is pinned by `test_pn_render_touch` (a button at size 0.5 is pressed where it is drawn and not where it was, and one at size 1.4 is pressed beyond its old edge).
 
 ## Open

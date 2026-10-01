@@ -183,10 +183,8 @@ The language is automatic until it is chosen: it follows the system when the gam
 language on Android, macOS and iOS) and is English otherwise, looked up again at every start, so a
 device switched to another language is drawn in it the next time. The options screen's Language row
 names each language in its own script, with Automatic first; picking a language fixes it (`language`
-holds its id), and picking Automatic goes back to following the system (`language` is `auto`). A
-globe button at the bottom left of the main menu opens the same list for a player who cannot read
-the menu's words: each language in its own script, the current one ticked; a click on a row applies it
-at once, and a click outside the list, or cancel, closes it. A
+holds its id), and picking Automatic goes back to following the system (`language` is `auto`). On a
+phone's options screen the Language chooser, with its globe, is in the top-right corner. A
 `settings.json` written by an earlier version names a language and keeps it. On Linux the
 files go to `$XDG_DATA_HOME/Penumbra`, else `~/.local/share/Penumbra`. On macOS they go to
 `~/Library/Application Support/Penumbra`, and the graphics cache to
@@ -209,10 +207,10 @@ The game's own options:
 | `--cursor <x>,<y>` | Pin the scripts' cursor at a point of the 1024x768 menu screen, for menu captures |
 | `--touch [on\|off]` | This run's touch controls (E16); on by itself. On a desktop the held left mouse button is the finger. It is not saved. |
 | `--zoom auto\|<percent>` | This run's campaign zoom while the touch controls are on (E25), 100 to 200. It is not saved. |
-| `--mobile-layout on\|off` | This run's phone layout of the options screen (E20, with E25's Zoom row), for captures on a desktop. It is not saved. |
+| `--mobile-layout on\|off` | This run's phone layout of the options screen (E20, with E25's Zoom row), for captures on a desktop. With the data folder's options art it is E31's large two-column screen, and without it E20's. It is not saved. |
 | `--edge-margin auto\|<percent>` | This run's HUD edge margin while the touch controls are on (E26), 0 to 8. It is not saved. |
 | `--safe-area <l>,<t>,<r>,<b>` | The display's safe-area insets, in window pixels, in place of what the platform reports (none on a desktop), for captures of a notched phone. |
-| `--touch-tuning <list>` | This run's touch controls' size, opacity and places (E28), in place of the saved ones: comma-separated `key=value` items, `size` (0.4 to 1.4) and `opacity` (0.2 to 1.8) as numbers, and any of `dpad`, `jump`, `sword`, `fire`, `light`, `swordCombo`, `spellCombo`, `exitDown` and `pause` as `dx:dy` in the manifest's pixels (+x right, +y down), for example `size=1.2,opacity=0.6,jump=-40:30,dpad=12:0`. A run with this flag, `--touch-editor` or `--finger` saves nothing. |
+| `--touch-tuning <list>` | This run's touch controls' size, opacity and places (E28), in place of the saved ones: comma-separated `key=value` items, `size` (0.4 to 1.4) and `opacity` (0.2 to 1.8) as numbers, and any of `dpad`, `jump`, `sword`, `fire`, `light`, `swordCombo`, `spellCombo`, `exitDown` and `pause` as `dx:dy` in the manifest's pixels (+x right, +y down), for example `size=1.2,opacity=0.6,light=-60:-20,pause=-30:20,dpad=12:0`. A run with this flag, `--touch-editor` or `--finger` saves nothing. |
 | `--touch-editor [locked\|unlocked]` | Opens E28's editor of the touch controls on the first tick the options screen is up (with `--start videoModes`), locked unless told otherwise; it turns the touch controls on unless `--touch` says otherwise. For captures. |
 | `--finger <id>:<x>,<y>@<from>-<to>[/<x2>,<y2>]` | A synthetic finger at a point of the screen's logical pixels (the menus' 1024x768), down from tick *from* to tick *to* (counted from the first tick, as `--hold`'s are) and moving in a straight line to (*x2*, *y2*) over that span; `@<tick>` alone is a one-tick tap. It can be given more than once. For captures. |
 | `--princess` | Puts player 2's princess beside the wizard in a campaign level, as a pad's Start would, for captures of co-op. |

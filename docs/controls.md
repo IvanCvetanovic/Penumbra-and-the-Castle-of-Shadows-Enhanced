@@ -129,8 +129,8 @@ control's two buttons.
   wait; jump, light and pause do not. A second tap is ignored until it is done; the pause or a new
   scene stops it.
 - In the menus, the options, game over and the pause, the buttons are hidden and a tap clicks
-  where it lands. The options screen has no back button at the top right: the original's own Back
-  arrow is on it, and a tap on it goes back. The main menu and the pause have none either.
+  where it lands. The options screen has no touch back button at the top right: the original's own Back
+  arrow is on it (at the top left on a phone's large layout, E31), and a tap on it goes back. The main menu and the pause have none either.
 - The focus brackets show on the direction button the thumb holds, and nowhere while no direction
   is held (`"atRest"` in the manifest's `knob`; the placeholder look keeps its knob at the centre).
 - While the touch controls are on, the game's control hints speak of the buttons, in both
@@ -153,7 +153,7 @@ control's two buttons.
 ### Adjusting the buttons (E28)
 
 The buttons' size, opacity and places are the player's to change. With the touch controls on, the options screen has an **Adjust controls** button
-under the touch controls' switch. It opens a full-screen editor that shows the real buttons on a dark background, as they are in a level.
+next to the touch controls' switch (on a phone, a cell of the large layout of E31, beside the switch's cell; under it in the art-less layout). It opens a full-screen editor that shows the real buttons on a dark background, as they are in a level: the two columns of three described above (E29), at the size, opacity and places set.
 
 ![The editor on a 20:9 phone, with the size at 1.2, the opacity at 0.6, the padlock open and some buttons moved](images/touch-editor.jpg)
 
@@ -178,7 +178,7 @@ under the touch controls' switch. It opens a full-screen editor that shows the r
 - Nothing stops a button from covering the HUD or another button, and the circular arrow puts the places back, not the size. With the shipped layout,
   no button is drawn over another in play up to size 1.2, on every screen shape and with a notch, a gesture bar or a tablet's bars (E29: it was 1.1,
   and 1.0 with a tall bottom bar, with the buttons arranged as before). Above that the direction control's right button meets the sword button on a 4:3
-  screen with a notch, and the fire button meets the pause button under a 100-pixel bottom bar (at 1.4, also on a 20:9 phone with a notch); the
+  screen with a notch, and the fire button meets the pause button under a 100-pixel bottom bar (at 1.4, also on a 20:9 phone with a notch, or with a status bar and a gesture bar); the
   buttons are then moved apart by hand, the editor being a live preview of it.
 - The editor is opened by hand from the options screen. For captures, `--touch-editor`, `--touch-tuning` and `--finger`
   ([playing.md](playing.md#command-line)) open it, set a tuning and put a finger on the screen; a run with any of them saves nothing.
