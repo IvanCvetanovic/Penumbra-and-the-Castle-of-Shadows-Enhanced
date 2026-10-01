@@ -52,7 +52,7 @@ published with André Santee's explicit permission.
 |---|---|
 | **Display** | Widescreen at any resolution; the best resolution and refresh rate chosen automatically, or by hand; smooth motion on fast monitors |
 | **Controls** | Modern gamepads, a keyboard second player, on-screen touch controls, a pause |
-| **Languages** | English, German, Spanish, French, Italian, Portuguese, Russian, Turkish, Ukrainian, Japanese and Arabic, switchable in game (since 1.0.1) |
+| **Languages** | English, German, Spanish, French, Italian, Portuguese, Russian, Turkish, Ukrainian, Japanese and Arabic, following your system's language by itself, and switchable in game from a globe button on the main menu |
 | **Platforms** | Downloads for Windows, Android, Mac and Linux, and an experimental one for iPhone and iPad |
 | **Fixes** | Bugs of the original fixed, and its rendering matched more closely |
 
@@ -62,15 +62,15 @@ Every change is listed with what the original did in [`docs/enhancements.md`](do
 
 | Platform | Status | What was checked | Download |
 |---|---|---|---|
-| Windows | ![playtested](https://img.shields.io/badge/-playtested-2ea44f) | Played through by a person; over 10,000 automated checks | [Penumbra-Windows.zip](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/releases/latest/download/Penumbra-Windows.zip) |
+| Windows | ![playtested](https://img.shields.io/badge/-playtested-2ea44f) | Played through by a person; over 20,000 automated checks | [Penumbra-Windows.zip](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/releases/latest/download/Penumbra-Windows.zip) |
 | Linux | ![tested](https://img.shields.io/badge/-tested-1f6feb) | All 17 test suites pass in the release build; the download itself, unpacked read-only, plays level 1 on a software Vulkan driver; not played by a person | [Penumbra-Linux.tar.gz](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/releases/latest/download/Penumbra-Linux.tar.gz) |
-| Android | ![emulator](https://img.shields.io/badge/-emulator%20only-d29922) | Scripted tests on an emulator; not run on a real phone | [Penumbra-Android.apk](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/releases/latest/download/Penumbra-Android.apk) |
+| Android | ![playtested](https://img.shields.io/badge/-playtested-2ea44f) | Played through on a real phone by a person; scripted tests on an emulator | [Penumbra-Android.apk](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/releases/latest/download/Penumbra-Android.apk) |
 | macOS | ![CI](https://img.shields.io/badge/-CI%20only-d29922) | Tests pass on GitHub Actions; the download runs level 1 on GitHub's Apple silicon Macs, and its Intel half there under Rosetta; not played; never run on a real Intel Mac; not notarised | [Penumbra-macOS.zip](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/releases/latest/download/Penumbra-macOS.zip) |
 | iOS | ![builds](https://img.shields.io/badge/-builds%20only-8b949e) | Compiles; never run on any iPhone or iPad | Experimental: [Penumbra-iOS.ipa](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/releases/latest/download/Penumbra-iOS.ipa), for [sideloading](docs/playing.md#iphone-and-ipad-experimental) |
 
 > [!IMPORTANT]
-> Only the Windows version has been played by a person. Linux, Android and macOS are verified by
-> automated tests only; the iPhone/iPad version has never run on an iPhone or iPad.
+> The Windows version, and the Android version on one real phone, have been played by a person. Linux and
+> macOS are verified by automated tests only; the iPhone/iPad version has never run on an iPhone or iPad.
 
 ## Build from source
 
