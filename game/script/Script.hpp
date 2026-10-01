@@ -350,6 +350,9 @@ public:
     void put(const vector2& pos, const string& font, float size, float width);   // switch.as:65
     uint getCurrent() const;                          // switch.as:104
     void setCurrent(uint newCurrent);                 // switch.as:109
+    // E31: what the phone's one-cell layout (optionsPhone.cpp) draws in place of put()'s two rows.   // E31
+    string getLabel(uint i) const;                    // E31: row `i`'s label as given; "" past the end   // E31
+    string getImage(uint i) const;                    // E31: row `i`'s image; "" for a text switch or past the end   // E31
 
 private:
     uint m_current = 0;                               // switch.as:47 / :55
@@ -375,6 +378,7 @@ public:                                               // E10
     // the nearest step to a fraction (0 below 0 and for NaN, steps above 1).    // E10
     float getFraction() const;                        // E10
     uint stepFor(float fraction) const;               // E10
+    string getLabel() const;                          // E31: the phone's layout draws the label itself
 
 private:                                              // E10
     string m_label;                                   // E10
@@ -398,9 +402,11 @@ public:                                               // E23
     uint getCurrent() const;                          // E23
     void setCurrent(uint newCurrent);                 // E23: clamped to the options
     uint getCount() const;                            // E23
-    // E27: option `i` as it was given; the empty string past the end. E29: nothing calls it since the main menu's
-    // language list, which drew them, was removed; it stays with its definition in switch.cpp.   // E29
+    // E27: option `i` as it was given; the empty string past the end. E31: the phone's options layout draws every   // E31
+    // chooser's value and the language row's name with it (optionsPhone.cpp); the main menu's language list, its   // E31
+    // other caller, is gone.   // E31
     string getOption(uint i) const;                   // E27
+    string getLabel() const;                          // E31: the phone's layout draws the label itself
 
 private:                                              // E23
     string m_label;                                   // E23
@@ -541,6 +547,50 @@ void screenModesPreLoop();                            // videoModes.as:52
 void ETHCallback_picker(ETHEntity thisEntity);        // videoModes.as:58
 bool putBackButton(const vector2& cursor);            // videoModes.as:65
 void screenModesLoop();                               // videoModes.as:85
+
+// ENHANCEMENT E31 (not in the original, optionsPhone.cpp): the options screen on a phone, larger. Where           // E31
+// g_mobileLayout is up and the options art is loaded, screenModesLoop hands its frame to phoneOptionsLoop():       // E31
+// two columns of 88 px cells (a two-way Switch is ONE cell: the ticked box and the wording of its current state,   // E31
+// a tap anywhere in it flips it) in a stone panel, the Back arrow in the top-left corner of what the window       // E31
+// shows, the language chooser in the top-right one, and no hover. Without the art (the suites) and on the           // E31
+// desktop the screen is E20's and the original's as before.                                                         // E31
+//  - g_optionsArea: what the window shows of the options scene (logical px of the 1024 x 768 screen: x runs past    // E31
+//    0 and 1024 where the scene's sides are shown) and the frame inside it (the safe area or E26's edge margin,     // E31
+//    in logical px from that rectangle's edges). The layer sets it every tick (PenumbraLayer, from                  // E31
+//    Render::ComputeFixedLayoutArea); none published (the suites): shownMax.x <= shownMin.x, which the loop reads    // E31
+//    as (0, 0)-(GetScreenSize()) with no frame.                                                                      // E31
+struct OptionsArea {                                  // E31
+    vector2 shownMin{0.0f};                           // E31
+    vector2 shownMax{0.0f};                           // E31
+    float left = 0.0f;                                // E31: the frame's insets
+    float top = 0.0f;                                 // E31
+    float right = 0.0f;                               // E31
+    float bottom = 0.0f;                              // E31
+};                                                    // E31
+extern OptionsArea g_optionsArea;                     // E31
+
+struct PhoneRect {                                    // E31
+    float x = 0.0f;                                   // E31
+    float y = 0.0f;                                   // E31
+    float w = 0.0f;                                   // E31
+    float h = 0.0f;                                   // E31
+};                                                    // E31
+// The cells, in the order the loop updates and draws them (so the Adjust cell reads the touch switch's new state).   // E31
+enum PhoneCell { PC_PIXEL_SHADERS, PC_SMOOTH_MOTION, PC_WIDESCREEN, PC_PAUSE_FOCUS, PC_TOUCH, PC_ADJUST, PC_KEYBOARD_P2,   // E31
+                 PC_JOYSTICK, PC_REFRESH, PC_ZOOM, PC_MUSIC, PC_EFFECTS, PC_COUNT };                                    // E31
+struct PhoneOptionsLayout {                           // E31
+    float hc = 0.0f;                                  // E31: the row height, 68..88 by the room the frame's bottom leaves
+    PhoneRect panel, back, backHit, globe, langLess, langValue, langMore;   // E31: the buttons' rects are their hit boxes
+    vector2 title{0.0f};                              // E31: the title's text position (size 40)
+    PhoneRect cell[PC_COUNT];                         // E31: every cell's card (a chooser's is 30 + hc tall)
+    PhoneRect less[PC_COUNT], more[PC_COUNT], value[PC_COUNT];   // E31: the buttons' hit boxes and the value's box: Refresh, Zoom, Music, Effects only
+    bool present[PC_COUNT] = {};                      // E31: false where the cell is not laid out: Adjust without touch, Refresh without its row
+};                                                    // E31
+// Pure: the area (the unset one read as the whole 1024 x 768 screen, no frame), whether the touch controls are on (the   // E31
+// Adjust cell exists), whether the refresh rate has a row (not on iOS: the Zoom cell then takes its place).   // E31
+PhoneOptionsLayout phoneOptionsLayout(const OptionsArea& area, bool touchOn, bool refreshRow);   // E31
+bool phoneOptionsOn();                                // E31: g_mobileLayout && optionsArtReady()
+void phoneOptionsLoop();                              // E31: one frame of the phone's options screen
 
 // === menu.as (defined in menu.cpp) ===============================================
 

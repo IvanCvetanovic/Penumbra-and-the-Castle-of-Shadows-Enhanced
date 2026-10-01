@@ -984,9 +984,11 @@ void testCorner() {
         std::printf("  (the original is not at %s: its scenes are not enumerated)\n", PENUMBRA_ORIGINAL_DIR);
     }
 
-    // On the options screen nothing is drawn, and a finger on the original's
-    // Back arrow (DrawSprite at (500,40), videoModes.as:81) is the mouse
-    // there: a click on it, no cancel.
+    // On the options screen nothing is drawn, and a finger on its Back arrow is the   // E31
+    // mouse there: a click on it, no cancel. The arrow is at (500,40) in the original   // E31
+    // (DrawSprite, videoModes.as:81), at (906,6) where the options art is (E27), and in   // E31
+    // the top-left corner of what the window shows on the phone's larger layout (E31);   // E31
+    // the finger here is synthetic and the test does not depend on where it lands.   // E31
     TouchControls touch;
     touch.SetImageRoot(PENUMBRA_DATA_DIR);
     const glm::vec2 arrow(540.0f, 70.0f);

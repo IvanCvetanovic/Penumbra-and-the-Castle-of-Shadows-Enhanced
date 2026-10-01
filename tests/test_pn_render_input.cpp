@@ -29,6 +29,7 @@
 #include "render/TouchControls.hpp"
 #include "render/WideMenus.hpp"
 #include "render/WindowMode.hpp"
+#include "script/Script.hpp"   // E31: the phone options layout, pure
 
 namespace {
 
@@ -1900,6 +1901,227 @@ void testPhoneHudFrame() {
     CHECK(limitOf({2160u, 1440u}) >= 125);
 }
 
+// ENHANCEMENT E31: what a window shows of a fixed-layout scene (the options screen), the frame inside it, and the phone   // E31
+// options layout's geometry on it (game/script/optionsPhone.cpp). Pure: no Machine, no layer.                           // E31
+Penumbra::Script::OptionsArea OptionsAreaOf(const Penumbra::Render::FixedLayoutArea& area) {                            // E31
+    return Penumbra::Script::OptionsArea{vector2(area.shownMin.x, area.shownMin.y), vector2(area.shownMax.x, area.shownMax.y),   // E31
+                                         area.frame.left, area.frame.top, area.frame.right, area.frame.bottom};         // E31
+}                                                                                                                       // E31
+
+void testFixedLayoutArea() {                                                                                            // E31
+    using Penumbra::Render::ComputeFixedLayoutArea;                                                                     // E31
+    using Penumbra::Render::FixedLayoutArea;                                                                            // E31
+    const Supersonic::SafeAreaInsets none{};                                                                            // E31
+    const float open = Penumbra::Render::kWideMenuMargin;                                                               // E31
+
+    // A 4:3 window with no sides to show: the screen itself, the frame the margin (1% of the width, of the height) leaves.   // E31
+    FixedLayoutArea area = ComputeFixedLayoutArea({1024u, 768u}, 0.0f, none, 1.0f);                                     // E31
+    CHECK(area.shownMin == glm::vec2(0.0f, 0.0f) && area.shownMax == glm::vec2(1024.0f, 768.0f));                       // E31
+    CHECK(Near(area.frame.left, 10.24f) && Near(area.frame.right, 10.24f) && Near(area.frame.top, 7.68f) && area.frame.bottom == 0.0f);   // E31
+    // A 20:9 phone with the sides shown: E1's view, 1.40625 image px per logical px, 341.33 logical px past each side.    // E31
+    area = ComputeFixedLayoutArea({2400u, 1080u}, open, none, 3.5f);                                                    // E31
+    CHECK(Near(area.shownMin.x, -341.3333f, 0.01f) && Near(area.shownMax.x, 1365.3333f, 0.01f));                       // E31
+    CHECK(area.shownMin.y == 0.0f && area.shownMax.y == 768.0f);                                                        // E31
+    CHECK(Near(area.frame.left, 59.73f, 0.1f) && Near(area.frame.right, 59.73f, 0.1f) && Near(area.frame.top, 26.87f, 0.1f) && area.frame.bottom == 0.0f);   // E31
+    // The same phone with the sides not shown (widescreen off at the scene's load): the 4:3 box between bars, and the     // E31
+    // margin falls in the bars.                                                                                          // E31
+    area = ComputeFixedLayoutArea({2400u, 1080u}, 0.0f, none, 3.5f);                                                    // E31
+    CHECK(area.shownMin.x == 0.0f && area.shownMax.x == 1024.0f && area.frame.left == 0.0f && area.frame.right == 0.0f);   // E31
+    // A 16:9 tablet at 1%.                                                                                               // E31
+    area = ComputeFixedLayoutArea({1920u, 1080u}, open, none, 1.0f);                                                    // E31
+    CHECK(Near(area.shownMin.x, -170.6667f, 0.01f) && Near(area.shownMax.x, 1194.6667f, 0.01f));                        // E31
+    CHECK(Near(area.frame.left, 13.65f, 0.1f) && Near(area.frame.top, 7.68f, 0.1f));                                    // E31
+    // A notch at both sides and a home indicator: the safe area decides, in logical px (1.5234 image px each).            // E31
+    area = ComputeFixedLayoutArea({2532u, 1170u}, open, Supersonic::SafeAreaInsets{132.0f, 0.0f, 132.0f, 63.0f}, 3.5f);  // E31
+    CHECK(Near(area.shownMin.x, -319.0f, 0.5f) && Near(area.shownMax.x, 1343.0f, 0.5f));                                // E31
+    CHECK(Near(area.frame.left, 86.6f, 0.1f) && Near(area.frame.right, 86.6f, 0.1f) && Near(area.frame.bottom, 41.4f, 0.1f));   // E31
+    // A zero window (before the first frame): the 4:3 screen and no frame.                                               // E31
+    area = ComputeFixedLayoutArea({0u, 0u}, open, Supersonic::SafeAreaInsets{50.0f, 50.0f, 50.0f, 50.0f}, 3.5f);        // E31
+    CHECK(area.shownMin == glm::vec2(0.0f, 0.0f) && area.shownMax == glm::vec2(1024.0f, 768.0f) && area.frame.IsZero());   // E31
+
+    // The rectangle is what CameraRig::ComputeView and View::ShownLogicalMin / Max say the window shows.                // E31
+    const glm::uvec2 windows[] = {{2400u, 1080u}, {1920u, 1080u}, {2532u, 1170u}, {1280u, 800u}, {1024u, 768u},         // E31
+                                  {2560u, 1600u}, {3120u, 1440u}, {800u, 600u}, {1000u, 1000u}, {2340u, 1080u}};          // E31
+    for (const glm::uvec2 window : windows) {                                                                           // E31
+        for (const float sides : {0.0f, open}) {                                                                        // E31
+            RenderSnapshot snapshot;                                                                                    // E31
+            snapshot.screenSize = vector2(1024.0f, 768.0f);                                                             // E31
+            snapshot.sideMargin = sides;                                                                                // E31
+            const View view = CameraRig::ComputeView(snapshot, window, true, nullptr);                                  // E31
+            area = ComputeFixedLayoutArea(window, sides, none, 0.0f);                                                   // E31
+            const std::string what = std::to_string(window.x) + "x" + std::to_string(window.y) + " sides " + std::to_string(sides);   // E31
+            CHECK_MSG(Near(area.shownMin.x, view.ShownLogicalMin().x, 1e-3f) && Near(area.shownMax.x, view.ShownLogicalMax().x, 1e-3f), what);   // E31
+            CHECK_MSG(area.shownMin.y == view.ShownLogicalMin().y && area.shownMax.y == view.ShownLogicalMax().y, what);   // E31
+        }                                                                                                               // E31
+    }                                                                                                                   // E31
+}                                                                                                                       // E31
+
+using Penumbra::Script::PhoneCell;   // E31
+using Penumbra::Script::PhoneRect;   // E31
+
+bool SameRect(const PhoneRect& r, float x, float y, float w, float h) {   // E31
+    return r.x == x && r.y == y && r.w == w && r.h == h;   // E31
+}   // E31
+
+std::string RectText(const PhoneRect& r) {   // E31
+    return "(" + std::to_string(r.x) + ", " + std::to_string(r.y) + ", " + std::to_string(r.w) + ", " + std::to_string(r.h) + ")";   // E31
+}   // E31
+
+// Strictly inside each other's area: boxes that only touch do not overlap (the scripts' hit test is strict).   // E31
+bool Overlap(const PhoneRect& a, const PhoneRect& b) {   // E31
+    return a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;   // E31
+}   // E31
+
+// Every box a tap acts on, named: a toggle's whole cell, a chooser's or stepper's two buttons, the language buttons, Back.   // E31
+std::vector<std::pair<std::string, PhoneRect>> HitBoxes(const Penumbra::Script::PhoneOptionsLayout& l) {   // E31
+    using namespace Penumbra::Script;   // E31
+    std::vector<std::pair<std::string, PhoneRect>> boxes;   // E31
+    for (const PhoneCell c : {PC_PIXEL_SHADERS, PC_SMOOTH_MOTION, PC_WIDESCREEN, PC_PAUSE_FOCUS, PC_TOUCH, PC_ADJUST, PC_KEYBOARD_P2, PC_JOYSTICK}) {   // E31
+        if (l.present[c]) boxes.emplace_back("cell " + std::to_string(c), l.cell[c]);   // E31
+    }   // E31
+    for (const PhoneCell c : {PC_REFRESH, PC_ZOOM, PC_MUSIC, PC_EFFECTS}) {   // E31
+        if (!l.present[c]) continue;   // E31
+        boxes.emplace_back("less " + std::to_string(c), l.less[c]);   // E31
+        boxes.emplace_back("more " + std::to_string(c), l.more[c]);   // E31
+    }   // E31
+    boxes.emplace_back("language less", l.langLess);   // E31
+    boxes.emplace_back("language more", l.langMore);   // E31
+    boxes.emplace_back("back", l.backHit);   // E31
+    return boxes;   // E31
+}   // E31
+
+void testPhoneOptionsLayout() {   // E31
+    using namespace Penumbra::Script;   // E31
+    using Penumbra::Render::ComputeFixedLayoutArea;   // E31
+    const float open = Penumbra::Render::kWideMenuMargin;   // E31
+
+    // The 20:9 phone, 2400x1080: the body is 12..1012 whatever the window; the header goes to the   // E31
+    // shown area's corners, inside the frame.                                                                          // E31
+    OptionsArea phone = OptionsAreaOf(ComputeFixedLayoutArea({2400u, 1080u}, open, Supersonic::SafeAreaInsets{}, 3.5f));   // E31
+    PhoneOptionsLayout l = phoneOptionsLayout(phone, true, true);   // E31
+    CHECK_EQ(l.hc, 88.0f);   // E31
+    CHECK_MSG(SameRect(l.panel, 12, 129, 1000, 624), "panel " + RectText(l.panel));   // E31
+    CHECK_MSG(SameRect(l.back, -274, 35, 123, 92), "back " + RectText(l.back));   // E31
+    CHECK_MSG(SameRect(l.backHit, -343, -1, 212, 136), "back hit " + RectText(l.backHit));   // one px past the corner on the left and top edges   // E31
+    CHECK(l.title.x == -135.0f && l.title.y == 61.0f);   // E31
+    CHECK_MSG(SameRect(l.globe, 893, 53, 56, 56), "globe " + RectText(l.globe));   // E31
+    CHECK(SameRect(l.langLess, 957, 39, 86, 84) && SameRect(l.langValue, 1043, 39, 168, 84) && SameRect(l.langMore, 1211, 39, 86, 84));   // E31
+    CHECK(SameRect(l.cell[PC_PIXEL_SHADERS], 28, 145, 474, 88) && SameRect(l.cell[PC_SMOOTH_MOTION], 522, 145, 474, 88));   // E31
+    CHECK(SameRect(l.cell[PC_WIDESCREEN], 28, 239, 474, 88) && SameRect(l.cell[PC_PAUSE_FOCUS], 522, 239, 474, 88));   // E31
+    CHECK(SameRect(l.cell[PC_TOUCH], 28, 333, 474, 88) && SameRect(l.cell[PC_ADJUST], 522, 333, 474, 88));   // E31
+    CHECK(SameRect(l.cell[PC_KEYBOARD_P2], 28, 427, 474, 88) && SameRect(l.cell[PC_JOYSTICK], 522, 427, 474, 88));   // E31
+    CHECK(SameRect(l.cell[PC_REFRESH], 28, 525, 474, 118) && SameRect(l.cell[PC_ZOOM], 522, 525, 474, 118));   // E31
+    CHECK(SameRect(l.less[PC_REFRESH], 32, 555, 86, 88) && SameRect(l.value[PC_REFRESH], 118, 555, 294, 88) &&   // E31
+          SameRect(l.more[PC_REFRESH], 412, 555, 86, 88));   // E31
+    CHECK(SameRect(l.less[PC_ZOOM], 526, 555, 86, 88) && SameRect(l.value[PC_ZOOM], 612, 555, 294, 88) &&   // E31
+          SameRect(l.more[PC_ZOOM], 906, 555, 86, 88));   // E31
+    CHECK(SameRect(l.cell[PC_MUSIC], 28, 649, 474, 88) && SameRect(l.cell[PC_EFFECTS], 522, 649, 474, 88));   // E31
+    CHECK(SameRect(l.less[PC_MUSIC], 258, 649, 86, 88) && SameRect(l.value[PC_MUSIC], 344, 649, 68, 88) &&   // E31
+          SameRect(l.more[PC_MUSIC], 412, 649, 86, 88));   // E31
+    CHECK(SameRect(l.less[PC_EFFECTS], 752, 649, 86, 88) && SameRect(l.value[PC_EFFECTS], 838, 649, 68, 88) &&   // E31
+          SameRect(l.more[PC_EFFECTS], 906, 649, 86, 88));   // E31
+    for (int c = 0; c < PC_COUNT; ++c) CHECK_MSG(l.present[c], "cell " + std::to_string(c));   // E31
+
+    // The 4:3 screen (area 0..1024, frame 10 / 8 / 10 / 0): the rows at y 126, 220, 314, 408, the choosers at 506, the volumes at 630.   // E31
+    l = phoneOptionsLayout(OptionsAreaOf(ComputeFixedLayoutArea({1024u, 768u}, 0.0f, Supersonic::SafeAreaInsets{}, 1.0f)), true, true);   // E31
+    CHECK_EQ(l.hc, 88.0f);   // E31
+    CHECK(SameRect(l.back, 18, 16, 123, 92) && SameRect(l.panel, 12, 110, 1000, 624));   // E31
+    CHECK(SameRect(l.cell[PC_PIXEL_SHADERS], 28, 126, 474, 88) && SameRect(l.cell[PC_WIDESCREEN], 28, 220, 474, 88));   // E31
+    CHECK(SameRect(l.cell[PC_ADJUST], 522, 314, 474, 88) && SameRect(l.cell[PC_JOYSTICK], 522, 408, 474, 88));   // E31
+    CHECK(SameRect(l.cell[PC_REFRESH], 28, 506, 474, 118) && SameRect(l.cell[PC_EFFECTS], 522, 630, 474, 88));   // E31
+    CHECK(SameRect(l.langLess, 666, 20, 86, 84));   // E31
+    // The old single column's spots mean something else here: the touch row's second line (255, 207) is a pixel shaders cell,   // E31
+    // the old Back arrow's corner (906, 6) the language's [>] and the old language row (255, 564) the refresh cell.     // E31
+    CHECK(l.cell[PC_PIXEL_SHADERS].x < 255.0f && 255.0f < l.cell[PC_PIXEL_SHADERS].x + l.cell[PC_PIXEL_SHADERS].w);   // E31
+    CHECK(l.cell[PC_PIXEL_SHADERS].y < 207.0f && 207.0f < l.cell[PC_PIXEL_SHADERS].y + l.cell[PC_PIXEL_SHADERS].h);   // E31
+    CHECK(l.langMore.x < 930.0f && 930.0f < l.langMore.x + l.langMore.w && l.langMore.y < 50.0f && 50.0f < l.langMore.y + l.langMore.h);   // E31
+
+    // 16:9 and 16:10 windows: the body does not move; the header follows the area's corners.                              // E31
+    l = phoneOptionsLayout(OptionsAreaOf(ComputeFixedLayoutArea({1920u, 1080u}, open, Supersonic::SafeAreaInsets{}, 1.0f)), true, true);   // E31
+    CHECK(SameRect(l.back, -149, 16, 123, 92) && SameRect(l.panel, 12, 110, 1000, 624) && SameRect(l.langLess, 832, 20, 86, 84));   // E31
+    l = phoneOptionsLayout(OptionsAreaOf(ComputeFixedLayoutArea({1280u, 800u}, open, Supersonic::SafeAreaInsets{}, 1.0f)), true, true);   // E31
+    CHECK(SameRect(l.back, -83, 16, 123, 92) && SameRect(l.panel, 12, 110, 1000, 624));   // E31
+
+    // A notch and a home indicator: the frame is the safe area's (87 / 27 / 87 / 41), the rows 82 tall.                  // E31
+    l = phoneOptionsLayout(OptionsAreaOf(ComputeFixedLayoutArea({2532u, 1170u}, open, Supersonic::SafeAreaInsets{132.0f, 0.0f, 132.0f, 63.0f}, 3.5f)), true, true);   // E31
+    CHECK_EQ(l.hc, 82.0f);   // E31
+    // The shown edge is -319.015 (486 px of bar / 1.5234375), so the arrow is at floor(-319.015 + 87 + 8) = -225   // E31
+    // (a shown edge rounded to -319.0 would give -224).                                                           // E31
+    CHECK_MSG(SameRect(l.back, -225, 35, 123, 92) && SameRect(l.panel, 12, 129, 1000, 588), "notch " + RectText(l.back) + " " + RectText(l.panel));   // E31
+    CHECK(SameRect(l.cell[PC_PIXEL_SHADERS], 28, 145, 474, 82) && SameRect(l.cell[PC_PAUSE_FOCUS], 522, 233, 474, 82));   // E31
+    CHECK(SameRect(l.cell[PC_REFRESH], 28, 501, 474, 112) && SameRect(l.cell[PC_MUSIC], 28, 619, 474, 82));   // E31
+    CHECK(l.panel.y + l.panel.h <= 768.0f - 41.0f);   // the panel's bottom is above the home indicator   // E31
+
+    // A bottom bar (a 150 px bar in a 1280x720 window is 160 logical px): the rows give way to 68, the panel's bottom runs   // E31
+    // 6 px under the bar's top (documented, not fixed: the rows cannot be shorter).                                       // E31
+    l = phoneOptionsLayout(OptionsAreaOf(ComputeFixedLayoutArea({1280u, 720u}, open, Supersonic::SafeAreaInsets{0.0f, 0.0f, 0.0f, 150.0f}, 1.0f)), true, true);   // E31
+    CHECK_EQ(l.hc, 68.0f);   // E31
+    CHECK_MSG(SameRect(l.panel, 12, 110, 1000, 504), "bottom bar " + RectText(l.panel));   // E31
+
+    // The narrow case: a 4:3 window whose frame reaches 88 px in (a cut-out at each side): the body is what is left of   // E31
+    // it, 848 wide, and the cells are 398 wide.                                                                          // E31
+    l = phoneOptionsLayout(OptionsAreaOf(ComputeFixedLayoutArea({1024u, 768u}, 0.0f, Supersonic::SafeAreaInsets{88.0f, 0.0f, 88.0f, 24.0f}, 1.0f)), true, true);   // E31
+    CHECK_MSG(SameRect(l.panel, 88, 110, 848, 624) && SameRect(l.back, 96, 16, 123, 92), "narrow " + RectText(l.panel));   // E31
+    CHECK(SameRect(l.cell[PC_PIXEL_SHADERS], 104, 126, 398, 88) && SameRect(l.cell[PC_ADJUST], 522, 314, 398, 88));   // E31
+    CHECK(SameRect(l.less[PC_REFRESH], 108, 536, 86, 88) && SameRect(l.value[PC_REFRESH], 194, 536, 218, 88));   // E31
+    CHECK(SameRect(l.less[PC_EFFECTS], 676, 630, 86, 88) && SameRect(l.more[PC_EFFECTS], 830, 630, 86, 88));   // E31
+
+    // No area published (the suites): the whole screen, no frame.                                                        // E31
+    l = phoneOptionsLayout(OptionsArea{}, true, true);   // E31
+    CHECK_MSG(SameRect(l.back, 8, 8, 123, 92) && SameRect(l.panel, 12, 102, 1000, 624), "no area " + RectText(l.panel));   // E31
+
+    // Touch off drops the Adjust cell; no refresh row puts Zoom in the left column.                                       // E31
+    l = phoneOptionsLayout(phone, false, true);   // E31
+    CHECK(!l.present[PC_ADJUST] && l.present[PC_TOUCH] && l.present[PC_REFRESH] && l.present[PC_ZOOM]);   // E31
+    l = phoneOptionsLayout(phone, true, false);   // E31
+    CHECK(!l.present[PC_REFRESH] && l.present[PC_ZOOM] && l.present[PC_ADJUST]);   // E31
+    CHECK(SameRect(l.cell[PC_ZOOM], 28, 525, 474, 118) && SameRect(l.less[PC_ZOOM], 32, 555, 86, 88));   // E31
+
+    // Every shape: the body is inside 12..1012 (a rectangle that crossed x 0 or 1024 would be stretched out to the shown edge),    // E31
+    // every cell inside the panel, every hit box inside the shown area and the frame (Back's reaches the corner on purpose), and   // E31
+    // no two hit boxes overlap, so a press does one thing.                                                                 // E31
+    struct Shape { glm::uvec2 window; float sides; Supersonic::SafeAreaInsets safe; float margin; };   // E31
+    const Shape shapes[] = {{{2400u, 1080u}, open, {}, 3.5f}, {{1920u, 1080u}, open, {}, 1.0f}, {{1280u, 800u}, open, {}, 1.0f},   // E31
+                            {{1024u, 768u}, 0.0f, {}, 1.0f}, {{2400u, 1080u}, 0.0f, {}, 3.5f}, {{2532u, 1170u}, open, {132.0f, 0.0f, 132.0f, 63.0f}, 3.5f},   // E31
+                            {{1024u, 768u}, 0.0f, {88.0f, 0.0f, 88.0f, 24.0f}, 1.0f}, {{1280u, 720u}, open, {0.0f, 0.0f, 0.0f, 150.0f}, 1.0f},   // E31
+                            {{2340u, 1080u}, open, {}, 3.5f}, {{3120u, 1440u}, open, {}, 8.0f}};   // E31
+    for (const Shape& shape : shapes) {   // E31
+        const Penumbra::Render::FixedLayoutArea fixed = ComputeFixedLayoutArea(shape.window, shape.sides, shape.safe, shape.margin);   // E31
+        const OptionsArea area = OptionsAreaOf(fixed);   // E31
+        for (const bool touch : {true, false}) {   // E31
+            for (const bool refresh : {true, false}) {   // E31
+                const std::string what = std::to_string(shape.window.x) + "x" + std::to_string(shape.window.y) + (touch ? " touch" : " no touch") + (refresh ? "" : " no refresh row");   // E31
+                const PhoneOptionsLayout lay = phoneOptionsLayout(area, touch, refresh);   // E31
+                CHECK_MSG(lay.panel.x >= 12.0f && lay.panel.x + lay.panel.w <= 1012.0f, what + " panel " + RectText(lay.panel));   // E31
+                CHECK_MSG(lay.panel.y + lay.panel.h <= 768.0f, what + " panel bottom");   // E31
+                const float left = fixed.shownMin.x + fixed.frame.left;   // E31
+                const float right = fixed.shownMax.x - fixed.frame.right;   // E31
+                const auto boxes = HitBoxes(lay);   // E31
+                for (std::size_t i = 0; i < boxes.size(); ++i) {   // E31
+                    const PhoneRect& r = boxes[i].second;   // E31
+                    const bool isBack = boxes[i].first == "back";   // E31
+                    CHECK_MSG(r.x >= (isBack ? std::floor(fixed.shownMin.x) - 1.0f : left - 1.0f) && r.x + r.w <= right + 1.0f &&   // E31
+                                  r.y >= (isBack ? -1.0f : 0.0f) && r.y + r.h <= 768.0f,   // E31
+                              what + " " + boxes[i].first + " " + RectText(r));   // E31
+                    if (!isBack) {   // E31
+                        CHECK_MSG(r.x >= lay.panel.x || boxes[i].first.rfind("language", 0) == 0, what + " " + boxes[i].first + " left of the panel");   // E31
+                    }   // E31
+                    for (std::size_t j = i + 1; j < boxes.size(); ++j) {   // E31
+                        CHECK_MSG(!Overlap(r, boxes[j].second), what + ": " + boxes[i].first + " overlaps " + boxes[j].first);   // E31
+                    }   // E31
+                }   // E31
+                for (int c = 0; c < PC_COUNT; ++c) {   // E31
+                    if (!lay.present[c]) continue;   // E31
+                    const PhoneRect& cell = lay.cell[c];   // E31
+                    CHECK_MSG(cell.x >= lay.panel.x && cell.x + cell.w <= lay.panel.x + lay.panel.w &&   // E31
+                                  cell.y >= lay.panel.y && cell.y + cell.h <= lay.panel.y + lay.panel.h,   // E31
+                              what + " cell " + std::to_string(c) + " " + RectText(cell));   // E31
+                }   // E31
+            }   // E31
+        }   // E31
+    }   // E31
+}   // E31
+
 // E25's larger menu: where each window puts the 1024x768 menu - the logo and
 // the seven buttons filling the height, from the left, the panel no narrower
 // than in E1's view - and a 4:3 or narrower window left as it was.
@@ -2105,6 +2327,8 @@ void runTests() {
     testPhoneMenuFrame();   // E25
     testPhoneMenuHits();    // E25
     testPhoneHudFrame();    // E26
+    testFixedLayoutArea();  // E31
+    testPhoneOptionsLayout();   // E31
     testLatch();
     testMenuMode();
     testKeyNames();

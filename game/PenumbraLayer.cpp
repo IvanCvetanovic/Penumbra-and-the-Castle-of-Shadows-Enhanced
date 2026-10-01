@@ -845,6 +845,19 @@ void PenumbraLayer::OnFixedUpdate(entt::registry& registry, float fixedDelta) {
         // E1: a menu's world past its sides is collected while the window is
         // wider than the 1024x768 it is laid out on (none for a level).
         m_machine->SetSidesShown(Render::WiderThan(m_options.windowPixels, Render::kFixedLayoutScreen));
+        // E31: what the window shows of the options scene and the frame inside it, for the phone's options layout   // E31
+        // (optionsPhone.cpp). Every tick, whatever the scene: the first frame of a scene runs before the layer knows   // E31
+        // it changed. The sides are the scene's (SideMargin), not the window's: flipping the widescreen switch here   // E31
+        // applies from the next scene, so the header must not move under a screen that has not. The margin is the   // E31
+        // touch controls' always (not the live switch), so the corners stay when this screen turns them off.   // E31
+        {   // E31
+            const float margin = Render::EdgeMarginPercent(   // E31
+                m_options.edgeMarginOverride.value_or(m_settings.edgeMargin), true, m_view.windowPixels);   // E31
+            const Render::FixedLayoutArea area = Render::ComputeFixedLayoutArea(   // E31
+                m_view.windowPixels, m_machine->SideMargin(), SafeInsets(), margin);   // E31
+            Script::g_optionsArea = Script::OptionsArea{area.shownMin, area.shownMax, area.frame.left, area.frame.top,   // E31
+                                                        area.frame.right, area.frame.bottom};   // E31
+        }   // E31
         // E23: the mode list marks the choice of whichever the window is in.
         const glm::uvec2 chosen = m_windowFullscreen ? SavedFullscreenMode() : SavedWindowedSize();
         Script::g_chosenVideoMode = Eth::videoMode{chosen.x, chosen.y, Eth::PF32BIT};

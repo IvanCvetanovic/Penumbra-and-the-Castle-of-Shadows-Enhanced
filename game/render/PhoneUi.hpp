@@ -247,4 +247,20 @@ struct MenuPanel {
 MenuPanel ComputeMenuPanel(const MenuFrame& frame, glm::uvec2 window, const Supersonic::SafeAreaInsets& safe = {},
                            float cornerLeft = 0.0f);
 
+// --- E31: the options screen, larger ---------------------------------------------------------   // E31
+
+// What a window shows of a fixed-layout scene (the 1024x768 screens the original laid out: the options), and the   // E31
+// frame inside it. Logical px of that screen: x runs below 0 and past 1024 where the scene's sides are shown.   // E31
+struct FixedLayoutArea {   // E31
+    glm::vec2 shownMin{0.0f, 0.0f};   // E31
+    glm::vec2 shownMax{1024.0f, 768.0f};   // E31
+    HudFrame frame;   // in from shownMin / shownMax: the safe area's inset or the edge margin, whichever is more   // E31
+};   // E31
+// E1's view of the screen (CameraRig::ComputeView with the pillarbox: scale = min(w/1024, h/768), the box on a whole   // E31
+// pixel) widened by `openSides` (Eth::Machine::SideMargin: 0, or 1024 where the scene was widened) as far as the   // E31
+// window goes; y is the screen's own 0..768. The frame is ComputeHudFrame over that rectangle. A zero window: the   // E31
+// default (the 4:3 screen, no frame).   // E31
+FixedLayoutArea ComputeFixedLayoutArea(glm::uvec2 window, float openSides, const Supersonic::SafeAreaInsets& safe,   // E31
+                                       float marginPercent);   // E31
+
 } // namespace Penumbra::Render

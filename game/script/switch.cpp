@@ -111,6 +111,18 @@ void Switch::setCurrent(const uint newCurrent)
     m_current = newCurrent;
 }
 
+// E31 (Script.hpp): what the phone's layout draws of a two-row switch.          // E31
+string Switch::getLabel(const uint i) const                           // E31
+{                                                                     // E31
+    return i < m_button.length() ? m_button[i] : string();            // E31
+}                                                                     // E31
+
+// E31 (Script.hpp)
+string Switch::getImage(const uint i) const                           // E31
+{                                                                     // E31
+    return i < m_image.length() ? m_image[i] : string();              // E31
+}                                                                     // E31
+
 // ENHANCEMENT E10 (Script.hpp): the Stepper. 0.7.12's scripts cannot measure   // E10
 // text, so its row is fixed columns, as Switch's width is: the label, then an   // E10
 // arrow box, the value, the other arrow box. The boxes are wider than their     // E10
@@ -194,6 +206,12 @@ float Stepper::getFraction() const                                    // E10
 {                                                                     // E10
     return static_cast<float>(m_current)/static_cast<float>(m_steps); // E10
 }                                                                     // E10
+
+// E31 (Script.hpp)
+string Stepper::getLabel() const                                      // E31
+{                                                                     // E31
+    return m_label;                                                   // E31
+}                                                                     // E31
 
 // E10. Nearest, halves away from zero, so a hand-edited 0.75 reads as 8 and   // E10
 // the layer, comparing steps rather than floats, leaves that file alone.       // E10
@@ -284,5 +302,11 @@ string Chooser::getOption(const uint i) const                         // E27
 {                                                                     // E27
     return i < m_options.length() ? m_options[i] : string();          // E27
 }                                                                     // E27
+
+// E31 (Script.hpp)
+string Chooser::getLabel() const                                      // E31
+{                                                                     // E31
+    return m_label;                                                   // E31
+}                                                                     // E31
 
 } // namespace Penumbra::Script

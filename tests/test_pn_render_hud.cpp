@@ -1214,12 +1214,17 @@ void TestLanguages() {
                 const float width = Laid(fonts, name, language, "Arial Narrow", 25.0f).width;
                 widest = std::max(widest, width);
                 CHECK_MSG(width > 0.0f && 4.0f + width < 176.0f, Overflow(language, Render::Localization::LanguageNameKey(named.language), name, 4.0f + width, 176.0f));
+                // E31: on the phone's options layout the chooser is in the header: a 168 px box, Arial Narrow 30, the text 12 px in and 8 clear.   // E31
+                const float phoneWidth = Laid(fonts, name, language, "Arial Narrow", 30.0f).width;   // E31
+                CHECK_MSG(phoneWidth > 0.0f && phoneWidth <= 148.0f, Overflow(language, Render::Localization::LanguageNameKey(named.language), name, phoneWidth, 148.0f));   // E31
             }
             // E27: automatic, the chooser's first entry (the script's "Autom\xE1tica").
             const std::string automatic = loc.Translate("Autom\xE1tica", language);
             const float automaticWidth = Laid(fonts, automatic, language, "Arial Narrow", 25.0f).width;
             CHECK_MSG(automaticWidth > 0.0f && 4.0f + automaticWidth < 176.0f,
                       Overflow(language, "Autom\xE1tica", automatic, 4.0f + automaticWidth, 176.0f));
+            const float phoneAutomatic = Laid(fonts, automatic, language, "Arial Narrow", 30.0f).width;   // E31
+            CHECK_MSG(phoneAutomatic > 0.0f && phoneAutomatic <= 148.0f, Overflow(language, "Autom\xE1tica", automatic, phoneAutomatic, 148.0f));   // E31
             if (language == Language::English) {
                 std::printf("  E24 chooser (%s): the widest name %.0f px of the 172 the box leaves\n",
                             system ? "system faces" : "stand-ins", widest);
@@ -1452,6 +1457,7 @@ struct Room {
     int maxLines = 0;
     bool visual = false;     // max(pt, en) x 1.15 rather than a box
     float cap = 0.0f;        // a visual room's hard limit (0: none)
+    std::string variant;     // "" for the desktop's room, "phone" for the one on the phone's options layout   // E31
 };
 
 // A key as one line of output: its breaks shown as \n, cut short.
@@ -1463,7 +1469,7 @@ std::string ShownKey(const Room& room) {
     for (const char32_t c : codePoints) {
         out += c == U'\n' ? std::string("\\n") : Eth::CodePointsToUtf8(std::u32string(1, c));
     }
-    return (room.section == "touch" ? "touch \"" : "\"") + out + (cut ? "...\"" : "\"");
+    return std::string(room.variant == "phone" ? "phone " : "") + (room.section == "touch" ? "touch \"" : "\"") + out + (cut ? "...\"" : "\"");   // E31
 }
 
 // Each line's width as the HUD lays it out, and which is the widest. A line
@@ -1517,6 +1523,7 @@ void TestRooms() {
     const char* const sections[] = {"strings", "patterns", "touch"};
     std::vector<Room> rooms;
     int notDrawn = 0;
+    int notDrawnOnPhone = 0;   // E31
     for (std::size_t s = 0; s < 3; ++s) {
         const std::string section = sections[s];
         const std::set<std::string> listed = KeysOf(table[section]);
@@ -1563,11 +1570,52 @@ void TestRooms() {
             CHECK_MSG((room.face == "Arial Narrow" || room.face == "Arial") && room.size > 0.0f &&
                           room.maxWidth > 0.0f && room.maxLines > 0,
                       section + " \"" + key + "\"");
+            // The same text on the phone's options layout, in its own room (larger text in cells of another width). Every   // E31
+            // text the options screen draws has one - an object, or null where that layout does not draw it - so a new   // E31
+            // options text cannot go unmeasured there.   // E31
+            const std::string& drawnBy = entry["source"].AsString();   // E31
+            const bool optionsText = drawnBy.rfind("game/script/videoModes.cpp", 0) == 0 ||   // E31
+                                     drawnBy.rfind("game/script/switch.cpp", 0) == 0;   // E31
+            CHECK_MSG(entry.Has("phone") || !optionsText,   // E31
+                      section + " \"" + key + "\": a room for the phone's options layout (\"phone\", an object or null)");   // E31
+            Room phoneRoom;   // E31
+            bool onPhone = false;   // E31
+            if (entry.Has("phone")) {   // E31
+                const Supersonic::Json::Value& phone = entry["phone"];   // E31
+                if (phone.IsObject()) {   // E31
+                    phoneRoom = room;   // E31
+                    phoneRoom.variant = "phone";   // E31
+                    phoneRoom.face = phone["face"].AsString();   // E31
+                    phoneRoom.size = phone["size"].AsFloat();   // E31
+                    phoneRoom.maxWidth = phone["maxWidth"].AsFloat();   // E31
+                    phoneRoom.maxLines = static_cast<int>(phone["maxLines"].AsNumber());   // E31
+                    phoneRoom.visual = false;   // E31
+                    phoneRoom.cap = 0.0f;   // E31
+                    // Its prefix is empty (a check box is art: no marker to reserve room for), so its text is the key or the sample.   // E31
+                    if (section != "patterns") phoneRoom.source = Eth::Utf8ToCp1252(phone["prefix"].AsString() + key);   // E31
+                    CHECK_MSG(phone["prefix"].AsString().empty() && phone["rule"].AsString() == "box" &&   // E31
+                                  !phone["source"].AsString().empty() && !phone["why"].AsString().empty(),   // E31
+                              section + " \"" + key + "\": the phone room says where and why, and has no prefix");   // E31
+                    CHECK_MSG((phoneRoom.face == "Arial Narrow" || phoneRoom.face == "Arial") && phoneRoom.size > 0.0f &&   // E31
+                                  phoneRoom.maxWidth > 0.0f && phoneRoom.maxLines > 0,   // E31
+                              section + " \"" + key + "\" (phone)");   // E31
+                    onPhone = true;   // E31
+                } else {   // E31
+                    CHECK_MSG(phone.GetType() == Supersonic::Json::Type::Null,   // E31
+                              section + " \"" + key + "\": \"phone\" is an object or null");   // E31
+                    ++notDrawnOnPhone;   // E31
+                }   // E31
+            }   // E31
             rooms.push_back(std::move(room));
+            if (onPhone) rooms.push_back(std::move(phoneRoom));   // E31
         }
     }
-    std::printf("  rooms: %zu texts measured, %d never drawn (%s)\n", rooms.size(), notDrawn, path.c_str());
+    int onPhoneLayout = 0;   // E31
+    for (const Room& room : rooms) onPhoneLayout += room.variant == "phone" ? 1 : 0;   // E31
+    std::printf("  rooms: %zu texts measured (%d of them on the phone's options layout), %d never drawn, %d more not on that layout (%s)\n",   // E31
+                rooms.size(), onPhoneLayout, notDrawn, notDrawnOnPhone, path.c_str());   // E31
     CHECK(rooms.size() > 100);
+    CHECK(onPhoneLayout > 0);   // E31
 
     // A visual room is max(pt, en) x 1.15 and their line count, from
     // strings.json as it is now, measured with the stand-ins the table was
@@ -1597,27 +1645,39 @@ void TestRooms() {
     // Every language, laid out as the game lays it out here.
     Render::FontAtlas fonts;
     const std::string report = EnvironmentVariable("PN_ROOM_REPORT");
+    // One room against one language's text: the lines it sets, each one past the room printed when `print`, and whether any   // E31
+    // is past it or there are too many. The self-check after the loop runs it on rooms made too small.   // E31
+    const auto overflows = [&](const Room& room, const Language language, const char* id, const bool print,   // E31
+                               LineWidths& measured) {   // E31
+        const Render::Localization& from = room.section == "touch" ? touch : loc;   // E31
+        measured = MeasureLines(fonts, from.Translate(room.source, language), language, room.face, room.size);   // E31
+        const int lines = static_cast<int>(measured.widths.size());   // E31
+        bool over = false;   // E31
+        for (std::size_t i = 0; i < measured.widths.size(); ++i) {   // E31
+            if (measured.widths[i] <= room.maxWidth) continue;   // E31
+            over = true;   // E31
+            if (print) {   // E31
+                std::printf("  room %s %s line %zu: %.0f px > %.0f px (%s %.0f)\n", id, ShownKey(room).c_str(), i + 1,   // E31
+                            measured.widths[i], room.maxWidth, room.face.c_str(), room.size);   // E31
+            }   // E31
+        }   // E31
+        if (lines > room.maxLines) {   // E31
+            over = true;   // E31
+            if (print) {   // E31
+                std::printf("  room %s %s: %d lines > %d lines (%s %.0f)\n", id, ShownKey(room).c_str(), lines,   // E31
+                            room.maxLines, room.face.c_str(), room.size);   // E31
+            }   // E31
+        }   // E31
+        return over;   // E31
+    };   // E31
     for (const Language language : MeasuredLanguages(loc)) {
         const char* id = Render::LanguageId(language);
         const bool reported = report == "all" || report == id;
         int overflowing = 0;
         for (const Room& room : rooms) {
-            const Render::Localization& from = room.section == "touch" ? touch : loc;
-            const std::string text = from.Translate(room.source, language);
-            const LineWidths measured = MeasureLines(fonts, text, language, room.face, room.size);
-            const int lines = static_cast<int>(measured.widths.size());
-            bool over = false;
-            for (std::size_t i = 0; i < measured.widths.size(); ++i) {
-                if (measured.widths[i] <= room.maxWidth) continue;
-                over = true;
-                std::printf("  room %s %s line %zu: %.0f px > %.0f px (%s %.0f)\n", id, ShownKey(room).c_str(), i + 1,
-                            measured.widths[i], room.maxWidth, room.face.c_str(), room.size);
-            }
-            if (lines > room.maxLines) {
-                over = true;
-                std::printf("  room %s %s: %d lines > %d lines (%s %.0f)\n", id, ShownKey(room).c_str(), lines,
-                            room.maxLines, room.face.c_str(), room.size);
-            }
+            LineWidths measured;   // E31
+            const bool over = overflows(room, language, id, true, measured);   // E31
+            const int lines = static_cast<int>(measured.widths.size());   // E31
             if (over) ++overflowing;
             if (reported) {
                 std::printf("  room-report %s %s: widest %.0f of %.0f px (%+.0f), %d of %d lines (%s %.0f)\n", id,
@@ -1634,6 +1694,81 @@ void TestRooms() {
                                             " texts past their room (the 'room " + id + "' lines above)");
         }
     }
+
+    // E31: the measurement bites. The same call on a phone room made a pixel too narrow, and on one made a line short,   // E31
+    // says "past the room"; on the real room, and on one exactly as wide as the text, it does not.   // E31
+    {   // E31
+        const Room* toggle = nullptr;   // E31
+        for (const Room& room : rooms) {   // E31
+            if (room.variant == "phone" && room.key == "Pausa ao perder o foco") toggle = &room;   // E31
+        }   // E31
+        CHECK(toggle != nullptr);   // E31
+        if (toggle != nullptr) {   // E31
+            LineWidths measured;   // E31
+            CHECK(!overflows(*toggle, Language::English, "en", false, measured));   // E31
+            CHECK(measured.widest > 100.0f && measured.widths.size() == 1u);   // E31
+            Room tight = *toggle;   // E31
+            tight.maxWidth = measured.widest;   // E31
+            CHECK(!overflows(tight, Language::English, "en", false, measured));   // E31
+            tight.maxWidth = measured.widest - 1.0f;   // E31
+            CHECK(overflows(tight, Language::English, "en", false, measured));   // E31
+            tight = *toggle;   // E31
+            tight.maxLines = 0;   // E31
+            CHECK(overflows(tight, Language::English, "en", false, measured));   // E31
+            Room ar = *toggle;   // E31
+            ar.maxWidth = 40.0f;   // an Arabic line shaped and ordered by itself is measured as well   // E31
+            CHECK(overflows(ar, Language::Arabic, "ar", false, measured));   // E31
+        }   // E31
+    }   // E31
+
+    // E31: the phone rooms are the layout's own numbers (game/script/optionsPhone.cpp), so a layout that narrows a cell or   // E31
+    // moves the header's globe shows here as a stale room, not as a text that overflows in the one language nobody looked   // E31
+    // at. On a 4:3 window (frame 10 / 8 / 10 / 0): a toggle's text starts 66 px into its cell and keeps 12 clear, a label   // E31
+    // 14 px in, a value 12 px into its box with 8 clear, a stepper's label stops 10 px before its minus button, and the   // E31
+    // title ends 16 px before the language chooser's globe.   // E31
+    {   // E31
+        const Script::PhoneOptionsLayout l = Script::phoneOptionsLayout(   // E31
+            Script::OptionsArea{Eth::vector2(0.0f, 0.0f), Eth::vector2(1024.0f, 768.0f), 10.0f, 8.0f, 10.0f, 0.0f}, true, true);   // E31
+        const auto roomOf = [&](const char* section, const std::string& cp1252Key) {   // E31
+            const Supersonic::Json::Value& phone = table[section][U(cp1252Key)]["phone"];   // E31
+            CHECK_MSG(phone.IsObject(), std::string(section) + " \"" + cp1252Key + "\": a phone room");   // E31
+            return phone["maxWidth"].AsFloat();   // E31
+        };   // E31
+        const auto agrees = [&](const char* section, const std::string& key, const float derived, const char* what) {   // E31
+            const float room = roomOf(section, key);   // E31
+            CHECK_MSG(room == derived, std::string(what) + ": the room in " + path + " is " + std::to_string(room) +   // E31
+                                           " px, the layout gives " + std::to_string(derived));   // E31
+        };   // E31
+        const float toggleText = l.cell[Script::PC_PIXEL_SHADERS].w - 66.0f - 12.0f;   // E31
+        agrees("strings", "Ativa pixel shaders", toggleText, "a toggle cell's text");   // E31
+        agrees("strings", "Pausa ao perder o foco", toggleText, "a toggle cell's text");   // E31
+        agrees("strings", "Ajustar controles", l.cell[Script::PC_ADJUST].w - 66.0f - 12.0f, "the Adjust cell's text");   // E31
+        agrees("strings", "Vale a partir da pr\xF3" "xima fase", l.cell[Script::PC_WIDESCREEN].w - 66.0f - 12.0f, "the widescreen hint");   // E31
+        agrees("strings", "Zoom", l.cell[Script::PC_ZOOM].w - 2.0f * 14.0f, "a chooser cell's label");   // E31
+        agrees("strings", "Volume dos efeitos", l.less[Script::PC_EFFECTS].x - 10.0f - (l.cell[Script::PC_EFFECTS].x + 14.0f),   // E31
+               "a stepper cell's label");   // E31
+        agrees("strings", "Autom\xE1tica", l.langValue.w - 12.0f - 8.0f, "the language chooser's value box");   // E31
+        agrees("strings", "Autom\xE1tica (m\xE1xima)", l.value[Script::PC_REFRESH].w - 12.0f - 8.0f, "a chooser cell's value box");   // E31
+        agrees("patterns", "Autom\xE1tica ({int} Hz)", l.value[Script::PC_REFRESH].w - 12.0f - 8.0f, "a chooser cell's value box");   // E31
+        agrees("strings", "Op\xE7\xF5" "es de v\xED" "deo", l.globe.x - 16.0f - l.title.x, "the title");   // E31
+
+        // The narrowest header there is: a 4:3 window whose frame reaches 88 px in (a cut-out each side) leaves the title   // E31
+        // 273 px, where the room above is 429. The body's texts are set to fit there; the title is not, so it must fit as it   // E31
+        // is, in every language.   // E31
+        const Script::PhoneOptionsLayout narrow = Script::phoneOptionsLayout(   // E31
+            Script::OptionsArea{Eth::vector2(0.0f, 0.0f), Eth::vector2(1024.0f, 768.0f), 88.0f, 8.0f, 88.0f, 24.0f}, true, true);   // E31
+        const float narrowRoom = narrow.globe.x - 16.0f - narrow.title.x;   // E31
+        CHECK(narrowRoom < roomOf("strings", "Op\xE7\xF5" "es de v\xED" "deo"));   // E31
+        float widestTitle = 0.0f;   // E31
+        for (const Language language : MeasuredLanguages(loc)) {   // E31
+            const std::string title = loc.Translate("Op\xE7\xF5" "es de v\xED" "deo", language);   // E31
+            const float width = Laid(fonts, title, language, "Arial Narrow", 40.0f).width;   // E31
+            widestTitle = std::max(widestTitle, width);   // E31
+            CHECK_MSG(width > 0.0f && width <= narrowRoom, Overflow(language, "Op\xE7\xF5" "es de v\xED" "deo", title, width, narrowRoom));   // E31
+        }   // E31
+        std::printf("  the phone's title: the widest %.0f px of the %.0f the narrowest header leaves (%.0f on a 4:3 window)\n",   // E31
+                    widestTitle, narrowRoom, roomOf("strings", "Op\xE7\xF5" "es de v\xED" "deo"));   // E31
+    }   // E31
 }
 
 // E24: every character a language file draws - and the language names - is in
@@ -3287,6 +3422,9 @@ void TestOptionsArt() {
 // button and the lift is kept in the settings; that Esc closes the editor without the options screen reading it   // E28
 // (PauseMenu::HoldPressed), and that a finger that was down at that moment clicks nothing. Nothing is written: no user   // E28
 // directory, and noSave besides. Everything the layer reads of the machine is through its const accessors.   // E28
+// E31: the options screen there is the phone's larger layout (the layer has the real data folder, so the options art is on),   // E31
+// where the editor's own Back arrow and the screen's stand in one corner: the last part of the test pins that what closes the   // E31
+// editor does not also press the arrow under it.   // E31
 namespace {                                                                                                             // E28
 
 bool MachineDrawsText(const Eth::Machine& machine, const std::string& needle) {                                         // E28
@@ -3295,6 +3433,14 @@ bool MachineDrawsText(const Eth::Machine& machine, const std::string& needle) { 
     }                                                                                                                   // E28
     return false;                                                                                                       // E28
 }                                                                                                                       // E28
+
+// E31: the front copy of a text the options screen draws (shadowText's black copy is half as opaque at most), or null.   // E31
+const Eth::HudCmd* FrontText(const Eth::Machine& machine, const std::string& text) {   // E31
+    for (const Eth::HudCmd& c : machine.Snapshot().hud) {   // E31
+        if (c.kind == Eth::HudCmd::Kind::Text && c.text == text && (c.color >> 24) > 128u) return &c;   // E31
+    }   // E31
+    return nullptr;   // E31
+}   // E31
 
 // The editor's backdrop is the overlay's first command: a Rectangle over the whole shown area (here the 1024x768 screen).   // E28
 bool OverlayHasBackdrop(const std::vector<Eth::HudCmd>& overlay) {                                                      // E28
@@ -3317,7 +3463,17 @@ void TestTouchEditorInLayer() {                                                 
         Render::TouchControls::ComputeLayout(manifest, glm::vec2(0.0f), glm::vec2(1024.0f, 768.0f), Render::TouchInsets{}, 1.0f);   // E28
     const glm::vec2 jumpAt = controls[Render::TouchControl::Jump].Centre();                                             // E28
     const glm::vec2 jumpTo = jumpAt + glm::vec2(-40.0f, 12.0f);                                                         // E28
-    const glm::vec2 restingAt(300.0f, 207.0f);   // the touch switch's second row: where a click would turn the controls off   // E28
+    // E31: the layer here has the real data folder, so the options art is on and the options screen is the phone's layout   // E31
+    // (game/script/optionsPhone.cpp): the touch switch is a cell, (28, 314, 474, 88) on this 1024x768 window (frame 10 / 8 /   // E31
+    // 10 / 0), and a tap anywhere in it turns the controls off. The old layout's second row (300, 207) is a pixel shaders cell   // E31
+    // now. Worked out from the same pure layout the screen draws from, from the area the layer publishes for this window.   // E31
+    const Script::OptionsArea window43{Eth::vector2(0.0f, 0.0f), Eth::vector2(1024.0f, 768.0f), 10.0f, 8.0f, 10.0f, 0.0f};   // E31
+    const Script::PhoneOptionsLayout phone = Script::phoneOptionsLayout(window43, true, true);   // E31
+    const Script::PhoneRect touchCell = phone.cell[Script::PC_TOUCH];   // E31
+    const glm::vec2 restingAt(touchCell.x + touchCell.w * 0.5f, touchCell.y + touchCell.h * 0.5f);   // the touch cell's centre: where a click would turn the controls off   // E31
+    // The editor's own Back arrow and the options screen's stand in the same corner now: the editor's is a 64 px tile 41 in   // E31
+    // from the shown area's corner, the options screen's a 123 x 92 arrow in the frame, and its hit box covers the tile.   // E31
+    const glm::vec2 backAt = tiles.widget[static_cast<std::size_t>(Render::TouchEditWidget::Back)].Centre();   // E31
 
     PenumbraLayer::Options options;                                                                                     // E28
     options.userDir.clear();   // SaveSettings has nowhere to write; noSave says so as well                               // E28
@@ -3339,6 +3495,13 @@ void TestTouchEditorInLayer() {                                                 
         PenumbraLayer::DevFinger{1, jumpAt, jumpTo, 110u, 116u},      // a drag of the jump button, 40 left and 12 down   // E28
         PenumbraLayer::DevFinger{3, restingAt, restingAt, 130u, 150u},   // down across the Esc that closes the editor   // E28
         PenumbraLayer::DevFinger{4, restingAt, restingAt, 170u, 172u},   // a tap after it: a click again               // E28
+        // E31: on the options screen again (after the menu), with the editor over it: a one-tick tap on the editor's Back arrow,   // E31
+        // which closes it; a three-tick tap; a finger put down on that arrow and held across an Esc that closes the editor;   // E31
+        // then, with the editor shut, a fresh tap on the same spot, which is the options screen's own Back arrow.   // E31
+        PenumbraLayer::DevFinger{5, backAt, backAt, 210u, 210u},   // E31
+        PenumbraLayer::DevFinger{6, backAt, backAt, 235u, 237u},   // E31
+        PenumbraLayer::DevFinger{7, backAt, backAt, 290u, 330u},   // E31
+        PenumbraLayer::DevFinger{8, backAt, backAt, 350u, 352u},   // E31
     };                                                                                                                  // E28
 
     entt::registry registry;                                                                                            // E28
@@ -3358,11 +3521,33 @@ void TestTouchEditorInLayer() {                                                 
         layer.OnAttach(registry);                                                                                       // E28
         attached = true;                                                                                                // E28
         Eth::Machine* machine = layer.Machine();                                                                        // E28
+        // E31: the phone's options layout asks the machine whether the options art is loaded, which needs its scope.   // E31
+        const auto phoneLayoutUp = [machine] {   // E31
+            Eth::Machine::Scope scope(*machine);   // E31
+            return Script::phoneOptionsOn();   // E31
+        };   // E31
         CHECK(machine != nullptr);                                                                                      // E28
         while (scene() != "scenes/videoModes.esc" && tick < 80) step();                                                 // E28
         CHECK_MSG(scene() == "scenes/videoModes.esc", "the options scene never came up: " + scene());                  // E28
         runTo(30);                                                                                                      // E28
         CHECK(MachineDrawsText(*machine, "Ajustar controles"));   // the entry button, under the touch switch          // E28
+        // E31: the phone's layout is up (not E20's art-less one the suites run), the layer published this window's area, and   // E31
+        // the coordinates above are where the screen's cells and Back arrow are.   // E31
+        CHECK(phoneLayoutUp());   // E31
+        // The frame it publishes is 1% of the window (10.24 / 7.68), which the layout takes in whole px.   // E31
+        CHECK_MSG(Script::g_optionsArea.shownMin == Eth::vector2(0.0f, 0.0f) && Script::g_optionsArea.shownMax == Eth::vector2(1024.0f, 768.0f) &&   // E31
+                      std::round(Script::g_optionsArea.left) == window43.left && std::round(Script::g_optionsArea.top) == window43.top &&   // E31
+                      std::round(Script::g_optionsArea.right) == window43.right && Script::g_optionsArea.bottom == window43.bottom,   // E31
+                  "the area the layer published is not this 1024x768 window's");   // E31
+        const Script::PhoneOptionsLayout live = Script::phoneOptionsLayout(Script::g_optionsArea, true, Script::g_refreshRateRow);   // E31
+        CHECK(live.cell[Script::PC_TOUCH].x == touchCell.x && live.cell[Script::PC_TOUCH].y == touchCell.y &&   // E31
+              live.cell[Script::PC_TOUCH].w == touchCell.w && live.cell[Script::PC_TOUCH].h == touchCell.h);   // E31
+        CHECK(restingAt.x == 265.0f && restingAt.y == 358.0f);   // E31
+        const Eth::HudCmd* shaders = FrontText(*machine, "Ativa pixel shaders");   // the first cell's wording, 66 px into it, centred   // E31
+        CHECK(shaders != nullptr && shaders->pos == Eth::vector2(94.0f, 155.0f) && shaders->fontSize == 30.0f);   // E31
+        const Script::PhoneRect& backHit = live.backHit;   // E31
+        CHECK_MSG(backAt.x > backHit.x && backAt.y > backHit.y && backAt.x < backHit.x + backHit.w && backAt.y < backHit.y + backHit.h,   // E31
+                  "the editor's Back arrow is not under the options screen's: the leak legs below would prove nothing");   // E31
         CHECK(!layer.EditorOpen());                                                                                     // E28
         CHECK(!OverlayHasBackdrop(layer.Overlay()));                                                                    // E28
 
@@ -3435,6 +3620,65 @@ void TestTouchEditorInLayer() {                                                 
         runTo(tick + 6);                                                                                                // E28
         Supersonic::Input::Update(Supersonic::RawInputState{});                                                         // E28
         CHECK_MSG(scene() == "scenes/menu.esc", "Esc no longer leaves the options screen: " + scene());                 // E28
+
+        // E31: the options screen's Back arrow (top-left, 123 x 92) and the editor's own (a 64 px tile at 41, 41) share a corner   // E31
+        // now, so what closes the editor must not also press the arrow under it. Back on the options screen, loaded as the   // E31
+        // menu's button loads it, with the editor opened over it three times:   // E31
+        //  - a tap on the editor's Back arrow (one tick long, then three) closes the editor and the options screen stays;   // E31
+        //  - a finger put down on it and held across the Esc that closes the editor clicks nothing, and the screen stays;   // E31
+        //  - then, with the editor shut, a fresh tap on that very spot is the options screen's Back arrow and leaves for the menu   // E31
+        //    - so the two above prove something: the spot does leave when nothing guards it.   // E31
+        {   // E31
+            Eth::Machine::Scope scope(*machine);   // E31
+            Eth::LoadScene("scenes/videoModes.esc", "screenModesPreLoop", "screenModesLoop");   // E31
+        }   // E31
+        runTo(200);   // E31
+        CHECK_MSG(scene() == "scenes/videoModes.esc", "the options screen did not come back: " + scene());   // E31
+        CHECK(phoneLayoutUp() && !layer.EditorOpen());   // E31
+        const auto openEditor = [&] {   // E31
+            Script::g_adjustTouchControls = true;   // E31
+            step();   // E31
+            CHECK(layer.EditorOpen());   // E31
+        };   // E31
+
+        openEditor();   // tick 201   // E31
+        runTo(209);   // E31
+        CHECK(layer.EditorOpen());   // the finger is not down yet (210)   // E31
+        runTo(215);   // a one-tick tap on the editor's Back arrow, a latched tap's length   // E31
+        CHECK_MSG(!layer.EditorOpen(), "a one-tick tap on the editor's Back arrow did not close it");   // E31
+        runTo(225);   // E31
+        CHECK_MSG(scene() == "scenes/videoModes.esc", "the tap that closed the editor left the options screen: " + scene());   // E31
+        CHECK(machine->FrameIndex() > frozenAt);   // E31
+
+        openEditor();   // tick 226   // E31
+        runTo(234);   // E31
+        CHECK(layer.EditorOpen());   // E31
+        runTo(240);   // a three-tick tap (235-237), lifted at 238   // E31
+        CHECK_MSG(!layer.EditorOpen(), "a tap on the editor's Back arrow did not close it");   // E31
+        runTo(280);   // 40 ticks on   // E31
+        CHECK_MSG(scene() == "scenes/videoModes.esc", "the tap that closed the editor left the options screen: " + scene());   // E31
+
+        openEditor();   // tick 281   // E31
+        runTo(297);   // finger 7 has been down on the editor's Back arrow since 290   // E31
+        CHECK(layer.EditorOpen());   // E31
+        Supersonic::Input::Update(escape);   // E31
+        step();   // E31
+        CHECK_MSG(!layer.EditorOpen(), "Esc did not close the editor");   // E31
+        for (int held = 0; held < 6; ++held) {   // Esc still down, the finger too   // E31
+            step();   // E31
+            CHECK_MSG(scene() == "scenes/videoModes.esc", "the Esc that closed the editor left the options screen: " + scene());   // E31
+        }   // E31
+        Supersonic::Input::Update(Supersonic::RawInputState{});   // E31
+        runTo(320);   // the finger is down on the options screen's Back arrow still (until 330)   // E31
+        CHECK_MSG(scene() == "scenes/videoModes.esc", "a finger held on the editor's Back arrow pressed the options screen's: " + scene());   // E31
+        runTo(340);   // lifted at 331   // E31
+        CHECK_MSG(scene() == "scenes/videoModes.esc", "the finger that was held on the editor's Back arrow left the options screen: " + scene());   // E31
+        CHECK(!layer.EditorOpen());   // E31
+
+        runTo(349);   // E31
+        CHECK(scene() == "scenes/videoModes.esc");   // E31
+        runTo(360);   // a fresh tap (350-352) on the same spot, the editor shut   // E31
+        CHECK_MSG(scene() == "scenes/menu.esc", "a tap on the options screen's Back arrow does not leave: " + scene());   // E31
     } catch (const std::exception& e) {                                                                                 // E28
         CHECK_MSG(false, std::string(attached ? "the layer threw at tick " + std::to_string(tick) + ": " : "OnAttach threw: ") + e.what());   // E28
     }                                                                                                                   // E28

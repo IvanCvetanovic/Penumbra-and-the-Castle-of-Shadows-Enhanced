@@ -228,4 +228,24 @@ MenuPanel ComputeMenuPanel(const MenuFrame& frame, glm::uvec2 window, const Supe
     return panel;
 }
 
+// --- E31: the options screen, larger ---------------------------------------------------------   // E31
+
+FixedLayoutArea ComputeFixedLayoutArea(glm::uvec2 window, float openSides, const Supersonic::SafeAreaInsets& safe,   // E31
+                                       float marginPercent) {   // E31
+    FixedLayoutArea area;   // E31
+    if (window.x == 0 || window.y == 0) return area;   // E31
+    const glm::vec2 image(window);   // E31
+    const float scale = std::min(image.x / kFourThree.x, image.y / kFourThree.y);   // E31
+    // CameraRig::ComputeView's box: rounded to a whole pixel, as the view the scripts are drawn in.   // E31
+    const glm::vec2 viewportMin = glm::round((image - kFourThree * scale) * 0.5f);   // E31
+    const glm::vec2 viewportMax = viewportMin + kFourThree * scale;   // E31
+    // View::ShownMin / ShownMax: the box widened across by the open sides as far as the image goes.   // E31
+    if (openSides > 0.0f && std::isfinite(openSides)) {   // E31
+        area.shownMin.x = (std::max(0.0f, viewportMin.x - openSides * scale) - viewportMin.x) / scale;   // E31
+        area.shownMax.x = (std::min(image.x, viewportMax.x + openSides * scale) - viewportMin.x) / scale;   // E31
+    }   // E31
+    area.frame = ComputeHudFrame(window, area.shownMax - area.shownMin, safe, marginPercent);   // E31
+    return area;   // E31
+}   // E31
+
 } // namespace Penumbra::Render

@@ -7,6 +7,7 @@
 // Enhancement E23 adds the automatic display mode and the refresh rate; marked.  // E23
 // Enhancement E24 makes the language row a chooser of eleven; marked.            // E24
 // Enhancement E28 adds the button that opens the touch controls' editor; marked. // E28
+// Enhancement E31 hands the screen to optionsPhone.cpp's larger layout on a phone; marked.   // E31
 
 #include "script/Script.hpp"
 
@@ -52,6 +53,7 @@ Chooser g_zoom("Zoom");                                                         
 PhonePanel g_phonePanel;                                                         // E25
 vector2 g_joystickIconsMin{0.0f};                                                // E25
 vector2 g_joystickIconsMax{0.0f};                                                // E25
+OptionsArea g_optionsArea;                                                       // E31: the layer's (Script.hpp)
 
 namespace {                                                                      // E23
 // The refresh rate's row: at x 540, beside the window switch (x 255, y 170-220), // E23
@@ -195,6 +197,12 @@ bool putBackButton(const vector2& cursor)
 // videoModes.as:85
 void screenModesLoop()
 {
+    // E31: the phone's layout (optionsPhone.cpp) is a screen of its own; the desktop's and E20's art-less one go on below.   // E31
+    if (phoneOptionsOn())                                             // E31
+    {                                                                 // E31
+        phoneOptionsLoop();                                           // E31
+        return;                                                       // E31
+    }                                                                 // E31
     const vector2 titlePos(30,30);
     const vector2 origin(30,100);
     shadowText(titlePos, "Op\xE7\xF5" "es de v\xED" "deo", "Arial Narrow", 40.0f, 255,203,203,228);   // videoModes.as:89

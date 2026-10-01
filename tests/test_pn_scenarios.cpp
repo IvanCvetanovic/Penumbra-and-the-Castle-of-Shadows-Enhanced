@@ -12,6 +12,9 @@
 // and a third for the options screen as a phone lays it out (E20), where the
 // later options-screen additions (E23, E28's button to the touch controls'
 // editor) follow, and E29's menu song through the settings.   // E29
+// Last there, E31's options screen as a phone lays it out with the options art loaded: the larger layout, with     // E31
+// real clicks through every cell, button and corner. (Scenarios 21, 22 and 24 run without the art, so they pin     // E31
+// E20's art-less layout, which stays as the fallback.)   // E31
 //
 // The harness is test_pn_boot's: one Machine (the script module's globals live
 // for the whole program, as they lived for the whole of machine.exe),
@@ -3227,6 +3230,9 @@ void ScenarioGamepadOnly(Game& g) {
 // it. With it down the screen is scenario 14's, and this checks that too: the
 // video-mode list, the window switch and the Alt+Enter line are there, then gone,
 // then back, and the touch controls' row stands where the window switch was.
+// E31: no data folder is given here (g_artDir is empty), so no options art is loaded and   // E31
+// this pins E20's art-less layout, which stays as the fallback - the coordinates below are   // E31
+// its single column's. With the art the screen is E31's larger layout: scenario 26.   // E31
 void ScenarioMobileOptions(Game& g) {
     const char* const altEnter = "Pressione Alt+Enter para trocar entre fullscreen e modo janela";
     // One mode, so that the list's absence is a fact rather than an empty list.
@@ -3468,6 +3474,8 @@ void ScenarioDisplayModeE23(Game& g) {
 // lowers in the same tick and opens the editor; here the suite reads it and lowers it. No data     // E28
 // folder, so no art: the label is "[>] Ajustar controles" at (255, 222). Appended at the end of   // E28
 // the third runtime: its frames reshuffle no random roll of the scenarios before it.              // E28
+// E31: with the art the Adjust button is a cell of the larger layout (scenario 26); this one, art-less,   // E31
+// pins E20's box under the touch row.   // E31
 void ScenarioTouchEditorEntryE28(Game& g) {                                                        // E28
     const char* const button = "[>] Ajustar controles";                                            // E28
     Script::g_artDir.clear();                                                                      // E28
@@ -3724,6 +3732,670 @@ void ScenarioMenuSongE29(Game& g) {                                             
     CHECK_EQ(g.sound.voices.at(again).volume, 1.0f);                                                // E29
 }                                                                                                   // E29
 
+// === 26. The options screen on a phone, large (E31) ========================================   // E31
+//   // E31
+// ENHANCEMENT E31 (game/script/optionsPhone.cpp): where g_mobileLayout is up AND the options art is   // E31
+// loaded, screenModesLoop hands the screen to a layout of its own - a stone panel of two columns of   // E31
+// cells, each two-way Switch ONE cell (the ticked box and the wording of its current state, a tap   // E31
+// anywhere flips it), steppers and choosers with big buttons, the language chooser and the Back arrow   // E31
+// in the header's corners of what the window shows (Script::g_optionsArea, which the layer publishes   // E31
+// and this scenario sets by hand), and no hover. Scenarios 21, 22 and 24 run WITHOUT the art (g_artDir   // E31
+// empty) and so pin E20's art-less layout, which stays as the fallback; this one sets g_artDir to   // E31
+// game/data and does everything with real clicks through the Machine: the cursor, then a one-frame   // E31
+// K_RETURN, which is a tap's KS_HIT at the contact point. The cells' places come from the pure   // E31
+// phoneOptionsLayout (test_pn_render_input pins its numbers); the negatives (the gaps, the places the   // E31
+// old layouts had things in) are literal. The switches are the script module's globals and outlive   // E31
+// every scenario, so each is read and then moved, never assumed.   // E31
+void ScenarioPhoneOptionsE31(Game& g) {   // E31
+    namespace S = Script;   // E31
+    const string savedArt = S::g_artDir;   // E31
+    const bool savedMobile = S::g_mobileLayout;   // E31
+    const S::OptionsArea savedArea = S::g_optionsArea;   // E31
+    // game/data, two folders up from tests/data (this suite does not link the game library, which is what defines   // E31
+    // PENUMBRA_DATA_DIR).   // E31
+    S::g_artDir = (std::filesystem::path(PENUMBRA_TESTS_DATA_DIR).parent_path().parent_path() / "game" / "data").generic_string();   // E31
+    S::g_mobileLayout = true;   // E31
+    S::g_refreshRateRow = true;   // E31
+    S::g_adjustTouchControls = false;   // E31
+    S::g_touchControls.setCurrent(0u);   // the touch controls on: the Adjust cell is there   // E31
+    // What the window shows of the options scene, and the frame inside it (the layer's job): a 4:3 window, a 20:9 phone,   // E31
+    // a notched phone with a home indicator, and a 4:3 window whose frame reaches 88 px in (a cut-out at each side).   // E31
+    const S::OptionsArea window43{vector2(0.0f, 0.0f), vector2(1024.0f, 768.0f), 10.0f, 8.0f, 10.0f, 0.0f};   // E31
+    const S::OptionsArea wide{vector2(-341.33f, 0.0f), vector2(1365.33f, 768.0f), 60.0f, 27.0f, 60.0f, 0.0f};   // E31
+    const S::OptionsArea notch{vector2(-319.015f, 0.0f), vector2(1343.015f, 768.0f), 87.0f, 27.0f, 87.0f, 41.0f};   // E31
+    const S::OptionsArea narrow{vector2(0.0f, 0.0f), vector2(1024.0f, 768.0f), 88.0f, 8.0f, 88.0f, 24.0f};   // E31
+    S::g_optionsArea = window43;   // E31
+
+    // The choosers' options are the layer's, given here as it gives them: the language's index 0 is Automatic.   // E31
+    array<string> zooms;   // E31
+    for (const char* z : {"Autom\xE1tica", "100%", "125%", "150%"}) zooms.insertLast(z);   // E31
+    array<string> rates;   // E31
+    for (const char* r : {"Autom\xE1tica (m\xE1xima)", "60 Hz", "144 Hz"}) rates.insertLast(r);   // E31
+    array<string> languages;   // E31
+    languages.insertLast("Autom\xE1tica");   // E31
+    for (const char* id : {"en", "de", "es", "fr", "it", "pt", "ru", "tr", "uk", "ja", "ar"}) languages.insertLast(string("{language:") + id + "}");   // E31
+    S::g_zoom.setOptions(zooms, 0u);   // E31
+    S::g_refreshRate.setOptions(rates, 0u);   // E31
+    S::g_language.setOptions(languages, 2u);   // German   // E31
+    const uint savedMusic = S::g_musicVolume.getCurrent();   // E31
+    const uint savedEffects = S::g_effectsVolume.getCurrent();   // E31
+    const uint musicSteps = S::g_musicVolume.getSteps();   // E31
+    const uint effectsSteps = S::g_effectsVolume.getSteps();   // E31
+    S::g_musicVolume.setCurrent(musicSteps / 2u);   // E31
+    S::g_effectsVolume.setCurrent(effectsSteps * 7u / 10u);   // E31
+
+    const auto click = [&g](const vector2& at) {   // E31
+        g.base.cursor = at;   // E31
+        g.Steps(2);   // E31
+        g.Step(g.With({K_RETURN}));   // E31
+        g.Steps(2);   // E31
+    };   // E31
+    const auto lay = [] { return S::phoneOptionsLayout(S::g_optionsArea, true, S::g_refreshRateRow); };   // E31
+    const auto mid = [](const S::PhoneRect& r) { return vector2(r.x + r.w * 0.5f, r.y + r.h * 0.5f); };   // E31
+    const auto inMenu = [] { return GetSceneFileName() == "scenes/menu.esc"; };   // E31
+    const auto inOptions = [] { return GetSceneFileName() == "scenes/videoModes.esc"; };   // E31
+    const auto enterOptions = [&] {   // E31
+        CHECK(EnsureMenu(g));   // E31
+        g.base.cursor = kOptionsButton;   // E31
+        g.Steps(3);   // E31
+        CHECK(LastButton() == "opcoes_de_video");   // E31
+        g.Step(g.With({K_RETURN}));   // E31
+        CHECK(WaitFor(g, 3, [&] { return inOptions(); }) >= 0);   // E31
+        g.Steps(3);   // E31
+    };   // E31
+    // A click that is meant to leave: the menu is up within a few frames, or it is not.   // E31
+    const auto leavesBy = [&](const vector2& at) {   // E31
+        click(at);   // E31
+        return WaitFor(g, 3, [&] { return inMenu(); }) >= 0;   // E31
+    };   // E31
+
+    // The HUD of the frame just run. A text's front copy is the one in the screen's colour (203, 203, 228) and more than half   // E31
+    // opaque; shadowText's copy under it is black at most half as opaque.   // E31
+    const auto isFront = [](const HudCmd& c) {   // E31
+        return c.kind == HudCmd::Kind::Text && (c.color & 0xFFFFFFu) == 0xCBCBE4u && (c.color >> 24) > 128u;   // E31
+    };   // E31
+    const auto frontText = [&](const string& text) -> const HudCmd* {   // E31
+        for (const HudCmd& c : g.m.Snapshot().hud) {   // E31
+            if (isFront(c) && c.text == text) return &c;   // E31
+        }   // E31
+        return nullptr;   // E31
+    };   // E31
+    const auto countFront = [&](const string& text) {   // E31
+        int n = 0;   // E31
+        for (const HudCmd& c : g.m.Snapshot().hud) {   // E31
+            if (isFront(c) && c.text == text) ++n;   // E31
+        }   // E31
+        return n;   // E31
+    };   // E31
+    const auto drawnTexts = [&] {   // E31
+        std::vector<std::pair<string, uint>> out;   // E31
+        for (const HudCmd& c : g.m.Snapshot().hud) {   // E31
+            if (isFront(c)) out.emplace_back(c.text, c.color >> 24);   // E31
+        }   // E31
+        std::sort(out.begin(), out.end());   // E31
+        return out;   // E31
+    };   // E31
+    // A sprite of the art by its file's name, inside a box (the cell or button it belongs to), or null.   // E31
+    const auto spriteIn = [&](const char* name, const S::PhoneRect& box) -> const HudCmd* {   // E31
+        for (const HudCmd& c : g.m.Snapshot().hud) {   // E31
+            if ((c.kind != HudCmd::Kind::Sprite && c.kind != HudCmd::Kind::ShapedSprite) || c.sprite.find(name) == string::npos) continue;   // E31
+            if (c.pos.x >= box.x - 1.0f && c.pos.y >= box.y - 1.0f && c.pos.x + c.size.x <= box.x + box.w + 1.0f &&   // E31
+                c.pos.y + c.size.y <= box.y + box.h + 1.0f) {   // E31
+                return &c;   // E31
+            }   // E31
+        }   // E31
+        return nullptr;   // E31
+    };   // E31
+    const auto backArrow = [&]() -> const HudCmd* {   // E31
+        for (const HudCmd& c : g.m.Snapshot().hud) {   // E31
+            if (c.kind == HudCmd::Kind::Sprite && c.sprite.find("arrow_button.png") != string::npos) return &c;   // E31
+        }   // E31
+        return nullptr;   // E31
+    };   // E31
+    // The card (a flat rectangle) of a cell: its alpha, or 999 where none is drawn there; and its 2 px top line's.   // E31
+    const auto cardAlpha = [&](const S::PhoneRect& r, const float height) {   // E31
+        for (const HudCmd& c : g.m.Snapshot().hud) {   // E31
+            if (c.kind == HudCmd::Kind::Rectangle && c.pos == vector2(r.x, r.y) && c.size == vector2(r.w, height)) return c.color >> 24;   // E31
+        }   // E31
+        return 999u;   // E31
+    };   // E31
+    // No rectangle a script draws may meet x 0 or x 1024: HudRenderer stretches it out to the edge of what is shown (the rule   // E31
+    // it applies, whatever the window).   // E31
+    const auto stretched = [&]() {   // E31
+        int n = 0;   // E31
+        for (const HudCmd& c : g.m.Snapshot().hud) {   // E31
+            if (c.kind != HudCmd::Kind::Rectangle || !c.stretchToSides) continue;   // E31
+            const float left = std::min(c.pos.x, c.pos.x + c.size.x);   // E31
+            const float right = std::max(c.pos.x, c.pos.x + c.size.x);   // E31
+            if ((left <= 0.5f && right > 0.0f) || (right >= 1023.5f && left < 1024.0f)) ++n;   // E31
+        }   // E31
+        return n;   // E31
+    };   // E31
+
+    // The menu's song, and how it fares through this screen (scenario 25's checks, now with the art on).   // E31
+    CHECK(EnsureMenu(g));   // E31
+    g.Steps(5);   // E31
+    const VoiceId song = g.sound.NewestVoice("menu.mp3");   // E31
+    const uint starts = g.sound.PlayCount("menu.mp3", 0);   // E31
+    CHECK(song != 0 && g.sound.Looping("menu.mp3"));   // E31
+    const auto songGoesOn = [&](const char* where) {   // E31
+        const SoundLog::Voice& v = g.sound.voices.at(song);   // E31
+        CHECK_MSG(!v.stopped, string(where) + ": the song's voice was stopped");   // E31
+        CHECK_MSG(g.sound.PlayCount("menu.mp3", 0) == starts, string(where) + ": the song was started again");   // E31
+        CHECK_MSG(g.sound.NewestVoice("menu.mp3") == song, string(where) + ": a new voice took over");   // E31
+        CHECK_MSG(IsSamplePlaying("soundfx/menu.mp3"), string(where) + ": the bank does not see it playing");   // E31
+    };   // E31
+
+    enterOptions();   // E31
+    CHECK_MSG(S::phoneOptionsOn(), "the options art did not load: the phone's layout is not up");   // E31
+    CHECK(inOptions());   // E31
+
+    // ---- What it draws -------------------------------------------------------------------------------------------------   // E31
+    // Every switch, as a cell: the wording of its CURRENT state, from the pair of words each has.   // E31
+    struct Toggle {   // E31
+        const char* name;   // E31
+        S::Switch* widget;   // E31
+        S::PhoneCell cell;   // E31
+        const char* on;    // row 0, the wording when the switch is at 0   // E31
+        const char* off;   // row 1   // E31
+    };   // E31
+    const Toggle toggles[] = {   // E31
+        {"pixel shaders", &S::g_enablePS, S::PC_PIXEL_SHADERS, "Ativa pixel shaders", "Desativa pixel shaders"},   // E31
+        {"smooth motion", &S::g_smoothMotion, S::PC_SMOOTH_MOTION, "Ativa movimento suave", "Desativa movimento suave"},   // E31
+        {"widescreen", &S::g_widescreen, S::PC_WIDESCREEN, "Tela larga (widescreen)", "Tela 4:3 (original)"},   // E31
+        {"pause on focus loss", &S::g_pauseOnFocusLoss, S::PC_PAUSE_FOCUS, "Pausa ao perder o foco", "Continua sem o foco"},   // E31
+        {"touch controls", &S::g_touchControls, S::PC_TOUCH, "Ativa controles de toque", "Desativa controles de toque"},   // E31
+        {"keyboard for player 2", &S::g_keyboardP2, S::PC_KEYBOARD_P2, "Teclado para o jogador 2", "Jogador 2 s\xF3 no joystick"},   // E31
+    };   // E31
+    const string title = "Op\xE7\xF5" "es de v\xED" "deo";   // E31
+    const string hint = "Vale a partir da pr\xF3" "xima fase";   // E31
+    const auto wording = [](const Toggle& t) { return string(t.widget->getCurrent() == 0u ? t.on : t.off); };   // E31
+    const auto percent = [](const S::Stepper& s) { return std::to_string(s.getCurrent() * 100u / s.getSteps()) + "%"; };   // E31
+
+    // The cursor rests inside a cell and does nothing to it: nothing is dimmed, a card is at its idle alpha.   // E31
+    g.base.cursor = mid(lay().cell[S::PC_ADJUST]);   // E31
+    g.Steps(2);   // E31
+    {   // E31
+        std::vector<std::pair<string, uint>> expected;   // E31
+        expected.emplace_back(title, 255u);   // E31
+        for (const Toggle& t : toggles) expected.emplace_back(wording(t), 255u);   // E31
+        expected.emplace_back(hint, 170u);   // E31
+        expected.emplace_back("Ajustar controles", 255u);   // E31
+        expected.emplace_back(S::g_refreshRate.getLabel(), 255u);   // E31
+        expected.emplace_back(S::g_refreshRate.getOption(S::g_refreshRate.getCurrent()), 255u);   // E31
+        expected.emplace_back(S::g_zoom.getLabel(), 255u);   // E31
+        expected.emplace_back(S::g_zoom.getOption(S::g_zoom.getCurrent()), 255u);   // E31
+        expected.emplace_back(S::g_musicVolume.getLabel(), 255u);   // E31
+        expected.emplace_back(percent(S::g_musicVolume), 255u);   // E31
+        expected.emplace_back(S::g_effectsVolume.getLabel(), 255u);   // E31
+        expected.emplace_back(percent(S::g_effectsVolume), 255u);   // E31
+        expected.emplace_back(S::g_language.getOption(S::g_language.getCurrent()), 255u);   // E31
+        std::sort(expected.begin(), expected.end());   // E31
+        const auto shown = drawnTexts();   // E31
+        if (shown != expected) {   // E31
+            std::printf("  expected %zu front texts, drawn %zu:\n", expected.size(), shown.size());   // E31
+            for (const auto& t : expected) std::printf("    expected  %-40s alpha %u\n", Utf8(t.first).c_str(), t.second);   // E31
+            for (const auto& t : shown) std::printf("    drawn     %-40s alpha %u\n", Utf8(t.first).c_str(), t.second);   // E31
+        }   // E31
+        CHECK_EQ(expected.size(), std::size_t{18});   // title, 6 wordings, the hint, Adjust, 2 + 2 + 2 chooser and stepper texts, the language   // E31
+        CHECK(shown == expected);   // 17 at full alpha, the widescreen hint at 170   // E31
+        CHECK(!HudHas(g.m, "[\x95]") && !HudHas(g.m, "[ ]"));   // no row's "[x] ": the check boxes are art   // E31
+        CHECK(!HudHas(g.m, "Janela") && !HudHas(g.m, "Idioma"));   // the window switch and the language's label: not on this layout   // E31
+    }   // E31
+    CHECK_EQ(cardAlpha(lay().cell[S::PC_ADJUST], lay().cell[S::PC_ADJUST].h), 34u);   // a cursor resting inside lights nothing   // E31
+    CHECK_EQ(stretched(), 0);   // E31
+    {   // E31
+        const HudCmd* arrow = backArrow();   // E31
+        const S::PhoneOptionsLayout l = lay();   // E31
+        CHECK(arrow != nullptr && arrow->pos == vector2(l.back.x, l.back.y) && (arrow->color >> 24) == 230u);   // idle: 230, not dimmed to 100   // E31
+        CHECK(arrow != nullptr && arrow->pos == vector2(18.0f, 16.0f));   // the top-left of the 1024x768, inside the frame (10, 8) and 8 more   // E31
+    }   // E31
+    // The joystick cell draws the picture of its state, and not a word.   // E31
+    CHECK(HudHasSprite(g.m, S::g_controls.getImage(S::g_controls.getCurrent())));   // E31
+    CHECK(!HudHasSprite(g.m, S::g_controls.getImage(1u - S::g_controls.getCurrent())));   // E31
+
+    // ---- The toggles: one flip per tap, anywhere in the cell, nowhere outside it ------------------------------------------   // E31
+    for (const Toggle& t : toggles) {   // E31
+        if (t.cell == S::PC_TOUCH) continue;   // its own part below: it shows and hides the Adjust cell   // E31
+        const S::PhoneRect cell = lay().cell[t.cell];   // E31
+        const vector2 centre = mid(cell);   // E31
+        const uint before = t.widget->getCurrent();   // E31
+        const string name = t.name;   // E31
+        CHECK_MSG(frontText(wording(t)) != nullptr, name + ": its wording is drawn");   // E31
+        click(centre);   // E31
+        CHECK_MSG(t.widget->getCurrent() == 1u - before, name + ": a tap in the centre flips it");   // E31
+        CHECK_MSG(frontText(wording(t)) != nullptr, name + ": the new wording is drawn");   // E31
+        CHECK_MSG(frontText(string(before == 0u ? t.on : t.off)) == nullptr, name + ": the old wording is gone (one wording at a time)");   // E31
+        // Strictly inside, as every control in the scripts is: the corners just inside answer, the edges themselves do not.   // E31
+        click(vector2(cell.x + 1.0f, cell.y + 1.0f));   // E31
+        CHECK_MSG(t.widget->getCurrent() == before, name + ": the top-left corner just inside flips it");   // E31
+        click(vector2(cell.x + cell.w - 1.0f, cell.y + cell.h - 1.0f));   // E31
+        CHECK_MSG(t.widget->getCurrent() == 1u - before, name + ": the bottom-right corner just inside flips it");   // E31
+        const uint now = t.widget->getCurrent();   // E31
+        // The edge itself, the 6 px gap under the cell and above it, the 20 px gap beside it, the panel's margin: nothing.   // E31
+        for (const vector2& miss : {vector2(cell.x, centre.y), vector2(cell.x + cell.w, centre.y), vector2(centre.x, cell.y),   // E31
+                                    vector2(centre.x, cell.y + cell.h), vector2(centre.x, cell.y + cell.h + 3.0f),   // E31
+                                    vector2(centre.x, cell.y - 3.0f), vector2(cell.x + cell.w + 10.0f, centre.y),   // E31
+                                    vector2(cell.x - 10.0f, centre.y)}) {   // E31
+            click(miss);   // E31
+            CHECK_MSG(t.widget->getCurrent() == now, name + ": a tap at (" + std::to_string(miss.x) + ", " + std::to_string(miss.y) + ") did something");   // E31
+        }   // E31
+        click(centre);   // back where it was   // E31
+        CHECK_EQ(t.widget->getCurrent(), before);   // E31
+    }   // E31
+    // The old layouts' places mean something else here: E20's touch row's second line, (300, 207), is the pixel shaders cell now;   // E31
+    // the column and row gaps and the old Back arrow's corner (906, 6) are nothing.   // E31
+    {   // E31
+        const uint shaders = S::g_enablePS.getCurrent();   // E31
+        const uint touch = S::g_touchControls.getCurrent();   // E31
+        click(vector2(300.0f, 207.0f));   // E31
+        CHECK_EQ(S::g_enablePS.getCurrent(), 1u - shaders);   // E31
+        CHECK_EQ(S::g_touchControls.getCurrent(), touch);   // E31
+        click(vector2(255.0f, 207.0f));   // E31
+        CHECK_EQ(S::g_enablePS.getCurrent(), shaders);   // E31
+        const uint widescreen = S::g_widescreen.getCurrent();   // E31
+        const uint smooth = S::g_smoothMotion.getCurrent();   // E31
+        for (const vector2& nothing : {vector2(512.0f, 170.0f), vector2(512.0f, 450.0f), vector2(265.0f, 217.0f), vector2(759.0f, 217.0f),   // E31
+                                       vector2(906.0f, 6.0f), vector2(500.0f, 40.0f), vector2(540.0f, 80.0f), vector2(255.0f, 564.0f)}) {   // E31
+            click(nothing);   // E31
+            CHECK_MSG(inOptions(), "a tap at (" + std::to_string(nothing.x) + ", " + std::to_string(nothing.y) + ") left the screen");   // E31
+            CHECK_MSG(S::g_enablePS.getCurrent() == shaders && S::g_smoothMotion.getCurrent() == smooth &&   // E31
+                          S::g_widescreen.getCurrent() == widescreen && S::g_touchControls.getCurrent() == touch &&   // E31
+                          !S::g_adjustTouchControls,   // E31
+                      "a tap at (" + std::to_string(nothing.x) + ", " + std::to_string(nothing.y) + ") did something");   // E31
+        }   // E31
+        CHECK_EQ(S::g_language.getCurrent(), 2u);   // E31
+        CHECK_EQ(S::g_zoom.getCurrent(), 0u);   // E31
+        CHECK_EQ(S::g_refreshRate.getCurrent(), 0u);   // E31
+    }   // E31
+
+    // ---- The joystick cell: the image switch, flipped by a tap anywhere in it ----------------------------------------------   // E31
+    {   // E31
+        const S::PhoneRect cell = lay().cell[S::PC_JOYSTICK];   // E31
+        const uint before = S::g_controls.getCurrent();   // E31
+        click(mid(cell));   // E31
+        CHECK_EQ(S::g_controls.getCurrent(), 1u - before);   // E31
+        CHECK(HudHasSprite(g.m, S::g_controls.getImage(1u - before)));   // E31
+        CHECK(!HudHasSprite(g.m, S::g_controls.getImage(before)));   // E31
+        click(vector2(cell.x + cell.w - 3.0f, cell.y + 3.0f));   // the cell's far corner, away from its box and picture   // E31
+        CHECK_EQ(S::g_controls.getCurrent(), before);   // E31
+        CHECK(HudHasSprite(g.m, S::g_controls.getImage(before)));   // E31
+    }   // E31
+
+    // ---- The touch controls, and the Adjust cell they show ------------------------------------------------------------------   // E31
+    {   // E31
+        const S::PhoneOptionsLayout l = lay();   // E31
+        CHECK_EQ(S::g_touchControls.getCurrent(), 0u);   // E31
+        CHECK(frontText("Ajustar controles") != nullptr);   // E31
+        click(mid(l.cell[S::PC_ADJUST]));   // E31
+        CHECK_MSG(S::g_adjustTouchControls, "a tap on the Adjust cell raises the flag the layer opens the editor on");   // E31
+        S::g_adjustTouchControls = false;   // E31
+        click(vector2(l.cell[S::PC_ADJUST].x + 1.0f, l.cell[S::PC_ADJUST].y + 1.0f));   // E31
+        CHECK(S::g_adjustTouchControls);   // E31
+        S::g_adjustTouchControls = false;   // E31
+        click(vector2(l.cell[S::PC_ADJUST].x, mid(l.cell[S::PC_ADJUST]).y));   // its edge: strictly inside only   // E31
+        CHECK(!S::g_adjustTouchControls);   // E31
+        click(mid(l.cell[S::PC_TOUCH]));   // the touch controls off: the Adjust cell goes in the same frame   // E31
+        CHECK_EQ(S::g_touchControls.getCurrent(), 1u);   // E31
+        CHECK(frontText("Desativa controles de toque") != nullptr);   // E31
+        CHECK(frontText("Ajustar controles") == nullptr);   // E31
+        CHECK(spriteIn("arrow_right.png", l.cell[S::PC_ADJUST]) == nullptr);   // E31
+        CHECK_EQ(drawnTexts().size(), std::size_t{17});   // E31
+        click(mid(l.cell[S::PC_ADJUST]));   // nothing is there to tap   // E31
+        CHECK_MSG(!S::g_adjustTouchControls, "a tap where the Adjust cell was, with the touch controls off, raised the flag");   // E31
+        CHECK_EQ(S::g_touchControls.getCurrent(), 1u);   // E31
+        // The tap that turns them on shows the cell on the very frame it is tapped, and the next tap on it answers.   // E31
+        g.base.cursor = mid(l.cell[S::PC_TOUCH]);   // E31
+        g.Steps(2);   // E31
+        g.Step(g.With({K_RETURN}));   // E31
+        CHECK_EQ(S::g_touchControls.getCurrent(), 0u);   // E31
+        CHECK(frontText("Ajustar controles") != nullptr);   // E31
+        g.Steps(2);   // E31
+        click(mid(l.cell[S::PC_ADJUST]));   // E31
+        CHECK(S::g_adjustTouchControls);   // E31
+        S::g_adjustTouchControls = false;   // E31
+        CHECK_EQ(S::g_touchControls.getCurrent(), 0u);   // E31
+    }   // E31
+
+    // ---- The steppers: a step a tap, stopping at both ends, only the two buttons answer ------------------------------------   // E31
+    const auto stepperTest = [&](S::Stepper& widget, const S::PhoneCell cell, const char* name) {   // E31
+        const S::PhoneOptionsLayout l = lay();   // E31
+        const vector2 minus = mid(l.less[cell]);   // E31
+        const vector2 plus = mid(l.more[cell]);   // E31
+        const uint steps = widget.getSteps();   // E31
+        const uint saved = widget.getCurrent();   // E31
+        widget.setCurrent(steps / 2u);   // E31
+        g.Steps(2);   // E31
+        CHECK_MSG(frontText(percent(widget)) != nullptr, string(name) + ": its value is drawn");   // E31
+        click(plus);   // E31
+        CHECK_EQ(widget.getCurrent(), steps / 2u + 1u);   // E31
+        CHECK_MSG(frontText(percent(widget)) != nullptr, string(name) + ": the new value is drawn");   // E31
+        click(minus);   // E31
+        click(minus);   // E31
+        CHECK_EQ(widget.getCurrent(), steps / 2u - 1u);   // E31
+        // The label, the value's box, the card around them and the gaps: dead.   // E31
+        const uint here = widget.getCurrent();   // E31
+        for (const vector2& dead : {mid(l.value[cell]), vector2(l.cell[cell].x + 100.0f, mid(l.cell[cell]).y), vector2(l.cell[cell].x + 2.0f, l.cell[cell].y + 2.0f),   // E31
+                                    vector2(minus.x, l.cell[cell].y + l.cell[cell].h + 3.0f)}) {   // E31
+            click(dead);   // E31
+            CHECK_MSG(widget.getCurrent() == here, string(name) + ": a tap at (" + std::to_string(dead.x) + ", " + std::to_string(dead.y) + ") moved it");   // E31
+        }   // E31
+        // Nothing wraps: the ends stay, and the button at an end is faint (alpha 70) and never grows when pressed.   // E31
+        widget.setCurrent(0u);   // E31
+        g.Steps(2);   // E31
+        const HudCmd* faint = spriteIn("minus.png", l.less[cell]);   // E31
+        CHECK(faint != nullptr && (faint->color >> 24) == 70u && faint->size.x == 56.0f);   // E31
+        const HudCmd* lit = spriteIn("plus.png", l.more[cell]);   // E31
+        CHECK(lit != nullptr && (lit->color >> 24) == 255u && lit->size.x == 56.0f);   // E31
+        click(minus);   // E31
+        CHECK_EQ(widget.getCurrent(), 0u);   // E31
+        click(plus);   // E31
+        CHECK_EQ(widget.getCurrent(), 1u);   // E31
+        widget.setCurrent(steps);   // E31
+        g.Steps(2);   // E31
+        click(plus);   // E31
+        CHECK_EQ(widget.getCurrent(), steps);   // E31
+        CHECK_MSG(frontText("100%") != nullptr, string(name) + ": 100% at the top");   // E31
+        click(minus);   // E31
+        CHECK_EQ(widget.getCurrent(), steps - 1u);   // E31
+        widget.setCurrent(saved);   // E31
+    };   // E31
+    stepperTest(S::g_musicVolume, S::PC_MUSIC, "music");   // E31
+    stepperTest(S::g_effectsVolume, S::PC_EFFECTS, "effects");   // E31
+
+    // ---- The choosers: Refresh rate and Zoom (cells with a label strip), the language (in the header) ------------------------   // E31
+    const auto chooserTest = [&](S::Chooser& widget, const char* name, const auto& less, const auto& more, const auto& value, const auto& deadAt) {   // E31
+        const uint count = widget.getCount();   // E31
+        CHECK_MSG(count >= 3u, string(name) + ": options to move through");   // E31
+        widget.setCurrent(0u);   // E31
+        g.Steps(2);   // E31
+        CHECK_MSG(frontText(widget.getOption(0u)) != nullptr, string(name) + ": the first option is drawn");   // E31
+        click(less());   // at the first: nothing wraps   // E31
+        CHECK_EQ(widget.getCurrent(), 0u);   // E31
+        const int firstDrawn = countFront(widget.getOption(0u));   // E31
+        const int secondDrawn = countFront(widget.getOption(1u));   // E31
+        click(more());   // E31
+        CHECK_EQ(widget.getCurrent(), 1u);   // E31
+        // The value changes in place (another chooser may show the same word, so the counts, not the presence).   // E31
+        CHECK_MSG(countFront(widget.getOption(1u)) == secondDrawn + 1 && countFront(widget.getOption(0u)) == firstDrawn - 1,   // E31
+                  string(name) + ": the second option is drawn in place of the first");   // E31
+        click(more());   // E31
+        CHECK_EQ(widget.getCurrent(), 2u);   // E31
+        click(less());   // E31
+        CHECK_EQ(widget.getCurrent(), 1u);   // E31
+        for (const vector2& dead : deadAt) {   // E31
+            click(dead);   // E31
+            CHECK_MSG(widget.getCurrent() == 1u, string(name) + ": a tap at (" + std::to_string(dead.x) + ", " + std::to_string(dead.y) + ") moved it");   // E31
+        }   // E31
+        click(value());   // the value is not a button   // E31
+        CHECK_EQ(widget.getCurrent(), 1u);   // E31
+        widget.setCurrent(count - 1u);   // E31
+        g.Steps(2);   // E31
+        click(more());   // at the last   // E31
+        CHECK_EQ(widget.getCurrent(), count - 1u);   // E31
+        click(less());   // E31
+        CHECK_EQ(widget.getCurrent(), count - 2u);   // E31
+        widget.setCurrent(0u);   // E31
+    };   // E31
+    {   // E31
+        const S::PhoneOptionsLayout l = lay();   // E31
+        chooserTest(S::g_refreshRate, "refresh rate", [&] { return mid(l.less[S::PC_REFRESH]); }, [&] { return mid(l.more[S::PC_REFRESH]); },   // E31
+                    [&] { return mid(l.value[S::PC_REFRESH]); },   // E31
+                    std::vector<vector2>{vector2(l.cell[S::PC_REFRESH].x + 100.0f, l.cell[S::PC_REFRESH].y + 12.0f),   // the label strip   // E31
+                                         vector2(l.less[S::PC_REFRESH].x, mid(l.less[S::PC_REFRESH]).y)});            // a button's edge   // E31
+        chooserTest(S::g_zoom, "zoom", [&] { return mid(l.less[S::PC_ZOOM]); }, [&] { return mid(l.more[S::PC_ZOOM]); },   // E31
+                    [&] { return mid(l.value[S::PC_ZOOM]); },   // E31
+                    std::vector<vector2>{vector2(l.cell[S::PC_ZOOM].x + 100.0f, l.cell[S::PC_ZOOM].y + 12.0f)});   // E31
+        // The language chooser, in the header: the index is Automatic first, then each language; a tap moves it by one.   // E31
+        chooserTest(S::g_language, "language", [&] { return mid(l.langLess); }, [&] { return mid(l.langMore); }, [&] { return mid(l.langValue); },   // E31
+                    std::vector<vector2>{vector2(l.globe.x + 28.0f, l.globe.y + 28.0f)});   // the globe is its sign, not a button   // E31
+        S::g_language.setCurrent(2u);   // E31
+    }   // E31
+    CHECK_EQ(S::g_zoom.getCurrent(), 0u);   // E31
+
+    // ---- Pressed, not hovered ---------------------------------------------------------------------------------------------   // E31
+    // A cell lights while the cursor is inside it and the confirm is down (KS_HIT, KS_DOWN), at alpha 92, and not before or after.   // E31
+    {   // E31
+        const S::PhoneRect cell = lay().cell[S::PC_PIXEL_SHADERS];   // E31
+        const uint before = S::g_enablePS.getCurrent();   // E31
+        g.base.cursor = mid(cell);   // E31
+        g.Steps(3);   // E31
+        CHECK_EQ(cardAlpha(cell, cell.h), 34u);   // resting inside: idle   // E31
+        CHECK_EQ(cardAlpha(cell, 2.0f), 60u);     // and its 2 px top line   // E31
+        g.Step(g.With({K_RETURN}));   // E31
+        CHECK_EQ(cardAlpha(cell, cell.h), 92u);   // the tap's frame   // E31
+        CHECK_EQ(S::g_enablePS.getCurrent(), 1u - before);   // E31
+        g.Step(g.With({K_RETURN}));   // E31
+        CHECK_EQ(cardAlpha(cell, cell.h), 92u);   // held   // E31
+        CHECK_EQ(S::g_enablePS.getCurrent(), 1u - before);   // one flip for a held tap   // E31
+        g.Step(g.With({K_RETURN}));   // E31
+        CHECK_EQ(S::g_enablePS.getCurrent(), 1u - before);   // E31
+        g.Step();   // E31
+        CHECK_EQ(cardAlpha(cell, cell.h), 34u);   // lifted: the finger leaves the cursor in the cell and the cell is not lit   // E31
+        g.Steps(3);   // E31
+        CHECK_EQ(cardAlpha(cell, cell.h), 34u);   // E31
+        click(mid(cell));   // back   // E31
+        CHECK_EQ(S::g_enablePS.getCurrent(), before);   // E31
+        // A press that starts outside and moves in, or ends outside, lights nothing it is not in.   // E31
+        g.base.cursor = vector2(512.0f, 450.0f);   // the column gap   // E31
+        g.Step(g.With({K_RETURN}));   // E31
+        CHECK_EQ(cardAlpha(cell, cell.h), 34u);   // E31
+        CHECK_EQ(cardAlpha(lay().cell[S::PC_SMOOTH_MOTION], cell.h), 34u);   // E31
+        g.Step();   // E31
+    }   // E31
+    // A button, pressed, is drawn at its art's own size (64) instead of 56 - not a lit square, which would be stretched across   // E31
+    // x 1024 - and a button that cannot move never grows.   // E31
+    {   // E31
+        const S::PhoneOptionsLayout l = lay();   // E31
+        S::g_refreshRate.setCurrent(0u);   // E31
+        g.base.cursor = mid(l.more[S::PC_REFRESH]);   // E31
+        g.Steps(3);   // E31
+        const HudCmd* idle = spriteIn("arrow_right.png", l.more[S::PC_REFRESH]);   // E31
+        CHECK(idle != nullptr && idle->size.x == 56.0f && (idle->color >> 24) == 255u);   // E31
+        g.Step(g.With({K_RETURN}));   // E31
+        const HudCmd* pressedArrow = spriteIn("arrow_right.png", l.more[S::PC_REFRESH]);   // E31
+        CHECK(pressedArrow != nullptr && pressedArrow->size.x == 64.0f);   // E31
+        CHECK_EQ(S::g_refreshRate.getCurrent(), 1u);   // E31
+        g.Step();   // E31
+        const HudCmd* after = spriteIn("arrow_right.png", l.more[S::PC_REFRESH]);   // E31
+        CHECK(after != nullptr && after->size.x == 56.0f);   // E31
+        S::g_refreshRate.setCurrent(0u);   // E31
+        // The first option's [<] is faint and does not grow under a press.   // E31
+        g.base.cursor = mid(l.less[S::PC_REFRESH]);   // E31
+        g.Steps(2);   // E31
+        g.Step(g.With({K_RETURN}));   // E31
+        const HudCmd* stop = spriteIn("arrow_left.png", l.less[S::PC_REFRESH]);   // E31
+        CHECK(stop != nullptr && stop->size.x == 56.0f && (stop->color >> 24) == 70u);   // E31
+        g.Step();   // E31
+        CHECK_EQ(S::g_refreshRate.getCurrent(), 0u);   // E31
+        // The language chooser's [<] reaches across x 1024 on a 20:9 phone: lit as a button, never as a square.   // E31
+        CHECK_EQ(stretched(), 0);   // E31
+    }   // E31
+
+    // ---- Leaving: the Back arrow in the corner, Esc; the menu's song goes on ---------------------------------------------------   // E31
+    // The corner of what the window shows, the arrow's own box and a margin of it; a tap on the old Back arrow's place does not leave.   // E31
+    {   // E31
+        const HudCmd* arrow = backArrow();   // E31
+        CHECK(arrow != nullptr && arrow->pos == vector2(18.0f, 16.0f));   // E31
+        g.base.cursor = vector2(40.0f, 40.0f);   // E31
+        g.Steps(2);   // E31
+        arrow = backArrow();   // E31
+        CHECK(arrow != nullptr && (arrow->color >> 24) == 230u);   // a cursor resting on it does not light it   // E31
+        // The tap leaves on its own frame (goToMenu loads the menu before the frame's snapshot is taken), so the arrow lit   // E31
+        // while pressed (alpha 255) is never seen drawn: the menu is.   // E31
+        g.Step(g.With({K_RETURN}));   // E31
+        CHECK(inMenu());   // E31
+        CHECK(backArrow() == nullptr);   // E31
+        g.Steps(30);   // E31
+        songGoesOn("back in the menu by the arrow");   // E31
+        std::printf("  Back at (40, 40): the menu again, the song's voice alive, %u plays\n", g.sound.PlayCount("menu.mp3", 0));   // E31
+    }   // E31
+    enterOptions();   // E31
+    CHECK(S::phoneOptionsOn());   // E31
+    {   // E31
+        const S::PhoneOptionsLayout l = lay();   // E31
+        // Taps that are not on the arrow's box (-1, -1, 162, 117): the title beside it, the place the original had it, below it.   // E31
+        for (const vector2& miss : {vector2(165.0f, 60.0f), vector2(906.0f, 6.0f), vector2(500.0f, 40.0f), vector2(60.0f, 118.0f), vector2(300.0f, 12.0f)}) {   // E31
+            click(miss);   // E31
+            CHECK_MSG(inOptions(), "a tap at (" + std::to_string(miss.x) + ", " + std::to_string(miss.y) + ") left the screen");   // E31
+        }   // E31
+        CHECK(l.backHit.x == -1.0f && l.backHit.y == -1.0f);   // E31
+        // The very corner of the screen (the cursor clamped to what is shown sits exactly on its edge) leaves, as does the far side   // E31
+        // of the box's reach.   // E31
+        CHECK(leavesBy(vector2(0.0f, 0.0f)));   // E31
+        g.Steps(30);   // E31
+        songGoesOn("back in the menu by the corner");   // E31
+        enterOptions();   // E31
+        CHECK(leavesBy(vector2(160.0f, 115.0f)));   // E31
+        enterOptions();   // E31
+        // Esc leaves, as it always did, and keeps the song.   // E31
+        g.Step(g.With({K_ESC}));   // E31
+        CHECK(WaitFor(g, 3, [&] { return inMenu(); }) >= 0);   // E31
+        g.Steps(30);   // E31
+        songGoesOn("back in the menu by Esc");   // E31
+        enterOptions();   // E31
+    }   // E31
+
+    // ---- Where the iOS build has no refresh rate: Zoom takes the left place ------------------------------------------------------   // E31
+    {   // E31
+        const S::PhoneOptionsLayout withRow = lay();   // E31
+        S::g_refreshRateRow = false;   // E31
+        g.Steps(2);   // E31
+        const S::PhoneOptionsLayout without = lay();   // E31
+        CHECK(!without.present[S::PC_REFRESH] && without.present[S::PC_ZOOM]);   // E31
+        CHECK(frontText(S::g_refreshRate.getLabel()) == nullptr);   // E31
+        const HudCmd* label = frontText(S::g_zoom.getLabel());   // E31
+        CHECK(label != nullptr && label->pos.x == without.cell[S::PC_ZOOM].x + 14.0f && label->pos.x == withRow.cell[S::PC_REFRESH].x + 14.0f);   // E31
+        CHECK_EQ(drawnTexts().size(), std::size_t{16});   // the refresh rate's label and value are gone   // E31
+        click(mid(without.more[S::PC_ZOOM]));   // E31
+        CHECK_EQ(S::g_zoom.getCurrent(), 1u);   // E31
+        click(mid(withRow.more[S::PC_ZOOM]));   // where Zoom's [>] was: a dead place now   // E31
+        CHECK_EQ(S::g_zoom.getCurrent(), 1u);   // E31
+        click(mid(without.less[S::PC_ZOOM]));   // E31
+        CHECK_EQ(S::g_zoom.getCurrent(), 0u);   // E31
+        S::g_refreshRateRow = true;   // E31
+        g.Steps(2);   // E31
+        CHECK(frontText(S::g_refreshRate.getLabel()) != nullptr);   // E31
+    }   // E31
+
+    // ---- A wide phone, a notched one, and a narrow body ------------------------------------------------------------------------   // E31
+    // 20:9: the body does not move, the header goes to the corners of what is shown, and no rectangle crosses x 0 or 1024.   // E31
+    S::g_optionsArea = wide;   // E31
+    g.Steps(2);   // E31
+    {   // E31
+        const S::PhoneOptionsLayout l = lay();   // E31
+        const HudCmd* arrow = backArrow();   // E31
+        CHECK(arrow != nullptr && arrow->pos == vector2(-274.0f, 35.0f));   // E31
+        CHECK(l.panel.x == 12.0f && l.panel.y == 129.0f && l.panel.w == 1000.0f && l.hc == 88.0f);   // E31
+        CHECK(l.langLess.x == 957.0f && l.langMore.x == 1211.0f);   // E31
+        CHECK_EQ(stretched(), 0);   // E31
+        CHECK_EQ(drawnTexts().size(), std::size_t{18});   // E31
+        // The language chooser lies right of x 1024 and still answers (the cursor reaches past the screen's edge).   // E31
+        click(mid(l.langMore));   // E31
+        CHECK_EQ(S::g_language.getCurrent(), 3u);   // E31
+        click(mid(l.langLess));   // E31
+        CHECK_EQ(S::g_language.getCurrent(), 2u);   // E31
+        // A cell, at its place, flips.   // E31
+        const uint before = S::g_smoothMotion.getCurrent();   // E31
+        click(mid(l.cell[S::PC_SMOOTH_MOTION]));   // E31
+        CHECK_EQ(S::g_smoothMotion.getCurrent(), 1u - before);   // E31
+        click(mid(l.cell[S::PC_SMOOTH_MOTION]));   // E31
+        CHECK_EQ(S::g_smoothMotion.getCurrent(), before);   // E31
+        // Back is reached anywhere in the corner it fills, and the very corner of what is shown leaves too.   // E31
+        CHECK(leavesBy(vector2(-300.0f, 60.0f)));   // E31
+        g.Steps(30);   // E31
+        enterOptions();   // E31
+        CHECK(leavesBy(vector2(wide.shownMin.x, 0.0f)));   // E31
+        g.Steps(30);   // E31
+        enterOptions();   // E31
+        CHECK(leavesBy(vector2(S::g_optionsArea.shownMin.x + 1.0f, 130.0f)));   // E31
+        g.Steps(30);   // E31
+        enterOptions();   // E31
+    }   // E31
+    // Where a notch and a home indicator cut the frame in: the arrow is 87 px in, the rows 82 tall, the panel above the indicator.   // E31
+    S::g_optionsArea = notch;   // E31
+    g.Steps(2);   // E31
+    {   // E31
+        const S::PhoneOptionsLayout l = lay();   // E31
+        const HudCmd* arrow = backArrow();   // E31
+        CHECK(arrow != nullptr && arrow->pos == vector2(-225.0f, 35.0f));   // E31
+        CHECK(l.hc == 82.0f && l.panel.y + l.panel.h <= 768.0f - 41.0f);   // E31
+        CHECK_EQ(stretched(), 0);   // E31
+        CHECK_EQ(drawnTexts().size(), std::size_t{18});   // E31
+        const uint before = S::g_pauseOnFocusLoss.getCurrent();   // E31
+        click(mid(l.cell[S::PC_PAUSE_FOCUS]));   // E31
+        CHECK_EQ(S::g_pauseOnFocusLoss.getCurrent(), 1u - before);   // E31
+        click(mid(l.cell[S::PC_PAUSE_FOCUS]));   // E31
+        CHECK(leavesBy(vector2(-300.0f, 60.0f)));   // in the cut-out's own part of the corner: the box reaches it   // E31
+        g.Steps(30);   // E31
+        enterOptions();   // E31
+    }   // E31
+    // The 1000 px body sets every text as it is (no TextFit group); a narrower body (here 848, a 4:3 window with cut-outs) sets   // E31
+    // each of its texts into its room through the fit, a group of its own with its shadow, shrinking to no less than 0.7. The title,   // E31
+    // beside the arrow and not in a cell, keeps the plain way.   // E31
+    S::g_optionsArea = window43;   // E31
+    g.Steps(2);   // E31
+    // The screen is not mirrored in a right-to-left language: every text, front and shadow, is anchored at its left (rtlRight   // E31
+    // 0), in the 1000 px body and in the narrow one below, where the fit's own overload would give a shadow a right edge.   // E31
+    for (const HudCmd& c : g.m.Snapshot().hud) {   // E31
+        CHECK_MSG(c.kind != HudCmd::Kind::Text || c.fit.group == 0u, "a text of the 1000 px body is set through the fit: " + Utf8(c.text));   // E31
+        CHECK_MSG(c.kind != HudCmd::Kind::Text || c.rtlRight == 0.0f, "a text is set against a right edge: " + Utf8(c.text));   // E31
+    }   // E31
+    S::g_optionsArea = narrow;   // E31
+    g.Steps(2);   // E31
+    {   // E31
+        const S::PhoneOptionsLayout l = lay();   // E31
+        CHECK(l.panel.x == 88.0f && l.panel.w == 848.0f && l.cell[S::PC_PIXEL_SHADERS].w == 398.0f);   // E31
+        std::map<uint, int> groups;   // E31
+        int fitted = 0;   // E31
+        int plain = 0;   // E31
+        for (const HudCmd& c : g.m.Snapshot().hud) {   // E31
+            if (c.kind != HudCmd::Kind::Text) continue;   // E31
+            CHECK_MSG(c.rtlRight == 0.0f, "a text of the narrow body is set against a right edge: " + Utf8(c.text));   // E31
+            if (c.fit.group == 0u) {   // E31
+                ++plain;   // E31
+                continue;   // E31
+            }   // E31
+            ++groups[c.fit.group];   // E31
+            ++fitted;   // E31
+            CHECK(c.fit.minScale == 0.7f && c.fit.maxScale == 1.0f);   // E31
+            // The box starts where the text does (a shadow is drawn a tenth of its size down and right of the box it shares).   // E31
+            const float shadow = isFront(c) ? 0.0f : c.fontSize * 0.1f;   // E31
+            CHECK(std::fabs(c.fit.min.x - (c.pos.x - shadow)) < 0.01f && std::fabs(c.fit.min.y - (c.pos.y - shadow)) < 0.01f);   // E31
+        }   // E31
+        for (const auto& group : groups) CHECK_MSG(group.second == 2, "a fit group is a text and its shadow: " + std::to_string(group.second));   // E31
+        CHECK_EQ(groups.size(), std::size_t{17});   // every text of the body but the title   // E31
+        CHECK_EQ(fitted, 34);   // E31
+        CHECK_EQ(plain, 2);   // the title and its shadow   // E31
+        // A cell's room: 398 wide, the text 66 in and 12 clear.   // E31
+        const HudCmd* shaders = frontText(wording(toggles[0]));   // E31
+        CHECK(shaders != nullptr && shaders->fit.max.x - shaders->fit.min.x == 398.0f - 66.0f - 12.0f && shaders->fit.max.y - shaders->fit.min.y == 30.0f);   // E31
+        CHECK_EQ(stretched(), 0);   // E31
+        // And it answers: the cells are narrower and further in.   // E31
+        const uint before = S::g_enablePS.getCurrent();   // E31
+        click(mid(l.cell[S::PC_PIXEL_SHADERS]));   // E31
+        CHECK_EQ(S::g_enablePS.getCurrent(), 1u - before);   // E31
+        click(mid(l.cell[S::PC_PIXEL_SHADERS]));   // E31
+        CHECK_EQ(S::g_enablePS.getCurrent(), before);   // E31
+    }   // E31
+
+    // ---- Put everything back --------------------------------------------------------------------------------------------------   // E31
+    g.Step(g.With({K_ESC}));   // E31
+    CHECK(WaitFor(g, 3, [&] { return inMenu(); }) >= 0);   // E31
+    g.Steps(5);   // E31
+    S::g_zoom.setOptions(array<string>(), 0u);   // E31
+    S::g_refreshRate.setOptions(array<string>(), 0u);   // E31
+    S::g_language.setOptions(array<string>(), 0u);   // E31
+    S::g_musicVolume.setCurrent(savedMusic);   // E31
+    S::g_effectsVolume.setCurrent(savedEffects);   // E31
+    S::g_touchControls.setCurrent(0u);   // E31
+    S::g_adjustTouchControls = false;   // E31
+    S::g_refreshRateRow = true;   // E31
+    S::g_optionsArea = savedArea;   // E31
+    S::g_mobileLayout = savedMobile;   // E31
+    S::g_artDir = savedArt;   // E31
+}   // E31
+
 } // namespace
 
 int main() {
@@ -3859,8 +4531,12 @@ int main() {
         Script::g_adjustTouchControls = false;   // E28: a Script global outlives a Machine
         RunScenario(g, "25. the menu song through the settings (E29)", ScenarioMenuSongE29);   // E29
         Script::g_mobileLayout = false;   // E29
+        RunScenario(g, "26. the options screen on a phone, large (E31)", ScenarioPhoneOptionsE31);   // E31
+        Script::g_mobileLayout = false;   // whatever the scenario reached   // E31
+        Script::g_artDir.clear();   // E31
+        Script::g_adjustTouchControls = false;   // E31
         std::printf("\n=== third runtime (frame %u)\n", machine.FrameIndex());
-        for (std::size_t i = g_results.size() - 4; i < g_results.size(); ++i) {   // E29: - 4 still: scenarios 21, 22, 24, 25
+        for (std::size_t i = g_results.size() - 5; i < g_results.size(); ++i) {   // scenarios 21, 22, 24, 25, 26   // E31
             const Result& r = g_results[i];
             std::printf("  %-50s %s  %d failed checks, %u aborts%s\n", r.name.c_str(),
                         (r.failures == 0 && r.aborts == 0 && !r.threw) ? "PASS" : "FAIL", r.failures, r.aborts,
