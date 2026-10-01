@@ -138,6 +138,10 @@ public:
     // released (see the header comment), and remembers what the game saw.
     void FilterForGame(Eth::InputFrame& frame);
 
+    // E28: the same as a pause closing, for the touch editor, which freezes the game as the pause does and   // E28
+    // is closed by the same keys: the next FilterForGame masks whatever is down that the game had not seen. // E28
+    void HoldPressed();                                                                                      // E28
+
 private:
     struct Held {
         std::array<bool, Eth::K_COUNT> keys{};

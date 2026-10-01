@@ -36,7 +36,9 @@
 
 #include <entt/entt.hpp>
 
+#include "PenumbraLayer.hpp"   // E28
 #include "TestHarness.hpp"
+#include "core/Input.hpp"   // E28
 #include "core/Json.hpp"
 #include "eth/Defs.hpp"
 #include "eth/Machine.hpp"
@@ -50,6 +52,8 @@
 #include "render/PhoneUi.hpp"
 #include "render/TextureCache.hpp"
 #include "render/TextureDecode.hpp"
+#include "render/TouchControls.hpp"   // E28
+#include "render/TouchEditor.hpp"   // E28
 #include "render/View.hpp"
 #include "render/WideMenus.hpp"
 
@@ -430,6 +434,13 @@ const char* const kE23Labels[] = {
     "Vale para a tela cheia",
 };
 
+// ENHANCEMENT E28: the touch controls' editor's button (game/script/videoModes.cpp, drawn "[>] " + label     // E28
+// without the added art) and its title (game/render/TouchEditor.cpp), the port's own Portuguese.            // E28
+const char* const kE28Labels[] = {                                                                          // E28
+    "Ajustar controles",                                                                                    // E28
+    "Ajustar controles de toque",                                                                           // E28
+};                                                                                                          // E28
+
 void TestLocalization() {
     Render::Localization loc;
     CHECK(loc.Load());
@@ -473,6 +484,12 @@ void TestLocalization() {
     CHECK(loc.HasTranslation("144 Hz"));
     CHECK(loc.Translate("Taxa de atualiza\xE7\xE3o") == "Refresh rate");
     CHECK(loc.Translate("Vale para a tela cheia") == "Applies in fullscreen");
+    // E28: the editor's button and title have English and a line in each language file, so a missing one fails      // E28
+    // here by name; the button as the script draws it without the art, through the bracket pattern.            // E28
+    for (const char* label : kE28Labels) CheckTranslated(loc, label, "videoModes.cpp / TouchEditor.cpp (E28)");   // E28
+    CHECK(loc.Translate("Ajustar controles") == "Adjust controls");                                          // E28
+    CHECK(loc.Translate("Ajustar controles de toque") == "Adjust touch controls");                           // E28
+    CHECK(loc.Translate("[>] Ajustar controles") == "[>] Adjust controls");                                  // E28
     CHECK(loc.Translate("Carregando...\n") == "Loading...\n");   // the trailing break kept
     CHECK(loc.Translate("Configura\xE7\xF5"
                         "es") == "Settings");
@@ -3264,6 +3281,174 @@ void TestOptionsArt() {
     Script::g_artDir = savedDir;
 }
 
+// ENHANCEMENT E28: THE LAYER, DRIVEN. Nothing before this attached PenumbraLayer to a bare registry: this runs the real   // E28
+// game's options screen on a phone's layout through the layer's own frame loop (OnFixedUpdate then OnUpdate, one tick a   // E28
+// frame), with --finger's synthetic fingers and the engine's key snapshot as the only inputs. It pins that the options   // E28
+// screen's button opens the touch controls' editor; that the Machine stands still under it; that a finger drags the jump   // E28
+// button and the lift is kept in the settings; that Esc closes the editor without the options screen reading it   // E28
+// (PauseMenu::HoldPressed), and that a finger that was down at that moment clicks nothing. Nothing is written: no user   // E28
+// directory, and noSave besides. Everything the layer reads of the machine is through its const accessors.   // E28
+namespace {                                                                                                             // E28
+
+bool MachineDrawsText(const Eth::Machine& machine, const std::string& needle) {                                         // E28
+    for (const Eth::HudCmd& c : machine.Snapshot().hud) {                                                               // E28
+        if (c.kind == Eth::HudCmd::Kind::Text && c.text.find(needle) != std::string::npos) return true;               // E28
+    }                                                                                                                   // E28
+    return false;                                                                                                       // E28
+}                                                                                                                       // E28
+
+// The editor's backdrop is the overlay's first command: a Rectangle over the whole shown area (here the 1024x768 screen).   // E28
+bool OverlayHasBackdrop(const std::vector<Eth::HudCmd>& overlay) {                                                      // E28
+    return !overlay.empty() && overlay.front().kind == Eth::HudCmd::Kind::Rectangle &&                                  // E28
+           overlay.front().pos == Eth::vector2(0.0f, 0.0f) && overlay.front().size == Eth::vector2(1024.0f, 768.0f);    // E28
+}                                                                                                                       // E28
+
+void TestTouchEditorInLayer() {                                                                                         // E28
+    const std::string savedArtDir = Script::g_artDir;                                                                   // E28
+    const bool savedMobile = Script::g_mobileLayout;                                                                    // E28
+
+    // Where things are, from the same code the layer lays out with: the options scene is laid out as the menus are      // E28
+    // (1024x768, unit 1, no insets here), so the editor's tiles and the shipped manifest's controls are found from here.   // E28
+    const Render::TouchGeometry geometry;                                                                               // E28
+    const Render::TouchEditor::Layout tiles = Render::TouchEditor::ComputeLayout(geometry);                             // E28
+    const glm::vec2 lockAt = tiles.widget[static_cast<std::size_t>(Render::TouchEditWidget::Lock)].Centre();            // E28
+    const Render::TouchManifest manifest =                                                                              // E28
+        Render::TouchControls::LoadManifest(std::filesystem::path(PENUMBRA_DATA_DIR) / Render::TouchControls::kManifestFile);   // E28
+    const Render::TouchLayout controls =                                                                                // E28
+        Render::TouchControls::ComputeLayout(manifest, glm::vec2(0.0f), glm::vec2(1024.0f, 768.0f), Render::TouchInsets{}, 1.0f);   // E28
+    const glm::vec2 jumpAt = controls[Render::TouchControl::Jump].Centre();                                             // E28
+    const glm::vec2 jumpTo = jumpAt + glm::vec2(-40.0f, 12.0f);                                                         // E28
+    const glm::vec2 restingAt(300.0f, 207.0f);   // the touch switch's second row: where a click would turn the controls off   // E28
+
+    PenumbraLayer::Options options;                                                                                     // E28
+    options.userDir.clear();   // SaveSettings has nowhere to write; noSave says so as well                               // E28
+    options.noSave = true;                                                                                              // E28
+    options.startScene = "videoModes.esc";                                                                              // E28
+    options.windowPixels = glm::uvec2(1024u, 768u);                                                                     // E28
+    options.settings = Render::Settings::Defaults("en");                                                                // E28
+    options.languageOverride = "en";                                                                                    // E28
+    options.touchOverride = true;                                                                                       // E28
+    options.mobileLayoutOverride = true;                                                                                // E28
+    options.widescreenOverride = false;                                                                                 // E28
+    options.smoothMotionOverride = false;                                                                               // E28
+    options.pauseOnFocusLossOverride = false;                                                                           // E28
+    options.safeAreaOverride = Supersonic::SafeAreaInsets{};                                                            // E28
+    // Ticks counted from the first the layer runs, as --hold's are. The editor opens at tick 30 (the scene is up well          // E28
+    // before: waited for below): the windows below all lie after that.                                                   // E28
+    options.devFingers = {                                                                                              // E28
+        PenumbraLayer::DevFinger{2, lockAt, lockAt, 100u, 101u},      // a tap on the padlock                           // E28
+        PenumbraLayer::DevFinger{1, jumpAt, jumpTo, 110u, 116u},      // a drag of the jump button, 40 left and 12 down   // E28
+        PenumbraLayer::DevFinger{3, restingAt, restingAt, 130u, 150u},   // down across the Esc that closes the editor   // E28
+        PenumbraLayer::DevFinger{4, restingAt, restingAt, 170u, 172u},   // a tap after it: a click again               // E28
+    };                                                                                                                  // E28
+
+    entt::registry registry;                                                                                            // E28
+    PenumbraLayer layer(options);                                                                                       // E28
+    unsigned tick = 0;                                                                                                  // E28
+    const auto step = [&] {   // the engine's frame: a fixed tick, then the draw                                        // E28
+        layer.OnFixedUpdate(registry, PenumbraLayer::kTick);                                                            // E28
+        layer.OnUpdate(registry, PenumbraLayer::kTick);                                                                 // E28
+        ++tick;                                                                                                         // E28
+    };                                                                                                                  // E28
+    const auto runTo = [&](const unsigned target) {                                                                     // E28
+        while (tick < target) step();                                                                                   // E28
+    };                                                                                                                  // E28
+    const auto scene = [&layer] { return layer.Machine()->GetSceneFileName(); };                                        // E28
+    bool attached = false;                                                                                              // E28
+    try {                                                                                                               // E28
+        layer.OnAttach(registry);                                                                                       // E28
+        attached = true;                                                                                                // E28
+        Eth::Machine* machine = layer.Machine();                                                                        // E28
+        CHECK(machine != nullptr);                                                                                      // E28
+        while (scene() != "scenes/videoModes.esc" && tick < 80) step();                                                 // E28
+        CHECK_MSG(scene() == "scenes/videoModes.esc", "the options scene never came up: " + scene());                  // E28
+        runTo(30);                                                                                                      // E28
+        CHECK(MachineDrawsText(*machine, "Ajustar controles"));   // the entry button, under the touch switch          // E28
+        CHECK(!layer.EditorOpen());                                                                                     // E28
+        CHECK(!OverlayHasBackdrop(layer.Overlay()));                                                                    // E28
+
+        // The entry: the button raises the flag; the layer reads it at the end of that tick, lowers it, opens the editor.   // E28
+        Script::g_adjustTouchControls = true;                                                                           // E28
+        step();                                                                                                         // E28
+        CHECK(layer.EditorOpen());                                                                                      // E28
+        CHECK(layer.Editor().Locked());                                                                                 // E28
+        CHECK(!Script::g_adjustTouchControls);                                                                          // E28
+        // OnUpdate drew it: the backdrop first, over the whole screen, then the controls and the tiles.                  // E28
+        CHECK(OverlayHasBackdrop(layer.Overlay()));                                                                     // E28
+        CHECK(layer.Overlay().size() > 8u);                                                                             // E28
+        CHECK(layer.Touch().Visible(Render::TouchControl::Jump));   // the real controls, laid out for the editor          // E28
+
+        // The Machine stands still while it is open, as under the pause.                                              // E28
+        const unsigned frozenAt = machine->FrameIndex();                                                                // E28
+        runTo(tick + 6);                                                                                                // E28
+        CHECK_EQ(machine->FrameIndex(), frozenAt);                                                                      // E28
+        CHECK(layer.EditorOpen());                                                                                      // E28
+
+        // The padlock, tapped by a synthetic finger (ticks 100-101), unlocks: the controls can be dragged now.          // E28
+        runTo(106);                                                                                                     // E28
+        CHECK(!layer.Editor().Locked());                                                                                // E28
+        CHECK(!layer.Editor().Tuning().Moved());                                                                        // E28
+
+        // The drag (ticks 110-116) and its lift: the jump button is 40 px left and 12 down of where it was, in the        // E28
+        // controls the editor draws, and the tuning is kept in the settings (not written: noSave).                       // E28
+        const glm::vec2 before = layer.Touch().Layout()[Render::TouchControl::Jump].min;                                // E28
+        runTo(120);                                                                                                     // E28
+        const glm::vec2 after = layer.Touch().Layout()[Render::TouchControl::Jump].min;                                 // E28
+        std::printf("  jump: %.1f,%.1f -> %.1f,%.1f after the drag (wanted %.1f,%.1f)\n", before.x, before.y, after.x,   // E28
+                    after.y, before.x - 40.0f, before.y + 12.0f);                                                       // E28
+        CHECK_MSG(std::fabs(after.x - (before.x - 40.0f)) < 0.5f && std::fabs(after.y - (before.y + 12.0f)) < 0.5f,    // E28
+                  "the jump button did not follow the finger");                                                         // E28
+        CHECK(layer.Editor().Tuning().Moved());                                                                         // E28
+        CHECK(layer.CurrentSettings().touchTuning.Moved());                                                             // E28
+        CHECK(layer.CurrentSettings().touchTuning == layer.Editor().Tuning());                                          // E28
+        CHECK_EQ(machine->FrameIndex(), frozenAt);                                                                      // E28
+
+        // Esc closes it - with a finger down on the options screen's own switch (tick 130 on). The Esc must not reach    // E28
+        // the options screen (waitForInputToMenu would leave it for the menu), nor must the finger click.               // E28
+        runTo(133);                                                                                                     // E28
+        CHECK(layer.EditorOpen());                                                                                      // E28
+        CHECK_EQ(Script::g_touchControls.getCurrent(), 0u);                                                             // E28
+        Supersonic::RawInputState escape;                                                                               // E28
+        escape.keys[Supersonic::Key::Escape] = true;                                                                    // E28
+        Supersonic::Input::Update(escape);                                                                              // E28
+        step();                                                                                                         // E28
+        CHECK(!layer.EditorOpen());                                                                                     // E28
+        CHECK(!OverlayHasBackdrop(layer.Overlay()));                                                                    // E28
+        CHECK(machine->FrameIndex() > frozenAt);   // the options screen runs again                                     // E28
+        CHECK(!layer.Touch().Visible(Render::TouchControl::Jump));   // and the controls hide at once, not a frame later   // E28
+        for (int held = 0; held < 6; ++held) {   // Esc still down: masked until it is up                              // E28
+            step();                                                                                                     // E28
+            CHECK_MSG(scene() == "scenes/videoModes.esc", "the Esc that closed the editor left the options screen: " + scene());   // E28
+        }                                                                                                               // E28
+        Supersonic::Input::Update(Supersonic::RawInputState{});                                                         // E28
+        runTo(160);   // the resting finger lifted at 150 and clicked nothing                                           // E28
+        CHECK(scene() == "scenes/videoModes.esc");                                                                      // E28
+        CHECK_EQ(Script::g_touchControls.getCurrent(), 0u);                                                             // E28
+
+        // And the screen answers again: a fresh finger (ticks 170-172) on the same row turns the touch controls off.     // E28
+        runTo(180);                                                                                                     // E28
+        std::printf("  a tap on the touch switch after the editor: row %u\n", Script::g_touchControls.getCurrent());     // E28
+        CHECK_EQ(Script::g_touchControls.getCurrent(), 1u);                                                             // E28
+        Script::g_touchControls.setCurrent(0u);                                                                         // E28
+
+        // Esc is the options screen's own again: it goes back to the menu.                                              // E28
+        Supersonic::Input::Update(escape);                                                                              // E28
+        runTo(tick + 6);                                                                                                // E28
+        Supersonic::Input::Update(Supersonic::RawInputState{});                                                         // E28
+        CHECK_MSG(scene() == "scenes/menu.esc", "Esc no longer leaves the options screen: " + scene());                 // E28
+    } catch (const std::exception& e) {                                                                                 // E28
+        CHECK_MSG(false, std::string(attached ? "the layer threw at tick " + std::to_string(tick) + ": " : "OnAttach threw: ") + e.what());   // E28
+    }                                                                                                                   // E28
+    Supersonic::Input::Update(Supersonic::RawInputState{});                                                             // E28
+    if (attached) layer.OnDetach(registry);                                                                             // E28
+    Script::g_adjustTouchControls = false;                                                                              // E28
+    Script::g_touchControls.setCurrent(0u);                                                                             // E28
+    Script::g_mobileLayout = savedMobile;                                                                               // E28
+    Script::g_artDir = savedArtDir;                                                                                     // E28
+}                                                                                                                       // E28
+
+} // namespace                                                                                                          // E28
+
 int main() {
     if (!std::filesystem::exists(PENUMBRA_ORIGINAL_DIR "/main.as")) {
         std::printf("SKIP: the original is not at %s\n", PENUMBRA_ORIGINAL_DIR);
@@ -3291,5 +3476,6 @@ int main() {
     TestWideMenuBackdrop();
     TestWideMenuScene();   // it boots the real game, whose globals outlive it
     TestPlaqueInGame();    // E26: last, booting level 1 afresh (a new game)
+    TestTouchEditorInLayer();   // E28: the layer itself, driven on a bare registry (its globals die with the process)
     return test::summary("test_pn_render_hud", 150);
 }

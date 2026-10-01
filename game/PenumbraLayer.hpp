@@ -30,6 +30,7 @@
 #include "render/SpriteRenderer.hpp"
 #include "render/TextureCache.hpp"
 #include "render/TouchControls.hpp"
+#include "render/TouchEditor.hpp"   // E28
 #include "render/View.hpp"
 #include "render/WindowMode.hpp"
 
@@ -78,6 +79,17 @@ public:
         unsigned from = 0;
         unsigned to = 0;
     };
+
+    // E28: a synthetic finger for headless captures (--finger): in LOGICAL pixels, down from tick `fromTick`   // E28
+    // to `toTick` inclusive (counted from the first tick this layer runs, as --hold), moving in a straight   // E28
+    // line from `from` to `to` over that span.                                                                // E28
+    struct DevFinger {                                                                                        // E28
+        int id = 0;                                                                                           // E28
+        glm::vec2 from{0.0f};                                                                                 // E28
+        glm::vec2 to{0.0f};                                                                                   // E28
+        unsigned fromTick = 0;                                                                                // E28
+        unsigned toTick = 0;                                                                                  // E28
+    };                                                                                                        // E28
 
     struct Options {
         // The original's files and the port's own data (strings.json,
@@ -159,6 +171,17 @@ public:
         // pick still goes to the real monitor, which refuses a mode it lacks.
         std::vector<Supersonic::DisplayMode> devModes;
         Supersonic::DisplayMode devDesktop;
+        // E28's touch tuning for this run (--touch-tuning): over the settings' until the editor's first        // E28
+        // commit replaces it. Never saved.                                                                    // E28
+        std::optional<Render::TouchTuning> touchTuningOverride;                                                // E28
+        // --touch-editor [locked|unlocked]: opens the editor the first tick the options scene is up (the     // E28
+        // value is whether it starts unlocked). Dev-only.                                                    // E28
+        std::optional<bool> devTouchEditor;                                                                    // E28
+        // --finger: synthetic fingers merged into the touch contacts. Dev-only.                              // E28
+        std::vector<DevFinger> devFingers;                                                                     // E28
+        // Any of the three E28 flags above: SaveSettings never writes, so a synthetic drag cannot reach the   // E28
+        // player's real settings.json.                                                                       // E28
+        bool noSave = false;                                                                                   // E28
     };
 
     explicit PenumbraLayer(Options options);
@@ -171,6 +194,15 @@ public:
     void OnUpdate(entt::registry& registry, float deltaTime) override;
 
     Eth::Machine* Machine() { return m_machine.get(); }
+
+    // E28: what a test can read of the touch controls and their editor (the layer-driven check at the end of   // E28
+    // test_pn_render_hud): whether the editor is open, the controls as they are laid out, the overlay this     // E28
+    // layer last built for the HUD pass, and the settings as they stand.                                       // E28
+    bool EditorOpen() const { return m_editor.IsOpen(); }                                                      // E28
+    const Render::TouchEditor& Editor() const { return m_editor; }                                             // E28
+    const Render::TouchControls& Touch() const { return m_touch; }                                             // E28
+    const std::vector<Eth::HudCmd>& Overlay() const { return m_overlay; }                                      // E28
+    const Render::Settings& CurrentSettings() const { return m_settings; }                                     // E28
 
 private:
     // The screen the scripts see for a scene (GetScreenSize): the menus'
@@ -223,6 +255,14 @@ private:
     // E16: this tick's touches pressed into the frame, before the pause and
     // the game read it.
     void ApplyTouch(Eth::InputFrame& frame);
+    // E28: this tick's TouchInput - ApplyTouch's, extracted so that opening and closing the editor can lay the   // E28
+    // controls out again for the scene they are about to be in, with the same fingers and the same geometry.    // E28
+    Render::TouchInput BuildTouchInput();                                                                       // E28
+    // E28: the tuning in force: --touch-tuning's until the editor first commits, else the settings'.            // E28
+    Render::TouchTuning TuningNow() const { return m_options.touchTuningOverride.value_or(m_settings.touchTuning); }   // E28
+    // E28: open the touch controls' editor (the options screen's button, --touch-editor): the Machine stands    // E28
+    // still until it closes, as under the pause.                                                                // E28
+    void OpenTouchEditor(bool startUnlocked, bool closeKeyHeld);                                                                 // E28
     // E16/E20: the touch controls on or off, their layout read the first time
     // they come on (at attach, or from the options screen's row), and with
     // them E22's pad order (InputMapper::PadOrder).
@@ -271,6 +311,11 @@ private:
     Render::TouchControls m_touch;
     bool m_touchEnabled = false;
     bool m_touchManifestLoaded = false;
+    // E28: the editor of those controls' size, opacity and places; whether --touch-editor has opened it yet;   // E28
+    // and whether SaveSettings has said once that a dev run writes nothing.                                   // E28
+    Render::TouchEditor m_editor;                                                                              // E28
+    bool m_devEditorOpened = false;                                                                            // E28
+    bool m_noSaveLogged = false;                                                                               // E28
     unsigned m_ticksThisFrame = 0;   // the latch of a tap no tick saw
     // The layer's own HUD commands for the HUD pass, in drawing order: the
     // touch controls (E16), then the pause (E13).

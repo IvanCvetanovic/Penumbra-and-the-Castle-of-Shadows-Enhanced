@@ -482,6 +482,10 @@ extern Switch g_pauseOnFocusLoss;                     // E13: 0 = pause on focus
 // phone's screen; left down, every screen is drawn exactly as before.           // E20
 extern bool g_mobileLayout;                           // E20
 extern Switch g_touchControls;                        // E20: 0 = touch controls on (E16), 1 = off
+// ENHANCEMENT E28 (not in the original): the options screen's "Adjust controls" button      // E28
+// raises this when it is hit; the layer reads and lowers it in the same tick and opens the  // E28
+// touch controls' editor. A Script global outlives a Machine: the layer lowers it at attach. // E28
+extern bool g_adjustTouchControls;                    // E28
 
 // ENHANCEMENT E23 (not in the original): the display mode, chosen for the      // E23
 // player or by them. The mode list's first line is "Autom\xE1tico (melhor)",     // E23

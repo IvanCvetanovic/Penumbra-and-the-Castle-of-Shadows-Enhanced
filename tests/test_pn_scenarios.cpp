@@ -9,7 +9,9 @@
 // level2's own exit into level3, the paladin and the master knight, the
 // summon's price and refusals, arenas 2 to 6 - and the menu's Quit. Last, a
 // second runtime booted for a player with one gamepad and nothing else (E12),
-// and a third for the options screen as a phone lays it out (E20).
+// and a third for the options screen as a phone lays it out (E20), where the
+// later options-screen additions (E23, E27, E28's button to the touch controls'
+// editor) follow.
 //
 // The harness is test_pn_boot's: one Machine (the script module's globals live
 // for the whole program, as they lived for the whole of machine.exe),
@@ -3538,6 +3540,130 @@ void ScenarioDisplayModeE23(Game& g) {
     g.Steps(5);
 }
 
+// === 24. The touch controls' editor's entry (E28) ==========================================   // E28
+//                                                                                                // E28
+// ENHANCEMENT E28 (game/script/videoModes.cpp): on the options screen a button under the touch   // E28
+// controls' switch, drawn only while the touch controls are on (g_touchControls on row 0, which  // E28
+// a bare Machine starts at: so it is drawn in every options-screen scenario above, which is why   // E28
+// none of them clicks in x 255-530, y 222-247). Hit as a Switch row is: the cursor strictly        // E28
+// inside and a fresh confirm. It raises Script::g_adjustTouchControls, which the layer reads and   // E28
+// lowers in the same tick and opens the editor; here the suite reads it and lowers it. No data     // E28
+// folder, so no art: the label is "[>] Ajustar controles" at (255, 222). Appended at the end of   // E28
+// the third runtime: its frames reshuffle no random roll of the scenarios before it.              // E28
+void ScenarioTouchEditorEntryE28(Game& g) {                                                        // E28
+    const char* const button = "[>] Ajustar controles";                                            // E28
+    Script::g_artDir.clear();                                                                      // E28
+    CHECK(!Script::g_adjustTouchControls);                                                         // E28
+    CHECK_EQ(Script::g_touchControls.getCurrent(), 0u);                                            // E28
+    CHECK(EnsureMenu(g));                                                                          // E28
+    Script::g_mobileLayout = true;                                                                 // E28
+    g.Steps(2);                                                                                    // E28
+    g.base.cursor = kOptionsButton;                                                                // E28
+    g.Steps(3);                                                                                    // E28
+    CHECK(LastButton() == "opcoes_de_video");                                                      // E28
+    g.Step(g.With({K_RETURN}));                                                                    // E28
+    CHECK(WaitFor(g, 3, [] { return GetSceneFileName() == "scenes/videoModes.esc"; }) >= 0);       // E28
+    g.Steps(3);                                                                                    // E28
+
+    const auto click = [&g](const vector2& at) {                                                   // E28
+        g.base.cursor = at;                                                                        // E28
+        g.Steps(2);                                                                                // E28
+        g.Step(g.With({K_RETURN}));                                                                // E28
+        g.Steps(2);                                                                                // E28
+    };                                                                                             // E28
+    // The button's text as drawn, the front copy of shadowText's pair (the black one is a tenth of    // E28
+    // the size down and right of it): its place and its alpha byte; false when it is not drawn.        // E28
+    const auto drawn = [&g, button](vector2& pos, uint& alpha) {                                    // E28
+        for (const HudCmd& c : g.m.Snapshot().hud) {                                                // E28
+            if (c.kind != HudCmd::Kind::Text || c.text.find(button) == string::npos) continue;      // E28
+            if ((c.color >> 24) <= 128u) continue;   // the shadow's is half the front's at most    // E28
+            pos = c.pos;                                                                            // E28
+            alpha = c.color >> 24;                                                                  // E28
+            return true;                                                                            // E28
+        }                                                                                           // E28
+        return false;                                                                               // E28
+    };                                                                                              // E28
+
+    // Drawn under the touch row's two 25 px rows (they end at y 220), 25 px high from y 222, at     // E28
+    // alpha 200; a cursor inside it lights it to 255.                                                 // E28
+    CHECK(WaitForHud(g, "[\x95] Ativa controles de toque", 3));                                     // E28
+    vector2 pos(0.0f);                                                                              // E28
+    uint alpha = 0;                                                                                 // E28
+    CHECK(drawn(pos, alpha));                                                                       // E28
+    std::printf("  '%s' drawn at (%.1f,%.1f), alpha %u\n", button, pos.x, pos.y, alpha);            // E28
+    CHECK_NEAR(pos.x, 255.0f);                                                                      // E28
+    CHECK_NEAR(pos.y, 222.0f);                                                                      // E28
+    CHECK_EQ(alpha, 200u);                                                                          // E28
+    g.base.cursor = vector2(300.0f, 234.0f);                                                        // E28
+    g.Steps(2);                                                                                     // E28
+    CHECK(drawn(pos, alpha));                                                                       // E28
+    CHECK_EQ(alpha, 255u);                                                                          // E28
+    CHECK(!Script::g_adjustTouchControls);   // hovered is not hit                                  // E28
+
+    // A click inside raises the flag (the layer reads and lowers it; so does the suite).            // E28
+    click(vector2(300.0f, 234.0f));                                                                 // E28
+    std::printf("  clicked at (300,234): g_adjustTouchControls %s\n", Script::g_adjustTouchControls ? "raised" : "not raised");   // E28
+    CHECK(Script::g_adjustTouchControls);                                                           // E28
+    Script::g_adjustTouchControls = false;                                                          // E28
+    click(vector2(256.0f, 223.0f));    // the box's top left corner, strictly inside               // E28
+    CHECK(Script::g_adjustTouchControls);                                                           // E28
+    Script::g_adjustTouchControls = false;                                                          // E28
+    click(vector2(529.0f, 246.0f));    // and its bottom right (x 255-530, y 222-247)              // E28
+    CHECK(Script::g_adjustTouchControls);                                                           // E28
+    Script::g_adjustTouchControls = false;                                                          // E28
+    // Strictly inside, as a Switch row is: the edges and past them are not the button. (The rows    // E28
+    // and boxes around it are other widgets: the touch row ends at y 220, the refresh row's hint     // E28
+    // and the next rule are drawn and not clicked.)                                                   // E28
+    for (const vector2& miss : {vector2(255.0f, 234.0f), vector2(530.0f, 234.0f), vector2(300.0f, 222.0f),   // E28
+                                vector2(300.0f, 247.0f), vector2(300.0f, 221.0f), vector2(300.0f, 248.0f),   // E28
+                                vector2(254.0f, 234.0f), vector2(531.0f, 234.0f)}) {                        // E28
+        click(miss);                                                                                // E28
+        CHECK_MSG(!Script::g_adjustTouchControls, "a click at (" + std::to_string(miss.x) + "," + std::to_string(miss.y) + ")");   // E28
+        Script::g_adjustTouchControls = false;                                                      // E28
+    }                                                                                               // E28
+
+    // The touch row's two rows are the touch switch's, not the button's. The second turns the touch   // E28
+    // controls off, and with them the button goes: nothing to click.                                  // E28
+    click(vector2(300.0f, 182.0f));                                                                 // E28
+    CHECK(!Script::g_adjustTouchControls);                                                          // E28
+    CHECK_EQ(Script::g_touchControls.getCurrent(), 0u);                                             // E28
+    click(vector2(300.0f, 207.0f));                                                                 // E28
+    CHECK(!Script::g_adjustTouchControls);                                                          // E28
+    CHECK_EQ(Script::g_touchControls.getCurrent(), 1u);                                             // E28
+    CHECK(WaitForHud(g, "[\x95] Desativa controles de toque", 3));                                  // E28
+    CHECK(!drawn(pos, alpha));                                                                      // E28
+    CHECK(!HudHas(g.m, "Ajustar controles"));                                                       // E28
+    click(vector2(300.0f, 234.0f));                                                                 // E28
+    CHECK(!Script::g_adjustTouchControls);                                                          // E28
+    // Back on: the button is back, and answers again.                                               // E28
+    click(vector2(300.0f, 182.0f));                                                                 // E28
+    CHECK_EQ(Script::g_touchControls.getCurrent(), 0u);                                             // E28
+    CHECK(WaitForHud(g, button, 3));                                                                // E28
+    click(vector2(300.0f, 234.0f));                                                                 // E28
+    CHECK(Script::g_adjustTouchControls);                                                           // E28
+    Script::g_adjustTouchControls = false;                                                          // E28
+
+    // The desktop's screen has no touch row, but the controls' row decides, not the layout: on     // E28
+    // (--touch, where the mouse is the finger) the button is under the window switch, off (the      // E28
+    // layer seeds row 1 without --touch) it is not drawn.                                           // E28
+    Script::g_mobileLayout = false;                                                                 // E28
+    g.Steps(2);                                                                                     // E28
+    CHECK(HudHas(g.m, "Janela"));                                                                   // E28
+    CHECK(drawn(pos, alpha));                                                                       // E28
+    CHECK_NEAR(pos.y, 222.0f);                                                                      // E28
+    Script::g_touchControls.setCurrent(1u);                                                         // E28
+    g.Steps(2);                                                                                     // E28
+    CHECK(!drawn(pos, alpha));                                                                      // E28
+    Script::g_touchControls.setCurrent(0u);                                                         // E28
+    g.Steps(2);                                                                                     // E28
+    CHECK(drawn(pos, alpha));                                                                       // E28
+    CHECK(!Script::g_adjustTouchControls);                                                          // E28
+
+    g.Step(g.With({K_ESC}));                                                                        // E28
+    CHECK(WaitFor(g, 3, [] { return GetSceneFileName() == "scenes/menu.esc"; }) >= 0);             // E28
+    g.Steps(5);                                                                                     // E28
+}                                                                                                   // E28
+
 } // namespace
 
 int main() {
@@ -3668,8 +3794,12 @@ int main() {
         RunScenario(g, "22. the display mode, automatic and by hand (E23)", ScenarioDisplayModeE23);
         Script::g_mobileLayout = false;
         RunScenario(g, "23. the main menu's language list (E27)", ScenarioLanguageListE27);
+        Script::g_mobileLayout = false;   // E28
+        RunScenario(g, "24. the touch controls' editor entry (E28)", ScenarioTouchEditorEntryE28);   // E28
+        Script::g_mobileLayout = false;   // E28: whatever the scenario reached
+        Script::g_adjustTouchControls = false;   // E28: a Script global outlives a Machine
         std::printf("\n=== third runtime (frame %u)\n", machine.FrameIndex());
-        for (std::size_t i = g_results.size() - 3; i < g_results.size(); ++i) {
+        for (std::size_t i = g_results.size() - 4; i < g_results.size(); ++i) {   // E28: - 4 (was - 3): scenarios 21-24
             const Result& r = g_results[i];
             std::printf("  %-50s %s  %d failed checks, %u aborts%s\n", r.name.c_str(),
                         (r.failures == 0 && r.aborts == 0 && !r.threw) ? "PASS" : "FAIL", r.failures, r.aborts,

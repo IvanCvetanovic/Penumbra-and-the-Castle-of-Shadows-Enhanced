@@ -585,6 +585,8 @@ Settings Settings::FromJson(const std::string& text, const Settings& defaults, s
     }
     ReadZoom(root, settings.zoom, warning);   // E25
     ReadEdgeMargin(root, settings.edgeMargin, warning);   // E26
+    // E28: the touch controls' own size, opacity and places; every wrong field keeps its default, with a warning.
+    if (root.Has("touchTuning")) TouchTuning::ReadFrom(root["touchTuning"], settings.touchTuning, warning);   // E28
 
     if (root.Has("volume")) {
         const Value& volume = root["volume"];
@@ -654,6 +656,7 @@ std::string Settings::ToJson() const {
     out << "  \"zoom\": " << (zoom == 0 ? std::string("\"auto\"") : std::to_string(zoom)) << ",\n";   // E25
     out << "  \"edgeMargin\": " << (edgeMargin < 0.0f ? std::string("\"auto\"") : FormatFloat(edgeMargin))
         << ",\n";   // E26
+    out << "  \"touchTuning\": " << touchTuning.ToJson() << ",\n";   // E28
     out << "  \"controls\": {\n";
     out << "    \"joystickLayout\": " << controls.joystickLayout << ",\n";
     out << "    \"keyboardPlayer2\": " << FormatBool(controls.keyboardPlayer2) << ",\n";

@@ -133,6 +133,19 @@
 // the combo buttons, say). Images go through the HUD's TextureCache as the
 // scripts' HUD images do, magenta (#FF00FF) keyed out.
 //
+// ENHANCEMENT E28: THE PLAYER'S OWN LAYOUT. settings.json's "touchTuning"
+// (render/TouchTuning.hpp) is a size, an opacity and a move for each control,
+// laid over the manifest by WithTuning: ONE derived manifest, so that the layout,
+// the hit tests, the knob and the art all read one thing, and the default tuning
+// is the manifest exactly. The final size of a control is scale x tuning size x
+// its own size; the Pause and Back keep theirs (the pause column feeds the
+// message room, the zoom's limit and the phone menu's panel). A move is in the
+// manifest's pixels, in the screen's direction, from where the manifest puts the
+// control, and ComputeLayout's clamps keep it on the screen. MoveFor is
+// ComputeLayout's placement run backwards, for the editor's drag (TouchEditor);
+// TouchScene::Edit is where the editor shows every control and lets no finger
+// press anything.
+//
 // Pure, like PauseMenu: fed this tick's contacts (and, for the combos, the
 // frames the game ran), it answers what is held. No window, no Machine.
 
@@ -147,6 +160,7 @@
 
 #include "eth/Input.hpp"
 #include "eth/Snapshot.hpp"
+#include "render/TouchTuning.hpp"   // E28
 #include "render/View.hpp"
 
 namespace Penumbra::Render {
@@ -181,6 +195,7 @@ struct TouchInsets {
 enum class TouchScene {
     Play,   // a level or an arena: the direction control and the action buttons
     Menu,   // the menus, the options, game over and the pause: a finger is the mouse
+    Edit,   // E28's editor: every control but Back is shown, no finger presses anything, no pointer   // E28
 };
 
 enum class TouchCorner {
@@ -229,6 +244,19 @@ struct TouchInput {
     // RenderSnapshot::sceneSerial: a change (a load, a death's reload) cancels a combo.
     unsigned sceneSerial = 0;
 };
+
+// E28: after TouchInput: the geometry one tick's layout needs, shared by Update, MoveFor and the editor.   // E28
+struct TouchGeometry {                                                                                      // E28
+    glm::vec2 screen{1024.0f, 768.0f};                                                                      // E28
+    glm::vec2 areaMin{0.0f};         // as TouchInput::areaMin/areaMax: max not above min = the screen       // E28
+    glm::vec2 areaMax{0.0f};                                                                                // E28
+    TouchInsets safeArea;                                                                                   // E28
+    TouchInsets hudFrame;                                                                                   // E28
+    float unit = 1.0f;                                                                                      // E28
+    static TouchGeometry From(const TouchInput& input);                                                     // E28
+    glm::vec2 AreaMin() const;       // areaMin, or (0,0) when the area is empty                            // E28
+    glm::vec2 AreaMax() const;       // areaMax, or `screen` when the area is empty                         // E28
+};                                                                                                          // E28
 
 // What the controls hold down, by what it does; each is one of player 1's keys
 // (KeyFor).
@@ -386,6 +414,35 @@ public:
                                      const TouchInsets& safe, float unit = 1.0f,
                                      const TouchInsets& hudFrame = TouchInsets{});
 
+    // E28 --------------------------------------------------------------------------------------------------------   // E28
+    // The manifest with the player's tuning over it. Pure. WithTuning(m, TouchTuning{}) == m, bit for bit.  // E28
+    static TouchManifest WithTuning(const TouchManifest& base, const TouchTuning& tuning);                        // E28
+    static bool SizeExempt(TouchControl control);      // Pause, Back: they keep the manifest's size             // E28
+    static bool Movable(TouchControl control);         // everything but Back                                    // E28
+    // The Pause stays at least this far below the HUD frame's top, logical px at unit 1 (kTimerRowHeight + 4).   // E28
+    static constexpr float kPauseTopClear = kTimerRowHeight + 4.0f;                                               // E28
+    // The move of `control` that puts its box at `wantedMin` (logical px) - or at the nearest place the layout allows -   // E28
+    // given every OTHER move and the size in `tuning` (the control's own move in `tuning` is ignored).    // E28
+    // Exact: ComputeLayout(WithTuning(base, tuning with this move), same geometry)[control].min is `wantedMin` clamped into what   // E28
+    // the layout allows, within 0.15 px. {} for a control that is not Movable. It runs ComputeLayout's own placement   // E28
+    // backwards (no clamp is written twice), so it holds for any manifest - but for a top-anchored control other than   // E28
+    // the Pause in a zoomed level, where E25's timer rule steps at 25 px from the top; the Pause's floor keeps it clear.   // E28
+    static TouchMove MoveFor(const TouchManifest& base, const TouchTuning& tuning, TouchControl control,          // E28
+                             const glm::vec2& wantedMin, const TouchGeometry& geometry);                          // E28
+    // What a finger can grab in the editor: the box, but for the Dpad the strip its two buttons occupy            // E28
+    // (y from 0.2883 to 0.6033 of the box, the art's 126-unit buttons centred 21.7 above the box's centre), not its 400-unit disc.   // E28
+    static TouchLayout::Box GrabBox(TouchControl control, const TouchLayout::Box& box);                           // E28
+
+    // Applies `tuning` (Clamped) now: m_manifest = WithTuning(m_base, tuning), and the layout of the last Update is   // E28
+    // recomputed at once from its stored geometry, so a drag shows this frame. Does NOT stat() images again.     // E28
+    void SetTuning(const TouchTuning& tuning);                                                                    // E28
+    const TouchTuning& Tuning() const { return m_tuning; }                                                        // E28
+    const TouchManifest& BaseManifest() const { return m_base; }            // what the file/default gave        // E28
+    // The fingers the last Update used: the input's that are down, plus those a frame without a tick saw (LatchFrame).   // E28
+    const std::vector<TouchContact>& Down() const { return m_down; }                                              // E28
+
+    // SetManifest(base) stores m_base and derives m_manifest = WithTuning(m_base, m_tuning); Manifest() returns the derived   // E28
+    // manifest (== the base while the tuning is default).   // E28
     void SetManifest(TouchManifest manifest);
     const TouchManifest& Manifest() const { return m_manifest; }
     // Where the manifest's images are (the data folder). Each is looked for
@@ -451,6 +508,13 @@ private:
     std::string resolved(const std::string& image) const;
 
     TouchManifest m_manifest = DefaultManifest();
+    // E28: what the file or the defaults gave, the player's tuning over it, the fingers the last Update used, and the   // E28
+    // geometry of that Update (SetTuning lays the controls out again from it).                                   // E28
+    TouchManifest m_base = DefaultManifest();                                                                     // E28
+    TouchTuning m_tuning;                                                                                         // E28
+    std::vector<TouchContact> m_down;                                                                             // E28
+    TouchGeometry m_geometry;                                                                                     // E28
+    bool m_haveGeometry = false;                                                                                  // E28
     std::filesystem::path m_imageRoot;
     // Each image name, resolved to an absolute path, or "" when it is not there.
     std::map<std::string, std::string> m_images;

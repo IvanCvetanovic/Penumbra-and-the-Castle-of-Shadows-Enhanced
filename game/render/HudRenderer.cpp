@@ -583,7 +583,7 @@ std::string HudRenderer::gradientTexture(const Eth::HudCmd& cmd) {
 
 void HudRenderer::addRectangle(const Eth::HudCmd& cmd, const View& view, std::vector<Quad>& out) {
     addRectangleQuads(cmd, view, out);
-    if (!(view.openSides > 0.0f) || cmd.size.x == 0.0f || cmd.size.y == 0.0f) return;
+    if (!cmd.stretchToSides || !(view.openSides > 0.0f) || cmd.size.x == 0.0f || cmd.size.y == 0.0f) return;   // E28: the touch editor's outlines stay as drawn
 
     // E1's open sides: a rectangle that meets the logical screen's left or
     // right edge - a fade (fadeIn/fadeOut, util.as:379-403), drawRect's black,

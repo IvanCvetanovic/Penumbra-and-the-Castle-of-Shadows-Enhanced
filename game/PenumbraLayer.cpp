@@ -147,6 +147,9 @@ void PenumbraLayer::OnAttach(entt::registry& registry) {
     m_machine->Samples().SetOutput(&m_audio);
     ApplyVolumes();
     m_pause.SetAutoPause(PauseOnFocusLoss());   // E13
+    // E28: a Script global outlives a Machine, so the editor's button starts unraised; and the editor finds its art.
+    Script::g_adjustTouchControls = false;   // E28
+    m_editor.SetImageRoot(m_options.dataDir);   // E28
     // E16: the touch controls - on a phone by default, on the desktop with
     // --touch (or touchControls "on"), where the mouse is the finger.
     SetTouchEnabled(
@@ -355,10 +358,18 @@ std::vector<Render::TouchContact> PenumbraLayer::TouchContacts() const {
         const glm::vec2 logical = Render::InputMapper::WindowToLogical(contact.position, m_view);
         contacts.push_back(Render::TouchContact{contact.id, logical, contact.phase != Supersonic::ContactPhase::Ended});
     }
+    // E28: --finger's synthetic fingers, in logical pixels already (nothing to map). A pure function of the tick count,   // E28
+    // so the several calls a tick makes, and OnUpdate's latch, agree.                                                    // E28
+    for (const DevFinger& finger : m_options.devFingers) {                                                              // E28
+        if (m_ticks < finger.fromTick || m_ticks > finger.toTick) continue;                                              // E28
+        const float along = static_cast<float>(m_ticks - finger.fromTick) /                                              // E28
+                            static_cast<float>(std::max(1u, finger.toTick - finger.fromTick));                          // E28
+        contacts.push_back(Render::TouchContact{finger.id, finger.from + (finger.to - finger.from) * along, true});    // E28
+    }                                                                                                                   // E28
     return contacts;
 }
 
-void PenumbraLayer::ApplyTouch(Eth::InputFrame& frame) {
+Render::TouchInput PenumbraLayer::BuildTouchInput() {   // E28: ApplyTouch's first half, as it was but for the editor's scene at its end
     Render::TouchInput input;
     input.contacts = TouchContacts();
     input.screen = m_machine->GetScreenSize();
@@ -409,11 +420,70 @@ void PenumbraLayer::ApplyTouch(Eth::InputFrame& frame) {
     }
     input.sceneSerial = m_machine->Snapshot().sceneSerial;
 
+    // E28: the editor shows every control but Back and presses nothing. The options scene it stands over is laid   // E28
+    // out as the menus are (unit 1, the shown rectangle across a wide window), and its HUD frame is the frame of   // E28
+    // that rectangle's own shape: the layer's m_hudFrame is zero outside a level, and a wide menu's GetScreenSize()   // E28
+    // is 1024 wide, which would measure the margin from the bars.                                                  // E28
+    if (m_editor.IsOpen()) {                                                                                       // E28
+        input.scene = Render::TouchScene::Edit;                                                                    // E28
+        input.corner = Render::TouchCorner::Hidden;                                                                // E28
+        const Render::TouchGeometry geometry = Render::TouchGeometry::From(input);                                 // E28
+        const Render::HudFrame frame = Render::ComputeHudFrame(m_view.windowPixels, geometry.AreaMax() - geometry.AreaMin(),   // E28
+                                                               SafeInsets(), EdgeMargin());                        // E28
+        input.hudFrame = Render::TouchInsets{frame.left, frame.top, frame.right, frame.bottom};                    // E28
+    }                                                                                                              // E28
+    return input;                                                                                                  // E28
+}   // E28
+
+void PenumbraLayer::ApplyTouch(Eth::InputFrame& frame) {   // E28: BuildTouchInput is the first half of what was here
+    const Render::TouchInput input = BuildTouchInput();   // E28
     const Render::TouchStep step = m_touch.Update(input);
     Render::TouchControls::ApplyToFrame(step, frame);
     // The cursor stays where the finger lifted, as the mouse's would: the
     // mapper keeps it until the scripts or the real mouse move it.
     if (step.pointer) m_input.WarpCursor(step.pointerPos, m_view);
+
+    // E28: the editor reads the fingers this Update used (TouchControls::Down) and says what changed. A change is   // E28
+    // applied at once, so a drag shows this frame; a gesture's end is stored and saved, never every drag tick.      // E28
+    if (m_editor.IsOpen()) {                                                                                       // E28
+        Render::TouchEditInput edit;                                                                               // E28
+        edit.down = &m_touch.Down();                                                                               // E28
+        edit.geometry = Render::TouchGeometry::From(input);                                                        // E28
+        edit.close = Render::PauseMenu::InputFrom(frame, static_cast<int>(Script::getPlayerJoystick(0)), false,    // E28
+                                                  input.screen).back;                                              // E28
+        const Render::TouchEditStep result = m_editor.Update(edit, m_touch);                                       // E28
+        if (result.changed) m_touch.SetTuning(m_editor.Tuning());                                                  // E28
+        if (result.commit) {                                                                                       // E28
+            m_settings.touchTuning = m_editor.Tuning();                                                            // E28
+            m_options.touchTuningOverride.reset();                                                                 // E28
+            SaveSettings();                                                                                        // E28
+        }                                                                                                          // E28
+        if (result.closed) {                                                                                       // E28
+            // The Esc or the click that closed it must not reach the options screen's waitForInputToMenu         // E28
+            // (videoModes.cpp), which would drop the player into the main menu.                                  // E28
+            m_pause.HoldPressed();                                                                                 // E28
+            // The scene is the menu's again: the controls hide now, not one frame over the options screen.       // E28
+            m_touch.Update(BuildTouchInput());                                                                     // E28
+        }                                                                                                          // E28
+    }                                                                                                              // E28
+}   // E28
+
+// E28: opens the touch controls' editor; the Machine stands still from the next tick on, as under the pause.      // E28
+void PenumbraLayer::OpenTouchEditor(const bool startUnlocked, const bool closeHeld) {                              // E28
+    // The finger that tapped the button is down still: the editor holds it dead until it lifts.                 // E28
+    m_editor.Open(TuningNow(), m_touch.Down(), startUnlocked);                                                    // E28
+    // The scene is the editor's now: lay the controls out for it, so the first frame drawn already has them.     // E28
+    const Render::TouchInput input = BuildTouchInput();                                                           // E28
+    m_touch.Update(input);                                                                                        // E28
+    // One inert Update (every finger is dead, a held close key is taken as already seen) gives the editor the    // E28
+    // real area and notch before the first draw; Open() alone leaves it the 4:3 default for that frame.          // E28
+    Render::TouchEditInput edit;                                                                                  // E28
+    edit.down = &m_touch.Down();                                                                                  // E28
+    edit.geometry = Render::TouchGeometry::From(input);                                                           // E28
+    edit.close = closeHeld;                                                                                       // E28
+    m_editor.Update(edit, m_touch);                                                                               // E28
+    SUPERSONIC_LOG_INFO("Penumbra") << "touch controls editor opened (" << (startUnlocked ? "unlocked" : "locked")   // E28
+                                    << ") | tick " << m_ticks << std::endl;                                       // E28
 }
 
 void PenumbraLayer::ApplyVolumes() {
@@ -425,6 +495,7 @@ void PenumbraLayer::SetTouchEnabled(bool enabled) {
         std::string warning;
         const std::filesystem::path manifest = m_options.dataDir / Render::TouchControls::kManifestFile;
         m_touch.SetManifest(Render::TouchControls::LoadManifest(manifest, &warning));
+        m_touch.SetTuning(TuningNow());   // E28: the player's own size, opacity and places over the file's
         m_touch.SetImageRoot(m_options.dataDir);
         m_touchManifestLoaded = true;
         if (!warning.empty()) SUPERSONIC_LOG_WARN("Penumbra") << "touch controls: " << warning << std::endl;
@@ -446,6 +517,15 @@ void PenumbraLayer::SaveSettings() {
     ApplyLanguage();
     m_interp.SetEnabled(SmoothMotion());
     m_pause.SetAutoPause(PauseOnFocusLoss());
+    // E28: a dev run (--touch-tuning, --touch-editor, --finger) runs against the player's real user directory, and a   // E28
+    // synthetic drag must never be able to rewrite their settings.json.                                              // E28
+    if (m_options.noSave) {                                                                                           // E28
+        if (!m_noSaveLogged) {                                                                                        // E28
+            m_noSaveLogged = true;                                                                                    // E28
+            SUPERSONIC_LOG_INFO("Penumbra") << "dev run: settings not saved" << std::endl;                            // E28
+        }                                                                                                             // E28
+        return;                                                                                                       // E28
+    }                                                                                                                 // E28
     std::string error;
     if (!m_options.userDir.empty() && !m_settings.Save(m_options.userDir, &error)) {
         SUPERSONIC_LOG_WARN("Penumbra") << "settings not saved: " << error << std::endl;
@@ -746,7 +826,10 @@ void PenumbraLayer::OnFixedUpdate(entt::registry& registry, float fixedDelta) {
             << " click " << pauseInput.click << " pointer " << pauseInput.pointer.x << "," << pauseInput.pointer.y
             << std::endl;
     }
-    if (pause.tick) {
+    // E28: the touch controls' editor stands the Machine still as the pause does. Read AFTER ApplyTouch above, so the   // E28
+    // tick that closes it runs the game and FilterForGame sees the key that closed it.                                // E28
+    const bool editing = m_editor.IsOpen();   // E28
+    if (pause.tick && !editing) {   // E28: && !editing
         // What was pressed in the pause stays out of the game until released.
         m_pause.FilterForGame(frame);
         // Main menu: the original's own cancel, for exactly this tick, which
@@ -959,6 +1042,21 @@ void PenumbraLayer::OnFixedUpdate(entt::registry& registry, float fixedDelta) {
         SaveSettings();
     }
 
+    // E28: the close key (Esc; under touch no pad is player 1) as the frame of this tick has it: one held as the editor opens is not a close.   // E28
+    const bool closeKeyHeld = Render::PauseMenu::InputFrom(frame, static_cast<int>(Script::getPlayerJoystick(0)), false,   // E28
+                                                           m_machine->GetScreenSize()).back;                          // E28
+    // E28: the options screen's "Adjust controls" (raised by the frame that ran this tick), or --touch-editor on the   // E28
+    // first tick the options scene is up. Only with the touch controls on, which is what the button is drawn under.    // E28
+    if (Script::g_adjustTouchControls) {                                                                              // E28
+        Script::g_adjustTouchControls = false;                                                                        // E28
+        if (m_touchEnabled && !m_editor.IsOpen()) OpenTouchEditor(false, closeKeyHeld);                               // E28
+    }                                                                                                                 // E28
+    if (m_options.devTouchEditor.has_value() && !m_devEditorOpened && m_touchEnabled && !m_editor.IsOpen() &&         // E28
+        m_machine->GetSceneFileName() == "scenes/videoModes.esc") {                                                   // E28
+        m_devEditorOpened = true;                                                                                     // E28
+        OpenTouchEditor(*m_options.devTouchEditor, closeKeyHeld);                                                     // E28
+    }                                                                                                                 // E28
+
     // E25: the zoom's row (a phone's options screen). A pick replaces --zoom,
     // is saved, and applies from the next level loaded, as E1's view does.
     const uint32_t zoomIndex = Script::g_zoom.getCurrent();
@@ -1026,7 +1124,10 @@ void PenumbraLayer::OnUpdate(entt::registry& registry, float deltaTime) {
     // While paused (E13) no tick moves the blend on: the last tick as it is,
     // or a live alpha would rock the world between the last two.
     const auto* clock = registry.ctx().find<Supersonic::SimulationClock>();
-    const float alpha = paused || clock == nullptr ? 1.0f : clock->alpha;
+    // E28: the editor stops the Machine as the pause does: no tick moves the blend on, and a live alpha would rock the   // E28
+    // options scene under it between its last two.                                                                    // E28
+    const bool frozen = paused || m_editor.IsOpen();   // E28
+    const float alpha = frozen || clock == nullptr ? 1.0f : clock->alpha;   // E28: was `paused`
     const Eth::RenderSnapshot& world = m_interp.Frame(snapshot, alpha);
     // E25: a phone's menu, larger and to the left; the pointer and the touch
     // controls map through the view this returns, as ever.
@@ -1045,7 +1146,7 @@ void PenumbraLayer::OnUpdate(entt::registry& registry, float deltaTime) {
         // the mouse there, unclamped) and the player had no pointer at all.
         // Measured against this frame's view, after the rig has placed it.
         const bool overBars = Render::InputMapper::PointerOverBars(Supersonic::Input::MousePosition(), m_view);
-        window->SetCursorVisible(!snapshot.cursorHidden || paused || overBars);
+        window->SetCursorVisible(!snapshot.cursorHidden || paused || m_editor.IsOpen() || overBars);   // E28: the scripts' cursor is frozen under the editor
     }
     // Where the gloss maps' highlights are seen from: 0.7.12's fake eye
     // (ETHShaderManager::SetFakeEyePosition), each light mirrored across the
@@ -1064,8 +1165,12 @@ void PenumbraLayer::OnUpdate(entt::registry& registry, float deltaTime) {
     // E16: the touch controls under it, over the scripts' HUD. One Draw a
     // frame, both in it.
     m_overlay.clear();
-    if (m_touchEnabled) m_touch.AppendOverlay(m_overlay);
-    m_pause.AppendOverlay(m_overlay);
+    if (m_editor.IsOpen()) {   // E28: the editor draws the controls itself, under its own widgets
+        m_editor.AppendOverlay(m_touch, m_overlay);   // E28
+    } else {   // E28
+        if (m_touchEnabled) m_touch.AppendOverlay(m_overlay);   // E28
+        m_pause.AppendOverlay(m_overlay);   // E28
+    }   // E28
     // E16: the scripts' control hints in touch wording while the touch
     // controls are on (strings.json "touch"), from this frame on.
     m_localization.SetTouch(m_touchEnabled);

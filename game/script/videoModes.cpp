@@ -6,6 +6,7 @@
 // Enhancement E10 adds the enhanced settings' rows; each of its lines is marked.   // E10
 // Enhancement E23 adds the automatic display mode and the refresh rate; marked.  // E23
 // Enhancement E24 makes the language row a chooser of eleven; marked.            // E24
+// Enhancement E28 adds the button that opens the touch controls' editor; marked. // E28
 
 #include "script/Script.hpp"
 
@@ -37,6 +38,8 @@ Switch g_pauseOnFocusLoss("Pausa ao perder o foco", "Continua sem o foco");     
 // worded as the original's own on/off row (g_enablePS).                         // E20
 bool g_mobileLayout = false;                                                     // E20
 Switch g_touchControls("Ativa controles de toque", "Desativa controles de toque");   // E20
+// E28 (Script.hpp): raised by the options screen's button under that switch, lowered by the layer.   // E28
+bool g_adjustTouchControls = false;                                                                  // E28
 // E23 (Script.hpp): what the mode list marks, and the refresh rate's row, all   // E23
 // the layer's to set. Left as they are here (no layer: the suites), the list   // E23
 // marks its automatic line and nothing as native, and the row has no options.  // E23
@@ -282,6 +285,30 @@ void screenModesLoop()
         g_touchControls.put(vector2(255, origin.y+70), "Arial Narrow", fontSize, 256);   // E20: y 170-220
     else                                                                         // E20
         g_windowed.put(vector2(255, origin.y+70), "Arial Narrow", fontSize, 256);
+
+    // ENHANCEMENT E28: the button that opens the touch controls' editor, under the two rows of the     // E28
+    // switch above (they end at y 220), while the touch controls are on. Hit as a Switch row is (the   // E28
+    // cursor strictly inside, a fresh confirm): the layer reads g_adjustTouchControls after the frame  // E28
+    // and opens the editor. x 255-530 stops 10 px short of the refresh rate's hint (x 540, y 222).     // E28
+    if (g_touchControls.getCurrent() == 0)                                                       // E28
+    {                                                                                            // E28
+        const vector2 adjustPos(255, origin.y+122);                                              // E28: y 222-247
+        uint8 adjustAlpha = 200;                                                                 // E28
+        if (mousePos.x > adjustPos.x && mousePos.x < adjustPos.x+275 && mousePos.y > adjustPos.y && mousePos.y < adjustPos.y+fontSize)   // E28
+        {                                                                                        // E28
+            adjustAlpha = 255;                                                                   // E28
+            if (getConfirmButtonStatus(0) == KS_HIT)                                             // E28
+                g_adjustTouchControls = true;                                                    // E28
+        }                                                                                        // E28
+        if (optionsArtReady())                                                                   // E28
+        {                                                                                        // E28
+            drawOptionsIcon("arrow_right", adjustPos+vector2(0.0f, 1.5f), 22.0f, adjustAlpha);   // E28
+            shadowText(adjustPos+vector2(26.0f, 0.0f), "Ajustar controles", "Arial Narrow", fontSize, adjustAlpha, 203,203,228);   // E28
+        }                                                                                        // E28
+        else                                                                                     // E28
+            shadowText(adjustPos, "[>] Ajustar controles", "Arial Narrow", fontSize, adjustAlpha, 203,203,228);   // E28
+    }                                                                                            // E28
+
     g_controls.put(vector2(255, origin.y+160), "Arial Narrow", fontSize, 256);
 
     // E23: the refresh rate, beside the window switch on the desktop and the    // E23

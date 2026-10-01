@@ -218,6 +218,9 @@ Eth::HudCmd Plain(const glm::vec2& min, const glm::vec2& size, Eth::uint8 alpha)
     cmd.size = size;
     // Every corner: HudCmd's corners default to opaque white.
     cmd.color = cmd.color1 = cmd.color2 = cmd.color3 = Eth::ARGB(alpha, kPlainGrey, kPlainGrey, kPlainGrey);
+    // E28: a square that meets the screen's left or right edge (the direction control's, in the editor's wide
+    // area) stays the square it is, not a bar out to the edge of what the view shows.
+    cmd.stretchToSides = false;   // E28
     return cmd;
 }
 
@@ -428,6 +431,119 @@ TouchInsets TouchControls::WindowInsetsToLogical(const TouchInsets& windowPixels
     return out;
 }
 
+namespace {   // E28
+
+// E28: ComputeLayout's prelude and its loop body, split out so that MoveFor can run the same placement
+// backwards (one set of clamps, never a second copy of them). Every expression is the one ComputeLayout
+// had, in the same order, so that the default layout is bit for bit what it was (lines moved without a
+// change of text carry no marker).
+struct Bounds {   // E28
+    glm::vec2 safeLo{0.0f};   // E28
+    glm::vec2 safeHi{0.0f};   // E28
+    glm::vec2 frameLo{0.0f};   // E28: E26: the pause button's corner, the HUD frame's, when that lies further in
+    glm::vec2 frameHi{0.0f};   // E28
+    float manifestScale = 1.0f;   // E28
+    float unitScale = 1.0f;   // E28
+};   // E28
+
+Bounds BoundsFor(const TouchManifest& manifest, const glm::vec2& areaMin, const glm::vec2& areaMax,   // E28
+                 const TouchInsets& safe, const float unit, const TouchInsets& hudFrame) {   // E28
+    Bounds bounds;   // E28
+    bounds.manifestScale = std::clamp(manifest.scale, kMinScale, kMaxScale);   // E28
+    // E25: the manifest's pixels in the screen's; 1 but for a zoomed level or a phone's larger menu.
+    bounds.unitScale = unit > 0.0f && std::isfinite(unit) ? unit : 1.0f;   // E28
+    bounds.safeLo = areaMin + glm::vec2(std::max(0.0f, safe.left), std::max(0.0f, safe.top));   // E28
+    bounds.safeHi =   // E28
+        glm::max(bounds.safeLo, areaMax - glm::vec2(std::max(0.0f, safe.right), std::max(0.0f, safe.bottom)));   // E28
+    // E26: the pause button's corner is the HUD frame's, where the timer is
+    // drawn, when that lies further in.
+    bounds.frameLo = glm::max(bounds.safeLo, areaMin + glm::vec2(hudFrame.left, hudFrame.top));   // E28
+    bounds.frameHi = glm::max(   // E28
+        bounds.frameLo, glm::min(bounds.safeHi, areaMax - glm::vec2(hudFrame.right, hudFrame.bottom)));   // E28
+    return bounds;   // E28
+}   // E28
+
+// The same for one tick's geometry: an area whose max is not above its min is no area (the screen), as
+// Update reads it.
+Bounds BoundsFor(const TouchManifest& manifest, const TouchGeometry& geometry) {   // E28
+    return BoundsFor(manifest, geometry.AreaMin(), geometry.AreaMax(), geometry.safeArea, geometry.unit,   // E28
+                     geometry.hudFrame);   // E28
+}   // E28
+
+// Where one control goes: its size, how far it may hang, where its anchor and offset put it, and the
+// limits that put it back inside the safe area.
+struct Placement {   // E28
+    glm::vec2 size{0.0f};   // E28
+    glm::vec2 hang{0.0f};   // E28
+    glm::vec2 unclampedMin{0.0f};   // E28
+    glm::vec2 minLimit{0.0f};   // E28
+    glm::vec2 maxLimit{0.0f};   // E28
+};   // E28
+
+Placement PlaceControl(const TouchControlSpec& spec, const float manifestScale, const float unitScale,   // E28
+                       const glm::vec2& lo, const glm::vec2& hi) {   // E28
+    const float scale = manifestScale * unitScale;
+    Placement placed;   // E28
+    const glm::vec2 size = glm::max(spec.size, glm::vec2(1.0f)) * scale;
+    // How far the box may lie past the edges it hangs from: what the manifest allows, and never
+    // more than half of it, so a hand-edited manifest cannot take a control off the screen.
+    const glm::vec2 hang = glm::min(glm::max(spec.overhang, glm::vec2(0.0f)) * scale, size * 0.5f);
+    glm::vec2 offset = glm::max(spec.offset * scale, -hang);
+    const bool left = spec.anchor == TouchAnchor::TopLeft || spec.anchor == TouchAnchor::BottomLeft;
+    const bool top = spec.anchor == TouchAnchor::TopLeft || spec.anchor == TouchAnchor::TopRight;
+    // E25: a zoom enlarges the run's timer at the top (its 25 px are the
+    // screen's), and a control hanging below it keeps below it: only the
+    // part of its offset past the timer's row is scaled down.
+    const float fromTop = std::max(0.0f, spec.offset.y) * manifestScale;
+    if (top && unitScale < 1.0f && fromTop > TouchControls::kTimerRowHeight) {   // E28
+        offset.y = TouchControls::kTimerRowHeight + (fromTop - TouchControls::kTimerRowHeight) * unitScale;   // E28
+    }
+    placed.size = size;   // E28
+    placed.hang = hang;   // E28
+    placed.unclampedMin = glm::vec2(left ? lo.x + offset.x : hi.x - offset.x - size.x,   // E28
+                                    top ? lo.y + offset.y : hi.y - offset.y - size.y);   // E28
+    // Inside the safe area whatever the offsets say: a hand-edited
+    // manifest, or a screen smaller than it was laid out for - but for
+    // the overhang past the edges the control hangs from.
+    placed.minLimit = lo;   // E28
+    placed.maxLimit = glm::max(lo, hi - size);   // E28
+    if (left) placed.minLimit.x -= hang.x;   // E28
+    else placed.maxLimit.x += hang.x;   // E28
+    if (top) placed.minLimit.y -= hang.y;   // E28
+    else placed.maxLimit.y += hang.y;   // E28
+    return placed;   // E28
+}   // E28
+
+glm::vec2 ClampedMin(const Placement& placed) {   // E28
+    return glm::clamp(placed.unclampedMin, placed.minLimit, glm::max(placed.minLimit, placed.maxLimit));   // E28
+}   // E28
+
+TouchLayout LayOut(const TouchManifest& manifest, const Bounds& bounds) {   // E28
+    TouchLayout layout;
+    const float scale = bounds.manifestScale * bounds.unitScale;   // E28
+    for (int i = 0; i < kTouchControlCount; ++i) {
+        const auto index = static_cast<std::size_t>(i);
+        const TouchControlSpec& spec = manifest.controls[index];
+        const bool framed = static_cast<TouchControl>(i) == TouchControl::Pause;
+        const Placement placed = PlaceControl(spec, bounds.manifestScale, bounds.unitScale,   // E28
+                                              framed ? bounds.frameLo : bounds.safeLo,   // E28
+                                              framed ? bounds.frameHi : bounds.safeHi);   // E28
+        const glm::vec2 min = ClampedMin(placed);   // E28
+        layout.boxes[index].min = min;
+        layout.boxes[index].max = min + placed.size;   // E28
+        layout.hitPadding[index] = std::max(0.0f, spec.hitPadding) * scale;
+    }
+    return layout;
+}
+
+// E28: one tick's geometry as a layout: over the area it names, or the screen when it names none (Update's rule).
+TouchLayout LayoutFor(const TouchManifest& manifest, const TouchGeometry& geometry) {   // E28
+    return TouchControls::ComputeLayout(manifest, geometry.AreaMin(), geometry.AreaMax(), geometry.safeArea,   // E28
+                                        geometry.unit, geometry.hudFrame);   // E28
+}   // E28
+
+} // namespace   // E28
+
 TouchLayout TouchControls::ComputeLayout(const TouchManifest& manifest, const glm::vec2& screen,
                                          const TouchInsets& safe, const float unit, const TouchInsets& hudFrame) {
     return ComputeLayout(manifest, glm::vec2(0.0f), screen, safe, unit, hudFrame);
@@ -436,60 +552,12 @@ TouchLayout TouchControls::ComputeLayout(const TouchManifest& manifest, const gl
 TouchLayout TouchControls::ComputeLayout(const TouchManifest& manifest, const glm::vec2& areaMin,
                                          const glm::vec2& areaMax, const TouchInsets& safe, const float unit,
                                          const TouchInsets& hudFrame) {
-    TouchLayout layout;
-    const float manifestScale = std::clamp(manifest.scale, kMinScale, kMaxScale);
-    // E25: the manifest's pixels in the screen's; 1 but for a zoomed level or a phone's larger menu.
-    const float unitScale = unit > 0.0f && std::isfinite(unit) ? unit : 1.0f;
-    const float scale = manifestScale * unitScale;
-    const glm::vec2 safeLo = areaMin + glm::vec2(std::max(0.0f, safe.left), std::max(0.0f, safe.top));
-    const glm::vec2 safeHi =
-        glm::max(safeLo, areaMax - glm::vec2(std::max(0.0f, safe.right), std::max(0.0f, safe.bottom)));
-    // E26: the pause button's corner is the HUD frame's, where the timer is
-    // drawn, when that lies further in.
-    const glm::vec2 frameLo = glm::max(safeLo, areaMin + glm::vec2(hudFrame.left, hudFrame.top));
-    const glm::vec2 frameHi =
-        glm::max(frameLo, glm::min(safeHi, areaMax - glm::vec2(hudFrame.right, hudFrame.bottom)));
-    for (int i = 0; i < kTouchControlCount; ++i) {
-        const auto index = static_cast<std::size_t>(i);
-        const TouchControlSpec& spec = manifest.controls[index];
-        const bool framed = static_cast<TouchControl>(i) == TouchControl::Pause;
-        const glm::vec2 lo = framed ? frameLo : safeLo;
-        const glm::vec2 hi = framed ? frameHi : safeHi;
-        const glm::vec2 size = glm::max(spec.size, glm::vec2(1.0f)) * scale;
-        // How far the box may lie past the edges it hangs from: what the manifest allows, and never
-        // more than half of it, so a hand-edited manifest cannot take a control off the screen.
-        const glm::vec2 hang = glm::min(glm::max(spec.overhang, glm::vec2(0.0f)) * scale, size * 0.5f);
-        glm::vec2 offset = glm::max(spec.offset * scale, -hang);
-        const bool left = spec.anchor == TouchAnchor::TopLeft || spec.anchor == TouchAnchor::BottomLeft;
-        const bool top = spec.anchor == TouchAnchor::TopLeft || spec.anchor == TouchAnchor::TopRight;
-        // E25: a zoom enlarges the run's timer at the top (its 25 px are the
-        // screen's), and a control hanging below it keeps below it: only the
-        // part of its offset past the timer's row is scaled down.
-        const float fromTop = std::max(0.0f, spec.offset.y) * manifestScale;
-        if (top && unitScale < 1.0f && fromTop > kTimerRowHeight) {
-            offset.y = kTimerRowHeight + (fromTop - kTimerRowHeight) * unitScale;
-        }
-        glm::vec2 min(left ? lo.x + offset.x : hi.x - offset.x - size.x,
-                      top ? lo.y + offset.y : hi.y - offset.y - size.y);
-        // Inside the safe area whatever the offsets say: a hand-edited
-        // manifest, or a screen smaller than it was laid out for - but for
-        // the overhang past the edges the control hangs from.
-        glm::vec2 minLimit = lo;
-        glm::vec2 maxLimit = glm::max(lo, hi - size);
-        if (left) minLimit.x -= hang.x;
-        else maxLimit.x += hang.x;
-        if (top) minLimit.y -= hang.y;
-        else maxLimit.y += hang.y;
-        min = glm::clamp(min, minLimit, glm::max(minLimit, maxLimit));
-        layout.boxes[index].min = min;
-        layout.boxes[index].max = min + size;
-        layout.hitPadding[index] = std::max(0.0f, spec.hitPadding) * scale;
-    }
-    return layout;
+    return LayOut(manifest, BoundsFor(manifest, areaMin, areaMax, safe, unit, hudFrame));   // E28: split, same arithmetic
 }
 
 void TouchControls::SetManifest(TouchManifest manifest) {
-    m_manifest = std::move(manifest);
+    m_base = std::move(manifest);   // E28: the file's (or the defaults') layout; the player's tuning goes over it
+    m_manifest = WithTuning(m_base, m_tuning);   // E28: the base itself while the tuning is the default
     SetImageRoot(m_imageRoot);
 }
 
@@ -594,22 +662,24 @@ TouchStep TouchControls::Update(const TouchInput& input) {
     m_scene = input.scene;
     m_corner = input.corner;
     m_unit = input.unit > 0.0f && std::isfinite(input.unit) ? input.unit : 1.0f;
+    // E28: this tick's geometry, kept so that SetTuning can lay the controls out again at once.
+    m_geometry = TouchGeometry::From(input);   // E28
+    m_haveGeometry = true;   // E28
     // E1's wide menus lay the controls out across what is shown.
-    const bool area = input.areaMax.x > input.areaMin.x && input.areaMax.y > input.areaMin.y;
-    m_layout = area ? ComputeLayout(m_manifest, input.areaMin, input.areaMax, input.safeArea, m_unit, input.hudFrame)
-                    : ComputeLayout(m_manifest, input.screen, input.safeArea, m_unit, input.hudFrame);
+    m_layout = LayoutFor(m_manifest, m_geometry);   // E28: the one place a geometry becomes a layout (SetTuning's too)
     const bool play = m_scene == TouchScene::Play;
+    const bool edit = m_scene == TouchScene::Edit;   // E28
     const auto show = [this](TouchControl control, bool shown) {
         m_visible[static_cast<std::size_t>(control)] = shown && m_manifest[control].enabled;
     };
     for (const TouchControl control : {TouchControl::Dpad, TouchControl::Jump, TouchControl::Sword, TouchControl::Fire,
                                        TouchControl::Light, TouchControl::SwordCombo, TouchControl::SpellCombo}) {
-        show(control, play);
+        show(control, play || edit);   // E28: the editor shows every control that moves
     }
     // E25: down, only where it takes the wizard on.
-    show(TouchControl::ExitDown, play && input.nextLevelOffered);
-    show(TouchControl::Pause, m_corner == TouchCorner::Pause);
-    show(TouchControl::Back, m_corner == TouchCorner::Back);
+    show(TouchControl::ExitDown, edit || (play && input.nextLevelOffered));   // E28
+    show(TouchControl::Pause, edit || m_corner == TouchCorner::Pause);   // E28: whatever CornerFor said
+    show(TouchControl::Back, !edit && m_corner == TouchCorner::Back);   // E28: Back never moves, so never shown there
 
     // A combo ends with the play - the pause, a menu, a load (a death's
     // reload too) - or with its button gone from the layout.
@@ -635,6 +705,7 @@ TouchStep TouchControls::Update(const TouchInput& input) {
         down.push_back(latched);
     }
     m_latched.clear();
+    m_down = down;   // E28: every scene's: the editor reads exactly the fingers this tick used
 
     // Lifted: whatever is not down any more lets go of what it held.
     for (auto it = m_contacts.begin(); it != m_contacts.end();) {
@@ -646,7 +717,9 @@ TouchStep TouchControls::Update(const TouchInput& input) {
     bool pointerTaken = false;
     for (auto& entry : m_contacts) {
         Held& held = entry.second;
-        if (!ownerVisible(held.owner)) held.owner = Owner::None;
+        // E28: in the editor nothing a finger does presses a key, so a finger a level or a menu gave an owner
+        // (the pause's, the direction control's) lets go of it too; it keeps none after the editor closes.
+        if (edit || !ownerVisible(held.owner)) held.owner = Owner::None;   // E28
         dpadTaken = dpadTaken || held.owner == Owner::Dpad;
         pointerTaken = pointerTaken || held.owner == Owner::Pointer;
     }
@@ -660,7 +733,9 @@ TouchStep TouchControls::Update(const TouchInput& input) {
         }
         Held held;
         held.position = contact.position;
-        switch (hit(contact.position)) {
+        // E28: in the editor every new finger lands on no control (an owner of None: dead until it lifts, never a
+        // key or a click, in this scene or the next), whatever is under it.
+        switch (edit ? TouchControl::Count : hit(contact.position)) {   // E28
             case TouchControl::Dpad:
                 // One thumb steers; a second finger on it is ignored.
                 if (!dpadTaken) {
@@ -857,5 +932,148 @@ void TouchControls::AppendOverlay(std::vector<Eth::HudCmd>& out) const {
         }
     }
 }
+
+// E28 ------------------------------------------------------------------------------------------------------
+// The player's tuning over the manifest: one transform of a copy of the base manifest, so that the
+// layout, the hit tests, the knob and the art all read one manifest, and the default tuning is that manifest
+// exactly.
+static_assert(kTuningControls == kTouchControlCount, "one tuning entry per TouchControl");   // E28
+static_assert(kTuningBackIndex == static_cast<int>(TouchControl::Back), "the tuning's back entry is TouchControl::Back");   // E28
+
+TouchGeometry TouchGeometry::From(const TouchInput& input) {   // E28
+    TouchGeometry geometry;   // E28
+    geometry.screen = input.screen;   // E28
+    geometry.areaMin = input.areaMin;   // E28
+    geometry.areaMax = input.areaMax;   // E28
+    geometry.safeArea = input.safeArea;   // E28
+    geometry.hudFrame = input.hudFrame;   // E28
+    geometry.unit = input.unit;   // E28
+    return geometry;   // E28
+}   // E28
+
+// As Update reads it: an area whose max is not above its min is no area (the screen).   // E28
+glm::vec2 TouchGeometry::AreaMin() const {   // E28
+    const bool area = areaMax.x > areaMin.x && areaMax.y > areaMin.y;   // E28
+    return area ? areaMin : glm::vec2(0.0f);   // E28
+}   // E28
+
+glm::vec2 TouchGeometry::AreaMax() const {   // E28
+    const bool area = areaMax.x > areaMin.x && areaMax.y > areaMin.y;   // E28
+    return area ? areaMax : screen;   // E28
+}   // E28
+
+bool TouchControls::SizeExempt(const TouchControl control) {   // E28
+    return control == TouchControl::Pause || control == TouchControl::Back;   // E28
+}   // E28
+
+bool TouchControls::Movable(const TouchControl control) { return TouchTuning::IsMovableIndex(static_cast<int>(control)); }   // E28
+
+TouchManifest TouchControls::WithTuning(const TouchManifest& base, const TouchTuning& tuningIn) {   // E28
+    const TouchTuning tuning = tuningIn.Clamped();   // E28
+    // The default is the base itself, not a copy that was multiplied by one: bit for bit what the file gave.   // E28
+    if (tuning == TouchTuning{}) return base;   // E28
+    TouchManifest out = base;   // E28
+    const float baseScale = std::clamp(base.scale, kMinScale, kMaxScale);   // E28
+    for (int i = 0; i < kTouchControlCount; ++i) {   // E28
+        const auto index = static_cast<std::size_t>(i);   // E28
+        const TouchControl control = static_cast<TouchControl>(i);   // E28
+        TouchControlSpec& spec = out.controls[index];   // E28
+        // Size: every control's own size, its distances from its corner and its reach grow together, so that the   // E28
+        // whole pack grows from its corners (the way `scale` does). The Pause and Back keep what the manifest says:   // E28
+        // the pause column feeds the message room, the zoom's limit and the phone menu's panel.   // E28
+        if (!SizeExempt(control)) {   // E28
+            spec.size *= tuning.size;   // E28
+            spec.offset *= tuning.size;   // E28
+            spec.overhang *= tuning.size;   // E28
+            spec.hitPadding *= tuning.size;   // E28
+        }   // E28
+        if (!Movable(control)) continue;   // E28
+        // Moves are in the manifest's pixels, in the SCREEN's direction, and are not scaled by the size (offsets   // E28
+        // are inward from the anchor corner: right and bottom controls take the opposite sign). The down button   // E28
+        // sits over the direction control's gap, so it goes where that goes.   // E28
+        TouchMove moved = tuning.move[index];   // E28
+        if (control == TouchControl::ExitDown) {   // E28
+            moved.x += tuning.move[static_cast<std::size_t>(TouchControl::Dpad)].x;   // E28
+            moved.y += tuning.move[static_cast<std::size_t>(TouchControl::Dpad)].y;   // E28
+        }   // E28
+        const bool left = spec.anchor == TouchAnchor::TopLeft || spec.anchor == TouchAnchor::BottomLeft;   // E28
+        const bool top = spec.anchor == TouchAnchor::TopLeft || spec.anchor == TouchAnchor::TopRight;   // E28
+        spec.offset.x += left ? moved.x : -moved.x;   // E28
+        spec.offset.y += top ? moved.y : -moved.y;   // E28
+        // A moved Pause keeps below the run's timer (its row and a margin; E25's rule scales only what is past it).   // E28
+        if (control == TouchControl::Pause && top && !tuning.move[index].IsZero()) {   // E28
+            spec.offset.y = std::max(spec.offset.y, kPauseTopClear / baseScale);   // E28
+        }   // E28
+    }   // E28
+    out.knobSize *= tuning.size;   // E28: the direction control's
+    if (tuning.opacity != 1.0f) {   // E28
+        out.idleAlpha = std::clamp(base.idleAlpha * tuning.opacity, 0.0f, 1.0f);   // E28
+        // The held look is the only cue that a finger is on a button (there is no pressed art): never fainter   // E28
+        // than the manifest's, and always a little stronger than the idle one, at any opacity.   // E28
+        out.pressedAlpha = std::clamp(std::max(base.pressedAlpha, out.idleAlpha + 0.15f), 0.0f, 1.0f);   // E28
+    }   // E28
+    return out;   // E28
+}   // E28
+
+TouchMove TouchControls::MoveFor(const TouchManifest& base, const TouchTuning& tuning, const TouchControl control,   // E28
+                                 const glm::vec2& wantedMin, const TouchGeometry& geometry) {   // E28
+    if (!Movable(control)) return TouchMove{};   // E28
+    const auto index = static_cast<std::size_t>(control);   // E28
+    // The manifest as it would be with every other move and the size, and none of this control's own.   // E28
+    TouchTuning rest = tuning.Clamped();   // E28
+    rest.move[index] = TouchMove{};   // E28
+    const TouchManifest probe = WithTuning(base, rest);   // E28
+    // Placed by the very code ComputeLayout runs, so every clamp (the safe area, the overhang, the HUD frame   // E28
+    // for the Pause, E25's timer rule) is there and none is written twice.   // E28
+    const Bounds bounds = BoundsFor(probe, geometry);   // E28
+    const bool framed = control == TouchControl::Pause;   // E28
+    const Placement placed = PlaceControl(probe.controls[index], bounds.manifestScale, bounds.unitScale,   // E28
+                                          framed ? bounds.frameLo : bounds.safeLo,   // E28
+                                          framed ? bounds.frameHi : bounds.safeHi);   // E28
+    glm::vec2 wanted = wantedMin;   // E28
+    if (!std::isfinite(wanted.x)) wanted.x = placed.unclampedMin.x;   // E28: a point that is no point is no move
+    if (!std::isfinite(wanted.y)) wanted.y = placed.unclampedMin.y;   // E28
+    const glm::vec2 held = glm::clamp(wanted, placed.minLimit, glm::max(placed.minLimit, placed.maxLimit));   // E28
+    // A move of m in the screen's direction shifts the box's unclamped corner by m x (manifest scale x unit)   // E28
+    // on every anchor (left and top add it to the offset, right and bottom take it from the edge), and E25's   // E28
+    // timer rule only adds a constant, so the inverse is one division...   // E28
+    const float scale = bounds.manifestScale * bounds.unitScale;   // E28
+    const TouchControlSpec& spec = probe.controls[index];   // E28
+    // ...but for one thing: PlaceControl holds an offset at -hang, so an offset the probe already has below that (the   // E28
+    // down button, with a direction control hand-edited to move further than the button's own distance from the   // E28
+    // edge) sits flat there, and the move has to cross the gap first. Nothing the manifests allow is below it.   // E28
+    const glm::vec2 gap = glm::max(glm::vec2(0.0f), -placed.hang - spec.offset * scale);   // E28
+    const bool left = spec.anchor == TouchAnchor::TopLeft || spec.anchor == TouchAnchor::BottomLeft;   // E28
+    const bool top = spec.anchor == TouchAnchor::TopLeft || spec.anchor == TouchAnchor::TopRight;   // E28
+    TouchMove move{(held.x - placed.unclampedMin.x + (left ? gap.x : -gap.x)) / scale,   // E28
+                   (held.y - placed.unclampedMin.y + (top ? gap.y : -gap.y)) / scale};   // E28
+    if (framed && top) {   // E28
+        // WithTuning's floor, in move terms: below the timer's row.   // E28
+        move.y = std::max(move.y, kPauseTopClear / bounds.manifestScale - spec.offset.y);   // E28
+    }   // E28
+    // Quantised and held by the one rule that does it (Clamped), then taken back out.   // E28
+    TouchTuning out;   // E28
+    out.move[index] = move;   // E28
+    return out.Clamped().move[index];   // E28
+}   // E28
+
+TouchLayout::Box TouchControls::GrabBox(const TouchControl control, const TouchLayout::Box& box) {   // E28
+    if (control != TouchControl::Dpad) return box;   // E28
+    // The art's two 126-unit buttons sit centred 21.7 above the 400-unit box's centre (see DefaultManifest): the   // E28
+    // lower half of the disc is empty, and half of it hangs below the screen's edge.   // E28
+    const float height = box.Size().y;   // E28
+    return TouchLayout::Box{{box.min.x, box.min.y + 0.2883f * height}, {box.max.x, box.min.y + 0.6033f * height}};   // E28
+}   // E28
+
+void TouchControls::SetTuning(const TouchTuning& tuning) {   // E28
+    m_tuning = tuning.Clamped();   // E28
+    // Not SetManifest: no image is looked for again (the names do not change), so a drag costs no file system call.   // E28
+    m_manifest = WithTuning(m_base, m_tuning);   // E28
+    if (!m_haveGeometry) return;   // E28
+    m_layout = LayoutFor(m_manifest, m_geometry);   // E28
+    // The knob at rest sits at the direction control's centre, which just moved with it (a thumb on the control, in   // E28
+    // a level, drags the knob; the editor has none).   // E28
+    if (!m_dpadHeld) m_knob = m_layout[TouchControl::Dpad].Centre();   // E28
+}   // E28
 
 } // namespace Penumbra::Render

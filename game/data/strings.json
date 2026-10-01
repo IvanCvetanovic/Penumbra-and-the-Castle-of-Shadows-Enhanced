@@ -101,6 +101,9 @@
         "Vale para a tela cheia": "Applies in fullscreen",
         "_videoModes.cpp ENHANCEMENT E25: the campaign zoom's row on a phone (its label, then 'Automática' or a percentage - the pattern below - in a 200 px box at x 540, beside the keyboard player 2 switch). The Portuguese is the port's own": "",
         "Zoom": "Zoom",
+        "_videoModes.cpp ENHANCEMENT E28: the touch controls' editor (not in the original; the Portuguese is the port's own). The options screen's button under the touch switch, '[>] ' + label at (255, 222) in Arial Narrow 25 (the switch rows' room, to the refresh rate's column at x 540), and the editor's title (render/TouchEditor.cpp), Arial Narrow 40 at (125, 53) beside its back arrow": "",
+        "Ajustar controles": "Adjust controls",
+        "Ajustar controles de toque": "Adjust touch controls",
 
         "_render/PauseMenu.cpp ENHANCEMENT E13: the pause (not in the original, which had none; the Portuguese is the port's own, Arial Narrow 40 and 30 in a 316 px row)": "",
         "Pausado": "Paused",

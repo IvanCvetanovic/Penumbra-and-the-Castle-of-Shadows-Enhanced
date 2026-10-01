@@ -18,6 +18,8 @@
 #include <string>
 #include <vector>
 
+#include "render/TouchTuning.hpp"   // E28: standalone (<array>, <string>), so this header stays free of Eth and windows.h
+
 namespace Penumbra::Render {
 
 // What a player can do, by meaning. The scripts read these as fixed keys for
@@ -171,6 +173,10 @@ struct Settings {
     // the HUD besides the display's safe area. Without the touch controls the
     // HUD is at the screen's edges, whatever it says.
     float edgeMargin = -1.0f;
+    // E28: the touch controls' own size, opacity and places (render/TouchTuning.hpp),   // E28
+    // set on the options screen's editor and applied over touch_controls.json's        // E28
+    // layout; the default is that layout exactly.                                       // E28
+    TouchTuning touchTuning;                                                             // E28
     ControlSettings controls;
 
     bool operator==(const Settings& other) const = default;

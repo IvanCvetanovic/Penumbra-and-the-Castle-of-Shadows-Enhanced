@@ -10,6 +10,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iterator>
+#include <limits>   // E28
 #include <string>
 #include <utility>
 #include <vector>
@@ -834,6 +835,7 @@ void testSettings() {
     CHECK_EQ(en.fullscreenRefresh, 0);
     CHECK_EQ(en.windowWidth, 0);
     CHECK_EQ(en.windowHeight, 0);
+    CHECK(en.touchTuning == Penumbra::Render::TouchTuning{});   // E28: the touch controls as the manifest has them
     CHECK_EQ(Settings::kVersion, 2);
     CHECK(en.controls.player1[ControlAction::Jump] ==
           (std::vector<int>{GLFW_KEY_LEFT_CONTROL, GLFW_KEY_RIGHT_CONTROL}));
@@ -1053,6 +1055,211 @@ void testSettings() {
     CHECK(!error.empty());
 
     fs::remove_all(dir, ec);
+}
+
+// ENHANCEMENT E28: settings.json's "touchTuning" (render/TouchTuning). The default is written and read back
+// unchanged; a block written by the game reads back the same; an older file has none and says nothing; every
+// wrong field is a warning and keeps its default while the rest of the block is read; numbers are held to
+// their ranges and snapped to their grids (size and moves a tenth, opacity a fifth); and the steps the
+// editor's tiles take land exactly on the limits and stop there.
+Penumbra::Render::TouchMove Mv(const float x, const float y) { return Penumbra::Render::TouchMove{x, y}; }
+
+void testSettingsTouchTuning() {
+    using Penumbra::Render::TouchControl;
+    using Penumbra::Render::TouchMove;
+    using Penumbra::Render::TouchTuning;
+    const Settings en = Settings::Defaults("en");
+    CHECK(en.touchTuning == TouchTuning{});
+    CHECK(en.touchTuning.IsDefault());
+    CHECK(!en.touchTuning.Moved());
+    CHECK_EQ(Settings::kVersion, 2);   // nothing reads it: E24-E27 added fields without bumping it, and so did E28
+    CHECK(en.ToJson().find(R"("touchTuning": { "size": 1, "opacity": 1, "move": {} },)") != std::string::npos);
+
+    // What the game writes: one line, the controls in their order, only the moved ones, the shortest numbers.
+    Settings tuned = en;
+    tuned.touchTuning.size = 1.1f;
+    tuned.touchTuning.opacity = 0.6f;
+    tuned.touchTuning.move[static_cast<std::size_t>(TouchControl::Pause)] = {-30.0f, 20.0f};   // set first: written by order
+    tuned.touchTuning.move[static_cast<std::size_t>(TouchControl::Jump)] = {-40.0f, 12.0f};
+    const std::string json = tuned.ToJson();
+    CHECK(json.find(R"("touchTuning": { "size": 1.1, "opacity": 0.6, "move": { "jump": [-40, 12], "pause": [-30, 20] } },)") !=
+          std::string::npos);
+    CHECK(tuned.touchTuning.Moved());
+    CHECK(!tuned.touchTuning.IsDefault());
+    std::string warning;
+    CHECK(Settings::FromJson(json, en, &warning) == tuned);   // Load(Save(s)) == s
+    CHECK_MSG(warning.empty(), warning);
+    // The same through the file.
+    const fs::path dir = fs::temp_directory_path() /
+                         ("penumbra-tuning-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
+    std::error_code ec;
+    fs::remove_all(dir, ec);
+    std::string error;
+    CHECK(tuned.Save(dir, &error));
+    warning.clear();
+    CHECK(Settings::Load(dir, en, &warning) == tuned);
+    CHECK_MSG(warning.empty(), warning);
+    fs::remove_all(dir, ec);
+    // Held, not asked: nothing the file could not read is written (no "nan", no "-0").
+    Settings odd = en;
+    odd.touchTuning.size = std::numeric_limits<float>::quiet_NaN();
+    odd.touchTuning.move[static_cast<std::size_t>(TouchControl::Fire)] = {-0.04f, std::numeric_limits<float>::infinity()};
+    odd.touchTuning.move[static_cast<std::size_t>(TouchControl::Back)] = {5.0f, 5.0f};
+    const std::string oddJson = odd.ToJson();
+    const std::string oddBlock = odd.touchTuning.ToJson();
+    CHECK(oddBlock.find("\"size\": 1,") != std::string::npos);
+    CHECK(oddBlock.find("\"fire\": [0, 2048]") != std::string::npos);   // held, and with a zero, not a "-0"
+    CHECK(oddBlock.find("nan") == std::string::npos && oddBlock.find("inf") == std::string::npos);
+    CHECK(oddBlock.find("\"back\"") == std::string::npos);
+    CHECK(Settings::FromJson(oddJson, en).touchTuning == odd.touchTuning.Clamped());
+
+    // An older file has no block: the defaults, and nothing to say.
+    warning.clear();
+    CHECK(Settings::FromJson(R"({"language": "en", "edgeMargin": 3.5})", en, &warning).touchTuning == TouchTuning{});
+    CHECK(warning.empty());
+
+    const auto read = [&en](const std::string& block, std::string* warn) {
+        return Settings::FromJson("{\"touchTuning\": " + block + "}", en, warn).touchTuning;
+    };
+    constexpr std::size_t kJump = static_cast<std::size_t>(TouchControl::Jump);
+    constexpr std::size_t kBack = static_cast<std::size_t>(TouchControl::Back);
+    // Ranges and grids: size 0.4..1.4 by tenths, opacity 0.2..1.8 by fifths, a move to 2048 by tenths.
+    warning.clear();
+    CHECK(read(R"({"size": 9})", &warning).size == TouchTuning::kMaxSize);   // 1.4: MR's own ceiling
+    CHECK(read(R"({"size": -1})", &warning).size == TouchTuning::kMinSize);
+    CHECK(read(R"({"size": 1.07})", &warning).size == 1.1f);
+    CHECK(read(R"({"size": 1.04})", &warning).size == 1.0f);
+    CHECK(read(R"({"opacity": 0.01})", &warning).opacity == TouchTuning::kMinOpacity);
+    CHECK(read(R"({"opacity": 9})", &warning).opacity == TouchTuning::kMaxOpacity);
+    CHECK(read(R"({"opacity": 1.07})", &warning).opacity == 1.0f);   // fifths: 1.07 is nearer 1.0 than 1.2
+    CHECK(read(R"({"opacity": 1.11})", &warning).opacity == 1.2f);
+    CHECK(read(R"({"move": {"jump": [1000000000, -1e9]}})", &warning).move[kJump] == Mv(2048.0f, -2048.0f));
+    CHECK(read(R"({"move": {"jump": [1e40, -1e300]}})", &warning).move[kJump] == Mv(2048.0f, -2048.0f));
+    CHECK(read(R"({"move": {"jump": [-40.04, 12.06]}})", &warning).move[kJump] == Mv(-40.0f, 12.1f));
+    const TouchMove snapped = read(R"({"move": {"jump": [0.04, -0.04]}})", &warning).move[kJump];
+    CHECK(snapped.IsZero() && !std::signbit(snapped.x) && !std::signbit(snapped.y));   // zero, not "-0"
+    CHECK_MSG(warning.empty(), warning);   // clamping a number is not a complaint
+    CHECK(read(R"({"move": {}})", &warning) == TouchTuning{});
+    CHECK(read(R"({"move": {"_note": "kept by hand", "jump": [1, 2]}})", &warning).move[kJump] == Mv(1.0f, 2.0f));
+    CHECK(warning.empty());
+
+    // Every wrong field: a warning that names it, its default kept, the rest of the block read.
+    const auto complains = [&read](const std::string& block, const char* what) {
+        std::string warn;
+        const TouchTuning result = read(block, &warn);
+        CHECK_MSG(warn.find(what) != std::string::npos, block + " -> " + warn);
+        return result;
+    };
+    CHECK(complains(R"({"size": "x"})", "touchTuning.size").size == 1.0f);
+    CHECK(complains(R"({"size": true})", "touchTuning.size").size == 1.0f);
+    CHECK(complains(R"({"opacity": [1]})", "touchTuning.opacity").opacity == 1.0f);
+    CHECK(complains(R"({"move": 5})", "touchTuning.move") == TouchTuning{});
+    CHECK(complains(R"({"move": [1, 2]})", "touchTuning.move") == TouchTuning{});
+    CHECK(complains(R"({"move": {"jump": [1]}})", "touchTuning.move.jump").move[kJump].IsZero());
+    CHECK(complains(R"({"move": {"jump": [1, 2, 3]}})", "touchTuning.move.jump").move[kJump].IsZero());
+    CHECK(complains(R"({"move": {"jump": [1, "a"]}})", "touchTuning.move.jump").move[kJump].IsZero());
+    CHECK(complains(R"({"move": {"jump": "x"}})", "touchTuning.move.jump").move[kJump].IsZero());
+    CHECK(complains(R"({"move": {"jump": {"x": 1, "y": 2}}})", "touchTuning.move.jump").move[kJump].IsZero());
+    CHECK(complains(R"({"move": {"fly": [1, 2]}})", "touchTuning.move.fly") == TouchTuning{});   // an unknown control
+    CHECK(complains(R"({"move": {"back": [1, 2]}})", "touchTuning.move.back").move[kBack].IsZero());   // Back never moves
+    for (const char* wrongType : {"[1, 2]", "7", "\"big\"", "null", "true"}) {   // the block itself
+        CHECK(complains(wrongType, "touchTuning is not an object") == TouchTuning{});
+    }
+    // A bad field costs only itself.
+    std::string mixed;
+    const TouchTuning partial =
+        read(R"({"size": "x", "opacity": 0.6, "move": {"jump": [3, 4], "back": [1, 1], "pause": [-5]}})", &mixed);
+    CHECK(partial.size == 1.0f && partial.opacity == 0.6f);
+    CHECK(partial.move[kJump] == Mv(3.0f, 4.0f));
+    CHECK(partial.move[kBack].IsZero() && partial.move[static_cast<std::size_t>(TouchControl::Pause)].IsZero());
+    CHECK(mixed.find("touchTuning.size") != std::string::npos && mixed.find("touchTuning.move.back") != std::string::npos &&
+          mixed.find("touchTuning.move.pause") != std::string::npos);
+    // And a hand-edited file loses nothing else.
+    const Settings rest = Settings::FromJson(R"({"language": "pt", "touchTuning": 5, "zoom": 150})", en, &mixed);
+    CHECK(rest.language == "pt" && rest.zoom == 150);
+
+    // Clamped: what every use of a tuning goes through.
+    TouchTuning wild;
+    wild.size = 7.0f;
+    wild.opacity = -3.0f;
+    wild.move[kJump] = {std::numeric_limits<float>::quiet_NaN(), 1.0e9f};
+    wild.move[kBack] = {4.0f, 4.0f};
+    const TouchTuning held = wild.Clamped();
+    CHECK(held.size == TouchTuning::kMaxSize && held.opacity == TouchTuning::kMinOpacity);
+    CHECK(held.move[kJump] == Mv(0.0f, 2048.0f));
+    CHECK(held.move[kBack].IsZero());
+    CHECK(held.Clamped() == held);   // idempotent
+    CHECK(TouchTuning{}.Clamped() == TouchTuning{});
+    CHECK(TouchTuning{}.IsDefault() && !TouchTuning{}.Moved());
+    CHECK(TouchTuning::SnapSize(std::numeric_limits<float>::quiet_NaN()) == 1.0f);   // a NaN is the default, not the limit
+    CHECK(TouchTuning::SnapOpacity(std::numeric_limits<float>::quiet_NaN()) == 1.0f);
+    CHECK(TouchTuning::SnapSize(std::numeric_limits<float>::infinity()) == TouchTuning::kMaxSize);
+    CHECK(TouchTuning::SnapSize(-std::numeric_limits<float>::infinity()) == TouchTuning::kMinSize);
+
+    // The tiles' steps. Whole steps of the grid, so a chain ends EXACTLY on the limit (no ==-with-slack) and a
+    // step at the limit changes nothing.
+    CHECK(TouchTuning::StepSize(1.0f, -1) == 0.9f);
+    float size = 1.0f;
+    for (int i = 0; i < 6; ++i) size = TouchTuning::StepSize(size, -1);
+    CHECK(size == 0.4f && size == TouchTuning::kMinSize);
+    CHECK(TouchTuning::StepSize(size, -1) == size);   // a seventh: unchanged
+    size = 1.0f;
+    for (const float expected : {1.1f, 1.2f, 1.3f, 1.4f}) {   // MR's range: four steps up
+        size = TouchTuning::StepSize(size, +1);
+        CHECK(size == expected);
+    }
+    CHECK(size == TouchTuning::kMaxSize);
+    CHECK(TouchTuning::StepSize(size, +1) == size);
+    float opacity = 1.0f;
+    for (const float expected : {1.2f, 1.4f, 1.6f, 1.8f}) {
+        opacity = TouchTuning::StepOpacity(opacity, +1);
+        CHECK(opacity == expected);
+    }
+    CHECK(opacity == TouchTuning::kMaxOpacity && TouchTuning::StepOpacity(opacity, +1) == opacity);
+    opacity = 1.0f;
+    for (const float expected : {0.8f, 0.6f, 0.4f, 0.2f}) {
+        opacity = TouchTuning::StepOpacity(opacity, -1);
+        CHECK(opacity == expected);
+    }
+    CHECK(opacity == TouchTuning::kMinOpacity && TouchTuning::StepOpacity(opacity, -1) == opacity);
+    // Eleven sizes and nine opacities in all, each reached from the one before by one tap.
+    int sizes = 1;
+    for (float s = TouchTuning::kMinSize; TouchTuning::StepSize(s, +1) != s; s = TouchTuning::StepSize(s, +1)) ++sizes;
+    int opacities = 1;
+    for (float o = TouchTuning::kMinOpacity; TouchTuning::StepOpacity(o, +1) != o; o = TouchTuning::StepOpacity(o, +1)) ++opacities;
+    CHECK_EQ(sizes, 11);
+    CHECK_EQ(opacities, 9);
+    // Off the grid, a step starts from where the value lands: a hand-edited 2.0 is 1.4, and one step down is 1.3.
+    CHECK(TouchTuning::StepSize(2.0f, -1) == 1.3f);
+    CHECK(TouchTuning::StepSize(std::numeric_limits<float>::quiet_NaN(), +1) == 1.1f);
+    CHECK(TouchTuning::StepSize(1.0f, 0) == 1.0f);
+
+    // --touch-tuning's text.
+    TouchTuning flag;
+    std::string flagError;
+    CHECK(TouchTuning::ParseFlag("size=1.2,opacity=0.6,jump=-40:30,dpad=12:0", flag, &flagError));
+    CHECK_MSG(flagError.empty(), flagError);
+    CHECK(flag.size == 1.2f && flag.opacity == 0.6f);
+    CHECK(flag.move[kJump] == Mv(-40.0f, 30.0f));
+    CHECK(flag.move[static_cast<std::size_t>(TouchControl::Dpad)] == Mv(12.0f, 0.0f));
+    CHECK(flag.move[static_cast<std::size_t>(TouchControl::Pause)].IsZero());
+    CHECK(TouchTuning::ParseFlag(" size = 1.1 , jump = 1.5 : -2 ", flag, &flagError));   // spaces are fine
+    CHECK(flag.size == 1.1f && flag.opacity == 1.0f && flag.move[kJump] == Mv(1.5f, -2.0f));   // replacing, not merging
+    CHECK(TouchTuning::ParseFlag("size=9,opacity=-5,pause=5000:-5000", flag, nullptr));   // clamps, like the file
+    CHECK(flag.size == TouchTuning::kMaxSize && flag.opacity == TouchTuning::kMinOpacity);
+    CHECK(flag.move[static_cast<std::size_t>(TouchControl::Pause)] == Mv(2048.0f, -2048.0f));
+    CHECK(TouchTuning::ParseFlag("size=1.2,size=0.8", flag, nullptr) && flag.size == 0.8f);   // the last wins
+    for (const char* bad : {"nope=1", "back=1:1", "jump=5", "jump=a:b", "jump=1:2:3", "size=abc", "size=", "size", "=1",
+                            "size=1.2,,opacity=1", "size=1.2,", "", "  ", "size=nan", "opacity=inf", "jump=1:"}) {
+        TouchTuning kept;
+        kept.size = 1.04f;   // an off-grid caller's value: left Clamped
+        flagError.clear();
+        CHECK_MSG(!TouchTuning::ParseFlag(bad, kept, &flagError), bad);
+        CHECK_MSG(!flagError.empty(), bad);
+        CHECK_MSG(kept.size == 1.0f, bad);
+        CHECK(!TouchTuning::ParseFlag(bad, kept, nullptr));   // no error text asked for: still no crash
+    }
+    CHECK(TouchTuning::ParseFlag("nope=1", flag, &flagError) == false && flagError.find("nope") != std::string::npos);
 }
 
 // Step 23: what SetWindowProperties becomes. A flip of the windowed flag
@@ -1902,6 +2109,7 @@ void runTests() {
     testMenuMode();
     testKeyNames();
     testSettings();
+    testSettingsTouchTuning();   // E28
     testWindowActions();
     testAutomaticDisplayMode();
     testSystemLocale();

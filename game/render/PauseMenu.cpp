@@ -227,6 +227,9 @@ void PauseMenu::AppendOverlay(std::vector<Eth::HudCmd>& out) const {
     }
 }
 
+// E28: what close() arms, without a pause: the Esc that closes the editor is not for the options screen under it.   // E28
+void PauseMenu::HoldPressed() { m_filterPending = true; }                                                           // E28
+
 void PauseMenu::FilterForGame(Eth::InputFrame& frame) {
     const glm::vec2 centred(0.0f);
     if (m_filterPending) {

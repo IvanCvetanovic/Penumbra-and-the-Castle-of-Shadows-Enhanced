@@ -5,10 +5,18 @@
 // HudCmds and HudRenderer's extra commands, the filter that keeps the pause's
 // presses out of the game, the English, and settings.pauseOnFocusLoss.
 // Pure: no window, no Machine, no original files.
+// E28 adds the touch controls' editor (render/TouchEditor): its layout, the finger state machine (taps on release,   // E28
+// dead fingers, locked drags, the size step's re-lock, restore, close, a dropped control that would be buried under a tile going back), the overlay, its art, and its   // E28
+// words through HudRenderer in every language; HoldPressed. Those that use the art, the strings or the fonts need the   // E28
+// data folder.   // E28
 
 #include <algorithm>
+#include <cmath>   // E28
 #include <cstdio>
+#include <filesystem>   // E28
+#include <fstream>   // E28
 #include <string>
+#include <system_error>   // E28
 #include <vector>
 
 #include <entt/entt.hpp>
@@ -25,6 +33,9 @@
 #include "render/PauseMenu.hpp"
 #include "render/Settings.hpp"
 #include "render/TextureCache.hpp"
+#include "render/TextureDecode.hpp"   // E28
+#include "render/TouchControls.hpp"   // E28
+#include "render/TouchEditor.hpp"   // E28
 #include "render/View.hpp"
 
 namespace {
@@ -851,6 +862,46 @@ void testFilter() {
     again.keys[K_ENTER] = true;
     leave.FilterForGame(again);
     CHECK(again.keys[K_ENTER]);                      // a new press on the menu
+
+    // The touch editor closes by the same keys and freezes the game as the pause does: HoldPressed arms the filter   // E28
+    // without a pause, so the Esc or click that closed it never reaches the options screen under it.   // E28
+    PauseMenu plain;   // E28
+    InputFrame nothing;   // E28
+    plain.FilterForGame(nothing);   // E28
+    InputFrame escDown;   // E28
+    escDown.keys[K_ESC] = true;   // E28
+    escDown.keys[K_LMOUSE] = true;   // E28
+    plain.FilterForGame(escDown);   // E28
+    CHECK(escDown.keys[K_ESC] && escDown.keys[K_LMOUSE]);        // with no HoldPressed they pass   // E28
+    PauseMenu editor;   // E28
+    editor.FilterForGame(nothing);   // E28
+    editor.HoldPressed();   // E28
+    InputFrame closing;   // E28
+    closing.keys[K_ESC] = true;   // E28
+    closing.keys[K_LMOUSE] = true;   // E28
+    editor.FilterForGame(closing);   // E28
+    CHECK(!closing.keys[K_ESC] && !closing.keys[K_LMOUSE]);      // masked: the game never saw them go down   // E28
+    InputFrame stillDown = closing;   // E28
+    stillDown.keys[K_ESC] = true;   // E28
+    stillDown.keys[K_LMOUSE] = true;   // E28
+    editor.FilterForGame(stillDown);   // E28
+    CHECK(!stillDown.keys[K_ESC] && !stillDown.keys[K_LMOUSE]);  // and for as long as they are held   // E28
+    InputFrame letGo;   // E28
+    editor.FilterForGame(letGo);   // E28
+    InputFrame fresh;   // E28
+    fresh.keys[K_ESC] = true;   // E28
+    editor.FilterForGame(fresh);   // E28
+    CHECK(fresh.keys[K_ESC]);                                    // a press after the release is the game's   // E28
+    // A key the game saw go down before is not masked: HoldPressed holds up only what it had not seen.   // E28
+    PauseMenu strolling;   // E28
+    InputFrame right;   // E28
+    right.keys[K_RIGHT] = true;   // E28
+    strolling.FilterForGame(right);   // E28
+    strolling.HoldPressed();   // E28
+    InputFrame stillRight;   // E28
+    stillRight.keys[K_RIGHT] = true;   // E28
+    strolling.FilterForGame(stillRight);   // E28
+    CHECK(stillRight.keys[K_RIGHT]);   // E28
 }
 
 void testEnglish() {
@@ -888,6 +939,1206 @@ void testSetting() {
     CHECK(!warning.empty());
 }
 
+// E28 BEGIN pure editor tests (render/TouchEditor): no fonts, no original files, no art   // E28
+using Penumbra::Render::TouchAnchor;   // E28
+using Penumbra::Render::TouchContact;   // E28
+using Penumbra::Render::TouchControl;   // E28
+using Penumbra::Render::TouchControls;   // E28
+using Penumbra::Render::TouchEditInput;   // E28
+using Penumbra::Render::TouchEditor;   // E28
+using Penumbra::Render::TouchEditStep;   // E28
+using Penumbra::Render::TouchEditWidget;   // E28
+using Penumbra::Render::TouchGeometry;   // E28
+using Penumbra::Render::TouchInput;   // E28
+using Penumbra::Render::TouchInsets;   // E28
+using Penumbra::Render::TouchLayout;   // E28
+using Penumbra::Render::TouchManifest;   // E28
+using Penumbra::Render::TouchMove;   // E28
+using Penumbra::Render::TouchScene;   // E28
+using Penumbra::Render::TouchStep;   // E28
+using Penumbra::Render::TouchTuning;   // E28
+using Penumbra::Render::kTouchEditWidgetCount;   // E28
+
+TouchContact Finger(const int id, const glm::vec2& at) {   // E28
+    TouchContact contact;   // E28
+    contact.id = id;   // E28
+    contact.position = at;   // E28
+    contact.down = true;   // E28
+    return contact;   // E28
+}   // E28
+
+bool AtPoint(const glm::vec2& value, const float x, const float y, const float eps = 0.01f) {   // E28
+    return std::fabs(value.x - x) <= eps && std::fabs(value.y - y) <= eps;   // E28
+}   // E28
+
+bool BoxIs(const TouchLayout::Box& box, const float x0, const float y0, const float x1, const float y1) {   // E28
+    return AtPoint(box.min, x0, y0) && AtPoint(box.max, x1, y1);   // E28
+}   // E28
+
+bool BoxesOverlap(const TouchLayout::Box& a, const TouchLayout::Box& b) {   // E28
+    return a.min.x < b.max.x && a.max.x > b.min.x && a.min.y < b.max.y && a.max.y > b.min.y;   // E28
+}   // E28
+
+constexpr std::size_t Index(const TouchControl control) { return static_cast<std::size_t>(control); }   // E28
+
+// The layer's tick, in its order: the controls see the fingers (the Edit scene), then the editor does, then the controls   // E28
+// take the tuning it hands back. The editor is given the test's own finger list, which is what TouchControls::Down()   // E28
+// returns (the same fingers, latched ones merged): the latch itself is tested apart (testEditorLatchedTap).   // E28
+struct EditRig {   // E28
+    TouchControls controls;   // E28
+    TouchEditor editor;   // E28
+    TouchInput base;   // E28
+    TouchStep touch;       // what the controls made of the last tick's fingers   // E28
+    int commits = 0;       // ticks that said commit   // E28
+    int changes = 0;       // ticks that said changed   // E28
+
+    explicit EditRig(const TouchManifest& manifest = TouchControls::DefaultManifest()) {   // E28
+        controls.SetManifest(manifest);   // E28
+        base.scene = TouchScene::Edit;   // E28
+    }   // E28
+
+    // The window of a 20:9 phone: the shown area runs 341.5 past the 4:3 box each side.   // E28
+    void Wide() {   // E28
+        base.areaMin = glm::vec2(-341.5f, 0.0f);   // E28
+        base.areaMax = glm::vec2(1365.5f, 768.0f);   // E28
+    }   // E28
+
+    TouchGeometry Geometry() const { return TouchGeometry::From(base); }   // E28
+    TouchLayout::Box Widget(const TouchEditWidget widget) const {   // E28
+        return TouchEditor::ComputeLayout(Geometry()).widget[static_cast<std::size_t>(widget)];   // E28
+    }   // E28
+    glm::vec2 Where(const TouchEditWidget widget) const { return Widget(widget).Centre(); }   // E28
+    glm::vec2 Where(const TouchControl control) const { return controls.Layout()[control].Centre(); }   // E28
+
+    // The layer's OpenTouchEditor: the controls are laid out first (the prime), then the editor opens.   // E28
+    void Open(const TouchTuning& tuning = TouchTuning{}, const std::vector<TouchContact>& downNow = {},   // E28
+              const bool unlocked = false) {   // E28
+        controls.SetTuning(tuning);   // E28
+        TouchInput in = base;   // E28
+        in.contacts = downNow;   // E28
+        controls.Update(in);   // E28
+        editor.Open(tuning, downNow, unlocked);   // E28
+    }   // E28
+
+    TouchEditStep Tick(const std::vector<TouchContact>& fingers = {}, const bool close = false) {   // E28
+        TouchInput in = base;   // E28
+        in.contacts = fingers;   // E28
+        touch = controls.Update(in);   // E28
+        TouchEditInput edit;   // E28
+        edit.down = &fingers;   // E28
+        edit.geometry = TouchGeometry::From(in);   // E28
+        edit.close = close;   // E28
+        const TouchEditStep step = editor.Update(edit, controls);   // E28
+        if (step.changed) controls.SetTuning(editor.Tuning());   // E28
+        commits += step.commit ? 1 : 0;   // E28
+        changes += step.changed ? 1 : 0;   // E28
+        return step;   // E28
+    }   // E28
+
+    // A finger lands on `from`, then moves to `to` in `ticks` equal steps (it stays down). Returns how many of the moving   // E28
+    // ticks said changed.   // E28
+    int Drag(const int id, const glm::vec2& from, const glm::vec2& to, const int ticks) {   // E28
+        Tick({Finger(id, from)});   // E28
+        int changed = 0;   // E28
+        for (int i = 1; i <= ticks; ++i) {   // E28
+            const glm::vec2 at = from + (to - from) * (static_cast<float>(i) / static_cast<float>(ticks));   // E28
+            changed += Tick({Finger(id, at)}).changed ? 1 : 0;   // E28
+        }   // E28
+        return changed;   // E28
+    }   // E28
+
+    // A tap: down for one tick (shorter than the layer's tick would still count), up the next. The lift tick's step.   // E28
+    TouchEditStep Tap(const TouchEditWidget widget, const int id = 1) {   // E28
+        Tick({Finger(id, Where(widget))});   // E28
+        return Tick();   // E28
+    }   // E28
+
+    std::vector<HudCmd> Overlay() const {   // E28
+        std::vector<HudCmd> out;   // E28
+        editor.AppendOverlay(controls, out);   // E28
+        return out;   // E28
+    }   // E28
+    std::size_t ControlCommands() const {   // E28
+        std::vector<HudCmd> out;   // E28
+        controls.AppendOverlay(out);   // E28
+        return out.size();   // E28
+    }   // E28
+};   // E28
+
+// The overlay's tail is fixed: 7 widgets, then 14 Texts.   // E28
+constexpr std::size_t kEditTexts = 14;   // E28
+constexpr std::size_t kEditWidgets = 7;   // E28
+
+const HudCmd& WidgetCmd(const std::vector<HudCmd>& overlay, const TouchEditWidget widget) {   // E28
+    return overlay[overlay.size() - kEditTexts - kEditWidgets + static_cast<std::size_t>(widget)];   // E28
+}   // E28
+const HudCmd& TextCmd(const std::vector<HudCmd>& overlay, const std::size_t index) {   // E28
+    return overlay[overlay.size() - kEditTexts + index];   // E28
+}   // E28
+
+TouchTuning Tuned() {   // E28
+    TouchTuning tuning;   // E28
+    tuning.size = 0.8f;   // E28
+    tuning.opacity = 0.6f;   // E28
+    tuning.move[Index(TouchControl::Jump)] = TouchMove{-40.0f, 12.0f};   // E28
+    tuning.move[Index(TouchControl::Pause)] = TouchMove{-30.0f, 20.0f};   // E28
+    return tuning;   // E28
+}   // E28
+
+// Where everything is: the tiles, the back arrow, and the title kept clear of the Pause.   // E28
+void testEditorLayout() {   // E28
+    // 4:3, no notch.   // E28
+    const TouchEditor::Layout four3 = TouchEditor::ComputeLayout(TouchGeometry{});   // E28
+    const auto at = [](const TouchEditor::Layout& layout, const TouchEditWidget widget) {   // E28
+        return layout.widget[static_cast<std::size_t>(widget)];   // E28
+    };   // E28
+    CHECK(BoxIs(at(four3, TouchEditWidget::Back), 41.0f, 41.0f, 105.0f, 105.0f));   // E28
+    CHECK(BoxIs(at(four3, TouchEditWidget::SizeLess), 352.0f, 120.0f, 448.0f, 216.0f));   // E28
+    CHECK(BoxIs(at(four3, TouchEditWidget::SizeMore), 576.0f, 120.0f, 672.0f, 216.0f));   // E28
+    CHECK(BoxIs(at(four3, TouchEditWidget::OpacityLess), 352.0f, 228.0f, 448.0f, 324.0f));   // E28
+    CHECK(BoxIs(at(four3, TouchEditWidget::OpacityMore), 576.0f, 228.0f, 672.0f, 324.0f));   // E28
+    CHECK(BoxIs(at(four3, TouchEditWidget::Lock), 408.0f, 344.0f, 504.0f, 440.0f));   // E28
+    CHECK(BoxIs(at(four3, TouchEditWidget::Restore), 520.0f, 344.0f, 616.0f, 440.0f));   // E28
+    CHECK(AtPoint(four3.title, 125.0f, 53.0f));   // E28
+    CHECK_NEAR(four3.titleRight, 884.0f);   // E28
+    CHECK_NEAR(four3.centreX, 512.0f);   // E28
+    CHECK_NEAR(four3.rowY[0], 168.0f);   // E28
+    CHECK_NEAR(four3.rowY[1], 276.0f);   // E28
+    CHECK_NEAR(four3.rowY[2], 392.0f);   // E28
+
+    // 20:9: the shown area runs 341.5 past the box each side. The centred widgets stay where they were; the back arrow   // E28
+    // and the title follow the area's corner.   // E28
+    TouchGeometry wide;   // E28
+    wide.areaMin = glm::vec2(-341.5f, 0.0f);   // E28
+    wide.areaMax = glm::vec2(1365.5f, 768.0f);   // E28
+    const TouchEditor::Layout phone = TouchEditor::ComputeLayout(wide);   // E28
+    for (int w = 1; w < kTouchEditWidgetCount; ++w) {   // E28
+        const auto widget = static_cast<TouchEditWidget>(w);   // E28
+        CHECK(BoxIs(at(phone, widget), at(four3, widget).min.x, at(four3, widget).min.y, at(four3, widget).max.x,   // E28
+                    at(four3, widget).max.y));   // E28
+    }   // E28
+    CHECK_NEAR(at(phone, TouchEditWidget::Back).min.x, -300.5f);   // E28
+    CHECK_NEAR(at(phone, TouchEditWidget::Back).min.y, 41.0f);   // E28
+    CHECK_NEAR(phone.title.x, -300.5f + 64.0f + 20.0f);   // E28
+    CHECK_NEAR(phone.titleRight, 1365.5f - 140.0f);   // E28
+
+    // A notch on the left moves the arrow and the title by its width, and nothing else.   // E28
+    TouchGeometry notch = wide;   // E28
+    notch.safeArea = TouchInsets{88.0f, 0.0f, 88.0f, 24.0f};   // E28
+    const TouchEditor::Layout notched = TouchEditor::ComputeLayout(notch);   // E28
+    CHECK_NEAR(at(notched, TouchEditWidget::Back).min.x, at(phone, TouchEditWidget::Back).min.x + 88.0f);   // E28
+    CHECK_NEAR(notched.title.x, phone.title.x + 88.0f);   // E28
+    CHECK_NEAR(notched.titleRight, 1365.5f - 88.0f - 140.0f);   // E28
+    CHECK(BoxIs(at(notched, TouchEditWidget::Lock), 408.0f, 344.0f, 504.0f, 440.0f));   // E28
+    // The top inset moves the rows down with it.   // E28
+    TouchGeometry top = wide;   // E28
+    top.safeArea = TouchInsets{0.0f, 30.0f, 0.0f, 20.0f};   // E28
+    const TouchEditor::Layout lowered = TouchEditor::ComputeLayout(top);   // E28
+    CHECK_NEAR(at(lowered, TouchEditWidget::Back).min.y, 71.0f);   // E28
+    CHECK_NEAR(lowered.title.y, 83.0f);   // E28
+    CHECK_NEAR(at(lowered, TouchEditWidget::SizeLess).min.y, 150.0f);   // E28
+    CHECK_NEAR(lowered.rowY[2], 422.0f);   // E28
+
+    // The title ends clear of the Pause, which hangs from the HUD frame's corner when that lies further in   // E28
+    // than the notch (E26): the bigger of the two.   // E28
+    TouchGeometry framed = wide;   // E28
+    framed.hudFrame = TouchInsets{59.8f, 26.9f, 59.8f, 0.0f};   // E28
+    CHECK_NEAR(TouchEditor::ComputeLayout(framed).titleRight, 1365.5f - 59.8f - 140.0f);   // E28
+    framed.safeArea = TouchInsets{88.0f, 0.0f, 88.0f, 0.0f};   // E28
+    CHECK_NEAR(TouchEditor::ComputeLayout(framed).titleRight, 1365.5f - 88.0f - 140.0f);   // E28
+
+    // Every widget inside the safe area and none over another, on the shapes a screen comes in.   // E28
+    const glm::vec2 areas[3][2] = {{glm::vec2(0.0f), glm::vec2(1024.0f, 768.0f)},   // E28
+                                   {glm::vec2(-171.0f, 0.0f), glm::vec2(1195.0f, 768.0f)},   // E28
+                                   {glm::vec2(-341.5f, 0.0f), glm::vec2(1365.5f, 768.0f)}};   // E28
+    const TouchInsets insets[3] = {TouchInsets{}, TouchInsets{88.0f, 0.0f, 88.0f, 24.0f},   // E28
+                                   TouchInsets{0.0f, 30.0f, 0.0f, 20.0f}};   // E28
+    for (const auto& area : areas) {   // E28
+        for (const TouchInsets& inset : insets) {   // E28
+            TouchGeometry g;   // E28
+            g.areaMin = area[0];   // E28
+            g.areaMax = area[1];   // E28
+            g.safeArea = inset;   // E28
+            const TouchEditor::Layout layout = TouchEditor::ComputeLayout(g);   // E28
+            const glm::vec2 lo = area[0] + glm::vec2(inset.left, inset.top);   // E28
+            const glm::vec2 hi = area[1] - glm::vec2(inset.right, inset.bottom);   // E28
+            for (int a = 0; a < kTouchEditWidgetCount; ++a) {   // E28
+                const TouchLayout::Box& box = layout.widget[static_cast<std::size_t>(a)];   // E28
+                CHECK(box.min.x >= lo.x && box.min.y >= lo.y && box.max.x <= hi.x && box.max.y <= hi.y);   // E28
+                for (int b = a + 1; b < kTouchEditWidgetCount; ++b) {   // E28
+                    CHECK(!BoxesOverlap(box, layout.widget[static_cast<std::size_t>(b)]));   // E28
+                }   // E28
+            }   // E28
+            CHECK_NEAR(layout.centreX, 512.0f);   // E28
+        }   // E28
+    }   // E28
+}   // E28
+
+// Open: locked, the tuning in force, the entry's finger dead, a held close key not a close.   // E28
+void testEditorOpen() {   // E28
+    TouchEditor idle;   // E28
+    CHECK(!idle.IsOpen());   // E28
+    CHECK(idle.Locked());   // E28
+    CHECK(idle.Update(TouchEditInput{}, TouchControls{}).changed == false);   // inert: nothing open, nothing to answer   // E28
+
+    const TouchTuning tuning = Tuned();   // E28
+    EditRig rig;   // E28
+    rig.Open(tuning);   // E28
+    CHECK(rig.editor.IsOpen());   // E28
+    CHECK(rig.editor.Locked());   // E28
+    CHECK(rig.editor.Tuning() == tuning);   // E28
+    EditRig unlocked;   // E28
+    unlocked.Open(tuning, {}, true);   // E28
+    CHECK(unlocked.editor.IsOpen() && !unlocked.editor.Locked());   // E28
+
+    // The finger that tapped the entry is still down, here on the lock tile: lifting it activates nothing...   // E28
+    EditRig dead;   // E28
+    const glm::vec2 lock = dead.Where(TouchEditWidget::Lock);   // E28
+    dead.Open(TouchTuning{}, {Finger(7, lock)});   // E28
+    dead.Tick({Finger(7, lock)});   // E28
+    dead.Tick({Finger(7, lock)});   // E28
+    const TouchEditStep lifted = dead.Tick();   // E28
+    CHECK(dead.editor.Locked());   // E28
+    CHECK(!lifted.changed && !lifted.commit && !lifted.closed);   // E28
+    // ...and the next finger works.   // E28
+    dead.Tap(TouchEditWidget::Lock, 8);   // E28
+    CHECK(!dead.editor.Locked());   // E28
+    // A finger down at Open does not grab a control either (unlocked, on the jump button).   // E28
+    EditRig grabless;   // E28
+    const glm::vec2 jump = grabless.Where(TouchControl::Jump);   // E28
+    grabless.Open(TouchTuning{}, {Finger(3, jump)}, true);   // E28
+    grabless.Drag(3, jump, jump + glm::vec2(-40.0f, 12.0f), 3);   // E28
+    grabless.Tick();   // E28
+    CHECK(grabless.editor.Tuning().move[Index(TouchControl::Jump)].IsZero());   // E28
+    CHECK_EQ(grabless.changes, 0);   // E28
+    CHECK_EQ(grabless.commits, 0);   // E28
+
+    // Esc held when it opens is not a close; only a press after a release is.   // E28
+    EditRig held;   // E28
+    held.Open();   // E28
+    CHECK(!held.Tick({}, true).closed);   // E28
+    CHECK(!held.Tick({}, true).closed);   // E28
+    CHECK(held.editor.IsOpen());   // E28
+    held.Tick({}, false);   // E28
+    const TouchEditStep edge = held.Tick({}, true);   // E28
+    CHECK(edge.closed);   // E28
+    CHECK(!held.editor.IsOpen());   // E28
+
+    // A finger list that is missing, ids that are not fingers and fingers that are up: nothing.   // E28
+    EditRig odd;   // E28
+    odd.Open();   // E28
+    TouchEditInput nobody;   // E28
+    nobody.geometry = odd.Geometry();   // E28
+    const TouchEditStep none = odd.editor.Update(nobody, odd.controls);   // E28
+    CHECK(!none.changed && !none.commit && !none.closed);   // E28
+    TouchContact up = Finger(5, odd.Where(TouchEditWidget::Lock));   // E28
+    up.down = false;   // E28
+    const std::vector<TouchContact> noise = {up, Finger(-1, odd.Where(TouchEditWidget::Lock))};   // E28
+    odd.Tick(noise);   // E28
+    odd.Tick();   // E28
+    CHECK(odd.editor.Locked());   // E28
+}   // E28
+
+// Drag: a control follows the finger by the offset it was taken at, one finger per control.   // E28
+void testEditorDrag() {   // E28
+    EditRig rig;   // E28
+    rig.Open(TouchTuning{}, {}, true);   // E28
+    CHECK(!rig.editor.Locked());   // E28
+    CHECK(rig.controls.Visible(TouchControl::Jump));   // E28
+    const glm::vec2 jump = rig.Where(TouchControl::Jump);   // E28
+    CHECK(AtPoint(jump, 812.0f, 684.0f));   // 4:3, size 1: the box (752,624)-(872,744)   // E28
+    const glm::vec2 target = jump + glm::vec2(-40.0f, 12.0f);   // E28
+
+    CHECK(!rig.Tick({Finger(1, jump)}).changed);   // landing moves nothing   // E28
+    int changedTicks = 0;   // E28
+    for (int i = 1; i <= 3; ++i) {   // E28
+        const glm::vec2 at = jump + (target - jump) * (static_cast<float>(i) / 3.0f);   // E28
+        const TouchEditStep step = rig.Tick({Finger(1, at)});   // E28
+        changedTicks += step.changed ? 1 : 0;   // E28
+        CHECK(!step.commit);   // never per drag tick   // E28
+    }   // E28
+    CHECK_EQ(changedTicks, 3);   // E28
+    CHECK_EQ(rig.commits, 0);   // E28
+    CHECK_NEAR(rig.editor.Tuning().move[Index(TouchControl::Jump)].x, -40.0f);   // E28
+    CHECK_NEAR(rig.editor.Tuning().move[Index(TouchControl::Jump)].y, 12.0f);   // E28
+    // The controls took it at once: the box is where the finger left it.   // E28
+    CHECK(AtPoint(rig.Where(TouchControl::Jump), 772.0f, 696.0f, 0.2f));   // E28
+    // A finger standing still changes nothing.   // E28
+    CHECK(!rig.Tick({Finger(1, target)}).changed);   // E28
+    const TouchEditStep lift = rig.Tick();   // E28
+    CHECK(lift.commit && !lift.changed);   // E28
+    CHECK_EQ(rig.commits, 1);   // E28
+    // Nothing else moved.   // E28
+    for (int i = 0; i < Penumbra::Render::kTuningControls; ++i) {   // E28
+        if (i != static_cast<int>(TouchControl::Jump)) CHECK(rig.editor.Tuning().move[static_cast<std::size_t>(i)].IsZero());   // E28
+    }   // E28
+
+    // The control kept its offset from the finger: grabbed away from its centre, it still does not jump to it.   // E28
+    EditRig offset;   // E28
+    offset.Open(TouchTuning{}, {}, true);   // E28
+    const TouchLayout::Box jumpBox = offset.controls.Layout()[TouchControl::Jump];   // E28
+    const glm::vec2 corner = jumpBox.min + glm::vec2(10.0f, 10.0f);   // E28
+    offset.Drag(1, corner, corner + glm::vec2(-30.0f, -20.0f), 2);   // E28
+    CHECK(AtPoint(offset.controls.Layout()[TouchControl::Jump].min, jumpBox.min.x - 30.0f, jumpBox.min.y - 20.0f, 0.2f));   // E28
+    offset.Tick();   // E28
+
+    // Two fingers move two controls; a third on a held control is ignored; one on nothing does nothing.   // E28
+    EditRig two;   // E28
+    two.Open(TouchTuning{}, {}, true);   // E28
+    const glm::vec2 j = two.Where(TouchControl::Jump);   // E28
+    const glm::vec2 s = two.Where(TouchControl::Sword);   // E28
+    two.Tick({Finger(1, j), Finger(2, s)});   // E28
+    for (int i = 1; i <= 3; ++i) {   // E28
+        const float f = static_cast<float>(i);   // E28
+        two.Tick({Finger(1, j + glm::vec2(-10.0f, 4.0f) * f), Finger(2, s + glm::vec2(6.0f, -8.0f) * f)});   // E28
+    }   // E28
+    CHECK_NEAR(two.editor.Tuning().move[Index(TouchControl::Jump)].x, -30.0f);   // E28
+    CHECK_NEAR(two.editor.Tuning().move[Index(TouchControl::Jump)].y, 12.0f);   // E28
+    CHECK_NEAR(two.editor.Tuning().move[Index(TouchControl::Sword)].x, 18.0f);   // E28
+    CHECK_NEAR(two.editor.Tuning().move[Index(TouchControl::Sword)].y, -24.0f);   // E28
+    const glm::vec2 heldJump = j + glm::vec2(-30.0f, 12.0f);   // E28
+    const TouchTuning before = two.editor.Tuning();   // E28
+    two.Tick({Finger(1, heldJump), Finger(2, s + glm::vec2(18.0f, -24.0f)), Finger(3, heldJump)});   // E28
+    two.Tick({Finger(1, heldJump), Finger(2, s + glm::vec2(18.0f, -24.0f)), Finger(3, heldJump + glm::vec2(25.0f, 25.0f))});   // E28
+    CHECK(two.editor.Tuning() == before);   // E28
+    two.Tick({Finger(1, heldJump), Finger(2, s + glm::vec2(18.0f, -24.0f)), Finger(4, glm::vec2(200.0f, 400.0f))});   // E28
+    two.Tick({Finger(1, heldJump), Finger(2, s + glm::vec2(18.0f, -24.0f)), Finger(4, glm::vec2(260.0f, 380.0f))});   // E28
+    CHECK(two.editor.Tuning() == before);   // E28
+    // Each lift is a gesture's end: the first one saves what was moved (the other finger's place too), the second has   // E28
+    // nothing left to save.   // E28
+    const int commitsBefore = two.commits;   // E28
+    CHECK(two.Tick({Finger(2, s + glm::vec2(18.0f, -24.0f))}).commit);   // E28
+    CHECK(!two.Tick().commit);   // E28
+    CHECK_EQ(two.commits, commitsBefore + 1);   // E28
+
+    // A widget wins over the control behind it: a tile over the jump button is a tile, and a finger on it moves nothing.   // E28
+    TouchManifest behind = TouchControls::DefaultManifest();   // E28
+    behind[TouchControl::Jump].anchor = TouchAnchor::TopLeft;   // E28
+    behind[TouchControl::Jump].offset = glm::vec2(400.0f, 340.0f);   // E28
+    behind[TouchControl::Jump].overhang = glm::vec2(0.0f);   // E28
+    EditRig tile(behind);   // E28
+    tile.Open(TouchTuning{}, {}, true);   // E28
+    const glm::vec2 lockCentre = tile.Where(TouchEditWidget::Lock);   // E28
+    CHECK(BoxesOverlap(tile.controls.Layout()[TouchControl::Jump], tile.Widget(TouchEditWidget::Lock)));   // E28
+    tile.Drag(1, lockCentre, lockCentre + glm::vec2(100.0f, 0.0f), 3);   // slides off the tile: a cancelled tap   // E28
+    tile.Tick();   // E28
+    CHECK(tile.editor.Tuning().move[Index(TouchControl::Jump)].IsZero());   // E28
+    CHECK(!tile.editor.Locked());   // E28
+    // The part of the button that is not under the tile still takes it.   // E28
+    const glm::vec2 below(410.0f, 455.0f);   // E28
+    CHECK(tile.controls.Layout()[TouchControl::Jump].max.y > below.y);   // E28
+    CHECK(tile.Drag(2, below, below + glm::vec2(0.0f, 30.0f), 2) > 0);   // E28
+    tile.Tick();   // E28
+    CHECK(!tile.editor.Tuning().move[Index(TouchControl::Jump)].IsZero());   // E28
+
+    // A control let go with its whole grab area under a tile could never be taken again, so it goes back to   // E28
+    // where it was when the finger took it - and nothing is saved, the tuning being what it was.   // E28
+    TouchManifest tiny = TouchControls::DefaultManifest();   // E28
+    tiny[TouchControl::Jump].anchor = TouchAnchor::TopLeft;   // E28
+    tiny[TouchControl::Jump].offset = glm::vec2(700.0f, 500.0f);   // E28
+    tiny[TouchControl::Jump].overhang = glm::vec2(0.0f);   // E28
+    tiny[TouchControl::Jump].size = glm::vec2(48.0f);   // E28
+    EditRig buried(tiny);   // E28
+    buried.Open(TouchTuning{}, {}, true);   // E28
+    const glm::vec2 tinyCentre = buried.Where(TouchControl::Jump);   // E28
+    CHECK(AtPoint(tinyCentre, 724.0f, 524.0f));   // E28
+    const TouchLayout::Box more = buried.Widget(TouchEditWidget::SizeMore);   // E28
+    buried.Drag(1, tinyCentre, more.Centre(), 6);   // E28
+    CHECK(BoxesOverlap(buried.controls.Layout()[TouchControl::Jump], more));   // it followed the finger onto the tile   // E28
+    const TouchEditStep drop = buried.Tick();   // E28
+    CHECK(drop.changed);   // E28
+    CHECK(!drop.commit);   // E28
+    CHECK(buried.editor.Tuning().move[Index(TouchControl::Jump)].IsZero());   // E28
+    CHECK(AtPoint(buried.controls.Layout()[TouchControl::Jump].Centre(), 724.0f, 524.0f));   // E28
+    // Partly under the tile it stays where it was dropped, and is saved.   // E28
+    buried.Drag(2, tinyCentre, glm::vec2(680.0f, 168.0f), 6);   // E28
+    const TouchEditStep kept = buried.Tick();   // E28
+    CHECK(!kept.changed);   // E28
+    CHECK(kept.commit);   // E28
+    CHECK(!buried.editor.Tuning().move[Index(TouchControl::Jump)].IsZero());   // E28
+
+    // A grab that merely lands does not rewrite a stored move the layout had clamped (a file from a larger screen): the
+    // jump button is held where it is drawn, and nothing is saved by touching it.
+    TouchTuning farAway;   // E28
+    farAway.move[Index(TouchControl::Jump)] = TouchMove{900.0f, 900.0f};   // E28
+    EditRig clamped;   // E28
+    clamped.Open(farAway, {}, true);   // E28
+    const glm::vec2 stuck = clamped.Where(TouchControl::Jump);   // E28
+    CHECK(stuck.x < 1024.0f && stuck.y < 768.0f);   // E28
+    clamped.Tick({Finger(1, stuck)});   // E28
+    clamped.Tick({Finger(1, stuck)});   // E28
+    clamped.Tick();   // E28
+    CHECK(clamped.editor.Tuning() == farAway);   // E28
+    CHECK_EQ(clamped.changes, 0);   // E28
+    CHECK_EQ(clamped.commits, 0);   // E28
+}   // E28
+
+// Locked: a drag does nothing, and nothing the editor shows is a key.   // E28
+void testEditorLocked() {   // E28
+    EditRig rig;   // E28
+    rig.Open();   // E28
+    CHECK(rig.editor.Locked());   // E28
+    CHECK(rig.controls.Visible(TouchControl::Jump));   // E28
+    CHECK(rig.controls.Visible(TouchControl::Pause));   // E28
+    const glm::vec2 jump = rig.Where(TouchControl::Jump);   // E28
+    const TouchTuning before = rig.editor.Tuning();   // E28
+    CHECK_EQ(rig.Drag(1, jump, jump + glm::vec2(-40.0f, 12.0f), 3), 0);   // E28
+    const TouchEditStep lift = rig.Tick();   // E28
+    CHECK(rig.editor.Tuning() == before);   // E28
+    CHECK(!lift.changed && !lift.commit);   // E28
+    CHECK_EQ(rig.changes, 0);   // E28
+    CHECK_EQ(rig.commits, 0);   // E28
+
+    // The Pause control is a thing to drag here, not a key: the finger on it presses nothing.   // E28
+    rig.Tick({Finger(2, rig.Where(TouchControl::Pause))});   // E28
+    for (const bool held : rig.touch.held) CHECK(!held);   // E28
+    CHECK(!rig.touch.pointer);   // E28
+    CHECK(rig.touch.touching);   // E28
+    rig.Tick();   // E28
+
+    // Unlocked by a tap, the same drag moves it; locking again, with a second finger, lets go of it.   // E28
+    rig.Tap(TouchEditWidget::Lock);   // E28
+    CHECK(!rig.editor.Locked());   // E28
+    rig.Tick({Finger(1, jump)});   // E28
+    CHECK(rig.Tick({Finger(1, jump + glm::vec2(-10.0f, 3.0f))}).changed);   // E28
+    rig.Tick({Finger(1, jump + glm::vec2(-10.0f, 3.0f)), Finger(2, rig.Where(TouchEditWidget::Lock))});   // E28
+    const TouchEditStep locked = rig.Tick({Finger(1, jump + glm::vec2(-10.0f, 3.0f))});   // E28
+    CHECK(rig.editor.Locked());   // E28
+    CHECK(locked.commit && !locked.changed);   // locking saves what was moved   // E28
+    const TouchTuning kept = rig.editor.Tuning();   // E28
+    CHECK(!rig.Tick({Finger(1, jump + glm::vec2(-40.0f, 12.0f))}).changed);   // E28
+    CHECK(rig.editor.Tuning() == kept);   // E28
+    CHECK(!rig.Tick().commit);   // and the lift has nothing left to save   // E28
+}   // E28
+
+// SizeLess / SizeMore / OpacityLess / OpacityMore.   // E28
+void testEditorSteps() {   // E28
+    const auto size = [](const EditRig& rig) { return rig.editor.Tuning().size; };   // E28
+    const auto opacity = [](const EditRig& rig) { return rig.editor.Tuning().opacity; };   // E28
+
+    EditRig rig;   // E28
+    rig.Open();   // E28
+    TouchEditStep step = rig.Tap(TouchEditWidget::SizeMore);   // E28
+    CHECK(size(rig) == 1.1f);   // E28
+    CHECK(step.changed && step.commit);   // E28
+    step = rig.Tap(TouchEditWidget::SizeMore);   // E28
+    CHECK(size(rig) == 1.2f);   // E28
+    CHECK(step.changed && step.commit);   // E28
+    step = rig.Tap(TouchEditWidget::SizeMore);   // E28
+    CHECK(size(rig) == 1.3f);   // E28
+    step = rig.Tap(TouchEditWidget::SizeMore);   // E28
+    CHECK(size(rig) == 1.4f);   // Magic Rampage's own ceiling   // E28
+    CHECK(step.changed && step.commit);   // E28
+    CHECK(size(rig) == TouchTuning::kMaxSize);   // E28
+    step = rig.Tap(TouchEditWidget::SizeMore);   // at the top: the tap does nothing   // E28
+    CHECK(size(rig) == 1.4f);   // E28
+    CHECK(!step.changed && !step.commit);   // E28
+    CHECK_EQ(rig.commits, 4);   // E28
+    for (int i = 0; i < 10; ++i) rig.Tap(TouchEditWidget::SizeLess);   // E28
+    CHECK(size(rig) == 0.4f);   // E28
+    step = rig.Tap(TouchEditWidget::SizeLess);   // E28
+    CHECK(size(rig) == 0.4f);   // E28
+    CHECK(!step.changed && !step.commit);   // E28
+
+    EditRig down;   // E28
+    down.Open();   // E28
+    for (int i = 0; i < 6; ++i) CHECK(down.Tap(TouchEditWidget::SizeLess).changed);   // E28
+    CHECK(size(down) == 0.4f);   // exactly, six tenths down from 1.0   // E28
+    CHECK(!down.Tap(TouchEditWidget::SizeLess).changed);   // E28
+    CHECK(size(down) == 0.4f);   // E28
+
+    // Opacity: a fifth a tap, 0.2 to 1.8.   // E28
+    EditRig fade;   // E28
+    fade.Open();   // E28
+    const float up[] = {1.2f, 1.4f, 1.6f, 1.8f};   // E28
+    for (const float want : up) {   // E28
+        step = fade.Tap(TouchEditWidget::OpacityMore);   // E28
+        CHECK(opacity(fade) == want);   // E28
+        CHECK(step.changed && step.commit);   // E28
+    }   // E28
+    step = fade.Tap(TouchEditWidget::OpacityMore);   // E28
+    CHECK(opacity(fade) == 1.8f);   // E28
+    CHECK(!step.changed && !step.commit);   // E28
+    EditRig dim;   // E28
+    dim.Open();   // E28
+    const float low[] = {0.8f, 0.6f, 0.4f, 0.2f};   // E28
+    for (const float want : low) {   // E28
+        step = dim.Tap(TouchEditWidget::OpacityLess);   // E28
+        CHECK(opacity(dim) == want);   // E28
+        CHECK(step.changed && step.commit);   // E28
+    }   // E28
+    CHECK(!dim.Tap(TouchEditWidget::OpacityLess).changed);   // E28
+    CHECK(opacity(dim) == 0.2f);   // E28
+    CHECK(size(dim) == 1.0f);   // each only its own   // E28
+
+    // A size step locks again, an opacity step does not.   // E28
+    EditRig lock;   // E28
+    lock.Open({}, {}, true);   // E28
+    lock.Tap(TouchEditWidget::OpacityMore);   // E28
+    CHECK(!lock.editor.Locked());   // E28
+    lock.Tap(TouchEditWidget::SizeLess);   // E28
+    CHECK(lock.editor.Locked());   // E28
+    lock.Tap(TouchEditWidget::Lock);   // E28
+    CHECK(!lock.editor.Locked());   // E28
+    lock.Tap(TouchEditWidget::SizeLess, 4);   // E28
+    CHECK(lock.editor.Locked());   // E28
+    // A step at a limit does not lock (nothing was stepped).   // E28
+    EditRig limit;   // E28
+    TouchTuning smallest;   // E28
+    smallest.size = 0.4f;   // E28
+    limit.Open(smallest, {}, true);   // E28
+    limit.Tap(TouchEditWidget::SizeLess);   // E28
+    CHECK(!limit.editor.Locked());   // E28
+
+    // A step lets go of a held control; the finger that held it does nothing more.   // E28
+    EditRig held;   // E28
+    held.Open({}, {}, true);   // E28
+    const glm::vec2 jump = held.Where(TouchControl::Jump);   // E28
+    held.Tick({Finger(1, jump)});   // E28
+    CHECK(held.Tick({Finger(1, jump + glm::vec2(-10.0f, 3.0f))}).changed);   // E28
+    held.Tick({Finger(1, jump + glm::vec2(-10.0f, 3.0f)), Finger(2, held.Where(TouchEditWidget::SizeLess))});   // E28
+    held.Tick({Finger(1, jump + glm::vec2(-10.0f, 3.0f))});   // E28
+    CHECK(held.editor.Tuning().size == 0.9f);   // E28
+    CHECK(held.editor.Locked());   // E28
+    const TouchMove placed = held.editor.Tuning().move[Index(TouchControl::Jump)];   // E28
+    CHECK(!held.Tick({Finger(1, jump + glm::vec2(-50.0f, 20.0f))}).changed);   // E28
+    CHECK(held.editor.Tuning().move[Index(TouchControl::Jump)] == placed);   // E28
+
+    // A tap shorter than a tick (down in one, gone the next) is a tap; one that slides off before it lifts is not.   // E28
+    EditRig quick;   // E28
+    quick.Open();   // E28
+    quick.Tick({Finger(1, quick.Where(TouchEditWidget::SizeMore))});   // E28
+    CHECK(quick.Tick().changed);   // E28
+    CHECK(size(quick) == 1.1f);   // E28
+    EditRig slide;   // E28
+    slide.Open();   // E28
+    const glm::vec2 tile = slide.Where(TouchEditWidget::SizeMore);   // E28
+    slide.Tick({Finger(1, tile)});   // E28
+    slide.Tick({Finger(1, tile + glm::vec2(0.0f, 200.0f))});   // E28
+    CHECK(!slide.Tick().changed);   // E28
+    CHECK(size(slide) == 1.0f);   // E28
+    // Sliding onto a tile from outside presses nothing either.   // E28
+    slide.Tick({Finger(2, tile + glm::vec2(0.0f, 200.0f))});   // E28
+    slide.Tick({Finger(2, tile)});   // E28
+    CHECK(!slide.Tick().changed);   // E28
+    // The tile's edge is outside, as a Switch's.   // E28
+    slide.Tick({Finger(3, glm::vec2(slide.Widget(TouchEditWidget::SizeMore).min.x, tile.y))});   // E28
+    CHECK(!slide.Tick().changed);   // E28
+    CHECK(size(slide) == 1.0f);   // E28
+}   // E28
+
+// Lock and Restore.   // E28
+void testEditorRestore() {   // E28
+    const TouchTuning tuning = Tuned();   // E28
+    EditRig rig;   // E28
+    rig.Open(tuning, {}, true);   // E28
+    CHECK(Alpha(WidgetCmd(rig.Overlay(), TouchEditWidget::Restore).color) == 255);   // something to restore   // E28
+    const TouchEditStep step = rig.Tap(TouchEditWidget::Restore);   // E28
+    CHECK(step.changed && step.commit);   // E28
+    CHECK(rig.editor.Locked());   // E28
+    CHECK(!rig.editor.Tuning().Moved());   // E28
+    CHECK(rig.editor.Tuning().size == 0.8f);       // size and opacity stay   // E28
+    CHECK(rig.editor.Tuning().opacity == 0.6f);   // E28
+    CHECK(Alpha(WidgetCmd(rig.Overlay(), TouchEditWidget::Restore).color) == 70);   // E28
+    CHECK_EQ(rig.commits, 1);   // E28
+
+    // With nothing moved it only locks.   // E28
+    EditRig bare;   // E28
+    bare.Open({}, {}, true);   // E28
+    const TouchEditStep none = bare.Tap(TouchEditWidget::Restore);   // E28
+    CHECK(bare.editor.Locked());   // E28
+    CHECK(!none.changed && !none.commit);   // E28
+    EditRig tuned;   // E28
+    TouchTuning sized;   // E28
+    sized.size = 1.2f;   // E28
+    tuned.Open(sized, {}, true);   // E28
+    const TouchEditStep noMoves = tuned.Tap(TouchEditWidget::Restore);   // E28
+    CHECK(tuned.editor.Locked() && !noMoves.changed && !noMoves.commit);   // E28
+    CHECK(tuned.editor.Tuning().size == 1.2f);   // E28
+
+    // The lock tile toggles; locking saves only what is unsaved.   // E28
+    EditRig toggle;   // E28
+    toggle.Open();   // E28
+    CHECK(!toggle.Tap(TouchEditWidget::Lock).commit);   // E28
+    CHECK(!toggle.editor.Locked());   // E28
+    const TouchEditStep again = toggle.Tap(TouchEditWidget::Lock);   // E28
+    CHECK(toggle.editor.Locked());   // E28
+    CHECK(!again.changed && !again.commit);   // E28
+}   // E28
+
+// Close: the arrow, the key's edge, the unsaved drag.   // E28
+void testEditorClose() {   // E28
+    EditRig arrow;   // E28
+    arrow.Open();   // E28
+    const TouchEditStep closed = arrow.Tap(TouchEditWidget::Back);   // E28
+    CHECK(closed.closed);   // E28
+    CHECK(!closed.changed && !closed.commit);   // E28
+    CHECK(!arrow.editor.IsOpen());   // E28
+    // Inert after: nothing is answered, nothing is drawn, and the tuning is kept.   // E28
+    CHECK(arrow.Overlay().empty());   // E28
+    const TouchEditStep inert = arrow.Tap(TouchEditWidget::SizeMore);   // E28
+    CHECK(!inert.changed && !inert.commit && !inert.closed);   // E28
+    CHECK(arrow.editor.Tuning().size == 1.0f);   // E28
+
+    // A finger that slides off the arrow does not close it.   // E28
+    EditRig slide;   // E28
+    slide.Open();   // E28
+    const glm::vec2 back = slide.Where(TouchEditWidget::Back);   // E28
+    slide.Tick({Finger(1, back)});   // E28
+    slide.Tick({Finger(1, back + glm::vec2(300.0f, 0.0f))});   // E28
+    CHECK(!slide.Tick().closed);   // E28
+    CHECK(slide.editor.IsOpen());   // E28
+
+    // The key: one tick down is a close; held and pressed again after a release is another.   // E28
+    EditRig key;   // E28
+    key.Open();   // E28
+    key.Tick();   // E28
+    CHECK(key.Tick({}, true).closed);   // E28
+    CHECK(!key.editor.IsOpen());   // E28
+    EditRig again;   // E28
+    again.Open();   // E28
+    again.Tick({}, true);   // held at the open   // E28
+    again.Tick({}, true);   // E28
+    CHECK(again.editor.IsOpen());   // E28
+    again.Tick();   // E28
+    CHECK(again.Tick({}, true).closed);   // E28
+
+    // Closing in the middle of a drag keeps what was moved, in the same step.   // E28
+    EditRig drag;   // E28
+    drag.Open({}, {}, true);   // E28
+    const glm::vec2 jump = drag.Where(TouchControl::Jump);   // E28
+    drag.Tick();   // E28
+    drag.Tick({Finger(1, jump)});   // E28
+    CHECK(drag.Tick({Finger(1, jump + glm::vec2(-20.0f, 6.0f))}).changed);   // E28
+    CHECK_EQ(drag.commits, 0);   // E28
+    const TouchEditStep mid = drag.Tick({Finger(1, jump + glm::vec2(-20.0f, 6.0f))}, true);   // E28
+    CHECK(mid.closed && mid.commit);   // E28
+    CHECK(!drag.editor.IsOpen());   // E28
+    CHECK_NEAR(drag.editor.Tuning().move[Index(TouchControl::Jump)].x, -20.0f);   // E28
+    CHECK_NEAR(drag.editor.Tuning().move[Index(TouchControl::Jump)].y, 6.0f);   // E28
+    // The finger lifting afterwards finds the editor shut.   // E28
+    const TouchEditStep late = drag.Tick();   // E28
+    CHECK(!late.commit && !late.closed);   // E28
+
+    // Re-opened, it starts clean: locked, the tuning given, no finger from before.   // E28
+    drag.Open(TouchTuning{});   // E28
+    CHECK(drag.editor.IsOpen() && drag.editor.Locked());   // E28
+    CHECK(!drag.editor.Tuning().Moved());   // E28
+}   // E28
+
+// What the tail of the overlay holds, at 4:3 at the default tuning.   // E28
+void testEditorOverlay() {   // E28
+    EditRig rig;   // E28
+    CHECK(rig.Overlay().empty());   // E28
+    rig.Open();   // E28
+    // Before the editor's first Update it draws on the default geometry, the 4:3 screen: the backdrop is there.   // E28
+    const std::vector<HudCmd> first = rig.Overlay();   // E28
+    CHECK(!first.empty());   // E28
+    if (!first.empty()) CHECK(first[0].size == glm::vec2(1024.0f, 768.0f));   // E28
+    rig.Tick();   // E28
+
+    const std::size_t controlCommands = rig.ControlCommands();   // E28
+    const std::vector<HudCmd> locked = rig.Overlay();   // E28
+    CHECK_EQ(locked.size(), 1 + controlCommands + kEditWidgets + kEditTexts);   // no outlines while locked   // E28
+    if (locked.size() < 1 + kEditWidgets + kEditTexts) return;   // E28
+
+    // The backdrop first: a gradient over the whole shown area, near opaque (the options text must not show through).   // E28
+    CHECK(locked[0].kind == HudCmd::Kind::Rectangle);   // E28
+    CHECK(locked[0].pos == glm::vec2(0.0f));   // E28
+    CHECK(locked[0].size == glm::vec2(1024.0f, 768.0f));   // E28
+    CHECK(locked[0].color == locked[0].color1 && locked[0].color2 == locked[0].color3);   // E28
+    CHECK(locked[0].color != locked[0].color2);   // E28
+    CHECK(Alpha(locked[0].color) > 230 && Alpha(locked[0].color2) > 230);   // E28
+    CHECK(locked[0].stretchToSides);   // it spans the whole area, as a fade does   // E28
+    // The controls' own commands next, as they would draw alone.   // E28
+    std::vector<HudCmd> alone;   // E28
+    rig.controls.AppendOverlay(alone);   // E28
+    for (std::size_t i = 0; i < alone.size() && 1 + i < locked.size(); ++i) {   // E28
+        const HudCmd& a = alone[i];   // E28
+        const HudCmd& b = locked[1 + i];   // E28
+        CHECK(a.kind == b.kind && a.pos == b.pos && a.size == b.size && a.color == b.color && a.sprite == b.sprite);   // E28
+    }   // E28
+
+    // The words: the title, then each readout's "-", number and "+".   // E28
+    const TouchEditor::Layout layout = TouchEditor::ComputeLayout(TouchGeometry{});   // E28
+    for (std::size_t i = 0; i < kEditTexts; ++i) CHECK(TextCmd(locked, i).kind == HudCmd::Kind::Text);   // E28
+    const HudCmd& titleShadow = TextCmd(locked, 0);   // E28
+    const HudCmd& title = TextCmd(locked, 1);   // E28
+    CHECK(title.text == TouchEditor::kTitle && titleShadow.text == TouchEditor::kTitle);   // E28
+    CHECK(title.font == "Arial Narrow");   // E28
+    CHECK_NEAR(title.fontSize, 40.0f);   // E28
+    CHECK(title.pos == layout.title);   // E28
+    CHECK_NEAR(title.rtlRight, layout.titleRight);   // E28
+    CHECK_NEAR(titleShadow.rtlRight, layout.titleRight + 4.0f);   // E28
+    CHECK_NEAR(titleShadow.pos.x, title.pos.x + 4.0f);   // E28
+    CHECK_NEAR(titleShadow.pos.y, title.pos.y + 4.0f);   // E28
+    CHECK((title.color & 0x00FFFFFFu) == 0x00CBCBE4u);   // E28
+    CHECK((titleShadow.color & 0x00FFFFFFu) == 0u);   // E28
+    CHECK_EQ(static_cast<int>(Alpha(titleShadow.color)), Alpha(title.color) / 2);   // E28
+    const char* const row[2][3] = {{"-", "1.0", "+"}, {"-", "1.0", "+"}};   // E28
+    for (std::size_t r = 0; r < 2; ++r) {   // E28
+        for (std::size_t c = 0; c < 3; ++c) {   // E28
+            const HudCmd& shadow = TextCmd(locked, 2 + r * 6 + c * 2);   // E28
+            const HudCmd& front = TextCmd(locked, 3 + r * 6 + c * 2);   // E28
+            CHECK(front.text == row[r][c] && shadow.text == row[r][c]);   // E28
+            // Digits and signs are not words: no right edge, shadow included (0 means none).   // E28
+            CHECK(front.rtlRight == 0.0f && shadow.rtlRight == 0.0f);   // E28
+            CHECK(front.font == "Arial Narrow");   // E28
+            CHECK_NEAR(front.fontSize, 40.0f);   // E28
+            CHECK((front.color & 0x00FFFFFFu) == 0x00CBCBE4u);   // E28
+            CHECK_NEAR(shadow.pos.x, front.pos.x + 4.0f);   // E28
+            // The number in full, the signs faint.   // E28
+            if (c == 1) CHECK_EQ(static_cast<int>(Alpha(front.color)), 255);   // E28
+            else CHECK_EQ(static_cast<int>(Alpha(front.color)), 90);   // E28
+            const float rowY = layout.rowY[r];   // E28
+            CHECK_NEAR(front.pos.y, rowY - 20.0f);   // E28
+            const float expectX = c == 0 ? 512.0f - 54.0f : (c == 1 ? 512.0f - 23.0f : 512.0f + 38.0f);   // E28
+            CHECK_NEAR(front.pos.x, expectX);   // E28
+        }   // E28
+    }   // E28
+
+    // Without art the widgets are plain squares that stay where they are drawn, in order, in the tiles' boxes.   // E28
+    for (int w = 0; w < kTouchEditWidgetCount; ++w) {   // E28
+        const auto widget = static_cast<TouchEditWidget>(w);   // E28
+        const HudCmd& cmd = WidgetCmd(locked, widget);   // E28
+        CHECK(cmd.kind == HudCmd::Kind::Rectangle);   // E28
+        CHECK(!cmd.stretchToSides);   // E28
+        CHECK(cmd.pos == rig.Widget(widget).min && cmd.size == rig.Widget(widget).Size());   // E28
+    }   // E28
+    // Restore is dim with nothing moved, the others whole (the size and opacity ones at their limits are tested apart).   // E28
+    CHECK_EQ(static_cast<int>(Alpha(WidgetCmd(locked, TouchEditWidget::Restore).color)), 70);   // E28
+    CHECK_EQ(static_cast<int>(Alpha(WidgetCmd(locked, TouchEditWidget::Back).color)), 255);   // E28
+    CHECK_EQ(static_cast<int>(Alpha(WidgetCmd(locked, TouchEditWidget::Lock).color)), 255);   // E28
+
+    // A held tile is drawn smaller, by 3 on every side, for as long as the finger is on it.   // E28
+    rig.Tick({Finger(1, rig.Where(TouchEditWidget::Lock))});   // E28
+    const std::vector<HudCmd> pressed = rig.Overlay();   // E28
+    const TouchLayout::Box lockBox = rig.Widget(TouchEditWidget::Lock);   // E28
+    CHECK(WidgetCmd(pressed, TouchEditWidget::Lock).pos == lockBox.min + glm::vec2(3.0f));   // E28
+    CHECK(WidgetCmd(pressed, TouchEditWidget::Lock).size == lockBox.Size() - glm::vec2(6.0f));   // E28
+    CHECK(WidgetCmd(pressed, TouchEditWidget::Back).size == rig.Widget(TouchEditWidget::Back).Size());   // E28
+    rig.Tick({Finger(1, lockBox.Centre() + glm::vec2(0.0f, 400.0f))});   // slid off: not held any more   // E28
+    CHECK(WidgetCmd(rig.Overlay(), TouchEditWidget::Lock).size == lockBox.Size());   // E28
+    rig.Tick();   // E28
+    CHECK(rig.editor.Locked());   // the tap that slid off did not toggle it   // E28
+
+    // The numbers read as the tuning says, one decimal, whatever the value.   // E28
+    for (int tenths = 4; tenths <= 14; ++tenths) {   // E28
+        TouchTuning tuning;   // E28
+        tuning.size = static_cast<float>(tenths) / 10.0f;   // E28
+        tuning.opacity = static_cast<float>(tenths % 9 + 1) / 5.0f;   // E28
+        EditRig readout;   // E28
+        readout.Open(tuning);   // E28
+        readout.Tick();   // E28
+        const std::vector<HudCmd> out = readout.Overlay();   // E28
+        CHECK(TextCmd(out, 5).text == std::to_string(tenths / 10) + "." + std::to_string(tenths % 10));   // E28
+        const int fifths = tenths % 9 + 1;   // E28
+        CHECK(TextCmd(out, 11).text == std::to_string(fifths * 2 / 10) + "." + std::to_string(fifths * 2 % 10));   // E28
+    }   // E28
+
+    // Unlocked: every visible movable control gets four outline rectangles, in TouchControl order, before the widgets.   // E28
+    EditRig open;   // E28
+    open.Open({}, {}, true);   // E28
+    open.Tick();   // E28
+    const std::vector<HudCmd> unlocked = open.Overlay();   // E28
+    const std::size_t outlineCount = unlocked.size() - 1 - open.ControlCommands() - kEditWidgets - kEditTexts;   // E28
+    CHECK_EQ(outlineCount, std::size_t{36});   // nine controls: the eight and the Pause (Back is hidden here)   // E28
+    for (std::size_t i = 0; i < unlocked.size() && i < outlineCount; ++i) {   // E28
+        const HudCmd& cmd = unlocked[1 + open.ControlCommands() + i];   // E28
+        CHECK(cmd.kind == HudCmd::Kind::Rectangle);   // E28
+        CHECK(!cmd.stretchToSides);   // a thin line must not be stretched across a wide menu   // E28
+    }   // E28
+    CHECK(!open.controls.Visible(TouchControl::Back));   // E28
+    for (int i = 0; i < static_cast<int>(TouchControl::Count); ++i) {   // E28
+        const auto control = static_cast<TouchControl>(i);   // E28
+        if (control != TouchControl::Back) CHECK_MSG(open.controls.Visible(control), TouchControls::ControlId(control));   // E28
+    }   // E28
+
+    // The breathing: 110 + 70 sin(2 pi t / 48), t the Updates since Open; a drag makes the grabbed one solid.   // E28
+    EditRig breath;   // E28
+    breath.Open({}, {}, true);   // E28
+    const std::size_t at = 1 + breath.ControlCommands();   // E28
+    for (unsigned t = 0; t <= 100; ++t) {   // E28
+        if (t > 0) breath.Tick();   // E28
+        const unsigned expected = static_cast<unsigned>(std::lround(110.0 + 70.0 * std::sin(2.0 * 3.14159265358979323846 * (t % 48) / 48.0)));   // E28
+        const std::vector<HudCmd> out = breath.Overlay();   // E28
+        CHECK(out.size() > at);   // E28
+        if (out.size() > at) CHECK_EQ(static_cast<unsigned>(Alpha(out[at].color)), expected);   // E28
+        if (t == 0) CHECK_EQ(expected, 110u);   // E28
+    }   // E28
+    const glm::vec2 jump = breath.Where(TouchControl::Jump);   // E28
+    breath.Tick({Finger(1, jump)});   // E28
+    const std::vector<HudCmd> grabbed = breath.Overlay();   // E28
+    int solid = 0;   // E28
+    for (std::size_t i = at; i < at + 36; ++i) solid += Alpha(grabbed[i].color) == 255 ? 1 : 0;   // E28
+    CHECK_EQ(solid, 4);   // only the held control's four, and thicker   // E28
+    // The controls are the player's: their alpha is the user's, the editor's widgets are never dimmed with it.   // E28
+    TouchTuning faint;   // E28
+    faint.opacity = 0.2f;   // E28
+    EditRig dim;   // E28
+    dim.Open(faint);   // E28
+    dim.Tick();   // E28
+    const std::vector<HudCmd> dimmed = dim.Overlay();   // E28
+    CHECK_EQ(static_cast<int>(Alpha(dimmed[1].color)), 23);   // 0.45 x 0.2 = 0.09   // E28
+    CHECK_EQ(static_cast<int>(Alpha(WidgetCmd(dimmed, TouchEditWidget::Back).color)), 255);   // E28
+    CHECK_EQ(static_cast<int>(Alpha(WidgetCmd(dimmed, TouchEditWidget::OpacityLess).color)), 90);   // at its limit   // E28
+    CHECK_EQ(static_cast<int>(Alpha(WidgetCmd(dimmed, TouchEditWidget::OpacityMore).color)), 255);   // E28
+    CHECK_EQ(static_cast<int>(Alpha(WidgetCmd(dimmed, TouchEditWidget::SizeLess).color)), 255);   // E28
+    TouchTuning big;   // E28
+    big.size = TouchTuning::kMaxSize;   // E28
+    big.opacity = 1.8f;   // E28
+    EditRig top;   // E28
+    top.Open(big);   // E28
+    top.Tick();   // E28
+    const std::vector<HudCmd> highest = top.Overlay();   // E28
+    CHECK_EQ(static_cast<int>(Alpha(WidgetCmd(highest, TouchEditWidget::SizeMore).color)), 90);   // E28
+    CHECK_EQ(static_cast<int>(Alpha(WidgetCmd(highest, TouchEditWidget::OpacityMore).color)), 90);   // E28
+    CHECK_EQ(static_cast<int>(Alpha(WidgetCmd(highest, TouchEditWidget::SizeLess).color)), 255);   // E28
+    TouchTuning small;   // E28
+    small.size = 0.4f;   // E28
+    EditRig bottom;   // E28
+    bottom.Open(small);   // E28
+    bottom.Tick();   // E28
+    CHECK_EQ(static_cast<int>(Alpha(WidgetCmd(bottom.Overlay(), TouchEditWidget::SizeLess).color)), 90);   // E28
+
+    // The wide area: the backdrop covers all of it, not the 4:3 box.   // E28
+    EditRig phone;   // E28
+    phone.Wide();   // E28
+    phone.Open();   // E28
+    phone.Tick();   // E28
+    const std::vector<HudCmd> wide = phone.Overlay();   // E28
+    CHECK(!wide.empty());   // E28
+    if (!wide.empty()) {   // E28
+        CHECK(wide[0].pos == glm::vec2(-341.5f, 0.0f));   // E28
+        CHECK(wide[0].size == glm::vec2(1707.0f, 768.0f));   // E28
+    }   // E28
+}   // E28
+
+// The number pulses: 1.2 times as large after a step up, 0.8 after a step down, for six ticks.   // E28
+void testEditorPulse() {   // E28
+    EditRig rig;   // E28
+    rig.Open();   // E28
+    rig.Tick();   // E28
+    CHECK_NEAR(TextCmd(rig.Overlay(), 5).fontSize, 40.0f);   // E28
+    rig.Tap(TouchEditWidget::SizeMore);   // E28
+    // The step's own tick and the five after it.   // E28
+    for (int t = 0; t < 6; ++t) {   // E28
+        const std::vector<HudCmd> out = rig.Overlay();   // E28
+        CHECK_NEAR(TextCmd(out, 5).fontSize, 48.0f);    // the size number, grown   // E28
+        CHECK_NEAR(TextCmd(out, 11).fontSize, 40.0f);   // the opacity number, not   // E28
+        // Kept centred: the origin moves up and left by half of what it grew.   // E28
+        CHECK_NEAR(TextCmd(out, 5).pos.x, 512.0f - 23.0f * 1.2f);   // E28
+        CHECK_NEAR(TextCmd(out, 5).pos.y, 168.0f - 20.0f * 1.2f);   // E28
+        CHECK(TextCmd(out, 5).text == "1.1");   // E28
+        if (t < 5) rig.Tick();   // E28
+    }   // E28
+    rig.Tick();   // E28
+    CHECK_NEAR(TextCmd(rig.Overlay(), 5).fontSize, 40.0f);   // E28
+    CHECK_NEAR(TextCmd(rig.Overlay(), 5).pos.x, 512.0f - 23.0f);   // E28
+    // Down: shrunk, the other readout's own.   // E28
+    rig.Tap(TouchEditWidget::OpacityLess);   // E28
+    CHECK_NEAR(TextCmd(rig.Overlay(), 11).fontSize, 32.0f);   // E28
+    CHECK_NEAR(TextCmd(rig.Overlay(), 11).pos.x, 512.0f - 23.0f * 0.8f);   // E28
+    CHECK_NEAR(TextCmd(rig.Overlay(), 5).fontSize, 40.0f);   // E28
+    CHECK(TextCmd(rig.Overlay(), 11).text == "0.8");   // E28
+    // A tap at a limit changes nothing, so there is nothing to pulse.   // E28
+    EditRig limit;   // E28
+    TouchTuning top;   // E28
+    top.size = TouchTuning::kMaxSize;   // E28
+    limit.Open(top);   // E28
+    limit.Tap(TouchEditWidget::SizeMore);   // E28
+    CHECK_NEAR(TextCmd(limit.Overlay(), 5).fontSize, 40.0f);   // E28
+}   // E28
+
+// A tap that lasted less than a tick reaches the editor through TouchControls::Down(), latched; the editor keeps no   // E28
+// latch of its own.   // E28
+void testEditorLatchedTap() {   // E28
+    EditRig rig;   // E28
+    rig.Open();   // E28
+    rig.controls.LatchFrame({Finger(1, rig.Where(TouchEditWidget::Lock))});   // down and up in a frame no tick saw   // E28
+    TouchInput in = rig.base;   // E28
+    rig.controls.Update(in);   // E28
+    CHECK(!rig.controls.Down().empty());   // E28
+    TouchEditInput edit;   // E28
+    edit.down = &rig.controls.Down();   // E28
+    edit.geometry = TouchGeometry::From(in);   // E28
+    rig.editor.Update(edit, rig.controls);   // E28
+    CHECK(rig.editor.Locked());   // E28
+    rig.controls.Update(in);   // the next tick: gone   // E28
+    CHECK(rig.controls.Down().empty());   // E28
+    edit.down = &rig.controls.Down();   // E28
+    rig.editor.Update(edit, rig.controls);   // E28
+    CHECK(!rig.editor.Locked());   // E28
+}   // E28
+
+// A data folder that holds the editor's images: they are drawn as sprites by name; one missing is a plain square.   // E28
+void testEditorArtRoot() {   // E28
+    const std::filesystem::path root = std::filesystem::temp_directory_path() / "penumbra_e28_pause_suite_art";   // E28
+    std::error_code ec;   // E28
+    std::filesystem::remove_all(root, ec);   // E28
+    std::filesystem::create_directories(root / "images" / "options", ec);   // E28
+    const char* const names[] = {"arrow_left", "edit_shrink", "edit_enlarge", "edit_dim",   // E28
+                                 "edit_brighten", "edit_locked", "edit_unlocked", "edit_restore"};   // E28
+    // Only their being there matters: the editor looks each up once and the renderer decodes it.   // E28
+    for (const char* name : names) std::ofstream(root / "images" / "options" / (std::string(name) + ".png")) << "x";   // E28
+    const auto endsWith = [](const std::string& text, const std::string& tail) {   // E28
+        return text.size() >= tail.size() && text.compare(text.size() - tail.size(), tail.size(), tail) == 0;   // E28
+    };   // E28
+
+    EditRig rig;   // E28
+    rig.editor.SetImageRoot(root);   // E28
+    rig.Open();   // E28
+    rig.Tick();   // E28
+    std::vector<HudCmd> out = rig.Overlay();   // E28
+    const char* const order[kEditWidgets] = {"arrow_left", "edit_shrink", "edit_enlarge", "edit_dim",   // E28
+                                             "edit_brighten", "edit_locked", "edit_restore"};   // E28
+    if (out.size() >= kEditWidgets + kEditTexts) {   // E28
+        for (int w = 0; w < kTouchEditWidgetCount; ++w) {   // E28
+            const HudCmd& cmd = WidgetCmd(out, static_cast<TouchEditWidget>(w));   // E28
+            CHECK(cmd.kind == HudCmd::Kind::ShapedSprite);   // E28
+            CHECK_MSG(endsWith(cmd.sprite, std::string("/images/options/") + order[w] + ".png"), cmd.sprite);   // E28
+            CHECK(cmd.pos == rig.Widget(static_cast<TouchEditWidget>(w)).min);   // E28
+            CHECK(cmd.size == rig.Widget(static_cast<TouchEditWidget>(w)).Size());   // E28
+            CHECK((cmd.color & 0x00FFFFFFu) == 0x00FFFFFFu);   // untinted: the art is the look   // E28
+        }   // E28
+    }   // E28
+    // Unlocked, the lock tile is the red frame's.   // E28
+    rig.Tap(TouchEditWidget::Lock);   // E28
+    out = rig.Overlay();   // E28
+    if (out.size() >= kEditWidgets + kEditTexts) {   // E28
+        CHECK(endsWith(WidgetCmd(out, TouchEditWidget::Lock).sprite, "/edit_unlocked.png"));   // E28
+    }   // E28
+    // One image missing: that tile is a plain square, the rest keep their art.   // E28
+    std::filesystem::remove(root / "images" / "options" / "edit_dim.png", ec);   // E28
+    rig.editor.SetImageRoot(root);   // E28
+    out = rig.Overlay();   // E28
+    if (out.size() >= kEditWidgets + kEditTexts) {   // E28
+        CHECK(WidgetCmd(out, TouchEditWidget::OpacityLess).kind == HudCmd::Kind::Rectangle);   // E28
+        CHECK(WidgetCmd(out, TouchEditWidget::OpacityMore).kind == HudCmd::Kind::ShapedSprite);   // E28
+    }   // E28
+    // No data folder at all: seven squares.   // E28
+    rig.editor.SetImageRoot(std::filesystem::path());   // E28
+    out = rig.Overlay();   // E28
+    if (out.size() >= kEditWidgets + kEditTexts) {   // E28
+        for (int w = 0; w < kTouchEditWidgetCount; ++w) {   // E28
+            CHECK(WidgetCmd(out, static_cast<TouchEditWidget>(w)).kind == HudCmd::Kind::Rectangle);   // E28
+        }   // E28
+    }   // E28
+    std::filesystem::remove_all(root, ec);   // E28
+}   // E28
+// E28 END pure editor tests   // E28
+
+// The art the editor names is there and looks as it should (tools/art/make_options_art.py): 96 px tiles and the 64 px   // E28
+// back arrow, round corners, no magenta, the unlocked lock on a red frame and every other one not.   // E28
+void testEditorArt() {   // E28
+    const std::filesystem::path dir = std::filesystem::path(PENUMBRA_DATA_DIR) / "images" / "options";   // E28
+    struct Image {   // E28
+        const char* name;   // E28
+        int size;   // E28
+        bool red;   // E28
+    };   // E28
+    const Image images[] = {{"arrow_left", 64, false},   {"edit_shrink", 96, false},   {"edit_enlarge", 96, false},   // E28
+                            {"edit_dim", 96, false},     {"edit_brighten", 96, false}, {"edit_locked", 96, false},   // E28
+                            {"edit_unlocked", 96, true}, {"edit_restore", 96, false}};   // E28
+    for (const Image& image : images) {   // E28
+        const std::filesystem::path path = dir / (std::string(image.name) + ".png");   // E28
+        CHECK_MSG(std::filesystem::is_regular_file(path), path.generic_string());   // E28
+        const glm::ivec2 pixels = Penumbra::Render::ProbeImageSize(path.generic_string());   // E28
+        CHECK_MSG(pixels.x == image.size && pixels.y == image.size, image.name);   // E28
+        const Penumbra::Render::DecodedImage decoded =   // E28
+            Penumbra::Render::DecodeTexture(path.generic_string(), Penumbra::Render::TextureVariant::Plain);   // E28
+        CHECK_MSG(decoded.Valid(), image.name);   // E28
+        if (!decoded.Valid()) continue;   // E28
+        const auto alphaAt = [&decoded](const int x, const int y) {   // E28
+            return decoded.rgba[(static_cast<std::size_t>(y) * static_cast<std::size_t>(decoded.width) +   // E28
+                                 static_cast<std::size_t>(x)) * 4 + 3];   // E28
+        };   // E28
+        const int last = decoded.width - 1;   // E28
+        CHECK_MSG(alphaAt(0, 0) < 255 && alphaAt(last, 0) < 255 && alphaAt(0, last) < 255 && alphaAt(last, last) < 255,   // E28
+                  image.name);   // rounded: the corners show what is under   // E28
+        double red = 0.0;   // E28
+        double green = 0.0;   // E28
+        std::size_t solid = 0;   // E28
+        bool magenta = false;   // E28
+        for (std::size_t p = 0; p + 3 < decoded.rgba.size(); p += 4) {   // E28
+            magenta = magenta || (decoded.rgba[p] == 255 && decoded.rgba[p + 1] == 0 && decoded.rgba[p + 2] == 255);   // E28
+            if (decoded.rgba[p + 3] != 255) continue;   // E28
+            red += decoded.rgba[p];   // E28
+            green += decoded.rgba[p + 1];   // E28
+            ++solid;   // E28
+        }   // E28
+        CHECK_MSG(!magenta, image.name);   // E28
+        CHECK_MSG(solid > 0, image.name);   // E28
+        if (solid == 0) continue;   // E28
+        const double meanRed = red / static_cast<double>(solid);   // E28
+        const double meanGreen = green / static_cast<double>(solid);   // E28
+        // The frame's body: red when it is the unlocked one's (editing), a neutral dark stone otherwise.   // E28
+        if (image.red) CHECK_MSG(meanRed > meanGreen + 40.0, image.name);   // E28
+        else CHECK_MSG(meanRed <= meanGreen + 40.0, image.name);   // E28
+    }   // E28
+}   // E28
+
+// The glyph quads of a command list, as the box they cover in logical px (an empty box when there are none).   // E28
+struct InkBox {   // E28
+    bool any = false;   // E28
+    glm::vec2 min{0.0f};   // E28
+    glm::vec2 max{0.0f};   // E28
+};   // E28
+
+InkBox InkOf(const std::vector<Supersonic::ScreenOverlay::Quad>& quads, const View& view) {   // E28
+    InkBox ink;   // E28
+    for (const auto& quad : quads) {   // E28
+        if (quad.texture.rfind("penumbra:font:", 0) != 0) continue;   // E28
+        const glm::vec2 lo = (quad.min * glm::vec2(view.windowPixels) - view.viewportMin) / view.scale;   // E28
+        const glm::vec2 hi = (quad.max * glm::vec2(view.windowPixels) - view.viewportMin) / view.scale;   // E28
+        ink.min = ink.any ? glm::min(ink.min, lo) : lo;   // E28
+        ink.max = ink.any ? glm::max(ink.max, hi) : hi;   // E28
+        ink.any = true;   // E28
+    }   // E28
+    return ink;   // E28
+}   // E28
+
+bool InkOverlaps(const InkBox& ink, const TouchLayout::Box& box) {   // E28
+    return ink.any && ink.min.x < box.max.x && ink.max.x > box.min.x && ink.min.y < box.max.y && ink.max.y > box.min.y;   // E28
+}   // E28
+
+// The overlay through HudRenderer: a thin outline stays thin on a wide menu, and in every language the title   // E28
+// and the numbers fit their rooms and keep clear of the tiles, the back arrow and the Pause button.   // E28
+void testEditorThroughHudRenderer() {   // E28
+    entt::registry registry;   // E28
+    Penumbra::Render::TextureCache textures(PENUMBRA_ORIGINAL_DIR);   // E28
+    Penumbra::Render::FontAtlas fonts;   // E28
+    Localization loc;   // E28
+    CHECK(loc.Load());   // E28
+    HudRenderer hud;   // E28
+    hud.Attach(registry, textures, fonts, loc);   // E28
+    CHECK(loc.HasTranslation(TouchEditor::kTitle));   // E28
+
+    // E1's open sides: a 20:9 window shows 342 logical px past the 4:3 box each side.   // E28
+    View wideView;   // E28
+    wideView.logicalScreen = glm::vec2(1024.0f, 768.0f);   // E28
+    wideView.windowPixels = glm::uvec2(1708, 768);   // E28
+    wideView.scale = 1.0f;   // E28
+    wideView.viewportMin = glm::vec2(342.0f, 0.0f);   // E28
+    wideView.viewportMax = glm::vec2(1366.0f, 768.0f);   // E28
+    wideView.openSides = 342.0f;   // E28
+    View plainView;   // E28
+    plainView.logicalScreen = glm::vec2(1024.0f, 768.0f);   // E28
+    plainView.windowPixels = glm::uvec2(1024, 768);   // E28
+    plainView.scale = 1.0f;   // E28
+    plainView.viewportMin = glm::vec2(0.0f);   // E28
+    plainView.viewportMax = glm::vec2(1024.0f, 768.0f);   // E28
+    const RenderSnapshot empty;   // E28
+    const auto quadsOf = [&](const std::vector<HudCmd>& extra, const View& view) {   // E28
+        std::vector<Supersonic::ScreenOverlay::Quad> quads;   // E28
+        hud.Build(empty, view, quads, &extra);   // E28
+        return quads;   // E28
+    };   // E28
+
+    // The d-pad's grab strip straddles x = 0 on a notched phone: its outline's top row meets the screen's left   // E28
+    // edge. HudRenderer carries a rectangle that meets it out to the edge of what is shown (a fade's way) - and must not   // E28
+    // for one that says not to.   // E28
+    {   // E28
+        HudCmd line;   // E28
+        line.kind = HudCmd::Kind::Rectangle;   // E28
+        line.pos = glm::vec2(-230.0f, 621.0f);   // E28
+        line.size = glm::vec2(400.0f, 2.0f);   // all four corners opaque white, HudCmd's default   // E28
+        const auto whiteReach = [&](const HudCmd& cmd, float& low, float& high) {   // E28
+            int count = 0;   // E28
+            low = 1e9f;   // E28
+            high = -1e9f;   // E28
+            for (const auto& quad : quadsOf({cmd}, wideView)) {   // E28
+                if (!quad.texture.empty() || quad.color != glm::vec4(1.0f)) continue;   // E28
+                ++count;   // E28
+                low = std::min(low, quad.min.x * 1708.0f - 342.0f);   // E28
+                high = std::max(high, quad.max.x * 1708.0f - 342.0f);   // E28
+            }   // E28
+            return count;   // E28
+        };   // E28
+        float low = 0.0f;   // E28
+        float high = 0.0f;   // E28
+        HudCmd stays = line;   // E28
+        stays.stretchToSides = false;   // E28
+        CHECK_EQ(whiteReach(stays, low, high), 1);   // E28
+        CHECK_NEAR(low, -230.0f);   // E28
+        CHECK_NEAR(high, 170.0f);   // E28
+        CHECK(whiteReach(line, low, high) > 1);   // the default is the stretch: the check has teeth   // E28
+        CHECK(low < -300.0f);   // E28
+    }   // E28
+
+    if (fonts.FaceFile(TouchEditor::kFont).empty()) {   // E28
+        hud.Detach();   // E28
+        return;   // E28
+    }   // E28
+
+    // The phone: the shown area 20:9, a 3.5% HUD frame (E26), at the edge of the window the Pause hangs from it.   // E28
+    EditRig phone;   // E28
+    phone.Wide();   // E28
+    phone.base.hudFrame = TouchInsets{59.8f, 26.9f, 59.8f, 0.0f};   // E28
+    EditRig four3;   // E28
+    struct Case {   // E28
+        const char* name;   // E28
+        EditRig* rig;   // E28
+        const View* view;   // E28
+    };   // E28
+    const Case cases[] = {{"4:3", &four3, &plainView}, {"20:9", &phone, &wideView}};   // E28
+    Penumbra::Render::VisualText visual;   // E28
+    for (const Case& scene : cases) {   // E28
+        EditRig& rig = *scene.rig;   // E28
+        rig.Open({}, {}, true);   // E28
+        rig.Tick();   // E28
+        const std::vector<HudCmd> overlay = rig.Overlay();   // E28
+        const TouchEditor::Layout layout = TouchEditor::ComputeLayout(rig.Geometry());   // E28
+        const TouchLayout::Box pause = rig.controls.Layout()[TouchControl::Pause];   // E28
+        if (overlay.size() < kEditTexts) continue;   // E28
+        if (scene.view == &wideView) {   // E28
+            // The title's edge is left of the Pause, which the HUD frame holds in from the notch's edge; with   // E28
+            // the safe area alone it would run under the button.   // E28
+            CHECK(layout.titleRight < pause.min.x);   // E28
+            TouchGeometry bare = rig.Geometry();   // E28
+            bare.hudFrame = TouchInsets{};   // E28
+            CHECK(TouchEditor::ComputeLayout(bare).titleRight > pause.min.x);   // E28
+        }   // E28
+        for (const Penumbra::Render::LanguageInfo& info : Penumbra::Render::kLanguages) {   // E28
+            const Language language = info.language;   // E28
+            if (!loc.HasLanguageFile(language)) continue;   // E28
+            loc.SetLanguage(language);   // E28
+            const std::string where = std::string(scene.name) + " " + info.id;   // E28
+            // The title: one line, in its room (750 px: 140 from the right edge and the Pause's column).   // E28
+            const Penumbra::Render::TextLayout words = fonts.LayoutCodePoints(   // E28
+                visual.Of(loc.Translate(TouchEditor::kTitle, language), info.rightToLeft), TouchEditor::kFont,   // E28
+                TouchEditor::kTitleSize, layout.title);   // E28
+            CHECK_MSG(words.lines == 1, where + " title lines: " + std::to_string(words.lines));   // E28
+            CHECK_MSG(words.width <= 750.0f, where + " title is " + std::to_string(words.width) + " px wide");   // E28
+
+            // Every text, shadow and front, as drawn: its ink clear of every tile, the arrow and the Pause.   // E28
+            for (std::size_t t = 0; t < kEditTexts; ++t) {   // E28
+                const HudCmd& cmd = TextCmd(overlay, t);   // E28
+                const InkBox ink = InkOf(quadsOf({cmd}, *scene.view), *scene.view);   // E28
+                CHECK_MSG(ink.any, where + " text " + std::to_string(t));   // E28
+                for (int w = 0; w < kTouchEditWidgetCount; ++w) {   // E28
+                    CHECK_MSG(!InkOverlaps(ink, layout.widget[static_cast<std::size_t>(w)]),   // E28
+                              where + " text " + std::to_string(t) + " over widget " + std::to_string(w));   // E28
+                }   // E28
+                if (t < 2) CHECK_MSG(!InkOverlaps(ink, pause), where + " the title is over the Pause button");   // E28
+                // The title keeps to its room; right to left it ends at titleRight (its shadow a tenth past).   // E28
+                if (t < 2 && ink.any) {   // E28
+                    if (info.rightToLeft) {   // E28
+                        const float edge = layout.titleRight + (t == 0 ? 4.0f : 0.0f);   // E28
+                        CHECK_MSG(ink.max.x <= edge + 3.0f && ink.max.x >= edge - 8.0f,   // E28
+                                  where + " title ink ends at " + std::to_string(ink.max.x) + ", edge " + std::to_string(edge));   // E28
+                        CHECK_MSG(ink.min.x >= layout.title.x - 8.0f, where + " title runs left of its start");   // E28
+                    } else {   // E28
+                        CHECK_MSG(ink.min.x >= layout.title.x - 2.0f && ink.max.x <= layout.title.x + 750.0f + 6.0f,   // E28
+                                  where + " title ink " + std::to_string(ink.min.x) + " - " + std::to_string(ink.max.x));   // E28
+                    }   // E28
+                }   // E28
+            }   // E28
+        }   // E28
+    }   // E28
+    hud.Detach();   // E28
+}   // E28
+
 void runTests() {
     testOpensOnlyInPlay();
     testInputFrom();
@@ -902,6 +2153,19 @@ void runTests() {
     testFilter();
     testEnglish();
     testSetting();
+    testEditorLayout();   // E28
+    testEditorOpen();   // E28
+    testEditorDrag();   // E28
+    testEditorLocked();   // E28
+    testEditorSteps();   // E28
+    testEditorRestore();   // E28
+    testEditorClose();   // E28
+    testEditorOverlay();   // E28
+    testEditorPulse();   // E28
+    testEditorLatchedTap();   // E28
+    testEditorArtRoot();   // E28
+    testEditorArt();   // E28
+    testEditorThroughHudRenderer();   // E28
 }
 
 } // namespace

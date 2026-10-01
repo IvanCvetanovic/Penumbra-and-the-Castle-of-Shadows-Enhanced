@@ -19,6 +19,14 @@
 //   --refresh auto|<Hz>    this run's fullscreen refresh rate (E23), over the settings
 //   --modes <WxH@R,...>    the display modes the options screen lists, instead of the monitor's
 //                          (captures); a '*' after one makes it the desktop's
+//   --touch-tuning <list>  this run's touch controls' size, opacity and places (E28), over the settings:
+//                          size=1.2,opacity=0.6,jump=-40:30,dpad=12:0 (a control id and dx:dy in the
+//                          manifest's pixels, +x right, +y down); none of E28's three dev flags is saved
+//   --touch-editor [locked|unlocked]  opens the touch controls' editor on the first tick the options
+//                          scene is up (E28); turns the touch controls on unless --touch says otherwise
+//   --finger <id>:<x>,<y>@<from>-<to>[/<x2>,<y2>]  a synthetic finger in logical pixels, down from
+//                          tick <from> to <to> (counted as --hold's), moving in a straight line to
+//                          (x2,y2) over that span (E28; repeatable)
 //   --original <dir>       the original game's files (the folder holding data.enml)
 //   --data <dir>           the port's own data (the folder holding strings.json)
 // --lang and --widescreen are never saved; --window implies a windowed run
@@ -32,6 +40,7 @@
 // fullscreen mode, or E23's automatic one, as Alt+Enter would), --frames N and
 // --screenshot <absolute path> for headless captures.
 
+#include <cmath>   // E28
 #include <cstdlib>
 #include <exception>
 #include <filesystem>
@@ -46,6 +55,7 @@
 #include "eth/Paths.hpp"
 #include "eth/StartupErrors.hpp"
 #include "render/Languages.hpp"
+#include "render/TouchTuning.hpp"   // E28
 #include "render/WindowMode.hpp"
 
 #include "core/GameRuntime.hpp"
@@ -82,7 +92,14 @@ constexpr const char* kGameUsage =
     "  --hp <n>               the wizard's hp once he appears (captures)\n"
     "  --refresh auto|<Hz>    this run's fullscreen refresh rate (not saved)\n"
     "  --modes <WxH@R,...>    the display modes the options screen lists (captures; not saved);\n"
-    "                         a '*' after one makes it the desktop's mode, else the largest is\n";
+    "                         a '*' after one makes it the desktop's mode, else the largest is\n"   // E28
+    "  --touch-tuning <list>  this run's touch controls' size, opacity and places (not saved; nothing is\n"   // E28
+    "                         saved in a run with this flag, --touch-editor or --finger):\n"   // E28
+    "                         size=1.2,opacity=0.6,jump=-40:30,dpad=12:0 (a control and its dx:dy)\n"   // E28
+    "  --touch-editor [locked|unlocked]  open the touch controls' editor on the options screen\n"   // E28
+    "                         (captures; turns the touch controls on unless --touch says otherwise)\n"   // E28
+    "  --finger <id>:<x>,<y>@<from>-<to>[/<x2>,<y2>]  a synthetic finger in logical pixels, down from\n"   // E28
+    "                         tick <from> to <to>, moving in a line to (x2,y2) (captures; repeatable)\n";   // E28
 
 // The Ethanon key names --hold accepts.
 const std::map<std::string, Penumbra::Eth::KEY>& KeyNames() {
@@ -154,6 +171,55 @@ bool ParseHold(const std::string& text, Penumbra::PenumbraLayer::DevHold& hold) 
     }
     return hold.to >= hold.from;
 }
+
+// E28: "x,y" in logical pixels: two finite numbers and nothing else.
+bool ParsePoint(const std::string& text, glm::vec2& point) {   // E28
+    const std::size_t comma = text.find(',');   // E28
+    if (comma == std::string::npos) return false;   // E28
+    try {   // E28
+        const std::string x = text.substr(0, comma);   // E28
+        const std::string y = text.substr(comma + 1);   // E28
+        std::size_t usedX = 0;   // E28
+        std::size_t usedY = 0;   // E28
+        point.x = std::stof(x, &usedX);   // E28
+        point.y = std::stof(y, &usedY);   // E28
+        return usedX == x.size() && usedY == y.size() && std::isfinite(point.x) && std::isfinite(point.y);   // E28
+    } catch (const std::exception&) {   // E28
+        return false;   // E28
+    }   // E28
+}   // E28
+
+// E28: --finger <id>:<x>,<y>@<from>-<to>[/<x2>,<y2>]. One tick alone (@<tick>) is a tap of one tick; without
+// the /x2,y2 end the finger stays where it landed.
+bool ParseFinger(const std::string& text, Penumbra::PenumbraLayer::DevFinger& finger) {   // E28
+    const std::size_t colon = text.find(':');   // E28
+    const std::size_t at = text.find('@');   // E28
+    if (colon == std::string::npos || at == std::string::npos || at < colon) return false;   // E28
+    const auto whole = [](const std::string& digits) {   // E28
+        return !digits.empty() && digits.find_first_not_of("0123456789") == std::string::npos;   // E28
+    };   // E28
+    try {   // E28
+        const std::string id = text.substr(0, colon);   // E28
+        if (!whole(id)) return false;   // E28
+        finger.id = std::stoi(id);   // E28
+        if (!ParsePoint(text.substr(colon + 1, at - colon - 1), finger.from)) return false;   // E28
+        finger.to = finger.from;   // E28
+        std::string span = text.substr(at + 1);   // E28
+        if (const std::size_t slash = span.find('/'); slash != std::string::npos) {   // E28
+            if (!ParsePoint(span.substr(slash + 1), finger.to)) return false;   // E28
+            span.resize(slash);   // E28
+        }   // E28
+        const std::size_t dash = span.find('-');   // E28
+        const std::string first = span.substr(0, dash);   // E28
+        const std::string last = dash == std::string::npos ? first : span.substr(dash + 1);   // E28
+        if (!whole(first) || !whole(last)) return false;   // E28
+        finger.fromTick = static_cast<unsigned>(std::stoul(first));   // E28
+        finger.toTick = static_cast<unsigned>(std::stoul(last));   // E28
+    } catch (const std::exception&) {   // E28
+        return false;   // E28
+    }   // E28
+    return finger.toTick >= finger.fromTick;   // E28
+}   // E28
 
 enum class RootReport { Found, Unspellable, Missing };
 
@@ -378,6 +444,35 @@ int PenumbraMain(int argc, char** argv) {
                              "(e.g. 1920x1200@60*,1920x1200@165), got " << value << std::endl;
                 return EXIT_FAILURE;
             }
+        } else if (arg == "--touch-tuning" && hasValue) {   // E28
+            // E28: this run's size, opacity and places (TouchTuning::ParseFlag, which clamps them as the settings'
+            // are); the editor's first commit replaces it. A run with it never saves (noSave).
+            const std::string value = argv[++i];   // E28
+            Penumbra::Render::TouchTuning tuning;   // E28
+            std::string problem;   // E28
+            if (!Penumbra::Render::TouchTuning::ParseFlag(value, tuning, &problem)) {   // E28
+                std::cerr << "[Penumbra] --touch-tuning wants size=<0.4-1.4>, opacity=<0.2-1.8> and <control>=<dx>:<dy> "   // E28
+                             "(e.g. size=1.2,opacity=0.6,jump=-40:30), got " << value << ": " << problem << std::endl;   // E28
+                return EXIT_FAILURE;   // E28
+            }   // E28
+            layerOptions.touchTuningOverride = tuning;   // E28
+            layerOptions.noSave = true;   // E28
+        } else if (arg == "--touch-editor") {   // E28
+            // E28. The value is optional, as --touch's: only "locked" or "unlocked" is taken as one.
+            layerOptions.devTouchEditor = false;   // E28
+            if (hasValue && (std::string(argv[i + 1]) == "locked" || std::string(argv[i + 1]) == "unlocked")) {   // E28
+                layerOptions.devTouchEditor = std::string(argv[++i]) == "unlocked";   // E28
+            }   // E28
+            layerOptions.noSave = true;   // E28
+        } else if (arg == "--finger" && hasValue) {   // E28
+            Penumbra::PenumbraLayer::DevFinger finger;   // E28
+            if (!ParseFinger(argv[++i], finger)) {   // E28
+                std::cerr << "[Penumbra] --finger wants <id>:<x>,<y>@<from>-<to>[/<x2>,<y2>] (e.g. 1:812,684@6-12/772,696), got "   // E28
+                          << argv[i] << std::endl;   // E28
+                return EXIT_FAILURE;   // E28
+            }   // E28
+            layerOptions.devFingers.push_back(finger);   // E28
+            layerOptions.noSave = true;   // E28
         } else if (arg == "--original" && hasValue) {
             originalFlag = argv[++i];
         } else if (arg == "--data" && hasValue) {
@@ -386,6 +481,11 @@ int PenumbraMain(int argc, char** argv) {
             engineArgs.push_back(argv[i]);
         }
     }
+
+    // E28: --touch-editor shows nothing without the touch controls: on, unless --touch (on or off) said otherwise.
+    if (layerOptions.devTouchEditor.has_value() && !layerOptions.touchOverride.has_value()) {   // E28
+        layerOptions.touchOverride = true;   // E28
+    }   // E28
 
     Supersonic::LaunchOptions options;
     try {

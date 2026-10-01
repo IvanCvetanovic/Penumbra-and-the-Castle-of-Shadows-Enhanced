@@ -21,6 +21,8 @@
 #include "render/SpriteRenderer.hpp"
 #include "render/TextureCache.hpp"
 #include "render/TouchControls.hpp"
+#include "render/TouchEditor.hpp"   // E28
+#include "render/TouchTuning.hpp"   // E28
 #include "render/View.hpp"
 #include "render/WideMenus.hpp"
 #include "render/WindowMode.hpp"

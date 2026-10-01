@@ -137,6 +137,11 @@ struct HudCmd {
     uint color2 = 0xFFFFFFFFu;  // Rectangle: bottom-left
     uint color3 = 0xFFFFFFFFu;  // Rectangle: bottom-right
     TextFit fit;                // Text, E25: group 0 (none) unless the script sets it in a box
+    // Rectangle, ENHANCEMENT E28 (not in 0.7.12): HudRenderer stretches a rectangle that meets the logical   // E28
+    // screen's left or right edge out to the edge of what is shown, whenever the view shows past the        // E28
+    // sides (the wide menus). False keeps it exactly as drawn: the touch editor's thin outlines and the     // E28
+    // plain squares of a control without art, which may straddle x = 0. True is every script's.             // E28
+    bool stretchToSides = true;                                                                              // E28
 };
 
 struct RenderSnapshot {

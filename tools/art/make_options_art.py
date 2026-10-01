@@ -7,6 +7,9 @@ Writes game/data/images/options/ (--out): the stone-frame panel the screens' gro
 (nine-sliced by game/script/optionsArt.cpp), the check boxes, the arrow, minus and plus buttons, the
 speaker, music and gamepad icons, a globe and a monitor, and a globe button for the main menu.
 images/options/README.md says which Magic Rampage file each one is and what was composed or drawn.
+ENHANCEMENT E28 adds seven more, the tiles of the touch controls' editor (game/render/TouchEditor): a stone
+frame with one of Magic Rampage's own symbols on it, 96x96 - shrink, enlarge, dim, brighten, the closed and
+the open padlock (on a red frame) and the circular arrow.
 
 It reads the package and writes nothing into it. It uses the touch art's helpers (make_mr_touch_art.py:
 the package reader, the premultiplied resampling, the soft shadow the pad icons have, the styled glyph
@@ -37,6 +40,11 @@ SHADOW_DARK = 30
 # inner shade, so the edge strips between them are the same along their length (checked below).
 PANEL_SLICE = 26
 ICON = 64                               # the icons' canvas
+# E28: the editor's tiles (TouchEditor::kTile) and their symbols. Magic Rampage draws a symbol (a 64 px sprite) at
+# 0.8 on its 102 px frame, about half of it, and the circular arrow at 1.2: here half of the 96 px tile, and 56 px.
+EDIT_TILE = 96
+EDIT_SYMBOL = 48
+EDIT_SYMBOL_RESTART = 56
 S = T.SUPERSAMPLE
 
 
@@ -191,6 +199,18 @@ def globe_alpha_glyph():
     return glyph.resize((ICON * 2, ICON * 2), Image.Resampling.LANCZOS)
 
 
+def edit_button(pack, frame, symbol, symbol_px=EDIT_SYMBOL):
+    """E28: one of Magic Rampage's stone frames at the editor's tile size with one of its own 64 px symbols
+    centred on it. Both are resampled premultiplied; the symbol keeps the shading it comes with. The two
+    frames' bodies are not the same size (95 px and 89 px at their native 128 px canvas), so each is scaled
+    to the same tile: a lock that toggles does not change size."""
+    face = T.resize(pack.body(f"sprites/{frame}.png"), (EDIT_TILE, EDIT_TILE))
+    glyph = T.resize(pack.image(f"sprites/{symbol}.png"), (symbol_px, symbol_px))
+    at = (EDIT_TILE - symbol_px) // 2
+    face.alpha_composite(glyph, (at, at))
+    return face
+
+
 def make_images(pack):
     images = {}
     panel = pack.body("sprites/smaller-purple-frame-bg.png")
@@ -205,6 +225,14 @@ def make_images(pack):
     dark = to_icon(pack.body("sprites/smaller-frame-bg.png"))
     images["minus.png"] = glyph_button(dark, minus_plus_mask(False))
     images["plus.png"] = glyph_button(dark, minus_plus_mask(True))
+    # E28: the touch controls' editor. The dark frame for every tile but the unlocked padlock, which is red.
+    images["edit_shrink.png"] = edit_button(pack, "smaller-frame-bg", "resize-symbol-shrink")
+    images["edit_enlarge.png"] = edit_button(pack, "smaller-frame-bg", "resize-symbol-enlarge")
+    images["edit_dim.png"] = edit_button(pack, "smaller-frame-bg", "adjust-symbol-transparent")
+    images["edit_brighten.png"] = edit_button(pack, "smaller-frame-bg", "adjust-symbol-opaque")
+    images["edit_locked.png"] = edit_button(pack, "smaller-frame-bg", "lock-locked")
+    images["edit_unlocked.png"] = edit_button(pack, "smaller-frame-red-bg", "lock-unlocked")
+    images["edit_restore.png"] = edit_button(pack, "smaller-frame-bg", "icon-restart-64", EDIT_SYMBOL_RESTART)
     images["speaker.png"] = pack.image("sprites/audio-toggle-on.png")
     images["music.png"] = pack.image("sprites/music-toggle-on.png")
     pad = pack.image("sprites/fighter-controller.png")

@@ -31,6 +31,7 @@
 #include <filesystem>
 #include <initializer_list>
 #include <iterator>
+#include <limits>   // E28
 #include <random>
 #include <set>
 #include <string>
@@ -78,12 +79,15 @@ using Penumbra::Render::TouchControlSpec;
 using Penumbra::Render::TouchControls;
 using Penumbra::Render::TouchCorner;
 using Penumbra::Render::TouchFacing;
+using Penumbra::Render::TouchGeometry;   // E28
 using Penumbra::Render::TouchInput;
 using Penumbra::Render::TouchInsets;
 using Penumbra::Render::TouchLayout;
 using Penumbra::Render::TouchManifest;
+using Penumbra::Render::TouchMove;   // E28
 using Penumbra::Render::TouchScene;
 using Penumbra::Render::TouchStep;
+using Penumbra::Render::TouchTuning;   // E28
 using Penumbra::Render::View;
 using Penumbra::Render::kTouchActionCount;
 using Penumbra::Render::kTouchControlCount;
@@ -1277,7 +1281,7 @@ void testLayout() {
 
 // Where an arrow's button is drawn: the opaque part of its image (the control's
 // box is the image), as a rectangle of the logical screen.
-TouchLayout::Box ArrowFace(const std::string& image, const TouchLayout::Box& dpad) {
+TouchLayout::Box ArrowFace(const std::string& image, const TouchLayout::Box& dpad, unsigned minAlpha = 128u) {   // E28: the threshold
     const Penumbra::Render::DecodedImage decoded = Penumbra::Render::DecodeTexture(
         (fs::path(PENUMBRA_DATA_DIR) / image).generic_string(), Penumbra::Render::TextureVariant::Plain);
     CHECK_MSG(decoded.Valid(), image);
@@ -1288,7 +1292,7 @@ TouchLayout::Box ArrowFace(const std::string& image, const TouchLayout::Box& dpa
         for (int x = 0; x < decoded.width; ++x) {
             const std::size_t texel = static_cast<std::size_t>(y) * static_cast<std::size_t>(decoded.width) +
                                       static_cast<std::size_t>(x);
-            if (decoded.rgba[texel * 4u + 3u] < 128u) continue;
+            if (decoded.rgba[texel * 4u + 3u] < minAlpha) continue;   // E28: was 128
             lo = glm::min(lo, glm::ivec2(x, y));
             hi = glm::max(hi, glm::ivec2(x + 1, y + 1));
         }
@@ -3212,6 +3216,974 @@ void testTouchHudInGame() {
     });
 }
 
+// ============================================================================================================
+// ENHANCEMENT E28: the player's own layout laid over the manifest (TouchControls::WithTuning, MoveFor,
+// GrabBox, SetTuning, TouchScene::Edit). Every number below was measured with the real ComputeLayout.
+// ============================================================================================================
+
+TouchMove Mv(float x, float y) { return TouchMove{x, y}; }
+
+constexpr std::size_t Slot(TouchControl control) { return static_cast<std::size_t>(control); }
+
+TouchTuning SizedAt(float size, float opacity = 1.0f) {
+    TouchTuning tuning;
+    tuning.size = size;
+    tuning.opacity = opacity;
+    return tuning;
+}
+
+TouchTuning WithMove(TouchControl control, float x, float y, float size = 1.0f) {
+    TouchTuning tuning = SizedAt(size);
+    tuning.move[Slot(control)] = TouchMove{x, y};
+    return tuning;
+}
+
+// The built-in manifest's layout with `tuning` over it.
+TouchLayout Tuned(const TouchTuning& tuning, glm::vec2 screen = kFourThree, TouchInsets safe = {}, float unit = 1.0f,
+                  TouchInsets frame = {}) {
+    return TouchControls::ComputeLayout(TouchControls::WithTuning(TouchControls::DefaultManifest(), tuning), screen,
+                                        safe, unit, frame);
+}
+
+bool BoxIs(const TouchLayout::Box& box, glm::vec2 min, glm::vec2 max, float eps = 0.01f) {
+    return Near(box.min.x, min.x, eps) && Near(box.min.y, min.y, eps) && Near(box.max.x, max.x, eps) &&
+           Near(box.max.y, max.y, eps);
+}
+
+bool SameBox(const TouchLayout::Box& a, const TouchLayout::Box& b) { return a.min == b.min && a.max == b.max; }
+
+// Every box and every padding, exactly.
+bool SameLayout(const TouchLayout& a, const TouchLayout& b) {
+    for (int i = 0; i < kTouchControlCount; ++i) {
+        const auto index = static_cast<std::size_t>(i);
+        if (!SameBox(a.boxes[index], b.boxes[index]) || a.hitPadding[index] != b.hitPadding[index]) return false;
+    }
+    return true;
+}
+
+TouchInput Edit(std::vector<TouchContact> contacts = {}) {
+    TouchInput input;
+    input.contacts = std::move(contacts);
+    input.screen = kFourThree;
+    input.scene = TouchScene::Edit;
+    input.corner = TouchCorner::Hidden;
+    return input;
+}
+
+constexpr TouchControl kMovable[] = {TouchControl::Dpad,       TouchControl::Jump,       TouchControl::Sword,
+                                     TouchControl::Fire,       TouchControl::Light,      TouchControl::SwordCombo,
+                                     TouchControl::SpellCombo, TouchControl::ExitDown,   TouchControl::Pause};
+
+// The default layout at 4:3, exactly: every number is whole or a half, so a float holds it, and any change in
+// the arithmetic ComputeLayout does (E28 split it into BoundsFor and PlaceControl) shows here as a difference. Then
+// the identity: no tuning is the manifest, bit for bit, and its layout is the layout.
+void testTuningIdentity() {
+    const TouchManifest built = TouchControls::DefaultManifest();
+    struct Exact {
+        TouchControl control;
+        glm::vec2 min;
+        glm::vec2 max;
+    };
+    const Exact table[] = {
+        {TouchControl::Dpad, {24.0f, 506.0f}, {424.0f, 906.0f}},
+        {TouchControl::Jump, {752.0f, 624.0f}, {872.0f, 744.0f}},
+        {TouchControl::Sword, {624.0f, 496.0f}, {744.0f, 616.0f}},
+        {TouchControl::Fire, {880.0f, 496.0f}, {1000.0f, 616.0f}},
+        {TouchControl::Light, {752.0f, 368.0f}, {872.0f, 488.0f}},
+        {TouchControl::SwordCombo, {702.0f, 256.0f}, {802.0f, 356.0f}},
+        {TouchControl::SpellCombo, {822.0f, 256.0f}, {922.0f, 356.0f}},
+        {TouchControl::ExitDown, {161.0f, 482.0f}, {287.0f, 608.0f}},
+        {TouchControl::Pause, {908.0f, 44.0f}, {1004.0f, 108.5f}},
+        {TouchControl::Back, {908.0f, 44.0f}, {1004.0f, 140.0f}},
+    };
+    const TouchLayout layout = TouchControls::ComputeLayout(built, kFourThree, TouchInsets{});
+    for (const Exact& entry : table) {
+        CHECK_MSG(layout[entry.control].min == entry.min && layout[entry.control].max == entry.max,
+                  TouchControls::ControlId(entry.control));
+    }
+
+    std::string warning;
+    const std::pair<const char*, TouchManifest> manifests[] = {
+        {"built in", built},
+        {"shipped", TouchControls::LoadManifest(ShippedManifest(), &warning)},
+        {"placeholder", TouchControls::LoadManifest(PlaceholderManifest(), &warning)},
+    };
+    CHECK_MSG(warning.empty(), warning);
+    TouchTuning offGrid;   // what Clamped() takes for the default: still the default
+    offGrid.size = 1.04f;
+    offGrid.opacity = 1.05f;
+    offGrid.move[Slot(TouchControl::Jump)] = Mv(0.04f, -0.04f);
+    offGrid.move[Slot(TouchControl::Back)] = Mv(5.0f, 5.0f);
+    const glm::vec2 screens[] = {kFourThree, kWide, {1707.0f, 768.0f}};
+    const TouchInsets insets[] = {{}, {88.0f, 0.0f, 88.0f, 24.0f}, {0.0f, 30.0f, 0.0f, 20.0f}};
+    for (const auto& [name, manifest] : manifests) {
+        CHECK_MSG(TouchControls::WithTuning(manifest, TouchTuning{}) == manifest, name);
+        CHECK_MSG(TouchControls::WithTuning(manifest, offGrid) == manifest, name);
+        const TouchManifest same = TouchControls::WithTuning(manifest, TouchTuning{});
+        for (const glm::vec2& screen : screens) {
+            for (const TouchInsets& safe : insets) {
+                for (const float unit : {1.0f, 512.0f / 768.0f}) {
+                    const TouchInsets frame = unit < 1.0f ? TouchInsets{40.0f, 18.0f, 40.0f, 0.0f} : TouchInsets{};
+                    CHECK_MSG(SameLayout(TouchControls::ComputeLayout(same, screen, safe, unit, frame),
+                                         TouchControls::ComputeLayout(manifest, screen, safe, unit, frame)),
+                              name);
+                }
+            }
+        }
+    }
+
+    // The same through the class: the base is what SetManifest was given, the manifest in use is the base with
+    // the tuning over it, and either is the other while the tuning is the default.
+    TouchControls touch;
+    CHECK(touch.Manifest() == built && touch.BaseManifest() == built);   // before anyone set anything
+    TouchManifest other = built;
+    other.idleAlpha = 0.3f;
+    touch.SetManifest(other);
+    CHECK(touch.Manifest() == other && touch.BaseManifest() == other);
+    touch.SetTuning(TouchTuning{});
+    CHECK(touch.Manifest() == other);
+    TouchTuning big = SizedAt(1.2f, 0.6f);
+    touch.SetTuning(big);
+    CHECK(touch.Tuning() == big);
+    CHECK(touch.BaseManifest() == other && !(touch.Manifest() == other));
+    CHECK(touch.Manifest() == TouchControls::WithTuning(other, big));
+    touch.SetManifest(built);   // a new base keeps the player's tuning
+    CHECK(touch.BaseManifest() == built && touch.Manifest() == TouchControls::WithTuning(built, big));
+    touch.SetTuning(SizedAt(1.07f));   // held on the grid
+    CHECK(touch.Tuning().size == 1.1f);
+    touch.SetTuning(TouchTuning{});
+    CHECK(touch.Manifest() == built);
+}
+
+// Size: one factor for every control but the Pause and Back, which keep the manifest's. Every size and
+// distance and reach grows from the corner the control hangs from, as `scale` does.
+void testTuningSize() {
+    const TouchManifest built = TouchControls::DefaultManifest();
+    const TouchLayout plain = Default();
+    struct Row {
+        TouchControl control;
+        glm::vec2 min;
+        glm::vec2 max;
+    };
+    const auto check = [&](float size, std::initializer_list<Row> rows) {
+        const TouchLayout layout = Tuned(SizedAt(size));
+        for (const Row& row : rows) {
+            CHECK_MSG(BoxIs(layout[row.control], row.min, row.max),
+                      std::string(TouchControls::ControlId(row.control)) + " at " + std::to_string(size));
+        }
+        // The Pause and Back are exactly what the manifest says, at every size.
+        CHECK(SameBox(layout[TouchControl::Pause], plain[TouchControl::Pause]));
+        CHECK(SameBox(layout[TouchControl::Back], plain[TouchControl::Back]));
+    };
+    check(1.2f, {{TouchControl::Jump, {697.6f, 595.2f}, {841.6f, 739.2f}},
+                 {TouchControl::Sword, {544.0f, 441.6f}, {688.0f, 585.6f}},
+                 {TouchControl::Fire, {851.2f, 441.6f}, {995.2f, 585.6f}},
+                 {TouchControl::Light, {697.6f, 288.0f}, {841.6f, 432.0f}},
+                 {TouchControl::SwordCombo, {637.6f, 153.6f}, {757.6f, 273.6f}},
+                 {TouchControl::SpellCombo, {781.6f, 153.6f}, {901.6f, 273.6f}},
+                 {TouchControl::Dpad, {28.8f, 453.6f}, {508.8f, 933.6f}},
+                 {TouchControl::ExitDown, {193.2f, 424.8f}, {344.4f, 576.0f}}});
+    check(1.4f, {{TouchControl::Jump, {643.2f, 566.4f}, {811.2f, 734.4f}},   // MR's ceiling
+                 {TouchControl::Sword, {464.0f, 387.2f}, {632.0f, 555.2f}},
+                 {TouchControl::Fire, {822.4f, 387.2f}, {990.4f, 555.2f}},
+                 {TouchControl::Light, {643.2f, 208.0f}, {811.2f, 376.0f}},
+                 {TouchControl::SwordCombo, {573.2f, 51.2f}, {713.2f, 191.2f}},
+                 {TouchControl::SpellCombo, {741.2f, 51.2f}, {881.2f, 191.2f}},
+                 {TouchControl::Dpad, {33.6f, 401.2f}, {593.6f, 961.2f}},
+                 {TouchControl::ExitDown, {225.4f, 367.6f}, {401.8f, 544.0f}}});
+    check(0.5f, {{TouchControl::Jump, {888.0f, 696.0f}, {948.0f, 756.0f}},
+                 {TouchControl::Sword, {824.0f, 632.0f}, {884.0f, 692.0f}},
+                 {TouchControl::Fire, {952.0f, 632.0f}, {1012.0f, 692.0f}},
+                 {TouchControl::Light, {888.0f, 568.0f}, {948.0f, 628.0f}},
+                 {TouchControl::SwordCombo, {863.0f, 512.0f}, {913.0f, 562.0f}},
+                 {TouchControl::SpellCombo, {923.0f, 512.0f}, {973.0f, 562.0f}},
+                 {TouchControl::Dpad, {12.0f, 637.0f}, {212.0f, 837.0f}},
+                 {TouchControl::ExitDown, {80.5f, 625.0f}, {143.5f, 688.0f}}});
+    check(0.4f, {{TouchControl::Jump, {915.2f, 710.4f}, {963.2f, 758.4f}}});   // the floor
+    // Wherever the controls hang from, they shrink toward that corner and stay on the screen.
+    for (const float size : {0.4f, 0.7f, 1.0f, 1.3f, 1.4f}) {
+        const TouchLayout layout = Tuned(SizedAt(size));
+        for (const TouchControl control : kMovable) {
+            const glm::vec2 expected = built[control].size * size;
+            if (TouchControls::SizeExempt(control)) CHECK(layout[control].Size() == built[control].size);
+            else CHECK_MSG(BoxIs(layout[control], layout[control].min, layout[control].min + expected, 0.001f),
+                           TouchControls::ControlId(control));
+        }
+    }
+    CHECK(TouchControls::SizeExempt(TouchControl::Pause) && TouchControls::SizeExempt(TouchControl::Back));
+    CHECK(!TouchControls::SizeExempt(TouchControl::Jump) && !TouchControls::SizeExempt(TouchControl::ExitDown));
+
+    // The reach and the knob grow with the control; `scale` is the manifest's own and never moves.
+    TouchManifest half = TouchControls::WithTuning(built, SizedAt(0.5f));
+    CHECK(half.scale == built.scale);
+    CHECK(half.knobSize == glm::vec2(64.0f, 64.0f));
+    CHECK_NEAR(half[TouchControl::Jump].hitPadding, 2.0f);
+    CHECK_NEAR(half[TouchControl::Dpad].hitPadding, 15.0f);
+    CHECK(half[TouchControl::Dpad].overhang == glm::vec2(0.0f, 75.0f));
+    CHECK(half[TouchControl::Pause] == built[TouchControl::Pause]);
+    CHECK(half[TouchControl::Back] == built[TouchControl::Back]);
+    CHECK(half.idleAlpha == built.idleAlpha && half.pressedAlpha == built.pressedAlpha);
+    CHECK_NEAR(Tuned(SizedAt(0.5f)).hitPadding[Slot(TouchControl::Jump)], 2.0f);
+    // The placeholder look scales as well: it is a transform of whatever manifest was loaded.
+    std::string warning;
+    const TouchManifest placeholder = TouchControls::LoadManifest(PlaceholderManifest(), &warning);
+    const TouchLayout before = TouchControls::ComputeLayout(placeholder, kFourThree, TouchInsets{});
+    const TouchLayout after =
+        TouchControls::ComputeLayout(TouchControls::WithTuning(placeholder, SizedAt(0.5f)), kFourThree, TouchInsets{});
+    CHECK_NEAR(after[TouchControl::Jump].Size().x, before[TouchControl::Jump].Size().x * 0.5f);
+
+    // The hit areas follow the drawn ones: at 0.5 the jump button is where it is drawn, not where it was.
+    TouchControls shrunk;
+    shrunk.SetTuning(SizedAt(0.5f));
+    const glm::vec2 oldCentre = Centre(TouchControl::Jump);   // (812, 684), inside the 120 px button of size 1
+    const glm::vec2 newCentre = Tuned(SizedAt(0.5f))[TouchControl::Jump].Centre();
+    CHECK(Only(shrunk.Update(Play({Finger(1, oldCentre)})), {}));
+    TouchControls shrunkAgain;
+    shrunkAgain.SetTuning(SizedAt(0.5f));
+    CHECK(Only(shrunkAgain.Update(Play({Finger(1, newCentre)})), {TouchAction::Jump}));
+    // And a control drawn larger is held where the old one was not.
+    TouchControls grown;
+    grown.SetTuning(SizedAt(1.4f));
+    const glm::vec2 beyond(700.0f, 650.0f);   // left of the size-1 button and its padding (x 748), inside the 1.4 one (x 637.6)
+    CHECK(Only(grown.Update(Play({Finger(1, beyond)})), {TouchAction::Jump}));
+    TouchControls ordinary;
+    CHECK(Only(ordinary.Update(Play({Finger(1, beyond)})), {}));
+}
+
+// Opacity: a multiplier on the manifest's own alpha, and a held look that stays a cue at every opacity.
+void testTuningOpacity() {
+    const TouchManifest built = TouchControls::DefaultManifest();
+    for (const float opacity : {0.2f, 0.6f, 1.0f, 1.4f, 1.8f}) {
+        const TouchManifest manifest = TouchControls::WithTuning(built, SizedAt(1.0f, opacity));
+        const float idle = std::clamp(0.45f * opacity, 0.0f, 1.0f);
+        CHECK_MSG(manifest.idleAlpha == idle, std::to_string(opacity));
+        CHECK_MSG(manifest.pressedAlpha == std::clamp(std::max(0.9f, idle + 0.15f), 0.0f, 1.0f), std::to_string(opacity));
+        CHECK_MSG(manifest.controls == built.controls, std::to_string(opacity));   // sizes and places untouched
+    }
+    CHECK(TouchControls::WithTuning(built, SizedAt(1.0f, 1.0f)) == built);   // 1.0: today's, exactly: 0.45 and 0.9
+    CHECK(TouchControls::WithTuning(built, SizedAt(1.0f, 0.2f)).pressedAlpha == 0.9f);   // 0.09 + 0.15 is below the manifest's
+    // All nine steps: held is above idle by a margin the eye sees, and never past 1.
+    for (int step = 1; step <= 9; ++step) {
+        const float opacity = static_cast<float>(step) / 5.0f;
+        const TouchManifest manifest = TouchControls::WithTuning(built, SizedAt(1.0f, opacity));
+        CHECK_MSG(manifest.pressedAlpha >= manifest.idleAlpha + 0.14f, std::to_string(opacity));
+        CHECK_MSG(manifest.pressedAlpha <= 1.0f && manifest.idleAlpha <= 1.0f && manifest.idleAlpha > 0.0f,
+                  std::to_string(opacity));
+    }
+    // A hand-made manifest whose idle is already high: the cap, not a wrap.
+    TouchManifest bright = built;
+    bright.idleAlpha = 0.9f;
+    CHECK(TouchControls::WithTuning(bright, SizedAt(1.0f, 1.8f)).idleAlpha == 1.0f);
+    CHECK(TouchControls::WithTuning(bright, SizedAt(1.0f, 1.8f)).pressedAlpha == 1.0f);
+
+    // As drawn: with no art found every control is a plain square at the control's alpha, never stretched to the
+    // sides of a wide menu (the direction control's, in the editor, straddles x = 0).
+    const auto bytes = [](float opacity, bool held) {
+        TouchControls touch;
+        touch.SetTuning(SizedAt(1.0f, opacity));
+        touch.Update(Play(held ? std::vector<TouchContact>{Finger(1, Centre(TouchControl::Jump))}
+                               : std::vector<TouchContact>{}));
+        std::vector<HudCmd> out;
+        touch.AppendOverlay(out);
+        std::vector<int> alphas;
+        for (const HudCmd& cmd : out) {
+            CHECK(cmd.kind == HudCmd::Kind::Rectangle);
+            CHECK(!cmd.stretchToSides);
+            alphas.push_back(static_cast<int>(Alpha(cmd.color)));
+        }
+        return alphas;
+    };
+    for (const auto& [opacity, idle] : {std::pair{0.2f, 23}, std::pair{1.0f, 115}, std::pair{1.8f, 207}}) {
+        const int pressed = static_cast<int>(
+            std::lround(TouchControls::WithTuning(built, SizedAt(1.0f, opacity)).pressedAlpha * 255.0f));
+        const std::vector<int> idleBytes = bytes(opacity, false);
+        CHECK_EQ(idleBytes.size(), std::size_t{8});   // the disc, four buttons, two combos, the pause
+        for (const int alpha : idleBytes) CHECK_MSG(alpha == idle, std::to_string(opacity));
+        int brighter = 0;
+        for (const int alpha : bytes(opacity, true)) brighter += alpha == pressed ? 1 : 0;
+        CHECK_MSG(brighter == 1, std::to_string(opacity));   // the held jump
+    }
+    // With the art, a control's image is a sprite at the same alpha.
+    TouchControls art;
+    art.SetImageRoot(PENUMBRA_DATA_DIR);
+    art.SetTuning(SizedAt(1.0f, 0.2f));
+    art.Update(Play());
+    std::vector<HudCmd> out;
+    art.AppendOverlay(out);
+    CHECK_EQ(out.size(), std::size_t{10});
+    for (const HudCmd& cmd : out) CHECK_EQ(static_cast<int>(Alpha(cmd.color)), 23);
+}
+
+// Moves: manifest pixels, in the SCREEN's direction, from where the manifest puts the control, whatever it hangs
+// from; not scaled by the size; scaled by the window like every offset; kept on the screen.
+void testTuningMoves() {
+    const TouchLayout plain = Default();
+    CHECK(BoxIs(Tuned(WithMove(TouchControl::Jump, -40.0f, 12.0f))[TouchControl::Jump], {712.0f, 636.0f}, {832.0f, 756.0f}));
+    CHECK(BoxIs(Tuned(WithMove(TouchControl::Pause, -30.0f, 20.0f))[TouchControl::Pause], {878.0f, 64.0f}, {974.0f, 128.5f}));
+    // Up past the floor: the pause stays below the run's timer row (25) and a margin (4).
+    CHECK(BoxIs(Tuned(WithMove(TouchControl::Pause, 0.0f, -30.0f))[TouchControl::Pause], {908.0f, 29.0f}, {1004.0f, 93.5f}));
+    CHECK(BoxIs(Tuned(WithMove(TouchControl::Pause, 0.0f, -15.0f))[TouchControl::Pause], {908.0f, 29.0f}, {1004.0f, 93.5f}));
+    CHECK_NEAR(Tuned(WithMove(TouchControl::Pause, 0.0f, -14.0f))[TouchControl::Pause].min.y, 30.0f);
+    // The direction control, and the down button that follows it (it sits over its gap); its own move adds.
+    const TouchLayout dpadMoved = Tuned(WithMove(TouchControl::Dpad, 10.0f, -20.0f));
+    CHECK(BoxIs(dpadMoved[TouchControl::Dpad], {34.0f, 486.0f}, {434.0f, 886.0f}));
+    CHECK(BoxIs(dpadMoved[TouchControl::ExitDown], {171.0f, 462.0f}, {297.0f, 588.0f}));
+    TouchTuning both = WithMove(TouchControl::Dpad, 10.0f, -20.0f);
+    both.move[Slot(TouchControl::ExitDown)] = Mv(5.0f, 5.0f);
+    CHECK(BoxIs(Tuned(both)[TouchControl::ExitDown], {176.0f, 467.0f}, {302.0f, 593.0f}));
+    CHECK(BoxIs(Tuned(WithMove(TouchControl::ExitDown, 5.0f, 5.0f))[TouchControl::ExitDown], {166.0f, 487.0f}, {292.0f, 613.0f}));
+    // Only what was moved moves.
+    const TouchLayout jumpMoved = Tuned(WithMove(TouchControl::Jump, -40.0f, 12.0f));
+    for (int i = 0; i < kTouchControlCount; ++i) {
+        const TouchControl control = static_cast<TouchControl>(i);
+        if (control == TouchControl::Jump) continue;
+        CHECK_MSG(SameBox(jumpMoved[control], plain[control]), TouchControls::ControlId(control));
+    }
+    // Not scaled by the size: 40 px left and 12 down of where the half-size button is.
+    CHECK(BoxIs(Tuned(WithMove(TouchControl::Jump, -40.0f, 12.0f, 0.5f))[TouchControl::Jump], {848.0f, 708.0f}, {908.0f, 768.0f}));
+
+    // Screen direction, every anchor, on every screen: a small move shifts the box by exactly that.
+    const glm::vec2 screens[] = {kFourThree, kWide, {1707.0f, 768.0f}};
+    const TouchInsets insets[] = {{}, {88.0f, 0.0f, 88.0f, 24.0f}, {0.0f, 30.0f, 0.0f, 20.0f}};
+    for (const TouchControl control : kMovable) {
+        for (const glm::vec2& screen : screens) {
+            for (const TouchInsets& safe : insets) {
+                const TouchLayout none = Tuned(TouchTuning{}, screen, safe);
+                for (const TouchMove step : {Mv(3.0f, -2.0f), Mv(-3.0f, 2.0f)}) {
+                    const TouchLayout moved = Tuned(WithMove(control, step.x, step.y), screen, safe);
+                    const std::string where = std::string(TouchControls::ControlId(control)) + " on " +
+                                              std::to_string(static_cast<int>(screen.x)) + " inset " +
+                                              std::to_string(static_cast<int>(safe.left));
+                    CHECK_MSG(Near(moved[control].min.x - none[control].min.x, step.x, 0.001f) &&
+                                  Near(moved[control].min.y - none[control].min.y, step.y, 0.001f),
+                              where);
+                    CHECK_MSG(moved[control].Size() == none[control].Size(), where);
+                }
+            }
+        }
+    }
+    // Scaled by the window like every offset (a zoomed level's unit), the pause's timer rule included.
+    for (const float unit : {1.0f, 0.5f, 0.75f}) {
+        for (const TouchControl control : kMovable) {
+            const TouchLayout none = Tuned(TouchTuning{}, kFourThree, {}, unit);
+            for (const TouchMove step : {Mv(8.0f, 6.0f), Mv(-8.0f, -6.0f)}) {   // small: no clamp, no floor
+                const TouchLayout moved = Tuned(WithMove(control, step.x, step.y), kFourThree, {}, unit);
+                CHECK_MSG(Near(moved[control].min.x - none[control].min.x, step.x * unit, 0.01f) &&
+                              Near(moved[control].min.y - none[control].min.y, step.y * unit, 0.01f),
+                          std::string(TouchControls::ControlId(control)) + " at " + std::to_string(unit));
+            }
+        }
+    }
+
+    // On the screen whatever the move says: the layout's own clamp (the dpad keeps its overhang).
+    const TouchLayout far = Tuned(WithMove(TouchControl::Jump, 5000.0f, 5000.0f));
+    CHECK(far[TouchControl::Jump].max == kFourThree);
+    const TouchLayout gone = Tuned(WithMove(TouchControl::Pause, -5000.0f, -5000.0f));
+    CHECK(gone[TouchControl::Pause].min.x == 0.0f && gone[TouchControl::Pause].min.y == TouchControls::kPauseTopClear);
+    CHECK(Inside(Tuned(WithMove(TouchControl::Dpad, -5000.0f, 5000.0f))[TouchControl::Dpad], glm::vec2(0.0f, 0.0f),
+                 glm::vec2(1024.0f, 768.0f + 150.0f)));
+    // The pause's frame: moved up, it keeps the timer's row below the frame's top (E26) and E25's scaled timer row.
+    const TouchInsets frame{40.0f, 18.0f, 40.0f, 0.0f};
+    CHECK_NEAR(Tuned(WithMove(TouchControl::Pause, 0.0f, -100.0f), kFourThree, {}, 1.0f, frame)[TouchControl::Pause].min.y, 47.0f);
+    const float unit = 512.0f / 768.0f;
+    CHECK_NEAR(Tuned(WithMove(TouchControl::Pause, 0.0f, -100.0f), kFourThree, {}, unit)[TouchControl::Pause].min.y,
+               TouchControls::kTimerRowHeight + 4.0f * unit);
+
+    // What Clamped() holds: Back never moves, a typo cannot take a control off to infinity, a NaN is no move.
+    TouchTuning wild;
+    wild.move[Slot(TouchControl::Back)] = Mv(30.0f, 30.0f);
+    wild.move[Slot(TouchControl::Fire)] = Mv(std::numeric_limits<float>::quiet_NaN(), 3.0f);
+    wild.move[Slot(TouchControl::Light)] = Mv(1.0e9f, -1.0e9f);
+    const TouchManifest sane = TouchControls::WithTuning(TouchControls::DefaultManifest(), wild);
+    CHECK(sane[TouchControl::Back] == TouchControls::DefaultManifest()[TouchControl::Back]);   // not moved
+    CHECK(wild.Clamped().move[Slot(TouchControl::Fire)] == Mv(0.0f, 3.0f));
+    CHECK(wild.Clamped().move[Slot(TouchControl::Light)] == Mv(2048.0f, -2048.0f));
+    CHECK(TouchControls::Movable(TouchControl::Pause) && !TouchControls::Movable(TouchControl::Back));
+}
+
+// A small generator with no platform in it (std::uniform_real_distribution differs between standard libraries,
+// and a test that draws different points on each says different things).
+struct Lcg {
+    std::uint32_t state = 28u;
+    float Next() {
+        state = state * 1664525u + 1013904223u;
+        return static_cast<float>(state >> 8) / 16777216.0f;
+    }
+    float In(float lo, float hi) { return lo + (hi - lo) * Next(); }
+};
+
+TouchLayout LayoutOf(const TouchManifest& manifest, const TouchGeometry& geometry) {
+    return TouchControls::ComputeLayout(manifest, geometry.AreaMin(), geometry.AreaMax(), geometry.safeArea,
+                                        geometry.unit, geometry.hudFrame);
+}
+
+// What the layout keeps a control inside, derived here from the geometry alone (not by the layout's own code):
+// the safe area, or for the pause the HUD's frame within it.
+struct Room {
+    glm::vec2 lo{0.0f};
+    glm::vec2 hi{0.0f};
+};
+
+Room RoomOf(const TouchGeometry& geometry, bool framed) {
+    const glm::vec2 min = geometry.AreaMin();
+    const glm::vec2 max = geometry.AreaMax();
+    const TouchInsets& safe = geometry.safeArea;
+    Room room;
+    room.lo = min + glm::vec2(std::max(0.0f, safe.left), std::max(0.0f, safe.top));
+    room.hi = glm::max(room.lo, max - glm::vec2(std::max(0.0f, safe.right), std::max(0.0f, safe.bottom)));
+    if (framed) {
+        const TouchInsets& frame = geometry.hudFrame;
+        const glm::vec2 lo = glm::max(room.lo, min + glm::vec2(frame.left, frame.top));
+        room.hi = glm::max(lo, glm::min(room.hi, max - glm::vec2(frame.right, frame.bottom)));
+        room.lo = lo;
+    }
+    return room;
+}
+
+// Inside its room but for the overhang the manifest allows, at the size and the window's scale it is drawn at.
+bool KeptInside(const TouchManifest& tuned, TouchControl control, const TouchLayout::Box& box,
+                const TouchGeometry& geometry) {
+    TouchControlSpec spec = tuned[control];
+    const float scale = tuned.scale * geometry.unit;
+    spec.size *= scale;
+    spec.overhang *= scale;
+    const Room room = RoomOf(geometry, control == TouchControl::Pause);
+    return InsideHanging(box, spec, room.lo, room.hi);
+}
+
+TouchGeometry GeometryOf(glm::vec2 screen, TouchInsets safe, float unit, TouchInsets frame) {
+    TouchGeometry geometry;
+    geometry.screen = screen;
+    geometry.safeArea = safe;
+    geometry.unit = unit;
+    geometry.hudFrame = frame;
+    return geometry;
+}
+
+// MoveFor is ComputeLayout run backwards: the move that puts a control where a finger drags it. Round trips
+// through the real layout on every control, three screen shapes, a notch and a status bar, two window scales, the
+// HUD's frame, E1's wide menus' area and every other size the editor offers; and the pins.
+void testMoveFor() {
+    const TouchManifest manifest = TouchControls::DefaultManifest();
+    const TouchInsets insets[] = {{}, {88.0f, 0.0f, 88.0f, 24.0f}, {0.0f, 30.0f, 0.0f, 20.0f}};
+    std::vector<TouchGeometry> geometries;
+    for (const glm::vec2 screen : {kFourThree, kWide, glm::vec2(1707.0f, 768.0f)}) {
+        for (const TouchInsets& safe : insets) {
+            for (const float unit : {1.0f, 0.667f}) {
+                for (const TouchInsets& frame : {TouchInsets{}, TouchInsets{40.0f, 18.0f, 40.0f, 0.0f}}) {
+                    geometries.push_back(GeometryOf(screen, safe, unit, frame));
+                }
+            }
+        }
+    }
+    for (const TouchInsets& safe : insets) {   // E1's wide menu: laid out across what is shown, past the screen's sides
+        TouchGeometry area = GeometryOf(kFourThree, safe, 1.0f, {});
+        area.areaMin = glm::vec2(-341.5f, 0.0f);
+        area.areaMax = glm::vec2(1365.5f, 768.0f);
+        geometries.push_back(area);
+    }
+    Lcg rng;
+    int trials = 0;
+    for (const TouchGeometry& geometry : geometries) {
+        for (const float size : {0.4f, 1.0f, 1.2f, 1.4f}) {
+            for (const TouchControl control : kMovable) {
+                const std::string where = std::string(TouchControls::ControlId(control)) + " size " +
+                                          std::to_string(size) + " on " + std::to_string(static_cast<int>(geometry.screen.x)) +
+                                          (geometry.areaMax.x > geometry.areaMin.x ? " (area)" : "") + " unit " +
+                                          std::to_string(geometry.unit) + (geometry.hudFrame.left > 0.0f ? " framed" : "");
+                // One verdict per control, size and geometry over all its trials: the first thing that went wrong, with
+                // the point it went wrong at (a thousand identical checks would say no more than that).
+                std::string problem;
+                const auto note = [&problem](bool ok, const std::string& what) {
+                    if (!ok && problem.empty()) problem = what;
+                };
+                for (int trial = 0; trial < 8; ++trial, ++trials) {
+                    // Every other control moved a little (the Dpad's takes the down button along), this one's move
+                    // anything the layout allows.
+                    TouchTuning others = SizedAt(size);
+                    for (const TouchControl other : kMovable) {
+                        if (other != control && rng.Next() < 0.4f) {
+                            others.move[Slot(other)] = Mv(rng.In(-120.0f, 120.0f), rng.In(-120.0f, 120.0f));
+                        }
+                    }
+                    TouchTuning mine = others;
+                    mine.move[Slot(control)] = Mv(rng.In(-250.0f, 250.0f), rng.In(-250.0f, 250.0f));
+                    const TouchLayout drawn = LayoutOf(TouchControls::WithTuning(manifest, mine), geometry);
+                    const glm::vec2 target = drawn[control].min;   // a place the layout can put it, by construction
+
+                    const TouchMove got = TouchControls::MoveFor(manifest, mine, control, target, geometry);
+                    note(got == TouchControls::MoveFor(manifest, others, control, target, geometry), "its own move was not ignored");
+                    TouchTuning applied = others;
+                    applied.move[Slot(control)] = got;
+                    const TouchLayout again = LayoutOf(TouchControls::WithTuning(manifest, applied), geometry);
+                    note(Near(again[control].min.x, target.x, 0.15f) && Near(again[control].min.y, target.y, 0.15f),
+                         "wanted (" + std::to_string(target.x) + "," + std::to_string(target.y) + ") got (" +
+                             std::to_string(again[control].min.x) + "," + std::to_string(again[control].min.y) + ")");
+                    // Idempotent: asking for where it is gives the move it has.
+                    const TouchMove same = TouchControls::MoveFor(manifest, applied, control, again[control].min, geometry);
+                    note(Near(same.x, got.x, 0.1f) && Near(same.y, got.y, 0.1f), "not idempotent");
+                    // Nothing else moved by it, but the down button the direction control carries.
+                    TouchTuning unmoved = others;
+                    unmoved.move[Slot(control)] = Mv(0.0f, 0.0f);
+                    const TouchLayout rest = LayoutOf(TouchControls::WithTuning(manifest, unmoved), geometry);
+                    for (int i = 0; i < kTouchControlCount; ++i) {
+                        const TouchControl other = static_cast<TouchControl>(i);
+                        if (other == control || (control == TouchControl::Dpad && other == TouchControl::ExitDown)) continue;
+                        note(SameBox(again[other], rest[other]), std::string("it moved ") + TouchControls::ControlId(other));
+                    }
+                    // Anywhere at all (off the screen too): the result is inside the room it must keep to.
+                    const glm::vec2 anywhere(rng.In(-300.0f, 1800.0f), rng.In(-300.0f, 1100.0f));
+                    TouchTuning dragged = others;
+                    dragged.move[Slot(control)] = TouchControls::MoveFor(manifest, others, control, anywhere, geometry);
+                    const TouchManifest tuned = TouchControls::WithTuning(manifest, dragged);
+                    note(KeptInside(tuned, control, LayoutOf(tuned, geometry)[control], geometry),
+                         "dragged to (" + std::to_string(anywhere.x) + "," + std::to_string(anywhere.y) + ") it left its room");
+                }
+                CHECK_MSG(problem.empty(), where + ": " + problem);
+            }
+        }
+    }
+    std::printf("  E28 MoveFor: %d round trips\n", trials);
+
+    // The pins, 4:3, size 1.
+    const TouchGeometry flat = GeometryOf(kFourThree, {}, 1.0f, {});
+    const TouchTuning none;
+    const auto moveTo = [&](TouchControl control, float x, float y) {
+        return TouchControls::MoveFor(manifest, none, control, glm::vec2(x, y), flat);
+    };
+    CHECK(moveTo(TouchControl::Jump, 700.0f, 600.0f) == Mv(-52.0f, -24.0f));
+    CHECK(moveTo(TouchControl::Jump, 2000.0f, 2000.0f) == Mv(152.0f, 24.0f));   // the bound (904, 648)
+    CHECK(moveTo(TouchControl::Dpad, -500.0f, 900.0f) == Mv(-24.0f, 12.0f));   // the bound (0, 518): the overhang
+    CHECK(moveTo(TouchControl::Pause, 908.0f, 0.0f) == Mv(0.0f, -15.0f));   // below the timer's row: y 29
+    CHECK(Tuned(WithMove(TouchControl::Pause, 0.0f, -15.0f))[TouchControl::Pause].min.y == 29.0f);
+    CHECK(moveTo(TouchControl::Back, 100.0f, 100.0f).IsZero());   // Back never moves
+    CHECK(moveTo(TouchControl::Jump, std::numeric_limits<float>::quiet_NaN(), 600.0f).x == 0.0f);   // no point, no move
+    // The down button counts the direction control's move as its own start.
+    const TouchTuning dpadAway = WithMove(TouchControl::Dpad, 10.0f, -20.0f);
+    CHECK(TouchControls::MoveFor(manifest, dpadAway, TouchControl::ExitDown, glm::vec2(176.0f, 467.0f), flat) == Mv(5.0f, 5.0f));
+    CHECK(TouchControls::MoveFor(manifest, dpadAway, TouchControl::Dpad, glm::vec2(34.0f, 486.0f), flat) == Mv(10.0f, -20.0f));
+    // The HUD's frame (E26) holds the pause: in from the frame's right and below its top and the timer's row.
+    const TouchInsets frame{40.0f, 18.0f, 40.0f, 0.0f};
+    const TouchGeometry framed = GeometryOf(kFourThree, {}, 1.0f, frame);
+    const TouchMove corner = TouchControls::MoveFor(manifest, none, TouchControl::Pause, glm::vec2(2000.0f, 0.0f), framed);
+    CHECK(corner == Mv(20.0f, -15.0f));
+    CHECK(BoxIs(Tuned(WithMove(TouchControl::Pause, corner.x, corner.y), kFourThree, {}, 1.0f, frame)[TouchControl::Pause],
+                {888.0f, 47.0f}, {984.0f, 111.5f}));
+    // A zoomed level (E25): the timer's row is the screen's 25 px, the margin scales.
+    const float unit = 512.0f / 768.0f;
+    const TouchGeometry zoomed = GeometryOf(glm::vec2(1138.0f, 512.0f), {}, unit, {});
+    const TouchMove up = TouchControls::MoveFor(manifest, none, TouchControl::Pause, glm::vec2(1000.0f, -500.0f), zoomed);
+    CHECK_NEAR(TouchControls::ComputeLayout(TouchControls::WithTuning(manifest, WithMove(TouchControl::Pause, up.x, up.y)),
+                                            zoomed.screen, {}, unit)[TouchControl::Pause].min.y,
+               TouchControls::kTimerRowHeight + 4.0f * unit);
+}
+
+// What a finger can grab in the editor: the strip the direction control's two buttons occupy, not its 400-unit
+// disc (half of it off the screen, the rest empty).
+void testGrabBox() {
+    const TouchManifest manifest = TouchControls::DefaultManifest();
+    const TouchLayout plain = Default();
+    const TouchLayout::Box strip = TouchControls::GrabBox(TouchControl::Dpad, plain[TouchControl::Dpad]);
+    CHECK(BoxIs(strip, {24.0f, 621.32f}, {424.0f, 747.32f}, 0.001f));
+    for (int i = 0; i < kTouchControlCount; ++i) {
+        const TouchControl control = static_cast<TouchControl>(i);
+        if (control == TouchControl::Dpad) continue;
+        CHECK_MSG(SameBox(TouchControls::GrabBox(control, plain[control]), plain[control]), TouchControls::ControlId(control));
+    }
+    // It is the buttons' whole drawn extent (every texel that is not transparent; the art is 406 px for the box's 400
+    // units, so a texel is a unit within a unit and a half), and so it holds both opaque faces (alpha 128 and up),
+    // which it exceeds by the art's soft rim, about 10 units a side.
+    const auto unionOf = [&](unsigned minAlpha) {
+        const TouchLayout::Box left = ArrowFace(manifest.dpadLeft, plain[TouchControl::Dpad], minAlpha);
+        const TouchLayout::Box right = ArrowFace(manifest.dpadRight, plain[TouchControl::Dpad], minAlpha);
+        return TouchLayout::Box{glm::min(left.min, right.min), glm::max(left.max, right.max)};
+    };
+    const TouchLayout::Box drawn = unionOf(1u);
+    const TouchLayout::Box faces = unionOf(128u);
+    std::printf("  E28 GrabBox: the buttons' drawn extent (%.2f,%.2f)-(%.2f,%.2f), their opaque faces (%.2f,%.2f)-(%.2f,%.2f), "
+                "the strip (%.2f,%.2f)-(%.2f,%.2f)\n",
+                drawn.min.x, drawn.min.y, drawn.max.x, drawn.max.y, faces.min.x, faces.min.y, faces.max.x, faces.max.y,
+                strip.min.x, strip.min.y, strip.max.x, strip.max.y);
+    CHECK(Near(strip.min.x, drawn.min.x, 1.5f) && Near(strip.min.y, drawn.min.y, 1.5f));
+    CHECK(Near(strip.max.x, drawn.max.x, 1.5f) && Near(strip.max.y, drawn.max.y, 1.5f));
+    CHECK(strip.min.x <= faces.min.x && strip.min.y <= faces.min.y && strip.max.x >= faces.max.x && strip.max.y >= faces.max.y);
+    CHECK(faces.min.x - strip.min.x <= 10.5f && faces.min.y - strip.min.y <= 10.5f);   // the rim, no more
+    CHECK(strip.max.x - faces.max.x <= 10.5f && strip.max.y - faces.max.y <= 10.5f);
+    // At any size and place: the same fractions of the box.
+    for (const float size : {0.4f, 1.2f, 1.4f}) {
+        const TouchLayout::Box box = Tuned(SizedAt(size))[TouchControl::Dpad];
+        const TouchLayout::Box grab = TouchControls::GrabBox(TouchControl::Dpad, box);
+        CHECK_NEAR((grab.min.y - box.min.y) / box.Size().y, 0.2883f);
+        CHECK_NEAR((grab.max.y - box.min.y) / box.Size().y, 0.6033f);
+        CHECK(grab.min.x == box.min.x && grab.max.x == box.max.x);
+        const TouchLayout::Box leftAt = ArrowFace(manifest.dpadLeft, box);
+        CHECK_MSG(grab.min.y <= leftAt.min.y && grab.max.y >= leftAt.max.y, std::to_string(size));
+    }
+}
+
+// The editor's scene: every control that moves is shown and none of them presses anything; no finger is the
+// mouse; a finger there is dead in every scene after it; and the layout follows a tuning at once.
+void testEditScene() {
+    constexpr TouchControl kShown[] = {TouchControl::Dpad,       TouchControl::Jump,     TouchControl::Sword,
+                                       TouchControl::Fire,       TouchControl::Light,    TouchControl::SwordCombo,
+                                       TouchControl::SpellCombo, TouchControl::ExitDown, TouchControl::Pause};
+    const glm::vec2 onDpad = Dpad({-100.0f, -21.7f});
+    const glm::vec2 onJump = Centre(TouchControl::Jump);
+    const glm::vec2 onPause = Centre(TouchControl::Pause);
+    const glm::vec2 onNothing(500.0f, 300.0f);
+
+    TouchControls touch;
+    TouchStep step = touch.Update(Edit({Finger(1, onDpad), Finger(2, onJump), Finger(3, onPause)}));
+    CHECK(Only(step, {}));   // the pause sends no Esc, the disc no direction, the jump no key
+    CHECK(step.touching && !step.pointer && step.combo == TouchCombo::None);
+    CHECK_EQ(KeysDown(FrameOf(step)), 0);
+    for (const TouchControl control : kShown) CHECK_MSG(touch.Visible(control), TouchControls::ControlId(control));
+    CHECK(!touch.Visible(TouchControl::Back));
+    // Shown whatever the corner says, and the down button away from any door.
+    touch.Update(Edit());
+    CHECK(touch.Visible(TouchControl::Pause) && touch.Visible(TouchControl::ExitDown));
+    TouchInput withCorner = Edit();
+    withCorner.corner = TouchCorner::Back;
+    touch.Update(withCorner);
+    CHECK(touch.Visible(TouchControl::Pause) && !touch.Visible(TouchControl::Back));
+    // A manifest without the combos shows none in the editor either (the layout has no such control).
+    TouchManifest noCombos = TouchControls::DefaultManifest();
+    noCombos[TouchControl::SwordCombo].enabled = false;
+    TouchControls trimmed;
+    trimmed.SetManifest(noCombos);
+    trimmed.Update(Edit());
+    CHECK(!trimmed.Visible(TouchControl::SwordCombo) && trimmed.Visible(TouchControl::SpellCombo));
+    // The layout is the same as in play.
+    touch.Update(Edit());
+    CHECK(SameLayout(touch.Layout(), Default()));
+
+    // What a finger of the editor does afterwards: nothing, until it lifts. In a menu (no click)...
+    touch.Update(Edit({Finger(1, onDpad), Finger(2, onJump), Finger(3, onPause)}));
+    step = touch.Update(Menu({Finger(1, onDpad), Finger(2, onJump), Finger(3, onPause)}));
+    CHECK(Only(step, {}) && !step.pointer);
+    CHECK_EQ(KeysDown(FrameOf(step)), 0);   // no click reaches the screen under the editor
+    // ...while a new finger is the mouse as ever.
+    step = touch.Update(Menu({Finger(1, onDpad), Finger(2, onJump), Finger(3, onPause), Finger(4, onNothing)}));
+    CHECK(step.pointer && step.pointerPos == onNothing);
+    // ...and in play.
+    step = touch.Update(Play({Finger(1, onDpad), Finger(2, onJump), Finger(3, onPause)}));
+    CHECK(Only(step, {}));
+    touch.Update(Play());
+    CHECK(Only(touch.Update(Play({Finger(5, onJump)})), {TouchAction::Jump}));   // lifted, they work again
+
+    // A finger a level gave an owner (jump, the pause's Esc, the disc) lets go of it in the editor: no key from it,
+    // and none after.
+    TouchControls played;
+    CHECK(Only(played.Update(Play({Finger(1, onJump), Finger(2, onPause), Finger(3, onDpad)})),
+               {TouchAction::Jump, TouchAction::Cancel, TouchAction::Left}));
+    CHECK(Only(played.Update(Edit({Finger(1, onJump), Finger(2, onPause), Finger(3, onDpad)})), {}));
+    CHECK(Only(played.Update(Play({Finger(1, onJump), Finger(2, onPause), Finger(3, onDpad)})), {}));
+    // A finger the menu made the mouse is not one in the editor, nor again after it.
+    TouchControls menued;
+    CHECK(menued.Update(Menu({Finger(1, onNothing)})).pointer);
+    CHECK(!menued.Update(Edit({Finger(1, onNothing)})).pointer);
+    CHECK(!menued.Update(Menu({Finger(1, onNothing)})).pointer);
+    // A combo in progress is cancelled by the editor.
+    TouchControls combo;
+    combo.Update(Play({Finger(1, Centre(TouchControl::SwordCombo))}));
+    CHECK(combo.RunningCombo() == TouchCombo::Sword);
+    combo.Update(Edit());
+    CHECK(combo.RunningCombo() == TouchCombo::None);
+
+    // The fingers the last Update used, in every scene (the editor reads exactly these): the input's that are down
+    // and those a frame without a tick saw.
+    TouchControls fingers;
+    fingers.Update(Menu({Finger(1, onNothing), Finger(2, onJump, false)}));
+    CHECK_EQ(fingers.Down().size(), std::size_t{1});
+    CHECK(fingers.Down().size() == 1 && fingers.Down()[0].id == 1 && fingers.Down()[0].position == onNothing);
+    fingers.LatchFrame({Finger(9, onJump)});
+    fingers.Update(Edit({Finger(1, onNothing)}));
+    CHECK_EQ(fingers.Down().size(), std::size_t{2});
+    int latched = 0;
+    for (const TouchContact& contact : fingers.Down()) latched += contact.id == 9 && contact.position == onJump ? 1 : 0;
+    CHECK_EQ(latched, 1);
+    fingers.Update(Edit());
+    CHECK(fingers.Down().empty());
+    fingers.Update(Play({Finger(5, onJump)}));
+    CHECK(fingers.Down().size() == 1 && fingers.Down()[0].id == 5);
+
+    // SetTuning shows at once: the layout of the last Update, laid out again by the same geometry, area and all.
+    TouchControls tuned;
+    const TouchManifest built = TouchControls::DefaultManifest();
+    TouchTuning first = WithMove(TouchControl::Jump, -40.0f, 12.0f, 1.2f);
+    tuned.SetTuning(first);   // before any Update: stored, nothing to lay out
+    CHECK(tuned.Tuning() == first);
+    CHECK(tuned.Layout()[TouchControl::Jump].Size() == glm::vec2(0.0f));
+    TouchInput wide = Edit();
+    wide.areaMin = glm::vec2(-341.5f, 0.0f);
+    wide.areaMax = glm::vec2(1365.5f, 768.0f);
+    wide.safeArea = TouchInsets{88.0f, 0.0f, 88.0f, 24.0f};
+    wide.hudFrame = TouchInsets{40.0f, 18.0f, 40.0f, 0.0f};
+    wide.unit = 0.9f;
+    tuned.Update(wide);
+    const auto expected = [&](const TouchTuning& tuning, const TouchInput& input) {
+        return TouchControls::ComputeLayout(TouchControls::WithTuning(built, tuning), input.areaMin, input.areaMax,
+                                            input.safeArea, input.unit, input.hudFrame);
+    };
+    CHECK(SameLayout(tuned.Layout(), expected(first, wide)));
+    const TouchLayout before = tuned.Layout();
+    TouchTuning second = WithMove(TouchControl::Pause, -10.0f, 10.0f, 0.6f);
+    second.move[Slot(TouchControl::Dpad)] = Mv(30.0f, -15.0f);
+    tuned.SetTuning(second);
+    CHECK(SameLayout(tuned.Layout(), expected(second, wide)));
+    CHECK(!SameLayout(tuned.Layout(), before));
+    // With no area, the screen.
+    TouchInput screen = Edit();
+    screen.screen = kWide;
+    tuned.Update(screen);
+    tuned.SetTuning(first);
+    CHECK(SameLayout(tuned.Layout(), TouchControls::ComputeLayout(TouchControls::WithTuning(built, first), kWide, TouchInsets{})));
+    // The direction control's resting knob (the placeholder look keeps one) goes with it, the same frame.
+    std::string warning;
+    TouchControls placeholder;
+    placeholder.SetManifest(TouchControls::LoadManifest(PlaceholderManifest(), &warning));
+    placeholder.SetImageRoot(PENUMBRA_DATA_DIR);
+    placeholder.Update(Edit());
+    placeholder.SetTuning(WithMove(TouchControl::Dpad, 40.0f, -30.0f));
+    std::vector<HudCmd> out;
+    placeholder.AppendOverlay(out);
+    CHECK_EQ(Knobs(out), 1);
+    for (const HudCmd& cmd : out) {
+        if (cmd.sprite.find("dpad_knob.png") == std::string::npos) continue;
+        const glm::vec2 centre = cmd.pos + cmd.size * 0.5f;
+        CHECK(Near(centre.x, placeholder.Layout()[TouchControl::Dpad].Centre().x) &&
+              Near(centre.y, placeholder.Layout()[TouchControl::Dpad].Centre().y));
+    }
+
+    // Twice in one tick with the same fingers changes nothing but the scene: the layer lays the controls out again
+    // after the editor opens and closes.
+    TouchControls twice;
+    const std::vector<TouchContact> held = {Finger(1, onNothing), Finger(2, onJump)};
+    const TouchStep once = twice.Update(Edit(held));
+    const TouchLayout layoutOnce = twice.Layout();
+    const std::vector<TouchContact> downOnce = twice.Down();
+    const TouchStep again = twice.Update(Edit(held));
+    CHECK(Only(once, {}) && Only(again, {}) && once.touching == again.touching && once.pointer == again.pointer);
+    CHECK(SameLayout(layoutOnce, twice.Layout()) && downOnce.size() == twice.Down().size());
+    for (const TouchControl control : kShown) CHECK(twice.Visible(control));
+    // From a menu into the editor: the same fingers, the controls appear, nothing is pressed.
+    TouchControls opened;
+    CHECK(opened.Update(Menu(held)).pointer);
+    CHECK(!opened.Visible(TouchControl::Jump));
+    CHECK(Only(opened.Update(Edit(held)), {}));
+    CHECK(opened.Visible(TouchControl::Jump) && opened.Down().size() == 2);
+    // The editor closing: the controls go again, and the fingers stay dead.
+    CHECK(Only(opened.Update(Menu(held)), {}) && !opened.Visible(TouchControl::Jump));
+}
+
+// The size at which the shipped layout still draws no control over another IN PLAY, where the controls keep their
+// size on the window (E25's zoom takes the screen down to the window's scale and the unit with it), the pause hangs
+// from E26's frame under the timer, and a phone has a notch or a bar. Magic Rampage's own ceiling is 1.4
+// (TouchTuning::kMaxSize), where it pushes overlapping buttons apart; Penumbra does not, so above the measured
+// size the shipped layout draws controls over each other and the player moves them apart (the editor is a live
+// preview). Measured with the real layout, pinned here, and written in the DEVLOG: the editor offers every size to
+// kMaxSize, every one keeps every control on the screen, and none up to the pinned one overlaps another.
+struct InPlayCase {
+    std::string name;
+    glm::vec2 screen{0.0f};
+    float unit = 1.0f;
+    TouchInsets safe;
+    TouchInsets frame;
+};
+
+// `bottomBarsInWindowPixels`: the bottom-only 48 and 100 px insets read as the platform reports a bar (window
+// pixels: SafeAreaInsets), not in the 768-tall pixels CheckLayoutFits' own bars are written in (the other reading).
+std::vector<InPlayCase> InPlayCases(bool bottomBarsInWindowPixels = false) {
+    using namespace Penumbra::Render;
+    struct Shape {
+        const char* name;
+        glm::uvec2 window;
+    };
+    // The window shapes of testPhoneHudFrame: a 20:9 phone (3.5% margin, 175% zoom), a 16:9 and a 4:3 tablet (1%, 125%,
+    // held to 113% on the 4:3).
+    const Shape shapes[] = {{"20:9 phone", {2400u, 1080u}}, {"16:9 tablet", {1920u, 1080u}}, {"4:3 tablet", {2048u, 1536u}}};
+    // CheckLayoutFits' bars, in the pixels of E1's 768-tall screen (scaled to the window), and a bottom bar of 48 and 100.
+    const TouchInsets bars[] = {{}, {88.0f, 0.0f, 88.0f, 24.0f}, {0.0f, 30.0f, 0.0f, 20.0f}, {0.0f, 0.0f, 0.0f, 48.0f},
+                                {0.0f, 0.0f, 0.0f, 100.0f}};
+    std::vector<InPlayCase> cases;
+    for (const Shape& shape : shapes) {
+        for (const TouchInsets& bar : bars) {
+            const bool bottomOnly = bar.bottom > 0.0f && bar.left == 0.0f && bar.top == 0.0f && bar.right == 0.0f;   // the 48, the 100
+            const float perE1 = bottomOnly && bottomBarsInWindowPixels ? 1.0f : static_cast<float>(shape.window.y) / 768.0f;
+            const Supersonic::SafeAreaInsets safe{bar.left * perE1, bar.top * perE1, bar.right * perE1, bar.bottom * perE1};
+            const float margin =
+                FittedEdgeMargin(EdgeMarginPercent(kEdgeMarginAuto, true, shape.window), shape.window, true, safe);
+            const float zoom = CampaignZoom(kZoomAutomatic, true, shape.window, true, safe, margin);
+            const glm::vec2 screen = ZoomedScreen(shape.window, true, zoom);
+            const HudFrame frame = ComputeHudFrame(shape.window, screen, safe, margin);
+            const float perLogical = static_cast<float>(shape.window.y) / screen.y;   // the screen fills the window: no bars
+            InPlayCase one;
+            one.name = std::string(shape.name) + ", bars " + std::to_string(static_cast<int>(bar.left)) + "/" +
+                       std::to_string(static_cast<int>(bar.top)) + "/" + std::to_string(static_cast<int>(bar.bottom));
+            one.screen = screen;
+            one.unit = screen.y / 768.0f;
+            one.safe = TouchInsets{safe.left / perLogical, safe.top / perLogical, safe.right / perLogical, safe.bottom / perLogical};
+            one.frame = TouchInsets{frame.left, frame.top, frame.right, frame.bottom};
+            cases.push_back(one);
+        }
+    }
+    return cases;
+}
+
+void testSizeCeiling() {
+    const TouchManifest built = TouchControls::DefaultManifest();
+    // The faces of the direction control's two buttons, as fractions of its box: the 400-unit disc is mostly empty and
+    // half of it hangs off the screen, so it is the buttons that are drawn over.
+    const TouchLayout::Box unitBox{{0.0f, 0.0f}, {1.0f, 1.0f}};
+    const TouchLayout::Box leftFace = ArrowFace(built.dpadLeft, unitBox);
+    const TouchLayout::Box rightFace = ArrowFace(built.dpadRight, unitBox);
+    const auto face = [](const TouchLayout::Box& fraction, const TouchLayout::Box& box) {
+        return TouchLayout::Box{box.min + fraction.min * box.Size(), box.min + fraction.max * box.Size()};
+    };
+    struct Part {
+        std::string name;
+        TouchLayout::Box box;
+    };
+    // The nine things that are drawn, the Pause in the overlap checks against both combo buttons and the rest.
+    const auto partsOf = [&](const TouchLayout& layout) {
+        std::vector<Part> parts;
+        parts.push_back({"dpad left", face(leftFace, layout[TouchControl::Dpad])});
+        parts.push_back({"dpad right", face(rightFace, layout[TouchControl::Dpad])});
+        for (const TouchControl control : {TouchControl::Jump, TouchControl::Sword, TouchControl::Fire, TouchControl::Light,
+                                           TouchControl::SwordCombo, TouchControl::SpellCombo, TouchControl::Pause,
+                                           TouchControl::ExitDown}) {
+            parts.push_back({TouchControls::ControlId(control), layout[control]});
+        }
+        return parts;
+    };
+    struct Verdict {
+        std::vector<std::string> overlaps;
+        bool onScreen = true;
+    };
+    const auto judge = [&](float size, const std::vector<InPlayCase>& cases) {
+        Verdict verdict;
+        const TouchManifest tuned = TouchControls::WithTuning(built, SizedAt(size));
+        for (const InPlayCase& one : cases) {
+            const TouchLayout layout = TouchControls::ComputeLayout(tuned, one.screen, one.safe, one.unit, one.frame);
+            TouchGeometry geometry = GeometryOf(one.screen, one.safe, one.unit, one.frame);
+            for (int i = 0; i < kTouchControlCount; ++i) {
+                const TouchControl control = static_cast<TouchControl>(i);
+                if (!KeptInside(tuned, control, layout[control], geometry)) verdict.onScreen = false;
+            }
+            if (!Inside(layout[TouchControl::Pause], glm::vec2(0.0f), one.screen)) verdict.onScreen = false;
+            const std::vector<Part> parts = partsOf(layout);
+            for (std::size_t a = 0; a < parts.size(); ++a) {
+                for (std::size_t b = a + 1; b < parts.size(); ++b) {
+                    if (a == 0 && b == 1) continue;   // the two buttons of one control
+                    if (Overlap(parts[a].box, parts[b].box)) {
+                        verdict.overlaps.push_back(one.name + ": " + parts[a].name + " and " + parts[b].name);
+                    }
+                }
+            }
+        }
+        return verdict;
+    };
+
+    const std::vector<InPlayCase> inPlay = InPlayCases();
+    CHECK_EQ(inPlay.size(), std::size_t{15});
+    // The same bars as CheckLayoutFits has (none, a notch and a gesture bar, a tablet's status bar) in play: nine cases...
+    std::vector<InPlayCase> nine;
+    for (const InPlayCase& one : inPlay) {
+        if (one.name.find("bars 0/0/48") == std::string::npos && one.name.find("bars 0/0/100") == std::string::npos) {
+            nine.push_back(one);
+        }
+    }
+    CHECK_EQ(nine.size(), std::size_t{9});
+    // ...and CheckLayoutFits' own screens, unzoomed, with no frame: where the controls have always been checked.
+    std::vector<InPlayCase> unzoomed;
+    for (const glm::vec2 screen : {kFourThree, kWide, glm::vec2(1707.0f, 768.0f)}) {
+        for (const TouchInsets& safe : {TouchInsets{}, TouchInsets{88.0f, 0.0f, 88.0f, 24.0f}, TouchInsets{0.0f, 30.0f, 0.0f, 20.0f}}) {
+            InPlayCase one;
+            one.name = std::to_string(static_cast<int>(screen.x)) + "x768 unzoomed, inset " + std::to_string(static_cast<int>(safe.left)) +
+                       "/" + std::to_string(static_cast<int>(safe.top));
+            one.screen = screen;
+            one.safe = safe;
+            unzoomed.push_back(one);
+        }
+    }
+    // The largest size from which every smaller one is clean, over a set of cases; and, for the record, what overlaps
+    // at the first size that does not (the DEVLOG's).
+    const auto ceilingOf = [&](const char* what, const std::vector<InPlayCase>& set, bool listFirstFailure) {
+        float ceiling = 0.0f;
+        bool clean = true;
+        bool listed = false;
+        for (int step = 4; step <= 14; ++step) {
+            const float size = static_cast<float>(step) / 10.0f;
+            const Verdict verdict = judge(size, set);
+            clean = clean && verdict.overlaps.empty();
+            if (clean) ceiling = size;
+            // Every size the editor offers keeps every control on the screen, overlap or not.
+            CHECK_MSG(verdict.onScreen, std::string(what) + " at " + std::to_string(size));
+            if (listFirstFailure && !clean && !listed) {
+                listed = true;
+                std::printf("  E28 %s, size %.1f is the first with an overlap:\n", what, size);
+                for (const std::string& line : verdict.overlaps) std::printf("      %s\n", line.c_str());
+            }
+        }
+        std::printf("  E28 %s: no overlap up to size %.1f (the editor offers up to %.1f)\n", what, ceiling, TouchTuning::kMaxSize);
+        return ceiling;
+    };
+    const float unzoomedCeiling = ceilingOf("unzoomed screens", unzoomed, false);
+    const float nineCeiling = ceilingOf("in play, the nine bars", nine, false);
+    // The two bottom bars (48 and 100) read two ways: in the 768-tall pixels CheckLayoutFits' own bars are written in, and
+    // as window pixels, the unit a platform reports them in (a bar of 100 of a 1080 px window is 9%, not 13%).
+    const auto upTo = [](const std::vector<InPlayCase>& all, bool with100) {
+        std::vector<InPlayCase> kept;
+        for (const InPlayCase& one : all) {
+            if (one.name.find("bars 0/0/100") == std::string::npos || with100) kept.push_back(one);
+        }
+        return kept;
+    };
+    const std::vector<InPlayCase> inPlayWindowPixels = InPlayCases(true);
+    CHECK_EQ(inPlayWindowPixels.size(), std::size_t{15});
+    const float with48 = ceilingOf("in play, the nine and a 48 px bottom bar (of E1's 768)", upTo(inPlay, false), false);
+    const float with48InWindowPixels = ceilingOf("in play, the nine and a 48 px bottom bar (window pixels)", upTo(inPlayWindowPixels, false), false);
+    const float ceiling = ceilingOf("in play, with a 48 and a 100 px bottom bar (of E1's 768)", inPlay, true);
+    const float ceilingInWindowPixels = ceilingOf("in play, with a 48 and a 100 px bottom bar (window pixels)", inPlayWindowPixels, true);
+    // The measured ceilings, pinned: what the editor's sizes can do to the shipped layout. The pause hangs under the
+    // frame (E26) and, zoomed, under the timer (E25), where the spell combo button grows up to it; nothing is pushed
+    // apart as Magic Rampage pushes, so above the pinned size a player moves the controls apart (the editor is a live
+    // preview). The largest step is TouchTuning::kMaxSize, MR's own. On the unzoomed screens, where the controls have always been checked, it holds to 1.2.
+    constexpr float kUnzoomedCeiling = 1.2f;
+    constexpr float kNineCeiling = 1.1f;
+    constexpr float kWith48Ceiling = 1.1f;     // both readings: 1.2 overlaps by 28 and 20 px on a 20:9 phone
+    constexpr float kMeasuredCeiling = 1.0f;   // both readings: 1.1 overlaps by 28 px (of E1's 768) and 12 px (window pixels)
+    CHECK_MSG(unzoomedCeiling == kUnzoomedCeiling, std::to_string(unzoomedCeiling));
+    CHECK_MSG(nineCeiling == kNineCeiling, std::to_string(nineCeiling));
+    CHECK_MSG(with48 == kWith48Ceiling && with48InWindowPixels == kWith48Ceiling, std::to_string(with48) + " " + std::to_string(with48InWindowPixels));
+    CHECK_MSG(ceiling == kMeasuredCeiling, std::to_string(ceiling));
+    CHECK_MSG(ceilingInWindowPixels == kMeasuredCeiling, std::to_string(ceilingInWindowPixels));
+    CHECK(ceiling <= with48 && with48 <= nineCeiling && nineCeiling <= TouchTuning::kMaxSize && unzoomedCeiling <= TouchTuning::kMaxSize);
+    // Every size up to the ceiling is clean on every case, and the default one on all the sets.
+    for (int step = 4; step <= 10; ++step) {
+        CHECK_MSG(judge(static_cast<float>(step) / 10.0f, inPlay).overlaps.empty(), std::to_string(step));
+        CHECK_MSG(judge(static_cast<float>(step) / 10.0f, inPlayWindowPixels).overlaps.empty(), std::to_string(step));
+    }
+    CHECK(judge(1.0f, nine).overlaps.empty() && judge(1.0f, unzoomed).overlaps.empty());
+}
+
+// The editor's words for each control are settings.json's keys and the manifest's ids.
+void testTuningNames() {
+    for (int i = 0; i < kTouchControlCount; ++i) {
+        CHECK_MSG(std::string(TouchTuning::ControlKey(i)) == TouchControls::ControlId(static_cast<TouchControl>(i)),
+                  std::to_string(i));
+        CHECK_MSG(TouchTuning::IsMovableIndex(i) == TouchControls::Movable(static_cast<TouchControl>(i)), std::to_string(i));
+    }
+    CHECK(std::string(TouchTuning::ControlKey(-1)).empty() && std::string(TouchTuning::ControlKey(kTouchControlCount)).empty());
+    CHECK(!TouchTuning::IsMovableIndex(-1) && !TouchTuning::IsMovableIndex(kTouchControlCount));
+    CHECK(TouchTuning::IsMovableIndex(0) && TouchTuning::IsMovableIndex(8) && !TouchTuning::IsMovableIndex(9));
+    CHECK_EQ(Penumbra::Render::kTuningControls, kTouchControlCount);
+    CHECK_EQ(Penumbra::Render::kTuningBackIndex, static_cast<int>(TouchControl::Back));
+    int movable = 0;
+    for (const TouchControl control : kMovable) movable += TouchControls::Movable(control) ? 1 : 0;
+    CHECK_EQ(movable, 9);
+}
+
 void runTests() {
     testKeys();
     testEachButton();
@@ -3239,6 +4211,16 @@ void runTests() {
     testComboCancel();
     testComboManifest();
     testComboBuffer();
+    // E28: the player's own layout, all pure: before the ones that boot the real game.
+    testTuningIdentity();   // E28
+    testTuningSize();   // E28
+    testTuningOpacity();   // E28
+    testTuningMoves();   // E28
+    testMoveFor();   // E28
+    testGrabBox();   // E28
+    testEditScene();   // E28
+    testSizeCeiling();   // E28
+    testTuningNames();   // E28
     // Last: they boot the real game, whose globals outlive it.
     testComboInGame();
     testExitDownInGame();   // E25
