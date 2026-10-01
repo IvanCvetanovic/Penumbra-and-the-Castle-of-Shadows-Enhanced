@@ -814,7 +814,7 @@ vector2 hudBarsTopLeft();                             // E26: where the bars sta
 vector2 hudMessagesTopLeft();                         // E26: where the message lines start, clear of the plaque
 
 // ENHANCEMENT E27 (not in the original, optionsArt.cpp): the art the port added for the     // E27
-// options screen, game/data/images/options/ (its README.md says what each is): a           // E29: no longer also the main menu's language button
+// options screen, game/data/images/options/ (its README.md says what each is): a           // E30: no longer also the main menu's language button
 // stone-frame panel the groups of rows sit on, check                                        // E27
 // boxes, arrow, minus and plus buttons, icons, a globe. The layer sets g_artDir to the      // E27
 // data folder (the suites to PENUMBRA_DATA_DIR); with "" every helper below draws nothing.  // E27
@@ -824,7 +824,7 @@ extern string g_artDir;                                                         
 inline constexpr float kPanelSlice = 26.0f;                                                  // E27
 // The files' names without the folder or ".png": scripts name them as drawOptionsIcon does. // E27
 inline constexpr const char* kOptionsArt[] = {"panel", "check_on", "check_off", "arrow_left",   // E27
-    "arrow_right", "minus", "plus", "speaker", "music", "pad", "globe", "monitor"};   // E29: "globe_button" (the main menu's) removed
+    "arrow_right", "minus", "plus", "speaker", "music", "pad", "globe", "monitor"};   // E30: "globe_button" (the main menu's) removed
 // The file's absolute path, forward slashes (the sprite loader takes an absolute path as it  // E27
 // is): name is the file's name with its extension, "globe.png". "" when there is no g_artDir. // E27
 string optionsArtPath(const string& name);                                                   // E27

@@ -10,7 +10,7 @@
 // the one the game was tuned with: the same channels and rate, the same
 // length give or take the encoder delay the two treat differently.
 //
-// ENHANCEMENT E29: and the sample bank's one exception to "a scene load releases every
+// ENHANCEMENT E30: and the sample bank's one exception to "a scene load releases every
 // sample" - a sample asked to be kept (KeepOnNextLoad) goes on through the next load, the
 // same voice, and only through that one - against a stand-in for the device whose
 // UnloadAll stops every voice, as AudioOutEngine's does.
@@ -27,7 +27,7 @@
 #include "eth/Audio.hpp"
 #include "eth/SoundDecode.hpp"
 
-namespace {   // E29
+namespace {   // E30
 
 namespace Eth = Penumbra::Eth;
 
@@ -168,7 +168,7 @@ void TestKeepOnNextLoad() {
     bank.SetOutput(nullptr);
 }
 
-} // namespace   // E29
+} // namespace   // E30
 
 int main() {
     const std::filesystem::path dir = std::filesystem::path(PENUMBRA_ORIGINAL_DIR) / "soundfx";
@@ -213,6 +213,6 @@ int main() {
     }
     CHECK_EQ(ogg, 19);
     CHECK_EQ(mp3, 16);
-    TestKeepOnNextLoad();   // E29
+    TestKeepOnNextLoad();   // E30
     return test::summary("test_pn_audio", 100);
 }

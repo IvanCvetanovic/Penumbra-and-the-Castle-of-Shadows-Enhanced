@@ -20,7 +20,7 @@
 //   --modes <WxH@R,...>    the display modes the options screen lists, instead of the monitor's
 //                          (captures); a '*' after one makes it the desktop's
 //   --touch-tuning <list>  this run's touch controls' size, opacity and places (E28), over the settings:
-//                          size=1.2,opacity=0.6,jump=-40:30,dpad=12:0 (a control id and dx:dy in the
+//                          size=1.2,opacity=0.6,light=-60:-20,dpad=12:0 (a control id and dx:dy in the
 //                          manifest's pixels, +x right, +y down); none of E28's three dev flags is saved
 //   --touch-editor [locked|unlocked]  opens the touch controls' editor on the first tick the options
 //                          scene is up (E28); turns the touch controls on unless --touch says otherwise
@@ -95,7 +95,7 @@ constexpr const char* kGameUsage =
     "                         a '*' after one makes it the desktop's mode, else the largest is\n"   // E28
     "  --touch-tuning <list>  this run's touch controls' size, opacity and places (not saved; nothing is\n"   // E28
     "                         saved in a run with this flag, --touch-editor or --finger):\n"   // E28
-    "                         size=1.2,opacity=0.6,jump=-40:30,dpad=12:0 (a control and its dx:dy)\n"   // E28
+    "                         size=1.2,opacity=0.6,light=-60:-20,dpad=12:0 (a control and its dx:dy)\n"   // E28
     "  --touch-editor [locked|unlocked]  open the touch controls' editor on the options screen\n"   // E28
     "                         (captures; turns the touch controls on unless --touch says otherwise)\n"   // E28
     "  --finger <id>:<x>,<y>@<from>-<to>[/<x2>,<y2>]  a synthetic finger in logical pixels, down from\n"   // E28
@@ -452,7 +452,7 @@ int PenumbraMain(int argc, char** argv) {
             std::string problem;   // E28
             if (!Penumbra::Render::TouchTuning::ParseFlag(value, tuning, &problem)) {   // E28
                 std::cerr << "[Penumbra] --touch-tuning wants size=<0.4-1.4>, opacity=<0.2-1.8> and <control>=<dx>:<dy> "   // E28
-                             "(e.g. size=1.2,opacity=0.6,jump=-40:30), got " << value << ": " << problem << std::endl;   // E28
+                             "(e.g. size=1.2,opacity=0.6,light=-60:-20), got " << value << ": " << problem << std::endl;   // E28
                 return EXIT_FAILURE;   // E28
             }   // E28
             layerOptions.touchTuningOverride = tuning;   // E28

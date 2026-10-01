@@ -11,7 +11,7 @@
 // second runtime booted for a player with one gamepad and nothing else (E12),
 // and a third for the options screen as a phone lays it out (E20), where the
 // later options-screen additions (E23, E28's button to the touch controls'
-// editor) follow, and E29's menu song through the settings.   // E29
+// editor) follow, and E30's menu song through the settings.   // E30
 // Last there, E31's options screen as a phone lays it out with the options art loaded: the larger layout, with     // E31
 // real clicks through every cell, button and corner. (Scenarios 21, 22 and 24 run without the art, so they pin     // E31
 // E20's art-less layout, which stays as the fallback.)   // E31
@@ -123,7 +123,7 @@ public:
         bool loop = false;
         uint start = 0;
         bool stopped = false;
-        float volume = 1.0f;   // E29: what Play gave it and Set last gave it
+        float volume = 1.0f;   // E30: what Play gave it and Set last gave it
     };
     struct PlayEvent {
         string file;
@@ -141,7 +141,7 @@ public:
     VoiceId Play(const string& absolutePath, const bool loop, const float volume, const float pan) override {
         (void)pan;
         const string file = BaseName(absolutePath);
-        voices[++m_next] = Voice{file, loop, NowFrame(), false, volume};   // E29: volume
+        voices[++m_next] = Voice{file, loop, NowFrame(), false, volume};   // E30: volume
         plays.push_back(PlayEvent{file, NowFrame(), loop});
         return m_next;
     }
@@ -151,15 +151,15 @@ public:
     }
     void Set(const VoiceId voice, const float volume, const float pan) override {
         (void)pan;
-        const auto it = voices.find(voice);   // E29
-        if (it != voices.end()) it->second.volume = volume;   // E29
+        const auto it = voices.find(voice);   // E30
+        if (it != voices.end()) it->second.volume = volume;   // E30
     }
     bool IsPlaying(const VoiceId voice) override {
         const auto it = voices.find(voice);
         if (it == voices.end() || it->second.stopped) return false;
         return it->second.loop || NowFrame() < it->second.start + kOneShotFrames;
     }
-    // E29: as the device's does (AudioOutEngine::UnloadAll stops every voice of every clip it loaded): nothing
+    // E30: as the device's does (AudioOutEngine::UnloadAll stops every voice of every clip it loaded): nothing
     // that sounds survives it. SampleBank::ReleaseAll has stopped each voice one by one before it, so this
     // changes nothing for a load that keeps nothing; one that carries a sample over must not call it.
     void UnloadAll() override {
@@ -188,7 +188,7 @@ public:
         }
         return n;
     }
-    // E29: the newest voice `file` has had; 0 when it never played.
+    // E30: the newest voice `file` has had; 0 when it never played.
     VoiceId NewestVoice(const string& file) const {
         for (auto it = voices.rbegin(); it != voices.rend(); ++it) {
             if (it->second.file == file) return it->first;
@@ -3590,147 +3590,147 @@ void ScenarioTouchEditorEntryE28(Game& g) {                                     
     g.Steps(5);                                                                                     // E28
 }                                                                                                   // E28
 
-// === 25. The menu song through the settings (E29) ===========================================   // E29
-//                                                                                                // E29
-// ENHANCEMENT E29 (game/script/menu.cpp, eth/Audio.hpp's KeepOnNextLoad): the menu's song is not   // E29
-// started again by the loads between the menu's screens - the settings, the arena select and the   // E29
-// way back - where the original, which released every sample on a load and started it again in     // E29
-// each screen's preLoop, restarted it from its first note every time. SoundLog stands for the       // E29
-// speakers and what it sees is the DEVICE's: the voice that sounds (the same id, never stopped),    // E29
-// the plays it was asked for, and the volume it was left at. Run last in the third runtime: its     // E29
-// level load reshuffles no random roll of the scenarios before it.                                  // E29
-void ScenarioMenuSongE29(Game& g) {                                                                // E29
-    Script::g_artDir.clear();                                                                      // E29
-    Script::g_mobileLayout = false;                                                                // E29
-    CHECK(EnsureMenu(g));                                                                          // E29
-    g.Steps(5);                                                                                    // E29
+// === 25. The menu song through the settings (E30) ===========================================   // E30
+//                                                                                                // E30
+// ENHANCEMENT E30 (game/script/menu.cpp, eth/Audio.hpp's KeepOnNextLoad): the menu's song is not   // E30
+// started again by the loads between the menu's screens - the settings, the arena select and the   // E30
+// way back - where the original, which released every sample on a load and started it again in     // E30
+// each screen's preLoop, restarted it from its first note every time. SoundLog stands for the       // E30
+// speakers and what it sees is the DEVICE's: the voice that sounds (the same id, never stopped),    // E30
+// the plays it was asked for, and the volume it was left at. Run last in the third runtime: its     // E30
+// level load reshuffles no random roll of the scenarios before it.                                  // E30
+void ScenarioMenuSongE30(Game& g) {                                                                // E30
+    Script::g_artDir.clear();                                                                      // E30
+    Script::g_mobileLayout = false;                                                                // E30
+    CHECK(EnsureMenu(g));                                                                          // E30
+    g.Steps(5);                                                                                    // E30
 
-    // The song as it sounds now: its voice, and how many times it has been started (a cold start    // E29
-    // is two plays: PlaySample, then LoopSample's restart with the loop flag, menu.as:43-47).        // E29
-    const VoiceId song = g.sound.NewestVoice("menu.mp3");                                           // E29
-    const uint starts = g.sound.PlayCount("menu.mp3", 0);                                           // E29
-    CHECK(song != 0);                                                                               // E29
-    CHECK(g.sound.Looping("menu.mp3"));                                                             // E29
-    CHECK(IsSamplePlaying("soundfx/menu.mp3"));                                                     // E29
-    CHECK_EQ(g.sound.voices.at(song).volume, 1.0f);                                                 // E29
-    std::printf("  the song: voice %llu, %u plays so far\n", static_cast<unsigned long long>(song), starts);   // E29
+    // The song as it sounds now: its voice, and how many times it has been started (a cold start    // E30
+    // is two plays: PlaySample, then LoopSample's restart with the loop flag, menu.as:43-47).        // E30
+    const VoiceId song = g.sound.NewestVoice("menu.mp3");                                           // E30
+    const uint starts = g.sound.PlayCount("menu.mp3", 0);                                           // E30
+    CHECK(song != 0);                                                                               // E30
+    CHECK(g.sound.Looping("menu.mp3"));                                                             // E30
+    CHECK(IsSamplePlaying("soundfx/menu.mp3"));                                                     // E30
+    CHECK_EQ(g.sound.voices.at(song).volume, 1.0f);                                                 // E30
+    std::printf("  the song: voice %llu, %u plays so far\n", static_cast<unsigned long long>(song), starts);   // E30
 
-    // The same voice, alive, the only one the song has had, at `volume`, and the bank still counts it    // E29
-    // as playing.                                                                                    // E29
-    const auto goesOn = [&](const char* where, const float volume) {                                // E29
-        const SoundLog::Voice& v = g.sound.voices.at(song);                                         // E29
-        std::printf("  %-34s the song's voice %s, %u plays, volume %.2f\n", where, v.stopped ? "STOPPED" : "alive",   // E29
-                    g.sound.PlayCount("menu.mp3", 0), v.volume);                                    // E29
-        CHECK_MSG(!v.stopped, string(where) + ": the voice was stopped");                           // E29
-        CHECK_MSG(g.sound.PlayCount("menu.mp3", 0) == starts, string(where) + ": the song was started again");   // E29
-        CHECK_MSG(g.sound.NewestVoice("menu.mp3") == song, string(where) + ": a new voice took over");   // E29
-        CHECK_MSG(v.loop, string(where) + ": the voice does not loop");                             // E29
-        CHECK_MSG(v.volume == volume, string(where) + ": the volume is " + std::to_string(v.volume));   // E29
-        CHECK_MSG(IsSamplePlaying("soundfx/menu.mp3"), string(where) + ": the bank does not see it playing");   // E29
-    };                                                                                              // E29
-    const auto toSettings = [&g] {                                                                  // E29
-        g.base.cursor = kOptionsButton;                                                             // E29
-        g.Steps(3);                                                                                 // E29
-        CHECK(LastButton() == "opcoes_de_video");                                                   // E29
-        g.Step(g.With({K_RETURN}));                                                                 // E29
-        CHECK(WaitFor(g, 3, [] { return GetSceneFileName() == "scenes/videoModes.esc"; }) >= 0);    // E29
-        g.Steps(30);                                                                                // E29
-    };                                                                                              // E29
-    const auto toMenuByEsc = [&g] {                                                                 // E29
-        g.Step(g.With({K_ESC}));                                                                    // E29
-        CHECK(WaitFor(g, 3, [] { return GetSceneFileName() == "scenes/menu.esc"; }) >= 0);          // E29
-        g.Steps(30);                                                                                // E29
-    };                                                                                              // E29
+    // The same voice, alive, the only one the song has had, at `volume`, and the bank still counts it    // E30
+    // as playing.                                                                                    // E30
+    const auto goesOn = [&](const char* where, const float volume) {                                // E30
+        const SoundLog::Voice& v = g.sound.voices.at(song);                                         // E30
+        std::printf("  %-34s the song's voice %s, %u plays, volume %.2f\n", where, v.stopped ? "STOPPED" : "alive",   // E30
+                    g.sound.PlayCount("menu.mp3", 0), v.volume);                                    // E30
+        CHECK_MSG(!v.stopped, string(where) + ": the voice was stopped");                           // E30
+        CHECK_MSG(g.sound.PlayCount("menu.mp3", 0) == starts, string(where) + ": the song was started again");   // E30
+        CHECK_MSG(g.sound.NewestVoice("menu.mp3") == song, string(where) + ": a new voice took over");   // E30
+        CHECK_MSG(v.loop, string(where) + ": the voice does not loop");                             // E30
+        CHECK_MSG(v.volume == volume, string(where) + ": the volume is " + std::to_string(v.volume));   // E30
+        CHECK_MSG(IsSamplePlaying("soundfx/menu.mp3"), string(where) + ": the bank does not see it playing");   // E30
+    };                                                                                              // E30
+    const auto toSettings = [&g] {                                                                  // E30
+        g.base.cursor = kOptionsButton;                                                             // E30
+        g.Steps(3);                                                                                 // E30
+        CHECK(LastButton() == "opcoes_de_video");                                                   // E30
+        g.Step(g.With({K_RETURN}));                                                                 // E30
+        CHECK(WaitFor(g, 3, [] { return GetSceneFileName() == "scenes/videoModes.esc"; }) >= 0);    // E30
+        g.Steps(30);                                                                                // E30
+    };                                                                                              // E30
+    const auto toMenuByEsc = [&g] {                                                                 // E30
+        g.Step(g.With({K_ESC}));                                                                    // E30
+        CHECK(WaitFor(g, 3, [] { return GetSceneFileName() == "scenes/menu.esc"; }) >= 0);          // E30
+        g.Steps(30);                                                                                // E30
+    };                                                                                              // E30
 
-    std::printf("-- menu -> settings -> menu by ESC\n");                                             // E29
-    toSettings();                                                                                   // E29
-    goesOn("in the settings", 1.0f);                                                                // E29
-    // The music volume of the layer's options reaches the voice that was carried over, as it does a     // E29
-    // voice that was started in this scene (SetMasterVolumes: the sample stayed in the bank).         // E29
-    g.m.Samples().SetMasterVolumes(0.4f, 1.0f);                                                     // E29
-    goesOn("in the settings, music at 0.4", 0.4f);                                                  // E29
-    toMenuByEsc();                                                                                  // E29
-    goesOn("back in the menu, music at 0.4", 0.4f);                                                 // E29
-    g.m.Samples().SetMasterVolumes(1.0f, 1.0f);                                                     // E29
-    goesOn("music back at 1", 1.0f);                                                                // E29
+    std::printf("-- menu -> settings -> menu by ESC\n");                                             // E30
+    toSettings();                                                                                   // E30
+    goesOn("in the settings", 1.0f);                                                                // E30
+    // The music volume of the layer's options reaches the voice that was carried over, as it does a     // E30
+    // voice that was started in this scene (SetMasterVolumes: the sample stayed in the bank).         // E30
+    g.m.Samples().SetMasterVolumes(0.4f, 1.0f);                                                     // E30
+    goesOn("in the settings, music at 0.4", 0.4f);                                                  // E30
+    toMenuByEsc();                                                                                  // E30
+    goesOn("back in the menu, music at 0.4", 0.4f);                                                 // E30
+    g.m.Samples().SetMasterVolumes(1.0f, 1.0f);                                                     // E30
+    goesOn("music back at 1", 1.0f);                                                                // E30
 
-    std::printf("-- menu -> settings -> menu by the Back arrow\n");                                  // E29
-    toSettings();                                                                                   // E29
-    goesOn("in the settings again", 1.0f);                                                          // E29
-    g.base.cursor = vector2(540.0f, 80.0f);   // inside the arrow, interface/arrow_button.png at (500,40), 123x92   // E29
-    g.Steps(2);                                                                                     // E29
-    g.Step(g.With({K_RETURN}));                                                                     // E29
-    CHECK(WaitFor(g, 3, [] { return GetSceneFileName() == "scenes/menu.esc"; }) >= 0);              // E29
-    g.Steps(30);                                                                                    // E29
-    goesOn("back in the menu by the arrow", 1.0f);                                                  // E29
+    std::printf("-- menu -> settings -> menu by the Back arrow\n");                                  // E30
+    toSettings();                                                                                   // E30
+    goesOn("in the settings again", 1.0f);                                                          // E30
+    g.base.cursor = vector2(540.0f, 80.0f);   // inside the arrow, interface/arrow_button.png at (500,40), 123x92   // E30
+    g.Steps(2);                                                                                     // E30
+    g.Step(g.With({K_RETURN}));                                                                     // E30
+    CHECK(WaitFor(g, 3, [] { return GetSceneFileName() == "scenes/menu.esc"; }) >= 0);              // E30
+    g.Steps(30);                                                                                    // E30
+    goesOn("back in the menu by the arrow", 1.0f);                                                  // E30
 
-    std::printf("-- menu -> arena select -> menu (the same song, menuPreLoop)\n");                   // E29
-    g.base.pads[0].connected = true;   // a second controller: Versus opens only for one            // E29
-    g.base.cursor = kVersusButton;                                                                  // E29
-    g.Steps(3);                                                                                     // E29
-    CHECK(LastButton() == "versus");                                                                // E29
-    g.Step(g.With({K_RETURN}));                                                                     // E29
-    CHECK(WaitFor(g, 3, [] { return GetSceneFileName() == "scenes/arena_select.esc"; }) >= 0);      // E29
-    g.Steps(30);                                                                                    // E29
-    goesOn("in the arena select", 1.0f);                                                            // E29
-    toMenuByEsc();                                                                                  // E29
-    goesOn("back in the menu from the arenas", 1.0f);                                               // E29
+    std::printf("-- menu -> arena select -> menu (the same song, menuPreLoop)\n");                   // E30
+    g.base.pads[0].connected = true;   // a second controller: Versus opens only for one            // E30
+    g.base.cursor = kVersusButton;                                                                  // E30
+    g.Steps(3);                                                                                     // E30
+    CHECK(LastButton() == "versus");                                                                // E30
+    g.Step(g.With({K_RETURN}));                                                                     // E30
+    CHECK(WaitFor(g, 3, [] { return GetSceneFileName() == "scenes/arena_select.esc"; }) >= 0);      // E30
+    g.Steps(30);                                                                                    // E30
+    goesOn("in the arena select", 1.0f);                                                            // E30
+    toMenuByEsc();                                                                                  // E30
+    goesOn("back in the menu from the arenas", 1.0f);                                               // E30
 
-    // The one way a song that was faded down is carried: confirm an arena (the 3 s fade-out starts and    // E29
-    // lowers it, menu.as:351-356) and leave by ESC while it runs. The arena select's loop still reads     // E29
-    // cancel, so the way back to the menu loads (keeping the song, lowered) and the menu's preLoop must    // E29
-    // put it back to full - the original got that from the restart.                                      // E29
-    g.base.cursor = kVersusButton;                                                                  // E29
-    g.Steps(3);                                                                                     // E29
-    g.Step(g.With({K_RETURN}));                                                                     // E29
-    CHECK(WaitFor(g, 3, [] { return GetSceneFileName() == "scenes/arena_select.esc"; }) >= 0);      // E29
-    g.Steps(30);                                                                                    // E29
-    g.base.cursor = kArena1Thumbnail;                                                               // E29
-    g.Steps(3);                                                                                     // E29
-    CHECK(LastButton() == "thumbnail");                                                             // E29
-    g.Step(g.With({K_RETURN}));                                                                     // E29
-    g.Steps(60);                                                                                    // E29
-    std::printf("  a start's fade-out, 60 frames in: the song's volume %.2f\n", g.sound.voices.at(song).volume);   // E29
-    CHECK(GetSceneFileName() == "scenes/arena_select.esc");                                         // E29
-    CHECK(g.sound.voices.at(song).volume < 0.8f);                                                   // E29
-    toMenuByEsc();                                                                                  // E29
-    goesOn("back in the menu mid-fade", 1.0f);                                                      // E29
-    g.base.pads[0].connected = false;                                                               // E29
+    // The one way a song that was faded down is carried: confirm an arena (the 3 s fade-out starts and    // E30
+    // lowers it, menu.as:351-356) and leave by ESC while it runs. The arena select's loop still reads     // E30
+    // cancel, so the way back to the menu loads (keeping the song, lowered) and the menu's preLoop must    // E30
+    // put it back to full - the original got that from the restart.                                      // E30
+    g.base.cursor = kVersusButton;                                                                  // E30
+    g.Steps(3);                                                                                     // E30
+    g.Step(g.With({K_RETURN}));                                                                     // E30
+    CHECK(WaitFor(g, 3, [] { return GetSceneFileName() == "scenes/arena_select.esc"; }) >= 0);      // E30
+    g.Steps(30);                                                                                    // E30
+    g.base.cursor = kArena1Thumbnail;                                                               // E30
+    g.Steps(3);                                                                                     // E30
+    CHECK(LastButton() == "thumbnail");                                                             // E30
+    g.Step(g.With({K_RETURN}));                                                                     // E30
+    g.Steps(60);                                                                                    // E30
+    std::printf("  a start's fade-out, 60 frames in: the song's volume %.2f\n", g.sound.voices.at(song).volume);   // E30
+    CHECK(GetSceneFileName() == "scenes/arena_select.esc");                                         // E30
+    CHECK(g.sound.voices.at(song).volume < 0.8f);                                                   // E30
+    toMenuByEsc();                                                                                  // E30
+    goesOn("back in the menu mid-fade", 1.0f);                                                      // E30
+    g.base.pads[0].connected = false;                                                               // E30
 
-    // A start is not a menu screen. The fade-out takes the song down (menu.as:351-356), the level's     // E29
-    // load releases it, and the level plays its own music; the way back to the menu starts a NEW song    // E29
-    // at full volume - nothing of the fade may be left on it.                                         // E29
-    std::printf("-- New game, and ESC back to the menu\n");                                          // E29
-    g.base.cursor = kNewGameButton;                                                                 // E29
-    g.Steps(3);                                                                                     // E29
-    CHECK(LastButton() == "novo_jogo");                                                             // E29
-    g.Step(g.With({K_RETURN}));                                                                     // E29
-    float lowest = 1.0f;                                                                            // E29
-    const int loaded = WaitFor(g, 240, [&] {                                                        // E29
-        lowest = std::min(lowest, g.sound.voices.at(song).volume);                                  // E29
-        return GetSceneFileName() == "scenes/level1.esc";                                           // E29
-    });                                                                                             // E29
-    std::printf("  level1.esc %d frames later; the song faded down to %.3f; its voice %s\n", loaded, lowest,   // E29
-                g.sound.voices.at(song).stopped ? "stopped" : "STILL SOUNDING");                    // E29
-    CHECK(loaded >= 0);                                                                             // E29
-    CHECK(lowest < 0.05f);                                                                          // E29
-    CHECK(g.sound.voices.at(song).stopped);                                                         // E29
-    CHECK(!SampleExists("soundfx/menu.mp3"));   // released by the load, volume and all                // E29
-    g.Steps(30);                                                                                    // E29
-    CHECK(!g.sound.Looping("menu.mp3"));   // nothing of the menu's song is left under the level      // E29
-    const uint beforeMenu = g.Frame();                                                              // E29
-    CHECK(EnsureMenu(g));                                                                           // E29
-    g.Steps(5);                                                                                     // E29
-    const VoiceId again = g.sound.NewestVoice("menu.mp3");                                          // E29
-    std::printf("  the menu again: voice %llu (was %llu), volume %.2f, %u plays since\n",            // E29
-                static_cast<unsigned long long>(again), static_cast<unsigned long long>(song),      // E29
-                g.sound.voices.at(again).volume, g.sound.PlayCount("menu.mp3", beforeMenu));       // E29
-    CHECK(again != song);                                                                           // E29
-    CHECK(g.sound.PlayCount("menu.mp3", beforeMenu) >= 1u);                                         // E29
-    CHECK(g.sound.Looping("menu.mp3"));                                                             // E29
-    CHECK(IsSamplePlaying("soundfx/menu.mp3"));                                                     // E29
-    CHECK_EQ(g.sound.voices.at(again).volume, 1.0f);                                                // E29
-}                                                                                                   // E29
+    // A start is not a menu screen. The fade-out takes the song down (menu.as:351-356), the level's     // E30
+    // load releases it, and the level plays its own music; the way back to the menu starts a NEW song    // E30
+    // at full volume - nothing of the fade may be left on it.                                         // E30
+    std::printf("-- New game, and ESC back to the menu\n");                                          // E30
+    g.base.cursor = kNewGameButton;                                                                 // E30
+    g.Steps(3);                                                                                     // E30
+    CHECK(LastButton() == "novo_jogo");                                                             // E30
+    g.Step(g.With({K_RETURN}));                                                                     // E30
+    float lowest = 1.0f;                                                                            // E30
+    const int loaded = WaitFor(g, 240, [&] {                                                        // E30
+        lowest = std::min(lowest, g.sound.voices.at(song).volume);                                  // E30
+        return GetSceneFileName() == "scenes/level1.esc";                                           // E30
+    });                                                                                             // E30
+    std::printf("  level1.esc %d frames later; the song faded down to %.3f; its voice %s\n", loaded, lowest,   // E30
+                g.sound.voices.at(song).stopped ? "stopped" : "STILL SOUNDING");                    // E30
+    CHECK(loaded >= 0);                                                                             // E30
+    CHECK(lowest < 0.05f);                                                                          // E30
+    CHECK(g.sound.voices.at(song).stopped);                                                         // E30
+    CHECK(!SampleExists("soundfx/menu.mp3"));   // released by the load, volume and all                // E30
+    g.Steps(30);                                                                                    // E30
+    CHECK(!g.sound.Looping("menu.mp3"));   // nothing of the menu's song is left under the level      // E30
+    const uint beforeMenu = g.Frame();                                                              // E30
+    CHECK(EnsureMenu(g));                                                                           // E30
+    g.Steps(5);                                                                                     // E30
+    const VoiceId again = g.sound.NewestVoice("menu.mp3");                                          // E30
+    std::printf("  the menu again: voice %llu (was %llu), volume %.2f, %u plays since\n",            // E30
+                static_cast<unsigned long long>(again), static_cast<unsigned long long>(song),      // E30
+                g.sound.voices.at(again).volume, g.sound.PlayCount("menu.mp3", beforeMenu));       // E30
+    CHECK(again != song);                                                                           // E30
+    CHECK(g.sound.PlayCount("menu.mp3", beforeMenu) >= 1u);                                         // E30
+    CHECK(g.sound.Looping("menu.mp3"));                                                             // E30
+    CHECK(IsSamplePlaying("soundfx/menu.mp3"));                                                     // E30
+    CHECK_EQ(g.sound.voices.at(again).volume, 1.0f);                                                // E30
+}                                                                                                   // E30
 
 // === 26. The options screen on a phone, large (E31) ========================================   // E31
 //   // E31
@@ -4362,14 +4362,18 @@ void ScenarioPhoneOptionsE31(Game& g) {   // E31
             // The box starts where the text does (a shadow is drawn a tenth of its size down and right of the box it shares).   // E31
             const float shadow = isFront(c) ? 0.0f : c.fontSize * 0.1f;   // E31
             CHECK(std::fabs(c.fit.min.x - (c.pos.x - shadow)) < 0.01f && std::fabs(c.fit.min.y - (c.pos.y - shadow)) < 0.01f);   // E31
+            // It is a line and a third tall: a line and the shadow a tenth of the size below it (test_pn_render_hud's TestPhoneOptionsNarrowBodyFit   // E31
+            // measures the line against it).   // E31
+            CHECK_MSG(std::fabs((c.fit.max.y - c.fit.min.y) - c.fontSize * 1.3f) < 0.01f, "a fit box of the wrong height: " + Utf8(c.text));   // E31
         }   // E31
         for (const auto& group : groups) CHECK_MSG(group.second == 2, "a fit group is a text and its shadow: " + std::to_string(group.second));   // E31
         CHECK_EQ(groups.size(), std::size_t{17});   // every text of the body but the title   // E31
         CHECK_EQ(fitted, 34);   // E31
         CHECK_EQ(plain, 2);   // the title and its shadow   // E31
-        // A cell's room: 398 wide, the text 66 in and 12 clear.   // E31
+        // A cell's room: 398 wide, the text 66 in and 12 clear; a line and a third tall, which holds the text and the shadow a tenth of   // E31
+        // its size lower (a box of exactly the text's size shrank every text to about 0.91).   // E31
         const HudCmd* shaders = frontText(wording(toggles[0]));   // E31
-        CHECK(shaders != nullptr && shaders->fit.max.x - shaders->fit.min.x == 398.0f - 66.0f - 12.0f && shaders->fit.max.y - shaders->fit.min.y == 30.0f);   // E31
+        CHECK(shaders != nullptr && shaders->fit.max.x - shaders->fit.min.x == 398.0f - 66.0f - 12.0f && std::fabs((shaders->fit.max.y - shaders->fit.min.y) - 30.0f * 1.3f) < 0.01f);   // E31
         CHECK_EQ(stretched(), 0);   // E31
         // And it answers: the cells are narrower and further in.   // E31
         const uint before = S::g_enablePS.getCurrent();   // E31
@@ -4525,12 +4529,12 @@ int main() {
         Script::g_mobileLayout = false;   // whatever the scenario reached
         RunScenario(g, "22. the display mode, automatic and by hand (E23)", ScenarioDisplayModeE23);
         Script::g_mobileLayout = false;
-        // E29: scenario 23, the main menu's language list (E27), went with the list.
+        // E30: scenario 23, the main menu's language list (E27), went with the list.
         RunScenario(g, "24. the touch controls' editor entry (E28)", ScenarioTouchEditorEntryE28);   // E28
         Script::g_mobileLayout = false;   // E28: whatever the scenario reached
         Script::g_adjustTouchControls = false;   // E28: a Script global outlives a Machine
-        RunScenario(g, "25. the menu song through the settings (E29)", ScenarioMenuSongE29);   // E29
-        Script::g_mobileLayout = false;   // E29
+        RunScenario(g, "25. the menu song through the settings (E30)", ScenarioMenuSongE30);   // E30
+        Script::g_mobileLayout = false;   // E30
         RunScenario(g, "26. the options screen on a phone, large (E31)", ScenarioPhoneOptionsE31);   // E31
         Script::g_mobileLayout = false;   // whatever the scenario reached   // E31
         Script::g_artDir.clear();   // E31

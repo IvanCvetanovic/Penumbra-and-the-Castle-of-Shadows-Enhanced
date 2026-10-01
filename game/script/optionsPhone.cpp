@@ -129,7 +129,7 @@ void putText(Frame& f, const vector2& pos, const string& text, const float size,
     }
     TextFit fit;
     fit.min = pos;
-    fit.max = pos+vector2(room, size);
+    fit.max = pos+vector2(room, size*1.3f);   // the shadow sits a tenth lower and a line is taller than its size: a box of exactly `size` shrank every text
     fit.group = ++f.fitGroup;
     fit.minScale = kFitMinScale;
     fit.maxScale = 1.0f;

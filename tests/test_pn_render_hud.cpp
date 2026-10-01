@@ -3307,7 +3307,7 @@ void TestOptionsArt() {
 
     // Every file loaded, at the size its PNG has; the icons are square but the pad.
     const char* const squares[] = {"panel", "check_on", "check_off", "arrow_left", "arrow_right", "minus", "plus",
-                                   "speaker", "music", "globe", "monitor"};   // E29: no "globe_button" (the main menu's language button is gone)
+                                   "speaker", "music", "globe", "monitor"};   // E30: no "globe_button" (the main menu's language button is gone)
     for (const char* name : Script::kOptionsArt) {
         const std::string path = Script::optionsArtPath(std::string(name) + ".png");
         const Eth::vector2 size = Eth::GetSpriteSize(path);
@@ -3414,6 +3414,340 @@ void TestOptionsArt() {
     CHECK_EQ(machine.Snapshot().hud.size(), std::size_t{0});
     Script::g_artDir = savedDir;
 }
+
+// ENHANCEMENT E31: the fit solver (HudRenderer::fitChoice) and a right-to-left text that has no rtlRight. fits() sets such   // E31
+// a text from the box's left, flush with its widest line; the solver's first estimate measured it from the box's right,   // E31
+// as if it were set against rtlRight, so it came out as the box's width over itself and every such text stayed at the   // E31
+// group's least factor whatever its width. The phone's settings screen sets every text of a narrow body through a   // E31
+// TextFit with rtlRight 0 (optionsPhone.cpp's putText), so every Arabic text there was drawn at 0.7. The tests below   // E31
+// pin the three anchorings with the same Measure the solver uses: a right-to-left text with no rtlRight is solved as   // E31
+// the same text left to right is; one with rtlRight is solved as before; and the real screen's texts in a narrow body.   // E31
+namespace {   // E31
+
+// One text and its shadow, set as optionsPhone.cpp's putText sets a group: the shadow a tenth of the size down and to   // E31
+// the right of the front text, both in one box that starts at the front text's place; the least factor 0.7, the most 1.   // E31
+struct FitCase {   // E31
+    std::string key;         // the script's text, cp1252   // E31
+    float size = 30.0f;   // E31
+    float room = 300.0f;     // the box's width   // E31
+    float inset = 0.0f;      // above 0: a right-to-left text is set against the box's right (rtlRight, as E24's panels), this far in   // E31
+    float height = 1.5f;     // the box's height in sizes: more than a line and its shadow need, so only the width decides   // E31
+};   // E31
+
+const glm::vec2 kFitOrigin(100.0f, 100.0f);   // E31
+constexpr float kFitShadow = 0.1f;   // shadowText's offset, in sizes   // E31
+constexpr float kFitLeast = 0.7f;   // E31
+constexpr float kFitSlack = 0.5f;    // the solver lets a line reach this far past the box   // E31
+// How far under the largest factor that fits the solver's may be. Its first estimate is made from the lines at the least   // E31
+// factor, whose widths move in whole raster pixels (0.7 of a 22 px size is 15.4 px), and an estimate that fits is not   // E31
+// refined upward, so it is a few percent short (5 % at most here); the old estimate was 30 % short or more.   // E31
+constexpr float kFitEstimateSlack = 0.06f;   // E31
+
+struct FitRig {   // E31
+    entt::registry registry;   // E31
+    Render::TextureCache textures{kApp};   // E31
+    Render::FontAtlas fonts;   // E31
+    Render::Localization loc;   // E31
+    Render::HudRenderer hud;   // E31
+    Render::VisualText visual;   // E31
+    Render::View view;   // E31
+
+    FitRig() {   // E31
+        CHECK(loc.Load());   // E31
+        hud.Attach(registry, textures, fonts, loc);   // E31
+        fonts.SetRasterScale(1.0f);   // E31
+        view.logicalScreen = glm::vec2(1024.0f, 768.0f);   // E31
+        view.windowPixels = glm::uvec2(1024, 768);   // E31
+        view.scale = 1.0f;   // E31
+        view.viewportMin = glm::vec2(0.0f);   // E31
+        view.viewportMax = glm::vec2(1024.0f, 768.0f);   // E31
+    }   // E31
+    FitRig(const FitRig&) = delete;   // E31
+    FitRig& operator=(const FitRig&) = delete;   // E31
+    ~FitRig() { hud.Detach(); }   // E31
+
+    // A text's code points as it is drawn in the language now set: translated, shaped, in drawing order.   // E31
+    std::u32string Visual(const std::string& key) { return visual.Of(loc.Translate(key), loc.RightToLeft()); }   // E31
+
+    // The factor the solver chooses for the case.   // E31
+    float Solved(const FitCase& fitCase) {   // E31
+        Eth::RenderSnapshot snapshot;   // E31
+        for (const bool shadow : {true, false}) {   // E31
+            const float dx = shadow ? fitCase.size * kFitShadow : 0.0f;   // E31
+            Eth::HudCmd cmd;   // E31
+            cmd.kind = Eth::HudCmd::Kind::Text;   // E31
+            cmd.text = fitCase.key;   // E31
+            cmd.font = "Arial Narrow";   // E31
+            cmd.fontSize = fitCase.size;   // E31
+            cmd.color = shadow ? 0x7F000000u : 0xFFCBCBE4u;   // E31
+            cmd.pos = kFitOrigin + glm::vec2(dx);   // E31
+            cmd.rtlRight = fitCase.inset > 0.0f ? kFitOrigin.x + fitCase.room - fitCase.inset + dx : 0.0f;   // E31
+            cmd.fit.min = kFitOrigin;   // E31
+            cmd.fit.max = kFitOrigin + glm::vec2(fitCase.room, fitCase.size * fitCase.height);   // E31
+            cmd.fit.group = 1;   // E31
+            cmd.fit.minScale = kFitLeast;   // E31
+            cmd.fit.maxScale = 1.0f;   // E31
+            snapshot.hud.push_back(cmd);   // E31
+        }   // E31
+        std::vector<Supersonic::ScreenOverlay::Quad> quads;   // E31
+        hud.Build(snapshot, view, quads);   // E31
+        return hud.FitScale(1);   // E31
+    }   // E31
+
+    // Whether the case's text and its shadow lie in the box at factor `f`, worked out here from FontAtlas::Measure alone:   // E31
+    // set from the left (left to right, or right to left with no rtlRight) its right end must be in the box; set against   // E31
+    // rtlRight its left end must; and it must be under the box's top and above its bottom.   // E31
+    bool FitsAt(const FitCase& fitCase, const std::u32string& text, const float f) {   // E31
+        const bool fromRight = loc.RightToLeft() && fitCase.inset > 0.0f;   // E31
+        const Render::FontAtlas::Extent extent = fonts.Measure(text, "Arial Narrow", fitCase.size * f);   // E31
+        const glm::vec2 lo = kFitOrigin - glm::vec2(kFitSlack);   // E31
+        const glm::vec2 hi = kFitOrigin + glm::vec2(fitCase.room, fitCase.size * fitCase.height) + glm::vec2(kFitSlack);   // E31
+        for (const bool shadow : {true, false}) {   // E31
+            const float dx = shadow ? fitCase.size * kFitShadow : 0.0f;   // E31
+            const glm::vec2 pos = kFitOrigin + glm::vec2(dx) * f;   // E31
+            const float right = kFitOrigin.x + fitCase.room - (fitCase.inset - dx) * f;   // E31
+            const float x0 = fromRight ? right - extent.width : pos.x;   // E31
+            if (x0 < lo.x || pos.y < lo.y || pos.y + extent.lineHeight > hi.y) return false;   // E31
+            if (!fromRight && x0 + extent.width > hi.x) return false;   // E31
+        }   // E31
+        return true;   // E31
+    }   // E31
+
+    // The largest factor that fits, by a search in thousandths from 1 down to the least (the least where none does).   // E31
+    float Largest(const FitCase& fitCase, const std::u32string& text) {   // E31
+        for (int i = 1000; i > 700; --i) {   // E31
+            const float f = static_cast<float>(i) / 1000.0f;   // E31
+            if (FitsAt(fitCase, text, f)) return f;   // E31
+        }   // E31
+        return kFitLeast;   // E31
+    }   // E31
+
+    // The solver's factor against that search: within its range, fitting, and within the estimate's slack of the largest   // E31
+    // that fits - never the least where more fits. Returns it.   // E31
+    float CheckSolved(const FitCase& fitCase, const std::string& what) {   // E31
+        const std::u32string text = Visual(fitCase.key);   // E31
+        const float solved = Solved(fitCase);   // E31
+        const float largest = Largest(fitCase, text);   // E31
+        const std::string where = what + " (room " + std::to_string(fitCase.room) + ", solved " + std::to_string(solved) +   // E31
+                                  ", largest " + std::to_string(largest) + ")";   // E31
+        CHECK_MSG(solved >= kFitLeast - 1e-4f && solved <= 1.0f + 1e-4f, where + ": out of its range");   // E31
+        CHECK_MSG(largest <= kFitLeast + 1e-4f || FitsAt(fitCase, text, solved), where + ": the factor does not fit");   // E31
+        CHECK_MSG(solved >= largest - kFitEstimateSlack, where + ": smaller than it must be");   // E31
+        return solved;   // E31
+    }   // E31
+};   // E31
+
+// A text's width at full size, in the language now set.   // E31
+float FitWidth(FitRig& rig, const std::string& key, const float size) {   // E31
+    return rig.fonts.Measure(rig.Visual(key), "Arial Narrow", size).width;   // E31
+}   // E31
+
+// Texts the options screen draws, with an Arabic translation each.   // E31
+const char* const kFitKeys[] = {"Idioma", "Vale a partir da pr\xF3xima fase", "Volume dos efeitos",   // E31
+                                "Pausa ao perder o foco", "Taxa de atualiza\xE7\xE3o"};   // E31
+
+// The factors of one text over the boxes it is tried in, for the log: a run before the fix can be set beside one after it.   // E31
+std::string FitRow(const std::vector<float>& factors) {   // E31
+    std::string out;   // E31
+    for (const float f : factors) {   // E31
+        char one[16];   // E31
+        std::snprintf(one, sizeof(one), " x%.4f", f);   // E31
+        out += one;   // E31
+    }   // E31
+    return out;   // E31
+}   // E31
+
+// No rtlRight: a right-to-left text is set from the box's left and solved as left to right. Text in no language file is   // E31
+// drawn as it is in every language, so one that is Latin has the same code points, and so the same factor, in English and   // E31
+// in Arabic; and an Arabic label is not shrunk where its box is wide, and chosen at the largest factor that fits where it   // E31
+// is not (the old estimate gave the least in both).   // E31
+void TestFitLeftAnchoredRightToLeft() {   // E31
+    FitRig rig;   // E31
+    const Language arabic = Language::Arabic;   // E31
+    CHECK(Render::IsRightToLeft(arabic));   // E31
+    const float sizes[] = {30.0f, 22.0f};   // E31
+    const float ratios[] = {2.0f, 1.2f, 0.95f, 0.85f};   // the box over the text and its shadow at full size   // E31
+
+    const std::string latin = "Mmmmm Wwwww Iiiii Llll";   // E31
+    for (const float size : sizes) {   // E31
+        rig.loc.SetLanguage(Language::English);   // E31
+        const std::u32string english = rig.Visual(latin);   // E31
+        const float width = FitWidth(rig, latin, size);   // E31
+        rig.loc.SetLanguage(arabic);   // E31
+        CHECK_MSG(rig.Visual(latin) == english, "the Latin text is the same code points in Arabic");   // E31
+        std::vector<float> factors;   // E31
+        for (const float ratio : ratios) {   // E31
+            const FitCase fitCase{latin, size, ratio * (width + kFitShadow * size), 0.0f, 1.5f};   // E31
+            const std::string what = "Latin, size " + std::to_string(static_cast<int>(size)) + ", box " + std::to_string(ratio);   // E31
+            rig.loc.SetLanguage(Language::English);   // E31
+            const float ltr = rig.CheckSolved(fitCase, "en " + what);   // E31
+            rig.loc.SetLanguage(arabic);   // E31
+            const float rtl = rig.CheckSolved(fitCase, "ar " + what);   // E31
+            CHECK_MSG(std::fabs(rtl - ltr) < 1e-5f, what + ": left to right " + std::to_string(ltr) + ", right to left " + std::to_string(rtl));   // E31
+            if (ratio >= 1.0f) CHECK_NEAR(rtl, 1.0f);   // fits: not shrunk   // E31
+            else CHECK_MSG(rtl > kFitLeast + 0.05f, what + ": " + std::to_string(rtl) + ", the least");   // E31
+            factors.push_back(rtl);   // E31
+        }   // E31
+        std::printf("  E31 fit, no rtlRight, Latin, size %d, boxes 2.00 1.20 0.95 0.85 (en = ar):%s\n", static_cast<int>(size),   // E31
+                    FitRow(factors).c_str());   // E31
+    }   // E31
+
+    for (const char* key : kFitKeys) {   // E31
+        rig.loc.SetLanguage(arabic);   // E31
+        CHECK_MSG(rig.loc.HasTranslation(key, arabic), std::string("an Arabic translation of ") + Eth::Cp1252ToUtf8(key));   // E31
+        for (const float size : sizes) {   // E31
+            const float width = FitWidth(rig, key, size);   // E31
+            CHECK_MSG(width > 0.0f, std::string("a width for ") + Eth::Cp1252ToUtf8(key));   // E31
+            std::vector<float> factors;   // E31
+            for (const float ratio : ratios) {   // E31
+                const FitCase fitCase{key, size, ratio * (width + kFitShadow * size), 0.0f, 1.5f};   // E31
+                const std::string what = "ar \"" + Eth::Cp1252ToUtf8(key) + "\", size " + std::to_string(static_cast<int>(size)) +   // E31
+                                         ", box " + std::to_string(ratio);   // E31
+                const float solved = rig.CheckSolved(fitCase, what);   // E31
+                if (ratio >= 1.0f) CHECK_NEAR(solved, 1.0f);   // short in a wide box: not shrunk   // E31
+                else CHECK_MSG(solved > kFitLeast + 0.05f, what + ": " + std::to_string(solved) + ", the least");   // E31
+                factors.push_back(solved);   // E31
+            }   // E31
+            std::printf("  E31 fit, no rtlRight, ar \"%s\", size %d, boxes 2.00 1.20 0.95 0.85:%s\n", Eth::Cp1252ToUtf8(key).c_str(),   // E31
+                        static_cast<int>(size), FitRow(factors).c_str());   // E31
+        }   // E31
+    }   // E31
+}   // E31
+
+// With rtlRight (E24's panels: a right-to-left text set against the box's right, its left inset mirrored), and left to   // E31
+// right where rtlRight is unused, the solver is as it was before: the fix changed no line that is set from the right or   // E31
+// from the left in a language that reads left to right. The same search as above, with its anchoring; and the factors   // E31
+// printed, which are the same before the fix and after it.   // E31
+void TestFitRightAnchoredUnchanged() {   // E31
+    FitRig rig;   // E31
+    const float inset = 10.0f;   // E31
+    const float sizes[] = {30.0f, 22.0f};   // E31
+    const float ratios[] = {1.5f, 0.9f, 0.8f};   // the box over the text and its inset   // E31
+    for (const Language language : {Language::Arabic, Language::English}) {   // E31
+        rig.loc.SetLanguage(language);   // E31
+        for (const char* key : kFitKeys) {   // E31
+            for (const float size : sizes) {   // E31
+                const float width = FitWidth(rig, key, size);   // E31
+                std::vector<float> factors;   // E31
+                for (const float ratio : ratios) {   // E31
+                    const FitCase fitCase{key, size, ratio * (width + inset), inset, 1.5f};   // E31
+                    const std::string what = std::string(Render::LanguageId(language)) + " \"" + Eth::Cp1252ToUtf8(key) +   // E31
+                                             "\" with rtlRight, size " + std::to_string(static_cast<int>(size)) + ", box " +   // E31
+                                             std::to_string(ratio);   // E31
+                    const float solved = rig.CheckSolved(fitCase, what);   // E31
+                    if (ratio >= 1.0f) CHECK_NEAR(solved, 1.0f);   // E31
+                    else CHECK_MSG(solved > kFitLeast + 0.02f, what + ": " + std::to_string(solved) + ", the least");   // E31
+                    factors.push_back(solved);   // E31
+                }   // E31
+                std::printf("  E31 fit, rtlRight %.0f, %s \"%s\", size %d, boxes 1.50 0.90 0.80:%s\n", inset,   // E31
+                            Render::LanguageId(language), Eth::Cp1252ToUtf8(key).c_str(), static_cast<int>(size),   // E31
+                            FitRow(factors).c_str());   // E31
+            }   // E31
+        }   // E31
+    }   // E31
+}   // E31
+
+// The real screen: optionsPhone.cpp's options screen in a narrow body (a 4:3 window whose frame reaches 88 px in at each   // E31
+// side: a panel 848 across, scenario 26's), drawn by the script's own loop into a Machine, every text of it set through   // E31
+// a TextFit of its own with its shadow. In every language: no text is below 0.7, one that is shrunk lies in its box, one   // E31
+// that fits at full size is at least 0.9 of it, and one with a fifth of its room to spare is at full size - which the   // E31
+// old estimate (all of them at 0.7 in Arabic) and a box exactly as tall as the text (all of them under 0.92, the shadow   // E31
+// being a tenth lower than the line) both fail. The box holds a line and its shadow at full size.   // E31
+void TestPhoneOptionsNarrowBodyFit() {   // E31
+    namespace S = Script;   // E31
+    const std::string savedArtDir = S::g_artDir;   // E31
+    const S::OptionsArea savedArea = S::g_optionsArea;   // E31
+    const bool savedRefreshRow = S::g_refreshRateRow;   // E31
+    const Eth::uint savedTouch = S::g_touchControls.getCurrent();   // E31
+    S::g_artDir = PENUMBRA_DATA_DIR;   // E31
+    S::g_optionsArea = S::OptionsArea{Eth::vector2(0.0f, 0.0f), Eth::vector2(1024.0f, 768.0f), 88.0f, 8.0f, 88.0f, 24.0f};   // E31
+    S::g_refreshRateRow = true;   // E31
+    S::g_touchControls.setCurrent(0u);   // the Adjust cell is there   // E31
+    // The choosers' options are the layer's: the language's index 0 is Automatic.   // E31
+    Eth::array<std::string> zooms;   // E31
+    for (const char* zoom : {"Autom\xE1tica", "100%", "125%", "150%"}) zooms.insertLast(zoom);   // E31
+    Eth::array<std::string> rates;   // E31
+    for (const char* rate : {"Autom\xE1tica (m\xE1xima)", "60 Hz", "144 Hz"}) rates.insertLast(rate);   // E31
+    Eth::array<std::string> languages;   // E31
+    languages.insertLast("Autom\xE1tica");   // E31
+    for (const char* id : {"en", "de", "es", "fr", "it", "pt", "ru", "tr", "uk", "ja", "ar"}) {   // E31
+        languages.insertLast(std::string("{language:") + id + "}");   // E31
+    }   // E31
+    S::g_zoom.setOptions(zooms, 0u);   // E31
+    S::g_refreshRate.setOptions(rates, 0u);   // E31
+    S::g_language.setOptions(languages, 2u);   // E31
+
+    Eth::MachineConfig config;   // E31
+    config.userRoot.clear();   // E31
+    config.screenSize = Eth::vector2(1024.0f, 768.0f);   // E31
+    Eth::Machine machine(config);   // E31
+    Eth::Machine::Scope scope(machine);   // E31
+    machine.RegisterFunction("pre", [] { S::loadOptionsArt(); });   // E31
+    machine.RegisterFunction("loop", [] { S::phoneOptionsLoop(); });   // E31
+    machine.Boot([] { Eth::LoadScene("", "pre", "loop"); });   // E31
+    for (int i = 0; i < 3; ++i) machine.Frame(Eth::InputFrame{});   // E31
+    const Eth::RenderSnapshot snapshot = machine.Snapshot();   // E31
+
+    // Each group's front text (the shadow is the one at half the alpha or less).   // E31
+    std::vector<Eth::HudCmd> fronts;   // E31
+    for (const Eth::HudCmd& cmd : snapshot.hud) {   // E31
+        if (cmd.kind == Eth::HudCmd::Kind::Text && cmd.fit.group != 0 && (cmd.color >> 24) > 128u) fronts.push_back(cmd);   // E31
+    }   // E31
+    CHECK_EQ(fronts.size(), std::size_t{17});   // every text of the body but the title   // E31
+
+    FitRig rig;   // E31
+    for (const Language language : MeasuredLanguages(rig.loc)) {   // E31
+        rig.loc.SetLanguage(language);   // E31
+        const std::string id = Render::LanguageId(language);   // E31
+        std::vector<Supersonic::ScreenOverlay::Quad> quads;   // E31
+        rig.hud.Build(snapshot, rig.view, quads);   // E31
+        int full = 0;   // E31
+        int roomy = 0;   // E31
+        float least = 1e9f;   // E31
+        for (const Eth::HudCmd& front : fronts) {   // E31
+            const std::string what = id + " \"" + Eth::Cp1252ToUtf8(front.text) + "\"";   // E31
+            const float scale = rig.hud.FitScale(front.fit.group);   // E31
+            const float room = front.fit.max.x - front.fit.min.x;   // E31
+            const float boxHeight = front.fit.max.y - front.fit.min.y;   // E31
+            const std::u32string text = rig.Visual(front.text);   // E31
+            const Render::FontAtlas::Extent whole = rig.fonts.Measure(text, front.font, front.fontSize);   // E31
+            const float shadow = front.fontSize * kFitShadow;   // E31
+            least = std::min(least, scale);   // E31
+            CHECK_MSG(scale >= kFitLeast - 1e-4f && scale <= 1.0f + 1e-4f, what + ": factor " + std::to_string(scale));   // E31
+            // The box holds the line and its shadow at full size.   // E31
+            CHECK_MSG(boxHeight >= whole.Height() + shadow - 1e-3f,   // E31
+                      what + ": a box " + std::to_string(boxHeight) + " tall for a line of " + std::to_string(whole.Height()) +   // E31
+                          " and its shadow");   // E31
+            // Shrunk, it lies in the box (the shadow a tenth of its size in).   // E31
+            if (scale < 1.0f - 1e-4f && scale > kFitLeast + 1e-4f) {   // E31
+                const Render::FontAtlas::Extent drawn = rig.fonts.Measure(text, front.font, front.fontSize * scale);   // E31
+                CHECK_MSG(drawn.width + shadow * scale <= room + kFitSlack + 1e-3f,   // E31
+                          what + ": " + std::to_string(drawn.width) + " px at " + std::to_string(scale) + " in " + std::to_string(room));   // E31
+            }   // E31
+            const bool fits = whole.width + shadow <= room;   // E31
+            if (fits) CHECK_MSG(scale >= 0.9f, what + ": fits at full size (" + std::to_string(whole.width) + " of " + std::to_string(room) + ") but is at " + std::to_string(scale));   // E31
+            if (whole.width + shadow <= 0.8f * room) {   // E31
+                ++roomy;   // E31
+                CHECK_MSG(std::fabs(scale - 1.0f) < 1e-3f, what + ": " + std::to_string(whole.width) + " px of " + std::to_string(room) + " is at " + std::to_string(scale));   // E31
+            }   // E31
+            if (scale >= 1.0f - 1e-3f) ++full;   // E31
+        }   // E31
+        std::printf("  E31 narrow options body, %s: %d of %d texts at full size, %d with a fifth of their room to spare, least x%.3f\n",   // E31
+                    id.c_str(), full, static_cast<int>(fronts.size()), roomy, least);   // E31
+        // Not a vacuous check: Arabic (the language the old estimate broke) has eleven, Japanese, the widest, eight.   // E31
+        CHECK_MSG(roomy >= (language == Language::Arabic ? 10 : 5), id + ": only " + std::to_string(roomy) + " texts with room to spare");   // E31
+    }   // E31
+
+    S::g_zoom.setOptions(Eth::array<std::string>(), 0u);   // E31
+    S::g_refreshRate.setOptions(Eth::array<std::string>(), 0u);   // E31
+    S::g_language.setOptions(Eth::array<std::string>(), 0u);   // E31
+    S::g_touchControls.setCurrent(savedTouch);   // E31
+    S::g_refreshRateRow = savedRefreshRow;   // E31
+    S::g_optionsArea = savedArea;   // E31
+    S::g_artDir = savedArtDir;   // E31
+}   // E31
+
+} // namespace   // E31
 
 // ENHANCEMENT E28: THE LAYER, DRIVEN. Nothing before this attached PenumbraLayer to a bare registry: this runs the real   // E28
 // game's options screen on a phone's layout through the layer's own frame loop (OnFixedUpdate then OnUpdate, one tick a   // E28
@@ -3719,6 +4053,9 @@ int main() {
     TestWideMenuBackdrop();
     TestWideMenuScene();   // it boots the real game, whose globals outlive it
     TestPlaqueInGame();    // E26: last, booting level 1 afresh (a new game)
+    TestFitLeftAnchoredRightToLeft();   // E31
+    TestFitRightAnchoredUnchanged();   // E31
+    TestPhoneOptionsNarrowBodyFit();   // E31: a bare Machine of its own, its globals put back
     TestTouchEditorInLayer();   // E28: the layer itself, driven on a bare registry (its globals die with the process)
     return test::summary("test_pn_render_hud", 150);
 }

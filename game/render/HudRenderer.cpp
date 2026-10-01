@@ -386,7 +386,7 @@ HudRenderer::FitChoice HudRenderer::fitChoice(const std::vector<const Eth::HudCm
         glm::vec2 reach(0.0f);
         for (const std::vector<LineBox>* set : {&lines, &raised}) {
             for (const LineBox& line : *set) {
-                reach.x = std::max(reach.x, rtl ? fit.max.x - line.min.x : line.max.x - fit.min.x);
+                reach.x = std::max(reach.x, line.rightInBox ? line.max.x - fit.min.x : fit.max.x - line.min.x);   // E31: a right-to-left line with no rtlRight is left-anchored (fits() above), so it reaches from the box's left
                 reach.y = std::max(reach.y, line.max.y - fit.min.y);
             }
         }

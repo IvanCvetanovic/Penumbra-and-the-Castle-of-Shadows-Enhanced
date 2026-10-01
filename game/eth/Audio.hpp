@@ -6,7 +6,7 @@
 // (docs/spec/30-ethanon-runtime.md §4.2): PlaySample on a playing sample
 // restarts it (no overlap), LoopSample sets its repeat flag, SetSampleVolume is
 // linear and clamped to 0..1 and persists, StopSample rewinds, and every
-// LoadScene stops and forgets all of them (E29: bar one a script asked to keep
+// LoadScene stops and forgets all of them (E30: bar one a script asked to keep
 // through that load, KeepOnNextLoad). A particle system's <SoundEffect>
 // is the SAME sample object, and while that system has live particles its
 // HandleSoundPlayback overwrites the sample's volume, pan and loop every frame.
@@ -71,13 +71,13 @@ public:
     // LoadScene: stop and release every sample.
     void ReleaseAll();
 
-    // ENHANCEMENT E29 (not in 0.7.12): `path`'s sample, while it is sounding, goes on through the NEXT
+    // ENHANCEMENT E30 (not in 0.7.12): `path`'s sample, while it is sounding, goes on through the NEXT
     // ReleaseAll instead of being stopped and forgotten by it - the same voice, its volume, pan and loop
     // flag, still keyed by its name, so the next scene's LoadMusic finds it and its preLoop need not
     // start it again. The request is for that one load only (it is consumed there, and a sample that
     // is not sounding then is released as usual). False when there is no such sample or it has no
     // voice, which is quiet: it is the usual answer when a script asks without knowing.
-    bool KeepOnNextLoad(const string& path);   // E29
+    bool KeepOnNextLoad(const string& path);   // E30
 
 private:
     struct Sample {
@@ -87,7 +87,7 @@ private:
         float volume = 1.0f;
         float pan = 0.0f;
         VoiceId voice = 0;
-        bool keepOnLoad = false;   // E29: KeepOnNextLoad's request, consumed by ReleaseAll
+        bool keepOnLoad = false;   // E30: KeepOnNextLoad's request, consumed by ReleaseAll
     };
     static string Key(const string& path);
     Sample* Find(const string& path);

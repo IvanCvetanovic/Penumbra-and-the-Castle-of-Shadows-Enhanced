@@ -12,34 +12,34 @@
 
 namespace Penumbra::Script {
 
-namespace {                                                                                          // E29
-// ENHANCEMENT E29 (not in the original): the menu song goes on through the scene loads between the     // E29
-// menu's screens. The original's every load released every sample, and each of these screens' preLoops // E29
-// started the song again from its first note (loopMenuSong, below); here the load that leaves one     // E29
-// menu screen for another asks for the song to be kept (Audio.hpp's KeepOnNextLoad), and loopMenuSong // E29
-// finds it playing. Asked only before the loads to a menu screen - the settings, the arena select and // E29
-// the way back - and never before a start (newGame), so a level still begins in its own music.        // E29
-// A song that is not playing (a menu entered from a level, the first screen of a run) is not kept:   // E29
-// the call is then a no-op and loopMenuSong starts it as the original did.                           // E29
-void keepMenuSong()                                                                                  // E29
-{                                                                                                    // E29
-    KeepSampleOnNextLoad("soundfx/menu.mp3");                                                        // E29
-}                                                                                                    // E29
-} // namespace                                                                                       // E29
+namespace {                                                                                          // E30
+// ENHANCEMENT E30 (not in the original): the menu song goes on through the scene loads between the     // E30
+// menu's screens. The original's every load released every sample, and each of these screens' preLoops // E30
+// started the song again from its first note (loopMenuSong, below); here the load that leaves one     // E30
+// menu screen for another asks for the song to be kept (Audio.hpp's KeepOnNextLoad), and loopMenuSong // E30
+// finds it playing. Asked only before the loads to a menu screen - the settings, the arena select and // E30
+// the way back - and never before a start (newGame), so a level still begins in its own music.        // E30
+// A song that is not playing (a menu entered from a level, the first screen of a run) is not kept:   // E30
+// the call is then a no-op and loopMenuSong starts it as the original did.                           // E30
+void keepMenuSong()                                                                                  // E30
+{                                                                                                    // E30
+    KeepSampleOnNextLoad("soundfx/menu.mp3");                                                        // E30
+}                                                                                                    // E30
+} // namespace                                                                                       // E30
 
 // menu.as:43
 void loopMenuSong()
 {
     LoadMusic("soundfx/menu.mp3");
-    // E29: a song kept through the load (keepMenuSong) is found playing and goes on. The original    // E29
-    // started it from its first note on every one of these loads: its load released every sample,   // E29
-    // so this always found it silent. A kept song gets its full volume explicitly: the original     // E29
-    // had that from the release that forgot the sample, which a kept one has not had.               // E29
-    if (SampleExists("soundfx/menu.mp3") && IsSamplePlaying("soundfx/menu.mp3"))                           // E29
-    {                                                                                                      // E29
-        SetSampleVolume("soundfx/menu.mp3", 1.0f);                                                         // E29
-        return;                                                                                            // E29
-    }                                                                                                      // E29
+    // E30: a song kept through the load (keepMenuSong) is found playing and goes on. The original    // E30
+    // started it from its first note on every one of these loads: its load released every sample,   // E30
+    // so this always found it silent. A kept song gets its full volume explicitly: the original     // E30
+    // had that from the release that forgot the sample, which a kept one has not had.               // E30
+    if (SampleExists("soundfx/menu.mp3") && IsSamplePlaying("soundfx/menu.mp3"))                           // E30
+    {                                                                                                      // E30
+        SetSampleVolume("soundfx/menu.mp3", 1.0f);                                                         // E30
+        return;                                                                                            // E30
+    }                                                                                                      // E30
     PlaySample("soundfx/menu.mp3");
     LoopSample("soundfx/menu.mp3", true);
 }
@@ -250,7 +250,7 @@ void ETHCallback_cursor(ETHEntity thisEntity)
                     showData("Jogador versus Jogador", versus);
                     if (confirmed)
                     {
-                        keepMenuSong();                               // E29
+                        keepMenuSong();                               // E30
                         goToPvp();
                     }
                 }
@@ -294,7 +294,7 @@ void ETHCallback_cursor(ETHEntity thisEntity)
                 showData("Configura\xE7\xF5" "es", config);
                 if (confirmed)
                 {
-                    keepMenuSong();                                   // E29
+                    keepMenuSong();                                   // E30
                     LoadScene("scenes/videoModes.esc", "screenModesPreLoop", "screenModesLoop");
                 }
             } else if (entityName == "thumbnail")                      // menu.as:311
@@ -382,7 +382,7 @@ bool goToMenu()
 {
     if (GetSceneFileName() != "scenes/menu.esc")
     {
-        keepMenuSong();                                               // E29: from the settings or the arena select
+        keepMenuSong();                                               // E30: from the settings or the arena select
         LoadScene("scenes/menu.esc", "menuPreLoop", "menuLoop", vector2(1024,256));
         return true;
     }

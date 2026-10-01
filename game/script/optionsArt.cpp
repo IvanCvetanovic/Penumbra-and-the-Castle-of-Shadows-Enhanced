@@ -1,5 +1,5 @@
 // ENHANCEMENT E27 (not in the original): the helpers that draw the art the port added for the
-// options screen (game/data/images/options/). Written for this   // E29
+// options screen (game/data/images/options/). Written for this   // E30
 // enhanced edition and kept with the ported scripts it is called from, under the same licence as
 // them (LICENSE.md: LGPL-3.0-or-later for game/script/).
 
