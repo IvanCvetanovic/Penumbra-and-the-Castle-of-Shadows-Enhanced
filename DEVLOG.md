@@ -901,3 +901,39 @@ Separately, the README sent a reader to a GitHub Pages site for "How to install"
   in out/e29 needs its button sentence checked against E32 first).
 - The published release bodies and the README inside the 1.0.2 zip and tar.gz still link the Pages site, so it has to stay deployed until the bodies are edited and 1.0.3 supersedes the zips.
 - The Mac log path in the guide comes from how-to-play.txt and was not traced on a Mac; the Issues link answered 504 once from this machine (the releases link 200).
+
+## 2026-10-02 (later) — The Pages download page retired; a button for every platform; the install pictures in the repository; the original's installer moved
+
+**Why.** Everything a visitor needs should be inside the repository: the README linked out to a GitHub Pages site (site/ and pages.yml) for "How to install" and "the other downloads",
+and the page's content had to be kept in step with the guides. The author decided to retire it, to put a download button on the README for every platform, to bring the page's picture
+tutorials into the repository, and to move penumbra_setup.exe (the original 2010 game's installer, 13.5 MB, at the repository root since 2026-09-19) off the front page, where a
+first-time visitor could download it instead of the enhanced edition.
+
+**Built.**
+- *Buttons.* README: Windows and Android on the first row (as before), Mac and Linux on the second, iPhone and iPad (experimental) on its own line, each downloading the latest release's file
+  (`releases/latest/download/<asset>`, shields.io badges in the style of the first two; all five resolve); under them a sentence that Mac, Linux and iPhone and iPad are newer and less
+  tested (the Platform status table). The guide sentence now says "with pictures".
+- *Pictures.* The page's nine inline SVG step illustrations (Windows: Keep, Extract All, the folder, the double-click, "Windows protected your PC"; Android: download, allow unknown apps,
+  install, open) are 18 standalone SVGs in docs/images/install/ (`<name>.en.svg`, `<name>.pt.svg`), embedded under their steps in docs/install.md and docs/install.pt.md (23 added lines each,
+  nothing else changed). Each has its own opaque panel and a thin rim (legible on GitHub's light and dark themes), no scripts, styles or external references, the icon embedded as a data URI;
+  the text the page squeezed with JavaScript `textLength` is set at a size that fits (measured against six fonts; Portuguese is smaller in places). Rendered in Edge on light and dark and
+  compared with the page's own rendering; GitHub serves them as image/svg+xml and its rendered guides keep all ten images and five details blocks. They are schematic drawings, not
+  screenshots (the folder picture shows 4 of the real folder's items, and says so in its alt text; the Extract All picture is a simplified menu); no picture was compared with the real
+  Windows 11, Edge, Chrome or Android screens. The 402-line generator that wrote them is not in the repository; the files are plain text.
+- *The installer.* docs/original-installer/penumbra_setup.exe (a rename; history kept) with a short English and Portuguese README that sends anyone who lands there to the guide;
+  LICENSE.md's table names the new path. Nothing builds from it and the release scripts copy only docs/*.md and docs/images, so no download carries it. extracted/ is untouched.
+- *The retirement,* in this order so that no live link was ever dead: the guides with their pictures and the buttons pushed first (d1c0b8d); the release notes of v1.0.0 and v1.0.2 edited
+  (`gh release edit --notes-file`: exactly six lines per body changed, the four links and the sentence "Open the download page in Chrome" → "Open this page in Chrome", checked byte for byte
+  against the prepared text; v1.0.2 is still Latest with its six files); then site/ (seven files) and .github/workflows/pages.yml deleted in one commit (12992c5, with CLAUDE.md's layout block);
+  then Pages disabled in the settings (the pages endpoint now answers 404), the repository's homepage field cleared, the github-pages environment and its nine deployment records deleted.
+  The old address (root, `?lang=pt`, an image) answers 404; no Pages workflow ran on the pushes (CI and Apple only).
+
+**Not carried over.** The page's language auto-switch and "for this device" badges, its hero and gallery (the README has the screenshots).
+
+**Open.**
+- The README inside the already-published Windows zip and Linux tar.gz of v1.0.0 (lines 9, 12) and v1.0.2 (lines 9, 11, 14) still links the old page; those files are not replaced (release.yml and
+  docs/code-signing.md: the Windows zip is never replaced), so the three links are dead until 1.0.3 supersedes them. The APKs and IPAs were not scanned for the old URL.
+- The held release patches out/e28/readme_site_e28.patch and out/e29/readme_site_103.patch each contain a site/index.html section: apply the README part only
+  (`git apply --check --include=README.md <patch>` first, untested) and check the button sentence against E32; the held screenshots are E29's, redone with the release.
+- docs/code-signing.md says the SignPath application is prepared, not sent; if it was sent with the old homepage URL, update it to the repository's.
+- The local release notes under out/release/ (gitignored) were given the same link replacement, so a 1.0.3 body starts clean.
