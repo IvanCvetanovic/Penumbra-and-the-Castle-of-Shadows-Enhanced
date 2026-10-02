@@ -22,7 +22,9 @@ O download do Windows ainda não tem assinatura digital, e o app do Mac não é 
 
 ## Computador com Windows
 
-**Você precisa de:** Windows 10 ou 11 (64 bits) e um driver de vídeo compatível com Vulkan 1.2.
+**Você precisa de:** Windows 10 ou 11 (64 bits) e um driver de vídeo compatível com Vulkan 1.2 (a maioria dos PCs dos últimos oito anos tem um).
+
+> **Veja isto primeiro no Windows 11:** este download ainda não tem assinatura digital, então um PC com o **Controle Inteligente de Aplicativos** (Smart App Control) ligado pode se recusar a abrir o jogo, e nesse caso não aparece o botão **Executar assim mesmo**. Para ver se ele está ligado, abra a **Segurança do Windows** (procure por esse nome no menu Iniciar) e procure por **Controle Inteligente de Aplicativos**. Se estiver ligado, esta versão talvez não abra nesse PC por enquanto. Por favor, não desligue o recurso só por causa deste jogo. O Windows 10 não tem esse recurso.
 
 **[Baixar para Windows](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/releases/latest/download/Penumbra-Windows.zip)**
 
@@ -46,7 +48,7 @@ O download do Windows ainda não tem assinatura digital, e o app do Mac não é 
 
    <img src="images/install/windows-5-protected.pt.svg" alt="A janela azul “O Windows protegeu o computador”. 1: clique em Mais informações. 2: clique no botão Executar assim mesmo." width="440">
 
-   - Em alguns computadores com Windows 11 não aparece o botão *Executar assim mesmo* (Controle Inteligente de Aplicativos): veja *Não abriu?* mais abaixo.
+   - Num computador com Windows 11 com o Controle Inteligente de Aplicativos ligado, pode não aparecer o botão *Executar assim mesmo*: veja *Veja isto primeiro no Windows 11* acima, ou *Não abriu?* mais abaixo.
 
 Divirta-se!
 
@@ -58,7 +60,7 @@ Divirta-se!
 - **“O Penumbra não conseguiu iniciar os gráficos”:** atualize o driver de vídeo pelo Windows Update ou pelo site da NVIDIA, da AMD ou da Intel (peça ajuda a um adulto). Um PC muito antigo pode não conseguir rodar o jogo.
 - **“MFPlat.DLL não foi encontrado”:** este computador tem uma edição “N” do Windows, que vem sem os recursos de mídia do Windows. Instale o *Pacote de Recursos de Mídia* (Media Feature Pack), grátis, da Microsoft (no Windows 10 e 11: Configurações, Aplicativos, Recursos opcionais, Adicionar um recurso) e abra o jogo de novo. Peça ajuda a um adulto.
 - **“O Penumbra não pode ser aberto desta pasta”:** mova a pasta *Penumbra* para um lugar simples, como *C:\Jogos\Penumbra*, e tente de novo.
-- **“O Controle Inteligente de Aplicativos bloqueou…”:** em alguns computadores com Windows 11, o Controle Inteligente de Aplicativos bloqueia apps novos sem assinatura, e não aparece *Executar assim mesmo*. Esta versão ainda não roda nesses computadores. Por favor, não desligue esse recurso só por causa deste jogo.
+- **O Windows diz “An Application Control policy has blocked this file” (ou algo parecido, em português), ou uma mensagem que fala do Controle Inteligente de Aplicativos:** em alguns computadores com Windows 11, o Controle Inteligente de Aplicativos bloqueia apps que não têm assinatura, e não aparece o botão *Executar assim mesmo*. Esta versão talvez não abra nesses computadores por enquanto. Por favor, não desligue esse recurso só por causa deste jogo.
 
 </details>
 
@@ -184,7 +186,7 @@ Esta **edição aprimorada**, de **Ivan Cvetanović**, é igualzinha ao original
 - Tela widescreen, em qualquer resolução
 - Controles (gamepads) e um segundo jogador no mesmo teclado
 - Controles de toque em celulares e tablets
-- Onze idiomas: inglês, português, espanhol, francês, alemão, italiano, russo, turco, ucraniano, japonês e árabe
+- Onze idiomas: inglês, português, espanhol, francês, alemão, italiano, russo, turco, ucraniano, japonês e árabe. As traduções foram feitas com a ajuda de inteligência artificial (IA) e ainda não foram revisadas por falantes nativos; correções são bem-vindas ([avise aqui](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/issues/new/choose))
 
 ## Controles
 
@@ -220,4 +222,4 @@ Esta **edição aprimorada**, de **Ivan Cvetanović**, é igualzinha ao original
 
 Grátis para jogar. Fornecido como está, sem nenhuma garantia; veja as [licenças](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/blob/main/LICENSE.md) (em inglês). O código-fonte está no [GitHub](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced).
 
-**Algo errado?** Se o jogo não abrir ou fechar sozinho, ou se este guia tiver algum erro, por favor avise na [página de Issues](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/issues).
+**Algo errado?** Se o jogo não abrir ou fechar sozinho, ou se este guia tiver algum erro, por favor [avise aqui](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/issues/new/choose). Ajuda dizer qual download você usou, a versão do seu Windows, Android, Mac ou Linux e as palavras de qualquer mensagem que apareceu. É preciso ter uma conta gratuita no GitHub.

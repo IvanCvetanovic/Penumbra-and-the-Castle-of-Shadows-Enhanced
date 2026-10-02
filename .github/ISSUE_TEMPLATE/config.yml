@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Install help (steps with pictures)
+    url: https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/blob/main/docs/install.md
+    about: How to install on Windows and Android, and what to do when the game does not start.

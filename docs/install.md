@@ -22,7 +22,9 @@ The Windows download is not code-signed yet, and the Mac app is not notarised by
 
 ## Windows PC
 
-**You need:** Windows 10 or 11 (64-bit) and a graphics driver that supports Vulkan 1.2.
+**You need:** Windows 10 or 11 (64-bit) and a graphics driver that supports Vulkan 1.2 (most PCs from the last eight years or so have one).
+
+> **Check this first on Windows 11:** this download is not code-signed yet, so a PC with **Smart App Control** turned on may refuse to run it, and there is no *Run anyway* button for that. To see whether it is on, open **Settings**, **Privacy & security**, **Windows Security**, **App & browser control**, then **Smart App Control settings** (or open **Windows Security** from the Start menu). If it says **On**, this version may not run on that PC yet. Please don't turn Smart App Control off just for this game. Windows 10 does not have it.
 
 **[Download for Windows](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/releases/latest/download/Penumbra-Windows.zip)**
 
@@ -46,7 +48,7 @@ The Windows download is not code-signed yet, and the Mac app is not notarised by
 
    <img src="images/install/windows-5-protected.en.svg" alt="The blue “Windows protected your PC” window. 1: click More info. 2: click the Run anyway button." width="440">
 
-   - On some Windows 11 PCs there is no *Run anyway* button (Smart App Control): see *It didn't start?* below.
+   - On a Windows 11 PC with Smart App Control turned on, there may be no *Run anyway* button: see *Check this first on Windows 11* above, or *It didn't start?* below.
 
 Have fun!
 
@@ -58,7 +60,7 @@ Have fun!
 - **“Penumbra could not start its graphics”:** update the graphics driver through Windows Update or from the NVIDIA, AMD or Intel website (ask an adult to help). A very old PC may not be able to run the game.
 - **“MFPlat.DLL was not found”:** this PC has an “N” edition of Windows, which comes without Windows' media features. Install Microsoft's free *Media Feature Pack* (on Windows 10 and 11: Settings, Apps, Optional features, Add a feature), then start the game again. Ask an adult to help.
 - **“Penumbra cannot run from this folder”:** move the *Penumbra* folder somewhere simple, like *C:\Games\Penumbra*, and try again.
-- **“Smart App Control blocked…”:** on some Windows 11 PCs, Smart App Control blocks new apps that aren't signed, and there's no *Run anyway*. This version can't run on those PCs yet. Please don't turn Smart App Control off just for this game.
+- **Windows says “An Application Control policy has blocked this file”, or a message that mentions Smart App Control:** on some Windows 11 PCs, Smart App Control blocks apps that are not signed, and there is no *Run anyway* button. This version may not run on those PCs yet. Please don't turn Smart App Control off just for this game.
 
 </details>
 
@@ -184,7 +186,7 @@ This **enhanced edition** by **Ivan Cvetanović** plays just like the original, 
 - Widescreen, at any resolution
 - Gamepads, and a second player on the same keyboard
 - Touch controls on phones and tablets
-- Eleven languages: English, Portuguese, Spanish, French, German, Italian, Russian, Turkish, Ukrainian, Japanese and Arabic
+- Eleven languages: English, Portuguese, Spanish, French, German, Italian, Russian, Turkish, Ukrainian, Japanese and Arabic. The translations were made with AI help and have not been checked by native speakers; corrections are welcome ([report a problem](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/issues/new/choose))
 
 ## Controls
 
@@ -220,4 +222,4 @@ This **enhanced edition** by **Ivan Cvetanović** plays just like the original, 
 
 Free to play. Provided as is, without any warranty; see the [licences](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/blob/main/LICENSE.md). The source code is on [GitHub](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced).
 
-**Something wrong?** If the game doesn't start or stops by itself, or this guide has a mistake, please report it on the [Issues page](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/issues).
+**Something wrong?** If the game doesn't start or stops by itself, or this guide has a mistake, please [report it](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/issues/new/choose). It helps to say which download you used, your Windows, Android, Mac or Linux version, and the words of any message that appeared. You need a free GitHub account to do this.

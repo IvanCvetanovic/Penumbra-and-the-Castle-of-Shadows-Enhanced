@@ -1,0 +1,63 @@
+name: Bug report
+description: The game does not start, closes by itself, or something looks or works wrong
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for telling us. The more of this you can fill in, the sooner it can be fixed.
+        This page is public: please do not write your name, address, password or anything private here.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: |
+        What did you do, what did you expect, and what happened instead?
+        If the computer or phone showed a message, please copy its words exactly. A screenshot or a short video helps too.
+    validations:
+      required: true
+  - type: dropdown
+    id: download
+    attributes:
+      label: Which download are you using?
+      options:
+        - Windows (Penumbra-Windows.zip)
+        - Android (Penumbra-Android.apk)
+        - Mac (Penumbra-macOS.zip)
+        - Linux (Penumbra-Linux.tar.gz)
+        - iPhone or iPad (Penumbra-iOS.ipa, experimental)
+        - Built from the source code
+    validations:
+      required: true
+  - type: input
+    id: system
+    attributes:
+      label: Your system and its version
+      description: "For example: Windows 11 24H2, Android 14, macOS 15.1, Ubuntu 24.04. On Windows 11, please also say whether Smart App Control is on (Windows Security, App & browser control)."
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: Your phone or computer
+      description: "The model, and the graphics card if you know it. For example: Samsung Galaxy S21, or a laptop with an NVIDIA GTX 1650."
+  - type: input
+    id: game-version
+    attributes:
+      label: Game version
+      description: "On Windows: right-click Penumbra.exe, choose Properties, then Details, and read Product version. On Android: Settings, Apps, Penumbra, and scroll down to Version (the words differ from phone to phone). If you cannot find it, write the name of the release you downloaded, for example 1.0.4, or the day you downloaded it."
+    validations:
+      required: true
+  - type: textarea
+    id: log
+    attributes:
+      label: The log file (optional)
+      description: |
+        The game writes what happened in its last run to a file called penumbra.log. If you can, paste its last lines here. It can contain the names of folders on your computer, so remove anything you would rather not share.
+
+        - Windows: `%APPDATA%\Penumbra\penumbra.log` (type that in the File Explorer address bar)
+        - Linux: `~/.local/share/Penumbra/penumbra.log`
+        - Mac: `~/Library/Application Support/Penumbra/penumbra.log`
+        - Android: the log is in the app's private storage, which a phone cannot show; just describe what you see.
+      render: text

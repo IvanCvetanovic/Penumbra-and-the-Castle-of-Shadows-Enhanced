@@ -36,10 +36,14 @@ Windows, which comes without Windows' media features. Install Microsoft's
 free Media Feature Pack (Settings, Apps, Optional features, Add a feature),
 then start the game again.
 
-On some new Windows 11 PCs, "Smart App Control" blocks programs that are not
-signed, and there is no "Run anyway" button. Until the game is signed, it
-cannot run on those PCs. Please do not turn Smart App Control off just for
-this game.
+On a Windows 11 PC with "Smart App Control" turned on, Windows may refuse to
+run the game ("An Application Control policy has blocked this file", or a
+message that mentions Smart App Control), and there is no "Run anyway"
+button. The game is not signed yet, so it may not run on such a PC. To see
+whether Smart App Control is on: Settings, Privacy & security, Windows
+Security, App & browser control, Smart App Control settings (or open
+"Windows Security" from the Start menu). Windows 10 does not have it. Please
+do not turn Smart App Control off just for this game.
 
 Controls: arrow keys to walk, Up or Ctrl to jump, S sword, D fireball,
 Space light, Esc pause. Gamepads work too (A jump, X sword, B fireball,
@@ -92,10 +96,15 @@ Pacote de Recursos de Mídia (Media Feature Pack), grátis, da Microsoft
 (Configurações, Aplicativos, Recursos opcionais, Adicionar um recurso) e abra
 o jogo de novo.
 
-Em alguns PCs novos com Windows 11, o "Controle Inteligente de Aplicativos"
-(Smart App Control) bloqueia programas que não são assinados, e não existe o
-botão "Executar assim mesmo". Enquanto o jogo não for assinado, ele não roda
-nesses PCs. Por favor, não desligue esse recurso só por causa deste jogo.
+Num PC com Windows 11 com o "Controle Inteligente de Aplicativos" (Smart App
+Control) ligado, o Windows pode se recusar a abrir o jogo ("An Application
+Control policy has blocked this file", ou algo parecido em português, ou uma
+mensagem que fala do Controle Inteligente de Aplicativos), e não aparece o
+botão "Executar assim mesmo". O jogo ainda não é assinado, então talvez ele
+não abra num PC assim. Para ver se o recurso está ligado, abra a "Segurança
+do Windows" (procure por esse nome no menu Iniciar) e procure por "Controle
+Inteligente de Aplicativos". O Windows 10 não tem esse recurso. Por favor,
+não desligue esse recurso só por causa deste jogo.
 
 Controles: setas para andar, Cima ou Ctrl para pular, S espada, D bola de
 fogo, Espaço luz, Esc pausa. Controles de videogame (gamepads) também

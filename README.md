@@ -8,18 +8,24 @@
 
 <a href="https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/releases/latest/download/Penumbra-macOS.zip"><img alt="Download for Mac" height="56" src="https://img.shields.io/badge/Download%20for-Mac-4E5B8F?style=for-the-badge&labelColor=2F1F42&logo=data:image/svg%2bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0iI2ZmZiIgZD0iTTExIDNoMnY5LjZsMy4zLTMuMyAxLjQgMS40TDEyIDE2LjRsLTUuNy01LjcgMS40LTEuNCAzLjMgMy4zVjN6TTQgMThoMTZ2Mkg0eiIvPjwvc3ZnPg=="></a>&nbsp;&nbsp;<a href="https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/releases/latest/download/Penumbra-Linux.tar.gz"><img alt="Download for Linux" height="56" src="https://img.shields.io/badge/Download%20for-Linux-2F6FB2?style=for-the-badge&labelColor=2F1F42&logo=data:image/svg%2bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0iI2ZmZiIgZD0iTTExIDNoMnY5LjZsMy4zLTMuMyAxLjQgMS40TDEyIDE2LjRsLTUuNy01LjcgMS40LTEuNCAzLjMgMy4zVjN6TTQgMThoMTZ2Mkg0eiIvPjwvc3ZnPg=="></a>
 
-<a href="https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/releases/latest/download/Penumbra-iOS.ipa"><img alt="Download for iPhone and iPad (experimental)" height="56" src="https://img.shields.io/badge/Download%20for-iPhone%20%26%20iPad%20%28experimental%29-7A5FA8?style=for-the-badge&labelColor=2F1F42&logo=data:image/svg%2bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0iI2ZmZiIgZD0iTTExIDNoMnY5LjZsMy4zLTMuMyAxLjQgMS40TDEyIDE2LjRsLTUuNy01LjcgMS40LTEuNCAzLjMgMy4zVjN6TTQgMThoMTZ2Mkg0eiIvPjwvc3ZnPg=="></a>
+<a href="https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/releases/latest/download/Penumbra-iOS.ipa"><img alt="Download for iPhone and iPad (experimental, needs a computer to install)" height="56" src="https://img.shields.io/badge/Download%20for-iPhone%20%26%20iPad%20%28experimental%2C%20needs%20a%20computer%29-7A5FA8?style=for-the-badge&labelColor=2F1F42&logo=data:image/svg%2bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0iI2ZmZiIgZD0iTTExIDNoMnY5LjZsMy4zLTMuMyAxLjQgMS40TDEyIDE2LjRsLTUuNy01LjcgMS40LTEuNCAzLjMgMy4zVjN6TTQgMThoMTZ2Mkg0eiIvPjwvc3ZnPg=="></a>
 
-The Mac, Linux and iPhone and iPad downloads are newer and less tested than Windows and Android (see [Platform status](#platform-status)); the iPhone and iPad one is experimental. [Read this before installing them](docs/install.md#other-downloads).
+**New to this?** After the download, follow the [step-by-step guide](docs/install.md) ([Português](docs/install.pt.md)): Windows and Android each ask for a few extra clicks the first time. The Mac, Linux, and iPhone and iPad downloads are newer and less tested than Windows and Android (see [Platform status](#platform-status)); the iPhone and iPad one is experimental and needs a computer to install ([read this first](docs/install.md#iphone-and-ipad-experimental)).
 
 ### [How to install: step by step](docs/install.md)
 
-Most players should just use that guide: every download and simple install steps with pictures, in English
+Most players should use that guide: it has a download and simple, illustrated steps for every device, in English
 and [Portuguese](docs/install.pt.md).<br>
-Free. Windows 10 or 11 (64-bit), Android 8 or newer, or 64-bit (x86_64) Linux from about 2022 on, with
-Vulkan 1.2 graphics; or a Mac with macOS 13.3 or newer.<br>
-The Windows download is not code-signed yet, and the Mac app is not notarised by Apple:
-[Code signing policy](docs/code-signing.md).
+Free, with no ads and no accounts. It runs on Windows 10 or 11 (64-bit), on Android 8 or newer, on a Mac with macOS 13.3
+or newer, and on 64-bit Linux from about 2022 on. It needs a graphics driver with Vulkan 1.2: most PCs from the last
+eight years or so, and most phones from about 2020 on, have one.<br>
+The Windows download is not code-signed yet (it has no digital signature from a publisher), so Windows asks you to
+confirm before it runs, and **Windows 11 PCs with Smart App Control turned on may refuse to run it**
+([how to check](docs/install.md#windows-pc)). The Mac app is not notarised by Apple (Apple's own check of apps from
+outside the App Store), so the Mac asks you to allow it once: [Code signing policy](docs/code-signing.md).
+
+Something not working? [Report a problem](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/issues/new/choose): the form asks for what a fix needs (your device,
+its system version and the game version).
 
 [![CI](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/actions/workflows/ci.yml/badge.svg)](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/actions/workflows/ci.yml)
 [![Apple](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/actions/workflows/apple.yml/badge.svg)](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/actions/workflows/apple.yml)
@@ -60,7 +66,7 @@ André Santee's explicit permission.
 |---|---|
 | **Display** | Widescreen at any resolution; the best resolution and refresh rate chosen automatically, or by hand; smooth motion on fast monitors |
 | **Controls** | Modern gamepads, a keyboard second player, on-screen touch controls you can resize, fade and move, a pause |
-| **Languages** | English, German, Spanish, French, Italian, Portuguese, Russian, Turkish, Ukrainian, Japanese and Arabic, following your system's language by itself, and switchable in game from the Settings screen |
+| **Languages** | English, German, Spanish, French, Italian, Portuguese, Russian, Turkish, Ukrainian, Japanese and Arabic, following your system's language by itself, and switchable in game from the Settings screen. The translations were made with AI help and have not been checked by native speakers; corrections are welcome ([report a problem](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/issues/new/choose)) |
 | **Platforms** | Downloads for Windows, Android, Mac and Linux, and an experimental one for iPhone and iPad |
 | **Fixes** | Bugs of the original fixed, and its rendering matched more closely |
 
@@ -70,7 +76,7 @@ Every change is listed with what the original did in [`docs/enhancements.md`](do
 
 | Platform | Status | What was checked | Download |
 |---|---|---|---|
-| Windows | ![playtested](https://img.shields.io/badge/-playtested-2ea44f) | Played through by a person; over 39,000 automated checks, all passing on GitHub's Windows runner | [Penumbra-Windows.zip](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/releases/latest/download/Penumbra-Windows.zip) |
+| Windows | ![playtested](https://img.shields.io/badge/-playtested-2ea44f) | Played through by a person; over 39,000 automated checks, all passing on GitHub's Windows runner; not code-signed, so Windows 11 PCs with Smart App Control on may refuse to run it | [Penumbra-Windows.zip](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/releases/latest/download/Penumbra-Windows.zip) |
 | Linux | ![tested](https://img.shields.io/badge/-tested-1f6feb) | All 17 test suites (over 39,000 checks) pass in the release build; the download itself, unpacked read-only, plays level 1 on a software Vulkan driver; not played by a person | [Penumbra-Linux.tar.gz](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/releases/latest/download/Penumbra-Linux.tar.gz) |
 | Android | ![playtested](https://img.shields.io/badge/-playtested-2ea44f) | Played through on a real phone by a person, the touch editor included (an earlier build); the newest button layout was only checked on an emulator; scripted tests on an emulator | [Penumbra-Android.apk](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/releases/latest/download/Penumbra-Android.apk) |
 | macOS | ![CI](https://img.shields.io/badge/-CI%20only-d29922) | Tests pass on GitHub Actions; the download runs level 1 on GitHub's Apple silicon Macs, and its Intel half there under Rosetta; not played; never run on a real Intel Mac; not notarised | [Penumbra-macOS.zip](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/releases/latest/download/Penumbra-macOS.zip) |
@@ -89,13 +95,14 @@ git clone --recurse-submodules https://github.com/IvanCvetanovic/Penumbra-and-th
 
 | Platform | Build and run | Needs |
 |---|---|---|
-| Windows | `cmd //c "tools\build.bat"`, then `build\game\Penumbra.exe` | Visual Studio Build Tools (C++), CMake, Ninja |
+| Windows | `tools\build.bat` (Command Prompt or PowerShell), or from Git Bash `cmd //c "tools\build.bat"`; then `build\game\Penumbra.exe` | Visual Studio Build Tools (C++), CMake, Ninja |
 | Linux | `bash tools/build_linux.sh`, then `~/pn-build-linux/game/Penumbra` | [packages](docs/building.md#linux-x64), X11 or XWayland |
 | Android | `bash tools/build_android.sh --abi all` (APK in `out/android/`) | Android SDK and NDK, JDK 17, Python 3 with Pillow |
 | macOS, iOS | The [Apple workflow](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/blob/main/.github/workflows/apple.yml) on GitHub Actions; the downloads, the [release workflow](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/blob/main/.github/workflows/release.yml) | |
 
-A GPU with **Vulkan 1.2** is required. Details: [`docs/building.md`](docs/building.md) ·
-[`docs/playing.md`](docs/playing.md).
+A GPU with **Vulkan 1.2** is required. The original game's files are already in `extracted/`; nothing else needs to be
+downloaded, and `bash tools/build_linux.sh --test` or `build\tests\test_pn_all.exe` runs the tests. Details:
+[`docs/building.md`](docs/building.md) · [`docs/playing.md`](docs/playing.md).
 
 ## Controls
 
@@ -135,8 +142,10 @@ headless ([`docs/testing.md`](docs/testing.md)).
 
 - **Ivan Cvetanović's code and the Supersonic Engine:** [MIT No Attribution](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/blob/main/LICENSE), completely
   free to use.
-- **The ported scripts** (`game/script/`) **and the Ethanon runtime** (`game/eth/`): LGPL-3.0.
+- **The ported scripts** (`game/script/`) **and the Ethanon runtime** (`game/eth/`): LGPL-3.0-or-later.
 - **The original game's files and the Magic Rampage art (the touch buttons, the options screen's frames, buttons and icons, and the touch-controls editor's buttons):** their authors' property.
+
+The `extracted/` folder holds the original 2010 game's files, which the enhanced edition reads. It is not the download; to play, use the buttons at the top.
 
 > [!WARNING]
 > Provided **as is, without any warranty**. Ivan Cvetanović is not responsible for anything that

@@ -9,6 +9,9 @@ git clone --recurse-submodules https://github.com/IvanCvetanovic/Penumbra-and-th
 git submodule update --init
 ```
 
+On Windows, if the folder you clone into has a long path, the clone can stop with "Filename too long": clone
+with `git clone -c core.longpaths=true --recurse-submodules <url>` instead, or into a shorter path.
+
 The original game's files are in the repository (`extracted/app`), so nothing else needs to be
 downloaded. What each platform has been verified to do is in the README's
 [Platform status](../README.md#platform-status).
@@ -20,7 +23,7 @@ Prerequisites:
 - The Visual Studio Build Tools (or Visual Studio) with "Desktop development with C++" (MSVC). It
   was developed with the version 18 Build Tools; other versions are untried.
   The scripts find the newest installation through `vswhere`; set `PENUMBRA_VCVARS` to the full
-  path of a `vcvars64.bat` to choose one. The game was developed with Build Tools 18.
+  path of a `vcvars64.bat` to choose one.
 - CMake 3.20 or newer, and Ninja, on `PATH`. Visual Studio's C++ CMake tools bring both.
 - Git.
 - Optional: the Vulkan SDK, for the validation layers. Version 1.4.357.0 at its default place
@@ -38,6 +41,9 @@ cmd //c "tools\package.bat"                    # then: out/package/Penumbra/
 ```
 
 From `cmd`, run `tools\build.bat --target Penumbra` and `tools\package.bat`.
+
+On Windows 11, Smart App Control can refuse to run an executable you have just built, and it offers no
+per-file exception. Build and test on Linux or WSL (`bash tools/build_linux.sh --test`) if that happens.
 
 `tools\build.bat` loads MSVC's environment, then configures `build\` on the first run: Ninja,
 Release, Vulkan validation on. After that it builds. Its header lists what it takes and how to
@@ -99,7 +105,7 @@ bash tools/build_android.sh --abi all     # x86_64 + arm64-v8a (phones) in one A
 bash tools/build_android.sh --install --serial <device>   # adb install -r
 ```
 
-The APK is `out/android/Penumbra-debug.apk` (about 18 MB for both ABIs), debug-signed. It is a
+The APK is `out/android/Penumbra-debug.apk` (about 18 MB for both ABIs, as a debug build), debug-signed. It is a
 NativeActivity with a few lines of Java (the engine's `SupersonicActivity`: it hides the system
 bars and reports the safe area, and `tools/build_android.sh` compiles it into `classes.dex`); the
 engine's `android_main` (`engine/src/platform/android`) runs the game, and `game/android/AndroidMain.cpp` unpacks the original's files and the port's data from the

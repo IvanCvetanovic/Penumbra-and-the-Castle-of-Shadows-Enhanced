@@ -9,7 +9,7 @@ information.
 
 | Download | Signed? |
 |---|---|
-| `Penumbra-Windows.zip` (Windows) | **Not signed yet.** Windows shows "Windows protected your PC" the first time; click *More info*, then *Run anyway*. On PCs where Smart App Control is on, an unsigned program cannot run at all. |
+| `Penumbra-Windows.zip` (Windows) | **Not signed yet.** Windows shows "Windows protected your PC" the first time; click *More info*, then *Run anyway*. On Windows 11 PCs where Smart App Control is on, an unsigned program may be refused, with no *Run anyway* button. |
 | `Penumbra-Android.apk` (Android) | Signed with the project's own release key (below). |
 | `Penumbra-macOS.zip` (Mac) | **Signed ad hoc only, not notarised by Apple.** No certificate is used. The first open is stopped by macOS; the player allows it once (*Open Anyway* in System Settings, Privacy & Security, or *Open* from the app's Control-click menu on macOS 13 and 14). |
 | `Penumbra-Linux.tar.gz` (Linux) | **Not signed.** Its SHA-256 checksum is published with the release, in `SHA256SUMS.txt`. |
@@ -36,7 +36,7 @@ executable this project builds for players. Nothing else in the zip is signed by
 - `data/`, `assets/shaders/`, the licences and the documents are data and text.
 
 The signed program must have its product name set to *Penumbra and the Castle of Shadows - Enhanced*
-and its product version to the release's version (`1.0.0` for the first release), from the build
+and its product version to the release's version, from the build
 itself (`CMakeLists.txt`, `game/windows/Penumbra.rc.in`).
 
 **Android.** `Penumbra-Android.apk` is signed with the project's release key, which is kept offline
