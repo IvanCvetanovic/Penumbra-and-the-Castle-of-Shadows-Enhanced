@@ -19,11 +19,11 @@
 // scale, and level 1 zoomed as on a phone, left through the button; the
 // princess taking a zoomed level back to E1's screen. E26: the pause button
 // in step with the HUD's frame, and level 1's HUD moved and restyled by it
-// on touch only. E29: the six action buttons as two columns of three (the sword at the very
-// bottom right with the jump button beside it and a little higher; above them the sword combo and the   // E29
-// light, the spell combo and the fire): every box on three screens, the columns' alignment and gaps,   // E29
-// the order from the bottom, the clearance of the pause button, the gaps no finger lands in, and the   // E29
-// size ceilings that follow from it.   // E29
+// on touch only. E29, E32: the six action buttons as a grid of two columns of three (the sword at the
+// bottom of the left column with the jump button level with it in the right one; above them the sword combo and the   // E32
+// light, the spell combo and the fire, the combos halfway between): every box on three screens, the columns'   // E32
+// alignment and gaps, the order from the bottom, the clearance of the pause button, the gaps no finger lands in, and the   // E32
+// size ceilings that follow from it.   // E32
 // No window. Only the combo checks run a Machine.
 
 #include "script/Script.hpp"
@@ -1128,24 +1128,42 @@ bool DrawnOver(const TouchLayout& layout, const TouchManifest& manifest, TouchCo
     return Overlap(layout[a], layout[b]);
 }
 
+// Where an arrow's button is drawn: the opaque part of its image (the control's
+// box is the image), as a rectangle of the logical screen.
+TouchLayout::Box ArrowFace(const std::string& image, const TouchLayout::Box& dpad, unsigned minAlpha = 128u) {   // E28: the threshold
+    const Penumbra::Render::DecodedImage decoded = Penumbra::Render::DecodeTexture(
+        (fs::path(PENUMBRA_DATA_DIR) / image).generic_string(), Penumbra::Render::TextureVariant::Plain);
+    CHECK_MSG(decoded.Valid(), image);
+    if (!decoded.Valid()) return {};
+    glm::ivec2 lo(decoded.width, decoded.height);
+    glm::ivec2 hi(0);
+    for (int y = 0; y < decoded.height; ++y) {
+        for (int x = 0; x < decoded.width; ++x) {
+            const std::size_t texel = static_cast<std::size_t>(y) * static_cast<std::size_t>(decoded.width) +
+                                      static_cast<std::size_t>(x);
+            if (decoded.rgba[texel * 4u + 3u] < minAlpha) continue;   // E28: was 128
+            lo = glm::min(lo, glm::ivec2(x, y));
+            hi = glm::max(hi, glm::ivec2(x + 1, y + 1));
+        }
+    }
+    const glm::vec2 texel =
+        dpad.Size() / glm::vec2(static_cast<float>(decoded.width), static_cast<float>(decoded.height));
+    return {dpad.min + glm::vec2(lo) * texel, dpad.min + glm::vec2(hi) * texel};
+}
+
 // The shipped manifest, and the first (placeholder) look's, kept beside its art.
 fs::path ShippedManifest() { return fs::path(PENUMBRA_DATA_DIR) / TouchControls::kManifestFile; }
 fs::path PlaceholderManifest() {
     return fs::path(PENUMBRA_DATA_DIR) / "images" / "touch" / "placeholder" / TouchControls::kManifestFile;
 }
 
-// E29: the shipped arrangement's numbers, in the manifest's pixels (the layout's own, which the tests below repeat as
-// literals so that a change of one is seen): two columns of three, 16 between neighbours, the right column's edge 24   // E29
-// from the safe area's, the sword button 24 above its bottom edge and the jump button 30 higher than it.   // E29
-constexpr float kColumnMargin = 24.0f;   // E29
-constexpr float kColumnGap = 16.0f;   // E29
-constexpr float kJumpRise = 30.0f;   // E29
-
-// E29: what the two-column arrangement is, on one screen: the right column (bottom to top: jump, spell combo, fire) at
-// the safe area's right edge less the margin, the left column (sword, sword combo, light) a gap to its left, the combos   // E29
-// centred over their columns, the sword button at the bottom margin and the jump button higher by the rise, every   // E29
-// neighbour a gap away, and the top of the right column well below the pause button.   // E29
-void CheckColumns(const TouchLayout& layout, const glm::vec2& screen, const TouchInsets& safe, const std::string& where) {   // E29
+// E32: what the shipped arrangement is, on one screen, as relations (its numbers are pinned once, as literals, by
+// testButtonColumns): two columns of three, the right one (bottom to top: jump, spell combo, fire) well in from the safe
+// area's right edge and the left one (sword, sword combo, light) apart from it, the columns the same width and not
+// interleaved, each combo centred over its column and halfway between its two buttons, the rows level (jump with
+// sword, fire with light, the combos with each other) and evenly spaced, no stagger between the columns, and the top of
+// the cluster well below the pause button.
+void CheckColumns(const TouchLayout& layout, const glm::vec2& screen, const TouchInsets& safe, const std::string& where) {   // E32
     const auto at = [](float a, float b) { return std::fabs(a - b) <= 0.001f; };   // E29
     const glm::vec2 hi = screen - glm::vec2(safe.right, safe.bottom);   // E29
     const TouchLayout::Box& jump = layout[TouchControl::Jump];   // E29
@@ -1155,31 +1173,35 @@ void CheckColumns(const TouchLayout& layout, const glm::vec2& screen, const Touc
     const TouchLayout::Box& swordCombo = layout[TouchControl::SwordCombo];   // E29
     const TouchLayout::Box& spellCombo = layout[TouchControl::SpellCombo];   // E29
     const TouchLayout::Box& pause = layout[TouchControl::Pause];   // E29
-    // The right column's edge, the gap between the columns, and each column on one centre line with its combo.   // E29
-    CHECK_MSG(at(hi.x - jump.max.x, kColumnMargin) && at(hi.x - fire.max.x, kColumnMargin), where + ": the right edge");   // E29
-    CHECK_MSG(at(jump.min.x - sword.max.x, kColumnGap), where + ": the gap between the columns");   // E29
+    // Each column on one centre line with its combo; the right one well in from the edge (E29 had it 24 from it).   // E32
+    CHECK_MSG(hi.x - jump.max.x >= 100.0f && at(hi.x - jump.max.x, hi.x - fire.max.x), where + ": the right edge");   // E32
     CHECK_MSG(at(light.max.x, sword.max.x) && at(light.min.x, sword.min.x), where + ": light over sword");   // E29
     CHECK_MSG(at(fire.max.x, jump.max.x) && at(fire.min.x, jump.min.x), where + ": fire over jump");   // E29
     CHECK_MSG(at(swordCombo.Centre().x, sword.Centre().x), where + ": the sword combo centred over the sword");   // E29
     CHECK_MSG(at(spellCombo.Centre().x, jump.Centre().x), where + ": the spell combo centred over the jump");   // E29
-    // The bottom row: the sword at the margin, the jump right-most and higher by the rise.   // E29
-    CHECK_MSG(at(hi.y - sword.max.y, kColumnMargin), where + ": the sword's bottom margin");   // E29
-    CHECK_MSG(at(sword.Centre().y - jump.Centre().y, kJumpRise), where + ": the jump is the rise higher than the sword");   // E29
+    // The rows: level across the columns (no stagger, E29 had the jump button 30 higher than the sword), evenly spaced,
+    // each combo halfway between its two buttons, and a thumb's gap between the columns at least the rows' gap.   // E32
+    CHECK_MSG(at(jump.min.y, sword.min.y) && at(jump.max.y, sword.max.y), where + ": the jump level with the sword");   // E32
+    CHECK_MSG(at(fire.min.y, light.min.y) && at(fire.max.y, light.max.y), where + ": the fire level with the light");   // E32
+    CHECK_MSG(at(spellCombo.min.y, swordCombo.min.y), where + ": the combos level");   // E32
+    CHECK_MSG(at(sword.Centre().y - swordCombo.Centre().y, swordCombo.Centre().y - light.Centre().y) &&   // E32
+                  at(jump.Centre().y - spellCombo.Centre().y, spellCombo.Centre().y - fire.Centre().y),   // E32
+              where + ": the rows evenly spaced");   // E32
+    CHECK_MSG(at(sword.min.y - swordCombo.max.y, swordCombo.min.y - light.max.y) &&   // E32
+                  at(jump.min.y - spellCombo.max.y, spellCombo.min.y - fire.max.y),   // E32
+              where + ": each combo halfway between its buttons");   // E32
+    const float rowGap = sword.min.y - swordCombo.max.y;   // E32
+    CHECK_MSG(rowGap > 0.0f && jump.min.x - sword.max.x >= rowGap, where + ": the gap between the columns " + std::to_string(jump.min.x - sword.max.x));   // E32
     CHECK_MSG(jump.Centre().x > sword.Centre().x && jump.max.x > sword.max.x, where + ": the jump is right-most");   // E29
-    // Bottom to top, a gap between each: left sword, its combo, light; right jump, the spell combo, fire.   // E29
-    CHECK_MSG(at(sword.min.y - swordCombo.max.y, kColumnGap) && at(swordCombo.min.y - light.max.y, kColumnGap),   // E29
-              where + ": the left column's gaps");   // E29
-    CHECK_MSG(at(jump.min.y - spellCombo.max.y, kColumnGap) && at(spellCombo.min.y - fire.max.y, kColumnGap),   // E29
-              where + ": the right column's gaps");   // E29
+    // Bottom to top: left sword, its combo, light; right jump, the spell combo, fire.   // E29
     CHECK_MSG(sword.Centre().y > swordCombo.Centre().y && swordCombo.Centre().y > light.Centre().y, where + ": left order");   // E29
     CHECK_MSG(jump.Centre().y > spellCombo.Centre().y && spellCombo.Centre().y > fire.Centre().y, where + ": right order");   // E29
     // The columns do not interleave: everything of the left one is left of everything of the right one.   // E29
     CHECK_MSG(std::max({sword.max.x, swordCombo.max.x, light.max.x}) < std::min({jump.min.x, spellCombo.min.x, fire.min.x}),   // E29
               where + ": two columns");   // E29
-    // The right column, the taller one, ends well below the pause button (the left one is lower still).   // E29
+    // The top of the cluster ends well below the pause button.   // E32
     CHECK_MSG(fire.min.y - pause.max.y >= 150.0f, where + ": the fire button's clearance of the pause " +   // E29
                                                         std::to_string(fire.min.y - pause.max.y));   // E29
-    CHECK_MSG(light.min.y > fire.min.y, where + ": the left column is the lower one");   // E29
 }   // E29
 
 // A layout fits every screen: inside the safe area, where the thumbs are,
@@ -1187,7 +1209,14 @@ void CheckColumns(const TouchLayout& layout, const glm::vec2& screen, const Touc
 // two controls. E29: `columns` is the shipped arrangement (two columns of three,
 // the combos in the middle of them: CheckColumns); the placeholder look keeps   // E29
 // E16's, the combos in a row above the four, which is the ordering checked   // E29
-// here for it.   // E29
+// here for it. E32: the shipped look's direction control is two buttons on a mostly empty 400-unit canvas, so   // E32
+// the rules that ask where the thumbs are and what a finger reaches are read for it on its two drawn faces   // E32
+// (ArrowFace). On a 4:3 screen a notch narrows to 848 units the grid's left column ends where the canvas does   // E32
+// (DrawnOver, on the boxes, still holds them apart: touching) and the right button's face is 10 units short of   // E32
+// the sword button; the disc's reach (200 + 30 from its centre, a finger two controls reach going to the nearest   // E32
+// centre, as TouchControls::hit has it) would need the left column's edge at most 269 from the right edge, 35 units   // E32
+// nearer than its 304 (at 270 the padded box starts 230 from the disc's centre, which ReachBoth, <=, still counts as   // E32
+// reached), to stay off the sword button's padded box, and half the screen is no longer the line between the thumbs.   // E32
 void CheckLayoutFits(const TouchManifest& manifest, const std::string& name, bool columns = true) {   // E29
     // 4:3 (the menus, and 4:3 levels), 16:9, a 20:9 phone; bare, a notch and
     // gesture bar in landscape, a tablet's status bar.
@@ -1196,6 +1225,14 @@ void CheckLayoutFits(const TouchManifest& manifest, const std::string& name, boo
     const TouchControl play[] = {TouchControl::Dpad,       TouchControl::Jump,       TouchControl::Sword,
                                  TouchControl::Fire,       TouchControl::Light,      TouchControl::SwordCombo,
                                  TouchControl::SpellCombo, TouchControl::Pause};
+    // E32: the shipped look's two drawn buttons (the placeholder's disc is its whole box), read from the art once, as
+    // fractions of the direction control's box (as testSizeCeiling reads them), and laid on each screen's box below.
+    const TouchLayout::Box unitBox{{0.0f, 0.0f}, {1.0f, 1.0f}};   // E32
+    std::vector<std::pair<const char*, TouchLayout::Box>> faceFractions;   // E32
+    if (columns) {   // E32
+        faceFractions.push_back({"left button", ArrowFace(manifest.dpadLeft, unitBox)});   // E32
+        faceFractions.push_back({"right button", ArrowFace(manifest.dpadRight, unitBox)});   // E32
+    }   // E32
     for (const glm::vec2& screen : screens) {
         for (const TouchInsets& safe : insets) {
             const std::string where = name + ", " + std::to_string(static_cast<int>(screen.x)) + "x768, inset " +
@@ -1216,15 +1253,35 @@ void CheckLayoutFits(const TouchManifest& manifest, const std::string& name, boo
             // frames at the top left (interface.as, 226x74 each).
             CHECK_MSG(layout[TouchControl::Dpad].max.x <= screen.x * 0.5f, where);   // the left half
             CHECK_MSG(layout[TouchControl::Dpad].min.y > screen.y * 0.5f, where);
+            // E32: the shipped look's two drawn buttons on this screen's direction control (the placeholder's: none).
+            std::vector<std::pair<const char*, TouchLayout::Box>> faces;   // E32
+            const TouchLayout::Box& dpadBox = layout[TouchControl::Dpad];   // E32
+            for (const auto& [which, fraction] : faceFractions) {   // E32
+                faces.push_back({which, {dpadBox.min + fraction.min * dpadBox.Size(), dpadBox.min + fraction.max * dpadBox.Size()}});   // E32
+            }   // E32
+            // E32: under the right thumb is at or past the screen's middle and, in the shipped look, right of the
+            // direction control's right button too. The middle is not a strict line any more: on the notched 4:3 screen
+            // the grid is as wide as the direction control's box allows and the left column's box starts exactly on it
+            // (936 - 304 - 120 = 512). The right button's face, which is what the left thumb is under, ends well short of
+            // the middle (502 there), so it is required as well; the placeholder's disc is its whole box and keeps the
+            // strict rule.
+            const auto rightOfDirection = [&](const TouchLayout::Box& box) {   // E32
+                return columns ? box.min.x >= screen.x * 0.5f && box.min.x > faces.back().second.max.x   // E32
+                               : box.min.x > screen.x * 0.5f;   // E32
+            };   // E32
             for (const TouchControl button : kButtonControls) {
-                CHECK_MSG(layout[button].min.x > screen.x * 0.5f, where);
-                CHECK_MSG(layout[button].min.y > screen.y * 0.4f, where);
+                CHECK_MSG(rightOfDirection(layout[button]), where + ": " + TouchControls::ControlId(button));
+                // E32: the grid is in the lower 61% where the placeholder's look is in the lower 60% (E29's top row, 306 +
+                // 120 from the bottom, stood 41.4% down a screen with a 24 px bottom bar; the grid's, 321 + 120, stands
+                // 39.45% down, the tightest of these cases, and 39.97% with a 20 px bar). Where the thumb reaches is not a
+                // line; what keeps the top row from the pause is the clearance CheckColumns and testSizeCeiling pin.
+                CHECK_MSG(layout[button].min.y > screen.y * (columns ? 0.39f : 0.4f), where);   // E32
             }
             CHECK_MSG(layout[TouchControl::Pause].min.x > screen.x * 0.5f, where);
             CHECK_MSG(layout[TouchControl::Pause].max.y < screen.y * 0.25f, where);
             // The combo buttons: under the right thumb too, and below the pause.   // E29
             for (const TouchControl combo : {TouchControl::SwordCombo, TouchControl::SpellCombo}) {
-                CHECK_MSG(layout[combo].min.x > screen.x * 0.5f, where);
+                CHECK_MSG(rightOfDirection(layout[combo]), where);   // E32
                 CHECK_MSG(layout[combo].min.y > layout[TouchControl::Pause].max.y, where);
             }
             if (columns) {   // E29
@@ -1257,6 +1314,14 @@ void CheckLayoutFits(const TouchManifest& manifest, const std::string& name, boo
                     const std::string pair = where + ": " + TouchControls::ControlId(play[a]) + " and " +
                                              TouchControls::ControlId(play[b]);
                     CHECK_MSG(!DrawnOver(layout, manifest, play[a], play[b]), pair);
+                    if (play[a] == TouchControl::Dpad && columns) {
+                        // E32: a finger on a drawn button of the direction control reaches the other control's padded
+                        // box or it does not (the box is where the thumb lands on that control).
+                        for (const auto& [which, face] : faces) {
+                            CHECK_MSG(!Overlap(face, Padded(layout, play[b])), pair + ", its " + which);
+                        }
+                        continue;
+                    }
                     CHECK_MSG(!ReachBoth(layout, manifest, play[a], play[b]), pair);
                 }
             }
@@ -1340,32 +1405,9 @@ void testLayout() {
     CHECK(Only(inset.Update(input), {TouchAction::Jump}));
 }
 
-// Where an arrow's button is drawn: the opaque part of its image (the control's
-// box is the image), as a rectangle of the logical screen.
-TouchLayout::Box ArrowFace(const std::string& image, const TouchLayout::Box& dpad, unsigned minAlpha = 128u) {   // E28: the threshold
-    const Penumbra::Render::DecodedImage decoded = Penumbra::Render::DecodeTexture(
-        (fs::path(PENUMBRA_DATA_DIR) / image).generic_string(), Penumbra::Render::TextureVariant::Plain);
-    CHECK_MSG(decoded.Valid(), image);
-    if (!decoded.Valid()) return {};
-    glm::ivec2 lo(decoded.width, decoded.height);
-    glm::ivec2 hi(0);
-    for (int y = 0; y < decoded.height; ++y) {
-        for (int x = 0; x < decoded.width; ++x) {
-            const std::size_t texel = static_cast<std::size_t>(y) * static_cast<std::size_t>(decoded.width) +
-                                      static_cast<std::size_t>(x);
-            if (decoded.rgba[texel * 4u + 3u] < minAlpha) continue;   // E28: was 128
-            lo = glm::min(lo, glm::ivec2(x, y));
-            hi = glm::max(hi, glm::ivec2(x + 1, y + 1));
-        }
-    }
-    const glm::vec2 texel =
-        dpad.Size() / glm::vec2(static_cast<float>(decoded.width), static_cast<float>(decoded.height));
-    return {dpad.min + glm::vec2(lo) * texel, dpad.min + glm::vec2(hi) * texel};
-}
-
 // The direction control's box hangs below the screen's bottom edge (the lower
-// half of its disc is empty), which puts its two buttons level with the sword   // E29
-// button (E29: the jump button is higher); its input is the same, and so are the rules that keep a hand-edited
+// half of its disc is empty), which puts its two buttons 25 under the action buttons'   // E32
+// bottom row (E29 had them level with the sword button); its input is the same, and so are the rules that keep a hand-edited
 // manifest on the screen.
 void testDpadLowered() {
     const TouchManifest manifest = TouchControls::DefaultManifest();
@@ -1384,7 +1426,7 @@ void testDpadLowered() {
     const auto closeTo = [](float a, float b, float eps) { return std::fabs(a - b) <= eps; };
 
     // On every screen and safe area: 138 below the safe area's bottom edge, the
-    // buttons whole inside it and centred 84 above it (83.7), as the sword button is (E29; the jump button is 30 higher).
+    // buttons whole inside it and centred 84 above it (83.7), 25 under the centres of the bottom row of the action buttons (E32).
     const glm::vec2 screens[] = {kFourThree, kWide, {1707.0f, 768.0f}};
     const TouchInsets insets[] = {{}, {88.0f, 0.0f, 88.0f, 24.0f}, {0.0f, 30.0f, 0.0f, 20.0f}};
     for (const glm::vec2& screen : screens) {
@@ -1404,8 +1446,11 @@ void testDpadLowered() {
             CHECK_MSG(Inside(left, lo, hi) && Inside(right, lo, hi), where + ": the buttons show whole");
             CHECK_MSG(closeTo(left.Centre().y, hi.y - 84.0f, 1.0f), where + ": 84 above the edge");
             CHECK_MSG(closeTo(right.Centre().y, left.Centre().y, 0.01f), where);
-            CHECK_MSG(closeTo(left.Centre().y, layout[TouchControl::Sword].Centre().y, 1.0f), where + ": level with the sword");   // E29
-            CHECK_MSG(closeTo(left.Centre().y - layout[TouchControl::Jump].Centre().y, kJumpRise, 1.0f), where + ": the jump is higher");   // E29
+            // E32: the bottom row's centres (the jump and the sword, level) are the manifest's 49 + 60 above the edge.
+            const float bottomRow = manifest[TouchControl::Sword].offset.y + 0.5f * manifest[TouchControl::Sword].size.y;
+            CHECK_MSG(closeTo(layout[TouchControl::Jump].Centre().y, layout[TouchControl::Sword].Centre().y, 0.001f), where + ": jump level with sword");   // E32
+            CHECK_MSG(closeTo(hi.y - layout[TouchControl::Sword].Centre().y, bottomRow, 0.001f), where + ": the bottom row");   // E32
+            CHECK_MSG(closeTo(left.Centre().y - layout[TouchControl::Sword].Centre().y, bottomRow - 84.0f, 1.0f), where + ": 25 under the bottom row");   // E32
             // E25's down button above them: centred in the gap, a little above their tops (the button's
             // own 126 px squares are about 12 px below it, its faint shadow rim 17), touching neither.
             const TouchLayout::Box exit = layout[TouchControl::ExitDown];
@@ -3348,12 +3393,12 @@ void testTuningIdentity() {
     };
     const Exact table[] = {
         {TouchControl::Dpad, {24.0f, 506.0f}, {424.0f, 906.0f}},
-        {TouchControl::Jump, {880.0f, 594.0f}, {1000.0f, 714.0f}},   // E29: the two columns of three
-        {TouchControl::Sword, {744.0f, 624.0f}, {864.0f, 744.0f}},   // E29
-        {TouchControl::Fire, {880.0f, 342.0f}, {1000.0f, 462.0f}},   // E29
-        {TouchControl::Light, {744.0f, 372.0f}, {864.0f, 492.0f}},   // E29
-        {TouchControl::SwordCombo, {754.0f, 508.0f}, {854.0f, 608.0f}},   // E29
-        {TouchControl::SpellCombo, {890.0f, 478.0f}, {990.0f, 578.0f}},   // E29
+        {TouchControl::Jump, {787.0f, 599.0f}, {907.0f, 719.0f}},   // E32: the grid of two columns of three
+        {TouchControl::Sword, {600.0f, 599.0f}, {720.0f, 719.0f}},   // E32
+        {TouchControl::Fire, {787.0f, 327.0f}, {907.0f, 447.0f}},   // E32
+        {TouchControl::Light, {600.0f, 327.0f}, {720.0f, 447.0f}},   // E32
+        {TouchControl::SwordCombo, {610.0f, 473.0f}, {710.0f, 573.0f}},   // E32
+        {TouchControl::SpellCombo, {797.0f, 473.0f}, {897.0f, 573.0f}},   // E32
         {TouchControl::ExitDown, {161.0f, 482.0f}, {287.0f, 608.0f}},
         {TouchControl::Pause, {908.0f, 44.0f}, {1004.0f, 108.5f}},
         {TouchControl::Back, {908.0f, 44.0f}, {1004.0f, 140.0f}},
@@ -3427,9 +3472,23 @@ void testTuningSize() {
         glm::vec2 min;
         glm::vec2 max;
     };
+    // E32: the six action buttons hang from the bottom right, so at a size a box's right and bottom edges are the
+    // manifest's offset, scaled, in from the 4:3 screen's, and its size is the manifest's, scaled (the exact numbers
+    // at size 1 are testTuningIdentity's table, the ones the grid is pinned to).
+    const auto action = [&](TouchControl control, float size) {
+        const TouchControlSpec& spec = built[control];
+        const glm::vec2 max = kFourThree - spec.offset * size;
+        return Row{control, max - spec.size * size, max};
+    };
     const auto check = [&](float size, std::initializer_list<Row> rows) {
         const TouchLayout layout = Tuned(SizedAt(size));
         for (const Row& row : rows) {
+            CHECK_MSG(BoxIs(layout[row.control], row.min, row.max),
+                      std::string(TouchControls::ControlId(row.control)) + " at " + std::to_string(size));
+        }
+        for (const TouchControl control : {TouchControl::Jump, TouchControl::Sword, TouchControl::Fire, TouchControl::Light,
+                                           TouchControl::SwordCombo, TouchControl::SpellCombo}) {   // E32
+            const Row row = action(control, size);
             CHECK_MSG(BoxIs(layout[row.control], row.min, row.max),
                       std::string(TouchControls::ControlId(row.control)) + " at " + std::to_string(size));
         }
@@ -3437,36 +3496,13 @@ void testTuningSize() {
         CHECK(SameBox(layout[TouchControl::Pause], plain[TouchControl::Pause]));
         CHECK(SameBox(layout[TouchControl::Back], plain[TouchControl::Back]));
     };
-    check(1.2f, {{TouchControl::Jump, {851.2f, 559.2f}, {995.2f, 703.2f}},   // E29
-                 {TouchControl::Sword, {688.0f, 595.2f}, {832.0f, 739.2f}},   // E29
-                 {TouchControl::Fire, {851.2f, 256.8f}, {995.2f, 400.8f}},   // E29
-                 {TouchControl::Light, {688.0f, 292.8f}, {832.0f, 436.8f}},   // E29
-                 {TouchControl::SwordCombo, {700.0f, 456.0f}, {820.0f, 576.0f}},   // E29
-                 {TouchControl::SpellCombo, {863.2f, 420.0f}, {983.2f, 540.0f}},   // E29
-                 {TouchControl::Dpad, {28.8f, 453.6f}, {508.8f, 933.6f}},
+    check(1.2f, {{TouchControl::Dpad, {28.8f, 453.6f}, {508.8f, 933.6f}},
                  {TouchControl::ExitDown, {193.2f, 424.8f}, {344.4f, 576.0f}}});
-    check(1.4f, {{TouchControl::Jump, {822.4f, 524.4f}, {990.4f, 692.4f}},   // MR's ceiling   // E29
-                 {TouchControl::Sword, {632.0f, 566.4f}, {800.0f, 734.4f}},   // E29
-                 {TouchControl::Fire, {822.4f, 171.6f}, {990.4f, 339.6f}},   // E29
-                 {TouchControl::Light, {632.0f, 213.6f}, {800.0f, 381.6f}},   // E29
-                 {TouchControl::SwordCombo, {646.0f, 404.0f}, {786.0f, 544.0f}},   // E29
-                 {TouchControl::SpellCombo, {836.4f, 362.0f}, {976.4f, 502.0f}},   // E29
-                 {TouchControl::Dpad, {33.6f, 401.2f}, {593.6f, 961.2f}},
+    check(1.4f, {{TouchControl::Dpad, {33.6f, 401.2f}, {593.6f, 961.2f}},   // MR's ceiling
                  {TouchControl::ExitDown, {225.4f, 367.6f}, {401.8f, 544.0f}}});
-    check(0.5f, {{TouchControl::Jump, {952.0f, 681.0f}, {1012.0f, 741.0f}},   // E29
-                 {TouchControl::Sword, {884.0f, 696.0f}, {944.0f, 756.0f}},   // E29
-                 {TouchControl::Fire, {952.0f, 555.0f}, {1012.0f, 615.0f}},   // E29
-                 {TouchControl::Light, {884.0f, 570.0f}, {944.0f, 630.0f}},   // E29
-                 {TouchControl::SwordCombo, {889.0f, 638.0f}, {939.0f, 688.0f}},   // E29
-                 {TouchControl::SpellCombo, {957.0f, 623.0f}, {1007.0f, 673.0f}},   // E29
-                 {TouchControl::Dpad, {12.0f, 637.0f}, {212.0f, 837.0f}},
+    check(0.5f, {{TouchControl::Dpad, {12.0f, 637.0f}, {212.0f, 837.0f}},
                  {TouchControl::ExitDown, {80.5f, 625.0f}, {143.5f, 688.0f}}});
-    check(0.4f, {{TouchControl::Jump, {966.4f, 698.4f}, {1014.4f, 746.4f}},   // the floor   // E29
-                 {TouchControl::Sword, {912.0f, 710.4f}, {960.0f, 758.4f}},   // E29
-                 {TouchControl::Fire, {966.4f, 597.6f}, {1014.4f, 645.6f}},   // E29
-                 {TouchControl::Light, {912.0f, 609.6f}, {960.0f, 657.6f}},   // E29
-                 {TouchControl::SwordCombo, {916.0f, 664.0f}, {956.0f, 704.0f}},   // E29
-                 {TouchControl::SpellCombo, {970.4f, 652.0f}, {1010.4f, 692.0f}}});   // E29
+    check(0.4f, {});   // the floor
     // Wherever the controls hang from, they shrink toward that corner and stay on the screen.
     for (const float size : {0.4f, 0.7f, 1.0f, 1.3f, 1.4f}) {
         const TouchLayout layout = Tuned(SizedAt(size));
@@ -3499,24 +3535,25 @@ void testTuningSize() {
         TouchControls::ComputeLayout(TouchControls::WithTuning(placeholder, SizedAt(0.5f)), kFourThree, TouchInsets{});
     CHECK_NEAR(after[TouchControl::Jump].Size().x, before[TouchControl::Jump].Size().x * 0.5f);
 
-    // The hit areas follow the drawn ones: at 0.5 the fire button is where it is drawn, not where it was. (E29: the fire
-    // button, because the jump button's old centre, (940, 654), is inside the sword combo's padded box at 0.5.)   // E29
+    // The hit areas follow the drawn ones: at 0.5 the fire button is where it is drawn, not where it was. (E29, E32: the fire
+    // button, because the jump button's old centre, (847, 659), is inside the sword combo's padded box at 0.5.)   // E32
     TouchControls shrunk;
     shrunk.SetTuning(SizedAt(0.5f));
-    const glm::vec2 oldCentre = Centre(TouchControl::Fire);   // (940, 402), inside the 120 px button of size 1   // E29
-    const glm::vec2 newCentre = Tuned(SizedAt(0.5f))[TouchControl::Fire].Centre();   // (982, 585)   // E29
+    const glm::vec2 oldCentre = Centre(TouchControl::Fire);   // (847, 387), inside the 120 px button of size 1   // E32
+    const glm::vec2 newCentre = Tuned(SizedAt(0.5f))[TouchControl::Fire].Centre();   // (935.5, 577.5)   // E32
     CHECK(Only(shrunk.Update(Play({Finger(1, oldCentre)})), {}));
     CHECK(shrunk.RunningCombo() == TouchCombo::None);   // E29: nothing else was there either
     TouchControls shrunkAgain;
     shrunkAgain.SetTuning(SizedAt(0.5f));
     CHECK(Only(shrunkAgain.Update(Play({Finger(1, newCentre)})), {TouchAction::Fire}));   // E29
-    TouchControls shrunkJump;   // E29: and the jump button's new centre, (982, 711), is the jump button's alone
+    TouchControls shrunkJump;   // E32: and the jump button's new centre, (935.5, 713.5), is the jump button's alone
     shrunkJump.SetTuning(SizedAt(0.5f));   // E29
     CHECK(Only(shrunkJump.Update(Play({Finger(1, Tuned(SizedAt(0.5f))[TouchControl::Jump].Centre())})), {TouchAction::Jump}));   // E29
     // And a control drawn larger is held where the old one was not.
     TouchControls grown;
     grown.SetTuning(SizedAt(1.4f));
-    const glm::vec2 beyond(940.0f, 300.0f);   // above the size-1 fire button and its padding (y 338), inside the 1.4 one (y 171.6 to 339.6)   // E29
+    // E32: above the size-1 fire button and its padding (y 327 less 4), inside the 1.4 one (y 150.6 to 318.6).
+    const glm::vec2 beyond(oldCentre.x, Default()[TouchControl::Fire].min.y - 20.0f);
     CHECK(Only(grown.Update(Play({Finger(1, beyond)})), {TouchAction::Fire}));   // E29
     TouchControls ordinary;
     CHECK(Only(ordinary.Update(Play({Finger(1, beyond)})), {}));
@@ -3591,7 +3628,8 @@ void testTuningOpacity() {
 // from; not scaled by the size; scaled by the window like every offset; kept on the screen.
 void testTuningMoves() {
     const TouchLayout plain = Default();
-    CHECK(BoxIs(Tuned(WithMove(TouchControl::Jump, -40.0f, 12.0f))[TouchControl::Jump], {840.0f, 606.0f}, {960.0f, 726.0f}));   // E29
+    CHECK(BoxIs(Tuned(WithMove(TouchControl::Jump, -40.0f, 12.0f))[TouchControl::Jump],   // E32: from where the grid has it
+                plain[TouchControl::Jump].min + glm::vec2(-40.0f, 12.0f), plain[TouchControl::Jump].max + glm::vec2(-40.0f, 12.0f)));
     CHECK(BoxIs(Tuned(WithMove(TouchControl::Pause, -30.0f, 20.0f))[TouchControl::Pause], {878.0f, 64.0f}, {974.0f, 128.5f}));
     // Up past the floor: the pause stays below the run's timer row (25) and a margin (4).
     CHECK(BoxIs(Tuned(WithMove(TouchControl::Pause, 0.0f, -30.0f))[TouchControl::Pause], {908.0f, 29.0f}, {1004.0f, 93.5f}));
@@ -3613,7 +3651,9 @@ void testTuningMoves() {
         CHECK_MSG(SameBox(jumpMoved[control], plain[control]), TouchControls::ControlId(control));
     }
     // Not scaled by the size: 40 px left and 12 down of where the half-size button is.
-    CHECK(BoxIs(Tuned(WithMove(TouchControl::Jump, -40.0f, 12.0f, 0.5f))[TouchControl::Jump], {912.0f, 693.0f}, {972.0f, 753.0f}));   // E29
+    const TouchLayout::Box halfJump = Tuned(SizedAt(0.5f))[TouchControl::Jump];   // E32
+    CHECK(BoxIs(Tuned(WithMove(TouchControl::Jump, -40.0f, 12.0f, 0.5f))[TouchControl::Jump],
+                halfJump.min + glm::vec2(-40.0f, 12.0f), halfJump.max + glm::vec2(-40.0f, 12.0f)));
 
     // Screen direction, every anchor, on every screen: a small move shifts the box by exactly that.
     const glm::vec2 screens[] = {kFourThree, kWide, {1707.0f, 768.0f}};
@@ -3824,8 +3864,10 @@ void testMoveFor() {
     const auto moveTo = [&](TouchControl control, float x, float y) {
         return TouchControls::MoveFor(manifest, none, control, glm::vec2(x, y), flat);
     };
-    CHECK(moveTo(TouchControl::Jump, 700.0f, 600.0f) == Mv(-180.0f, 6.0f));   // E29: from (880, 594)
-    CHECK(moveTo(TouchControl::Jump, 2000.0f, 2000.0f) == Mv(24.0f, 54.0f));   // the bound (904, 648)   // E29
+    const glm::vec2 jumpAt = Default()[TouchControl::Jump].min;   // E32: (787, 599)
+    CHECK(moveTo(TouchControl::Jump, 700.0f, 600.0f) == Mv(700.0f - jumpAt.x, 600.0f - jumpAt.y));   // E32: (-87, 1)
+    CHECK(moveTo(TouchControl::Jump, 2000.0f, 2000.0f) ==
+          Mv(manifest[TouchControl::Jump].offset.x, manifest[TouchControl::Jump].offset.y));   // the bound (907, 719): the manifest's offset   // E32
     CHECK(moveTo(TouchControl::Dpad, -500.0f, 900.0f) == Mv(-24.0f, 12.0f));   // the bound (0, 518): the overhang
     CHECK(moveTo(TouchControl::Pause, 908.0f, 0.0f) == Mv(0.0f, -15.0f));   // below the timer's row: y 29
     CHECK(Tuned(WithMove(TouchControl::Pause, 0.0f, -15.0f))[TouchControl::Pause].min.y == 29.0f);
@@ -4221,37 +4263,49 @@ void testSizeCeiling() {
     // The measured ceilings, pinned: what the editor's sizes can do to the shipped layout. The pause hangs under the
     // frame (E26) and, zoomed, under the timer (E25), where the fire button, the top of the right column (E29), grows up
     // to it; nothing is pushed apart as Magic Rampage pushes, so above the pinned size a player moves the controls apart   // E29
-    // (the editor is a live preview). The largest step is TouchTuning::kMaxSize, MR's own. E29's two columns are narrower
-    // and lower than E16's four buttons and a row of combos (the ceilings were 1.1, 1.1 and 1.0 on these sets and 1.2   // E29
-    // unzoomed): every set holds to 1.2, and what stops each at 1.3 is pinned below, with the pause button's clearance.   // E29
-    constexpr float kUnzoomedCeiling = 1.2f;
-    constexpr float kNineCeiling = 1.2f;   // E29
-    constexpr float kWith48Ceiling = 1.2f;   // E29: both readings
-    constexpr float kMeasuredCeiling = 1.2f;   // E29: both readings, with the 100 px bar too
+    // (the editor is a live preview). The largest step is TouchTuning::kMaxSize, MR's own. E32: the grid's left column
+    // is 304 from the screen's right edge where E29's was 160 (67 between the columns, E29's 16), which brings the sword
+    // button to the direction control's right button as the size grows: on a 4:3 screen a notch narrows to 848 units the
+    // two are 10 apart at size 1.0 and overlap from 1.1 (on a plain 4:3 screen from 1.3), so every set stops at 1.0 where
+    // E29's held to 1.2 (E16's were 1.1, 1.1 and 1.0 on these sets and 1.2 unzoomed). What stops each at 1.1 is pinned
+    // below, and the pause button's clearance (the fire button's top is 15 higher than E29's).   // E32
+    constexpr float kUnzoomedCeiling = 1.0f;   // E32
+    constexpr float kNineCeiling = 1.0f;   // E32
+    constexpr float kWith48Ceiling = 1.0f;   // E32: both readings
+    constexpr float kMeasuredCeiling = 1.0f;   // E32: both readings, with the 100 px bar too
     CHECK_MSG(unzoomedCeiling == kUnzoomedCeiling, std::to_string(unzoomedCeiling));
     CHECK_MSG(nineCeiling == kNineCeiling, std::to_string(nineCeiling));
     CHECK_MSG(with48 == kWith48Ceiling && with48InWindowPixels == kWith48Ceiling, std::to_string(with48) + " " + std::to_string(with48InWindowPixels));
     CHECK_MSG(ceiling == kMeasuredCeiling, std::to_string(ceiling));
     CHECK_MSG(ceilingInWindowPixels == kMeasuredCeiling, std::to_string(ceilingInWindowPixels));
     CHECK(ceiling <= with48 && with48 <= nineCeiling && nineCeiling <= TouchTuning::kMaxSize && unzoomedCeiling <= TouchTuning::kMaxSize);
-    // E29: every ceiling is below the editor's top size, so the chain above says something: one step up, exactly these
-    // pairs overlap, on exactly these cases. The notched 4:3 screens (the direction control's right button reaching the   // E29
-    // sword button: a notch's two sides leave a 4:3 screen narrow) stop every set; the 100 px bottom bar, the fire   // E29
-    // button against the pause button; and at the top size, the fire button meets the pause on a 20:9 phone with a notch.   // E29
+    // E32: every ceiling is below the editor's top size, so the chain above says something: one step up, exactly this pair
+    // overlaps, on exactly this case, in every set: the notched 4:3 screens (the direction control's right button reaching
+    // the sword button: a notch's two sides leave a 4:3 screen narrow). Two steps up the 100 px bottom bar adds the fire   // E32
+    // button against the pause button (in the pixels of E1's 768, where the bar is the larger share of a 1080 px window) and   // E32
+    // the down button meets the sword button; and at the top size the fire button meets the pause on a 20:9 phone as well.   // E32
     const auto overlapsAt = [&](float size, const std::vector<InPlayCase>& set) { return judge(size, set).overlaps; };   // E29
     using Lines = std::vector<std::string>;   // E29
-    CHECK((overlapsAt(1.3f, unzoomed) == Lines{"1024x768 unzoomed, inset 88/0: dpad right and sword"}));   // E29
-    CHECK((overlapsAt(1.3f, nine) == Lines{"4:3 tablet, bars 88/0/24: dpad right and sword"}));   // E29
-    CHECK((overlapsAt(1.3f, inPlay) ==   // E29
-           Lines{"20:9 phone, bars 0/0/100: fire and pause", "16:9 tablet, bars 0/0/100: fire and pause",   // E29
-                 "4:3 tablet, bars 88/0/24: dpad right and sword", "4:3 tablet, bars 0/0/100: fire and pause"}));   // E29
-    CHECK((overlapsAt(1.3f, inPlayWindowPixels) ==   // E29
-           Lines{"20:9 phone, bars 0/0/100: fire and pause", "4:3 tablet, bars 88/0/24: dpad right and sword"}));   // E29
-    CHECK((overlapsAt(1.4f, unzoomed) == Lines{"1024x768 unzoomed, inset 88/0: dpad right and sword"}));   // E29
-    CHECK((overlapsAt(1.4f, nine) == Lines{"20:9 phone, bars 88/0/24: fire and pause", "20:9 phone, bars 0/30/20: fire and pause",   // E29
-                                           "4:3 tablet, bars 88/0/24: dpad right and sword"}));   // E29
-    // The fire button's top against the pause button's bottom (what E29's right column, the taller one, leaves), in
-    // 768ths of the screen: the least clearance over a set, at a size.   // E29
+    CHECK((overlapsAt(1.1f, unzoomed) == Lines{"1024x768 unzoomed, inset 88/0: dpad right and sword"}));   // E32
+    CHECK((overlapsAt(1.1f, nine) == Lines{"4:3 tablet, bars 88/0/24: dpad right and sword"}));   // E32
+    CHECK((overlapsAt(1.1f, inPlay) == Lines{"4:3 tablet, bars 88/0/24: dpad right and sword"}));   // E32
+    CHECK((overlapsAt(1.1f, inPlayWindowPixels) == Lines{"4:3 tablet, bars 88/0/24: dpad right and sword"}));   // E32
+    CHECK((overlapsAt(1.2f, inPlay) ==   // E32
+           Lines{"20:9 phone, bars 0/0/100: fire and pause", "4:3 tablet, bars 88/0/24: dpad right and sword",   // E32
+                 "4:3 tablet, bars 88/0/24: sword and exitDown"}));   // E32
+    CHECK((overlapsAt(1.2f, inPlayWindowPixels) ==   // E32
+           Lines{"4:3 tablet, bars 88/0/24: dpad right and sword", "4:3 tablet, bars 88/0/24: sword and exitDown"}));   // E32
+    CHECK((overlapsAt(1.4f, unzoomed) ==   // E32
+           Lines{"1024x768 unzoomed, inset 0/0: dpad right and sword", "1024x768 unzoomed, inset 88/0: dpad right and jump",   // E32
+                 "1024x768 unzoomed, inset 88/0: sword and exitDown", "1024x768 unzoomed, inset 88/0: swordCombo and exitDown",   // E32
+                 "1024x768 unzoomed, inset 0/30: dpad right and sword"}));   // E32
+    CHECK((overlapsAt(1.4f, nine) ==   // E32
+           Lines{"20:9 phone, bars 0/0/0: fire and pause", "20:9 phone, bars 0/30/20: fire and pause",   // E32
+                 "4:3 tablet, bars 0/0/0: dpad right and sword", "4:3 tablet, bars 88/0/24: dpad right and jump",   // E32
+                 "4:3 tablet, bars 88/0/24: sword and exitDown", "4:3 tablet, bars 88/0/24: swordCombo and exitDown",   // E32
+                 "4:3 tablet, bars 0/30/20: dpad right and sword"}));   // E32
+    // The fire button's top against the pause button's bottom (what the grid's top row, the highest of the cluster, leaves),
+    // in 768ths of the screen: the least clearance over a set, at a size.   // E32
     const auto pauseClearance = [&](float size, const std::vector<InPlayCase>& set, TouchControl top = TouchControl::Fire) {   // E29
         const TouchManifest tuned = TouchControls::WithTuning(built, SizedAt(size));   // E29
         float least = std::numeric_limits<float>::max();   // E29
@@ -4261,19 +4315,20 @@ void testSizeCeiling() {
         }   // E29
         return least;   // E29
     };   // E29
-    std::printf("  E29 the fire button's least clearance of the pause (of 768): size 1.0 %.1f, 1.2 %.1f, 1.3 %.1f, 1.4 %.1f (E1's 768 bars); "
-                "%.1f, %.1f, %.1f, %.1f (window pixels); the spell combo's at 1.4: %.1f, %.1f\n",   // E29
-                pauseClearance(1.0f, inPlay), pauseClearance(1.2f, inPlay), pauseClearance(1.3f, inPlay), pauseClearance(1.4f, inPlay),   // E29
-                pauseClearance(1.0f, inPlayWindowPixels), pauseClearance(1.2f, inPlayWindowPixels), pauseClearance(1.3f, inPlayWindowPixels),   // E29
-                pauseClearance(1.4f, inPlayWindowPixels), pauseClearance(1.4f, inPlay, TouchControl::SpellCombo),   // E29
-                pauseClearance(1.4f, inPlayWindowPixels, TouchControl::SpellCombo));   // E29
-    // Default size: at least 80 clear on every case, the 100 px bar's included (measured 87.9 of E1's 768 and 116.8 in window pixels, both on a 20:9 phone).   // E29
-    CHECK_MSG(pauseClearance(1.0f, inPlay) >= 80.0f, std::to_string(pauseClearance(1.0f, inPlay)));   // E29
-    CHECK_MSG(pauseClearance(1.0f, inPlayWindowPixels) >= 80.0f, std::to_string(pauseClearance(1.0f, inPlayWindowPixels)));   // E29
-    // The ceiling is where that clearance is used up, on the tall bar: still clear at 1.2, over at 1.3.   // E29
-    CHECK_MSG(pauseClearance(1.2f, inPlay) >= 0.0f && pauseClearance(1.3f, inPlay) < 0.0f, std::to_string(pauseClearance(1.2f, inPlay)));   // E29
-    CHECK_MSG(pauseClearance(1.2f, inPlayWindowPixels) >= 0.0f && pauseClearance(1.3f, inPlayWindowPixels) < 0.0f,   // E29
-              std::to_string(pauseClearance(1.2f, inPlayWindowPixels)));   // E29
+    std::printf("  E32 the fire button's least clearance of the pause (of 768): size 1.0 %.1f, 1.1 %.1f, 1.2 %.1f, 1.3 %.1f, 1.4 %.1f (E1's 768 bars); "
+                "%.1f, %.1f, %.1f, %.1f, %.1f (window pixels); the spell combo's at 1.4: %.1f, %.1f\n",   // E32
+                pauseClearance(1.0f, inPlay), pauseClearance(1.1f, inPlay), pauseClearance(1.2f, inPlay), pauseClearance(1.3f, inPlay),   // E32
+                pauseClearance(1.4f, inPlay), pauseClearance(1.0f, inPlayWindowPixels), pauseClearance(1.1f, inPlayWindowPixels),   // E32
+                pauseClearance(1.2f, inPlayWindowPixels), pauseClearance(1.3f, inPlayWindowPixels), pauseClearance(1.4f, inPlayWindowPixels),   // E32
+                pauseClearance(1.4f, inPlay, TouchControl::SpellCombo), pauseClearance(1.4f, inPlayWindowPixels, TouchControl::SpellCombo));   // E32
+    // Default size: at least 70 clear on every case, the 100 px bar's included (measured 72.9 of E1's 768 and 101.8 in window pixels, both on a 20:9 phone).   // E32
+    CHECK_MSG(pauseClearance(1.0f, inPlay) >= 70.0f, std::to_string(pauseClearance(1.0f, inPlay)));   // E32
+    CHECK_MSG(pauseClearance(1.0f, inPlayWindowPixels) >= 70.0f, std::to_string(pauseClearance(1.0f, inPlayWindowPixels)));   // E32
+    // Where that clearance is used up, on the tall bar: still clear at 1.1 and over at 1.2 in E1's pixels (the fire button's   // E32
+    // 15 units higher than E29's cost a size step there), still clear at 1.2 and over at 1.3 in window pixels, as E29's was in E1's.   // E32
+    CHECK_MSG(pauseClearance(1.1f, inPlay) >= 0.0f && pauseClearance(1.2f, inPlay) < 0.0f, std::to_string(pauseClearance(1.1f, inPlay)));   // E32
+    CHECK_MSG(pauseClearance(1.2f, inPlayWindowPixels) >= 0.0f && pauseClearance(1.3f, inPlayWindowPixels) < 0.0f,   // E32
+              std::to_string(pauseClearance(1.2f, inPlayWindowPixels)));   // E32
     // Every size up to the ceiling is clean on every case, and the default one on all the sets.
     for (int step = 4; step <= 10; ++step) {
         CHECK_MSG(judge(static_cast<float>(step) / 10.0f, inPlay).overlaps.empty(), std::to_string(step));
@@ -4282,10 +4337,11 @@ void testSizeCeiling() {
     CHECK(judge(1.0f, nine).overlaps.empty() && judge(1.0f, unzoomed).overlaps.empty());
 }
 
-// E29: the six action buttons' arrangement, on the three screens the layout is checked on: two columns of three, the
-// sword at the very bottom right and the jump button to its right and a little higher; above the sword the sword combo   // E29
-// and the light; above the jump the spell combo and the fire. Every box, as literals (the offsets are the manifest's:   // E29
-// the left column 160 from the right edge, the right 24, the combos 10 further in, rows 16 apart, the jump 30 up).   // E29
+// E29, E32: the six action buttons' arrangement, on the three screens the layout is checked on: a grid of two columns of
+// three, the sword at the bottom of the left one and the jump button level with it in the right one; above the sword the
+// sword combo and the light; above the jump the spell combo and the fire. Every box, as literals (the offsets are the   // E32
+// manifest's: the right column 117 from the right edge, the left 304 (67 between the columns), the combos 10 further in,   // E32
+// the rows at 49 and 321 and the combos at 195, so the three rows are 136 apart, centre to centre).   // E32
 void testButtonColumns() {   // E29
     struct Expect {   // E29
         TouchControl control;   // E29
@@ -4293,12 +4349,12 @@ void testButtonColumns() {   // E29
         glm::vec2 max;   // E29
     };   // E29
     const Expect box4x3[] = {   // E29
-        {TouchControl::Jump, {880.0f, 594.0f}, {1000.0f, 714.0f}},        // right column, bottom: 30 above the sword   // E29
-        {TouchControl::SpellCombo, {890.0f, 478.0f}, {990.0f, 578.0f}},   // above the jump   // E29
-        {TouchControl::Fire, {880.0f, 342.0f}, {1000.0f, 462.0f}},        // above the spell combo   // E29
-        {TouchControl::Sword, {744.0f, 624.0f}, {864.0f, 744.0f}},        // left column, bottom: the very bottom   // E29
-        {TouchControl::SwordCombo, {754.0f, 508.0f}, {854.0f, 608.0f}},   // above the sword   // E29
-        {TouchControl::Light, {744.0f, 372.0f}, {864.0f, 492.0f}},        // above the sword combo   // E29
+        {TouchControl::Jump, {787.0f, 599.0f}, {907.0f, 719.0f}},         // right column, bottom: level with the sword   // E32
+        {TouchControl::SpellCombo, {797.0f, 473.0f}, {897.0f, 573.0f}},   // above the jump   // E32
+        {TouchControl::Fire, {787.0f, 327.0f}, {907.0f, 447.0f}},         // above the spell combo   // E32
+        {TouchControl::Sword, {600.0f, 599.0f}, {720.0f, 719.0f}},        // left column, bottom   // E32
+        {TouchControl::SwordCombo, {610.0f, 473.0f}, {710.0f, 573.0f}},   // above the sword   // E32
+        {TouchControl::Light, {600.0f, 327.0f}, {720.0f, 447.0f}},        // above the sword combo   // E32
     };   // E29
     std::string warning;   // E29
     const std::pair<const char*, TouchManifest> manifests[] = {   // E29
@@ -4327,13 +4383,13 @@ void testButtonColumns() {   // E29
         // A notch and a gesture bar move the cluster with the safe area's right and bottom edges, not the screen's.   // E29
         const TouchInsets notch{88.0f, 0.0f, 88.0f, 24.0f};   // E29
         const TouchLayout inset = TouchControls::ComputeLayout(manifest, kWide, notch);   // E29
-        // The safe area ends at (1278, 744): the jump button's box is 24 and 54 in from it, 120 square.   // E29
-        CHECK(BoxIs(inset[TouchControl::Jump], {1134.0f, 570.0f}, {1254.0f, 690.0f}, 0.001f));   // E29
-        CHECK(BoxIs(inset[TouchControl::Sword], {998.0f, 600.0f}, {1118.0f, 720.0f}, 0.001f));   // E29
-        CHECK(BoxIs(inset[TouchControl::Fire], {1134.0f, 318.0f}, {1254.0f, 438.0f}, 0.001f));   // E29
-        CHECK(BoxIs(inset[TouchControl::Light], {998.0f, 348.0f}, {1118.0f, 468.0f}, 0.001f));   // E29
-        CHECK(BoxIs(inset[TouchControl::SwordCombo], {1008.0f, 484.0f}, {1108.0f, 584.0f}, 0.001f));   // E29
-        CHECK(BoxIs(inset[TouchControl::SpellCombo], {1144.0f, 454.0f}, {1244.0f, 554.0f}, 0.001f));   // E29
+        // The safe area ends at (1278, 744): the jump button's box is 117 and 49 in from it, 120 square.   // E32
+        CHECK(BoxIs(inset[TouchControl::Jump], {1041.0f, 575.0f}, {1161.0f, 695.0f}, 0.001f));   // E32
+        CHECK(BoxIs(inset[TouchControl::Sword], {854.0f, 575.0f}, {974.0f, 695.0f}, 0.001f));   // E32
+        CHECK(BoxIs(inset[TouchControl::Fire], {1041.0f, 303.0f}, {1161.0f, 423.0f}, 0.001f));   // E32
+        CHECK(BoxIs(inset[TouchControl::Light], {854.0f, 303.0f}, {974.0f, 423.0f}, 0.001f));   // E32
+        CHECK(BoxIs(inset[TouchControl::SwordCombo], {864.0f, 449.0f}, {964.0f, 549.0f}, 0.001f));   // E32
+        CHECK(BoxIs(inset[TouchControl::SpellCombo], {1051.0f, 449.0f}, {1151.0f, 549.0f}, 0.001f));   // E32
     }   // E29
 
     // What a finger means in the cluster: each button's centre is its own and nothing else's, on every screen, and   // E29
@@ -4355,13 +4411,27 @@ void testButtonColumns() {   // E29
         spell.Update(Play({Finger(1, layout[TouchControl::SpellCombo].Centre())}));   // E29
         CHECK(spell.RunningCombo() == TouchCombo::Spell);   // E29
     }   // E29
-    const glm::vec2 gaps[] = {   // E29
-        {872.0f, 654.0f},   // between the sword and the jump button (x 864 to 880, 4 of padding each), at the jump's height   // E29
-        {872.0f, 684.0f},   // the same, at the sword's   // E29
-        {804.0f, 617.0f},   // between the sword and the sword combo (y 608 to 624; padded 6 and 4: 614 to 620)   // E29
-        {804.0f, 499.0f},   // between the sword combo and the light (y 492 to 508; padded 496 to 502)   // E29
-        {940.0f, 587.0f},   // between the jump and the spell combo (y 578 to 594; padded 584 to 590)   // E29
-        {940.0f, 469.0f},   // between the spell combo and the fire (y 462 to 478; padded 466 to 472)   // E29
+    // E32: the middles of the gaps, from the layout: between the columns (67 wide, 59 once each button's 4 or combo's 6 of   // E32
+    // padding is taken off: x 753.5 on the 4:3 screen) at each row and between the combos; between the rows (26 clear   // E32
+    // each side of a combo, 16 once its 6 and the button's 4 of padding are taken off) in each column; and the dead strip right of the cluster.   // E32
+    const TouchLayout::Box& jump = layout[TouchControl::Jump];   // E32
+    const TouchLayout::Box& sword = layout[TouchControl::Sword];   // E32
+    const TouchLayout::Box& fire = layout[TouchControl::Fire];   // E32
+    const TouchLayout::Box& light = layout[TouchControl::Light];   // E32
+    const TouchLayout::Box& swordCombo = layout[TouchControl::SwordCombo];   // E32
+    const TouchLayout::Box& spellCombo = layout[TouchControl::SpellCombo];   // E32
+    const auto mid = [](float a, float b) { return 0.5f * (a + b); };   // E32
+    const float between = mid(sword.max.x, jump.min.x);   // E32
+    const glm::vec2 gaps[] = {   // E32
+        {between, jump.Centre().y},   // between the sword and the jump button, at their height (the rows are level)   // E32
+        {between, jump.min.y + 10.0f},   // the same, near their tops   // E32
+        {between, fire.Centre().y},   // between the light and the fire   // E32
+        {between, swordCombo.Centre().y},   // between the sword combo and the spell combo   // E32
+        {swordCombo.Centre().x, mid(sword.min.y, swordCombo.max.y)},   // between the sword and the sword combo   // E32
+        {swordCombo.Centre().x, mid(swordCombo.min.y, light.max.y)},   // between the sword combo and the light   // E32
+        {spellCombo.Centre().x, mid(jump.min.y, spellCombo.max.y)},   // between the jump and the spell combo   // E32
+        {spellCombo.Centre().x, mid(spellCombo.min.y, fire.max.y)},   // between the spell combo and the fire   // E32
+        {mid(jump.max.x, kFourThree.x), jump.Centre().y},   // right of the cluster: the strip down the screen's edge   // E32
     };   // E29
     for (const glm::vec2 point : gaps) {   // E29
         TouchControls touch;   // E29
@@ -4369,7 +4439,24 @@ void testButtonColumns() {   // E29
         CHECK_MSG(touch.RunningCombo() == TouchCombo::None, std::to_string(point.x) + "," + std::to_string(point.y));   // E29
     }   // E29
     // The first ray out of each column is clear too: a thumb on the right column's edge side reaches no left button.   // E29
-    CHECK(Only(TouchControls().Update(Play({Finger(1, glm::vec2(1012.0f, 654.0f))})), {}));   // right of the jump, past its padding   // E29
+    CHECK(Only(TouchControls().Update(Play({Finger(1, glm::vec2(1012.0f, jump.Centre().y))})), {}));   // right of the jump, past its padding   // E32
+    // E32: the notched 4:3 screen (848 units wide, insets 88/0/88/24), where the direction control's right button and the sword   // E32
+    // button are 10 apart: a finger just inside the sword's padding (the disc's reach covers it too) is the sword's alone, as   // E32
+    // TouchControls::hit takes the nearer centre, and one at the middle of the right button's face is the disc's, Right alone.   // E32
+    {   // E32
+        const TouchInsets notch{88.0f, 0.0f, 88.0f, 24.0f};   // E32
+        const TouchManifest manifest = TouchControls::DefaultManifest();   // E32
+        const TouchLayout notched = TouchControls::ComputeLayout(manifest, kFourThree, notch);   // E32
+        const glm::vec2 onSword(notched[TouchControl::Sword].min.x - 0.75f * notched.hitPadding[Slot(TouchControl::Sword)],   // E32
+                                notched[TouchControl::Sword].Centre().y);   // E32
+        const glm::vec2 onRight = ArrowFace(manifest.dpadRight, notched[TouchControl::Dpad]).Centre();   // E32
+        TouchInput swordFinger = Play({Finger(1, onSword)}, kFourThree);   // E32
+        swordFinger.safeArea = notch;   // E32
+        CHECK(Only(TouchControls().Update(swordFinger), {TouchAction::Sword}));   // E32
+        TouchInput rightFinger = Play({Finger(1, onRight)}, kFourThree);   // E32
+        rightFinger.safeArea = notch;   // E32
+        CHECK(Only(TouchControls().Update(rightFinger), {TouchAction::Right}));   // E32
+    }   // E32
 }   // E29
 
 // The editor's words for each control are settings.json's keys and the manifest's ids.

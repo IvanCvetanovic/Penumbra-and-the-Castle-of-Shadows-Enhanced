@@ -43,8 +43,8 @@
 // (dpad "downSector": true and its "down" arrow, as the placeholder look's has).
 // Its two buttons are drawn above the disc's centre and its lower half is empty,
 // so the shipped layout lets the box hang below the screen's bottom edge
-// (overhang, below): the buttons then sit at the thumb's resting height, level
-// with the sword button (the jump button is 30 higher, E29), with the disc's input unchanged.
+// (overhang, below): the buttons then sit at the thumb's resting height, 25 units
+// under the action buttons' bottom row (E32), with the disc's input unchanged.
 //
 // THE DOWN BUTTON (ENHANCEMENT E25) is K_DOWN alone, above the left and right
 // buttons and centred between them, shown only while the next_level door
