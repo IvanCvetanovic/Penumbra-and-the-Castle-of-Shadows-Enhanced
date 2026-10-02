@@ -91,8 +91,9 @@ keeps them: unpacked into a folder outside the source tree, the Linux one read-o
 ordinary user. When it publishes, it checks the files
 already in the release against their published checksums, adds the three new files, and rewrites
 `SHA256SUMS.txt` for all five, with the Windows and Android lines unchanged. It never replaces the
-Windows zip or the APK. The 1.0.0 files for Linux, Mac and iPhone/iPad were built from commit
-`aae1a29`, later than the release's tag: the same game, with the packaging and a Linux start-up fix.
+Windows zip or the APK. The three files are built from the commit the run starts on, which may be
+later than the release's tag (the publish job's summary names that commit), so they can include
+changes made since the tag.
 
 ## Team roles
 

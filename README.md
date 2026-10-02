@@ -32,10 +32,13 @@ The Windows download is not code-signed yet, and the Mac app is not notarised by
 
 <img src="docs/images/level2.jpg" alt="Level 2: a fireball toward three guards" width="32%">
 <img src="docs/images/arena-lava.jpg" alt="A Versus arena over lava" width="32%">
-<img src="docs/images/touch-controls.jpg" alt="The touch controls on Android" width="32%">
+<img src="docs/images/touch-controls.jpg" alt="The touch controls in level 1" width="32%">
 <img src="docs/images/options.jpg" alt="The options screen" width="32%">
 <img src="docs/images/arena-pipes.jpg" alt="A Versus arena with pipes" width="32%">
 <img src="docs/images/credits.jpg" alt="The credits, with the enhanced edition" width="32%">
+
+<img src="docs/images/touch-editor.jpg" alt="The touch-controls editor: tiles for the buttons' size and opacity, a padlock, and buttons that can be moved" width="49%">
+<img src="docs/images/options-phone.jpg" alt="The options screen on a phone: two columns of settings, with the language chooser at the top right" width="49%">
 
 </div>
 
@@ -46,17 +49,18 @@ Engine. You play a wizard with a sword, fireballs and a light spell, fighting th
 to the castle's king, alone, in co-op, or in Versus.
 
 This is an **enhanced edition**, not a remake: the original's own scripts are ported to C++ line by
-line and read the original's own files, so the game plays exactly as it did. It runs on Ivan
-Cvetanović's [Supersonic Engine](https://github.com/IvanCvetanovic/Supersonic-Engine), and is
-published with André Santee's explicit permission.
+line and read the original's own files, so the game plays as it did, apart from the changes listed in
+[`docs/enhancements.md`](docs/enhancements.md). It runs on Ivan Cvetanović's
+[Supersonic Engine](https://github.com/IvanCvetanovic/Supersonic-Engine), and is published with
+André Santee's explicit permission.
 
 ## What's enhanced
 
 | | |
 |---|---|
 | **Display** | Widescreen at any resolution; the best resolution and refresh rate chosen automatically, or by hand; smooth motion on fast monitors |
-| **Controls** | Modern gamepads, a keyboard second player, on-screen touch controls, a pause |
-| **Languages** | English, German, Spanish, French, Italian, Portuguese, Russian, Turkish, Ukrainian, Japanese and Arabic, following your system's language by itself, and switchable in game from a globe button on the main menu |
+| **Controls** | Modern gamepads, a keyboard second player, on-screen touch controls you can resize, fade and move, a pause |
+| **Languages** | English, German, Spanish, French, Italian, Portuguese, Russian, Turkish, Ukrainian, Japanese and Arabic, following your system's language by itself, and switchable in game from the Settings screen |
 | **Platforms** | Downloads for Windows, Android, Mac and Linux, and an experimental one for iPhone and iPad |
 | **Fixes** | Bugs of the original fixed, and its rendering matched more closely |
 
@@ -66,15 +70,16 @@ Every change is listed with what the original did in [`docs/enhancements.md`](do
 
 | Platform | Status | What was checked | Download |
 |---|---|---|---|
-| Windows | ![playtested](https://img.shields.io/badge/-playtested-2ea44f) | Played through by a person; over 20,000 automated checks | [Penumbra-Windows.zip](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/releases/latest/download/Penumbra-Windows.zip) |
-| Linux | ![tested](https://img.shields.io/badge/-tested-1f6feb) | All 17 test suites pass in the release build; the download itself, unpacked read-only, plays level 1 on a software Vulkan driver; not played by a person | [Penumbra-Linux.tar.gz](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/releases/latest/download/Penumbra-Linux.tar.gz) |
-| Android | ![playtested](https://img.shields.io/badge/-playtested-2ea44f) | Played through on a real phone by a person; scripted tests on an emulator | [Penumbra-Android.apk](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/releases/latest/download/Penumbra-Android.apk) |
+| Windows | ![playtested](https://img.shields.io/badge/-playtested-2ea44f) | Played through by a person; over 39,000 automated checks, all passing on GitHub's Windows runner | [Penumbra-Windows.zip](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/releases/latest/download/Penumbra-Windows.zip) |
+| Linux | ![tested](https://img.shields.io/badge/-tested-1f6feb) | All 17 test suites (over 39,000 checks) pass in the release build; the download itself, unpacked read-only, plays level 1 on a software Vulkan driver; not played by a person | [Penumbra-Linux.tar.gz](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/releases/latest/download/Penumbra-Linux.tar.gz) |
+| Android | ![playtested](https://img.shields.io/badge/-playtested-2ea44f) | Played through on a real phone by a person, the touch editor included (an earlier build); the newest button layout was only checked on an emulator; scripted tests on an emulator | [Penumbra-Android.apk](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/releases/latest/download/Penumbra-Android.apk) |
 | macOS | ![CI](https://img.shields.io/badge/-CI%20only-d29922) | Tests pass on GitHub Actions; the download runs level 1 on GitHub's Apple silicon Macs, and its Intel half there under Rosetta; not played; never run on a real Intel Mac; not notarised | [Penumbra-macOS.zip](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/releases/latest/download/Penumbra-macOS.zip) |
 | iOS | ![builds](https://img.shields.io/badge/-builds%20only-8b949e) | Compiles; never run on any iPhone or iPad | Experimental: [Penumbra-iOS.ipa](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/releases/latest/download/Penumbra-iOS.ipa), for [sideloading](docs/playing.md#iphone-and-ipad-experimental) |
 
 > [!IMPORTANT]
-> The Windows version, and the Android version on one real phone, have been played by a person. Linux and
-> macOS are verified by automated tests only; the iPhone/iPad version has never run on an iPhone or iPad.
+> The Windows version, and an earlier Android build on one real phone, have been played by a person; the newest
+> Android button layout was only checked on an emulator. Linux and macOS are verified by automated tests only; the
+> iPhone/iPad version has never run on an iPhone or iPad.
 
 ## Build from source
 
@@ -86,7 +91,7 @@ git clone --recurse-submodules https://github.com/IvanCvetanovic/Penumbra-and-th
 |---|---|---|
 | Windows | `cmd //c "tools\build.bat"`, then `build\game\Penumbra.exe` | Visual Studio Build Tools (C++), CMake, Ninja |
 | Linux | `bash tools/build_linux.sh`, then `~/pn-build-linux/game/Penumbra` | [packages](docs/building.md#linux-x64), X11 or XWayland |
-| Android | `bash tools/build_android.sh --abi all` (APK in `out/android/`) | Android SDK and NDK, JDK 17, Python 3 |
+| Android | `bash tools/build_android.sh --abi all` (APK in `out/android/`) | Android SDK and NDK, JDK 17, Python 3 with Pillow |
 | macOS, iOS | The [Apple workflow](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/blob/main/.github/workflows/apple.yml) on GitHub Actions; the downloads, the [release workflow](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/blob/main/.github/workflows/release.yml) | |
 
 A GPU with **Vulkan 1.2** is required. Details: [`docs/building.md`](docs/building.md) ·
@@ -113,7 +118,7 @@ A GPU with **Vulkan 1.2** is required. Details: [`docs/building.md`](docs/buildi
 > engine work, the tests and the documentation. [`CLAUDE.md`](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/blob/main/CLAUDE.md), [`DEVLOG.md`](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/blob/main/DEVLOG.md)
 > and [`docs/planning/`](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/blob/main/docs/planning/2026-09-27-penumbra-port.md) are the working record.
 
-Tests: 17 suites check the port against the original's files, and five of them play the game
+Tests: 17 suites (over 39,000 checks) check the port against the original's files, and five of them play the game
 headless ([`docs/testing.md`](docs/testing.md)).
 
 ## Credits
@@ -122,7 +127,7 @@ headless ([`docs/testing.md`](docs/testing.md)).
   Santee (3D modelling, game design), Gabriel Duarte (soundtrack), Approaching Thunderstorm
   (music); thanks to James Hastings-Trew, José Rodolfo Ortale, Rafael "Pet" Alencar, Taina Monclaire.
 - **Enhanced edition:** Ivan Cvetanović, developed with Claude Code.
-- **Touch buttons, and the options screen's frames, buttons and icons:** from *Magic Rampage*, by Asantee Games (the globe and the monitor icons are drawn for this edition).
+- **Touch buttons, the options screen's frames, buttons and icons, and the touch-controls editor's buttons:** from *Magic Rampage*, by Asantee Games (the globe and the monitor icons are drawn for this edition).
 - **Third-party:** TinyXML, dr_mp3, Liberation, DejaVu and Noto fonts, and the engine's libraries
   ([list](https://github.com/IvanCvetanovic/Supersonic-Engine/blob/main/THIRD_PARTY_LICENSES.md)).
 
@@ -131,7 +136,7 @@ headless ([`docs/testing.md`](docs/testing.md)).
 - **Ivan Cvetanović's code and the Supersonic Engine:** [MIT No Attribution](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/blob/main/LICENSE), completely
   free to use.
 - **The ported scripts** (`game/script/`) **and the Ethanon runtime** (`game/eth/`): LGPL-3.0.
-- **The original game's files and the Magic Rampage art (the touch buttons, the options screen's frames and icons):** their authors' property.
+- **The original game's files and the Magic Rampage art (the touch buttons, the options screen's frames, buttons and icons, and the touch-controls editor's buttons):** their authors' property.
 
 > [!WARNING]
 > Provided **as is, without any warranty**. Ivan Cvetanović is not responsible for anything that

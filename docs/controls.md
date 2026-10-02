@@ -158,6 +158,10 @@ edge, the right one 30 higher than the left; before it the four buttons were a d
 The buttons' size, opacity and places are the player's to change. With the touch controls on, the options screen has an **Adjust controls** button
 next to the touch controls' switch (on a phone, a cell of the large layout of E31, beside the switch's cell; under it in the art-less layout). It opens a full-screen editor that shows the real buttons on a dark background, as they are in a level: the grid of two columns of three described above (E29, E32), at the size, opacity and places set.
 
+![The options screen on a 20:9 phone: two columns of settings, the language chooser at the top right, and the Adjust controls button beside the touch controls' switch](images/options-phone.jpg)
+
+*A phone's options screen (E31): Adjust controls is the cell to the right of Enable touch controls.*
+
 ![The editor on a 20:9 phone, with the size at 1.2, the opacity at 0.6, the padlock open and some buttons moved](images/touch-editor.jpg)
 
 *A tuned example: size 1.2, opacity 0.6, the padlock open (red) and a few buttons moved. The thin frames show where a finger takes each button.*

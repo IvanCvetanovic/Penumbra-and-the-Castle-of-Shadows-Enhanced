@@ -66,7 +66,7 @@ Divirta-se!
 
 **Você precisa de:** Android 8 ou mais recente, com gráficos Vulkan 1.2 – a maioria dos celulares de 2020 para cá.
 
-> **Testado:** a versão para Android foi jogada num celular de verdade por quem a criou, e testada automaticamente num emulador de Android. Outros celulares podem se comportar de outro jeito.
+> **Testado:** uma versão anterior do jogo para Android foi jogada do começo ao fim num celular de verdade por quem a criou, inclusive a tela que ajusta os botões. O layout mais novo dos botões só foi testado num emulador de Android, onde o jogo também foi testado automaticamente. Outros celulares podem se comportar de outro jeito.
 
 **[Baixar para Android](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/releases/latest/download/Penumbra-Android.apk)**
 
@@ -197,7 +197,7 @@ Esta **edição aprimorada**, de **Ivan Cvetanović**, é igualzinha ao original
 | Feitiço de luz | `Espaço` | `Y` |
 | Pausar | `Esc` | `Back` |
 
-**Toque:** num celular ou tablet, o jogo mostra os próprios botões, inclusive botões que fazem os combos com um toque só. Deslize o polegar pelos botões de seta para andar. Também há um botão para pausar.
+**Toque:** num celular ou tablet, o jogo mostra os próprios botões, inclusive botões que fazem os combos com um toque só. Deslize o polegar pelos botões de seta para andar. Os seis botões de ação ficam embaixo à direita, em duas colunas: espada e pulo embaixo, luz e bola de fogo em cima, e os dois botões do meio fazem os combos com um toque só. Também há um botão para pausar. Nas configurações, Ajustar controles muda o tamanho, a transparência e a posição dos botões.
 
 **Combos:** `←` `←` `S` para um raio de espada, e `↓` `←` `D` para uma grande explosão (ou o mesmo com `→`).
 
@@ -216,7 +216,7 @@ Esta **edição aprimorada**, de **Ivan Cvetanović**, é igualzinha ao original
 **Edição aprimorada**
 
 - **Ivan Cvetanović**, desenvolvida com o Claude Code, na Supersonic Engine dele
-- **Botões de toque e as molduras, botões e ícones da tela de configurações:** do Magic Rampage, da Asantee Games (o globo e o ícone do monitor foram desenhados para esta edição)
+- **Botões de toque, as molduras, botões e ícones da tela de configurações e os botões da tela de ajuste dos controles de toque:** do Magic Rampage, da Asantee Games (o globo e o ícone do monitor foram desenhados para esta edição)
 
 Grátis para jogar. Fornecido como está, sem nenhuma garantia; veja as [licenças](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/blob/main/LICENSE.md) (em inglês). O código-fonte está no [GitHub](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced).
 

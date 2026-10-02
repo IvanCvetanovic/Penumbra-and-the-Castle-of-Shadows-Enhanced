@@ -66,7 +66,7 @@ Have fun!
 
 **You need:** Android 8 or newer with Vulkan 1.2 graphics – most phones from about 2020 on.
 
-> **Tested:** the Android version has been played on a real phone by the person who made it, and tested automatically on an Android emulator. Other phones may behave differently.
+> **Tested:** an earlier version of the Android game was played through on a real phone by the person who made it, including the screen that adjusts the buttons. The newest button layout was only tried on an Android emulator, where the game was also tested automatically. Other phones may behave differently.
 
 **[Download for Android](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/releases/latest/download/Penumbra-Android.apk)**
 
@@ -197,7 +197,7 @@ This **enhanced edition** by **Ivan Cvetanović** plays just like the original, 
 | Light spell | `Space` | `Y` |
 | Pause | `Esc` | `Back` |
 
-**Touch:** on a phone or tablet the game draws its own buttons, including buttons that do the combos with one tap. Slide your thumb over the arrow buttons to walk. There is also a button to pause.
+**Touch:** on a phone or tablet the game draws its own buttons, including buttons that do the combos with one tap. Slide your thumb over the arrow buttons to walk. The six action buttons are at the bottom right in two columns: sword and jump at the bottom, light and fireball at the top, and the two buttons in the middle do the combos in one tap. There is also a button to pause. In the settings, Adjust controls changes the buttons' size, opacity and place.
 
 **Combos:** `←` `←` `S` for a sword beam, and `↓` `←` `D` for a big blast (or the same with `→`).
 
@@ -216,7 +216,7 @@ This **enhanced edition** by **Ivan Cvetanović** plays just like the original, 
 **Enhanced edition**
 
 - **Ivan Cvetanović**, developed with Claude Code, on his Supersonic Engine
-- **Touch buttons, and the options screen's frames, buttons and icons:** from Magic Rampage, by Asantee Games (the globe and the monitor icons are drawn for this edition)
+- **Touch buttons, the options screen's frames, buttons and icons, and the touch-controls editor's buttons:** from Magic Rampage, by Asantee Games (the globe and the monitor icons are drawn for this edition)
 
 Free to play. Provided as is, without any warranty; see the [licences](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/blob/main/LICENSE.md). The source code is on [GitHub](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced).
 

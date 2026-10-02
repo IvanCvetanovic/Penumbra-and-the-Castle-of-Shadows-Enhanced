@@ -149,7 +149,7 @@ repository ([code-signing.md](code-signing.md)). The other three are built on Gi
 ### The release workflow
 
 It runs only by hand: Actions, Release, Run workflow, with the tag of the release to add the files
-to (`v1.0.2` by default). The "publish" box is off by default, and the run is then a dry run: it
+to (the default tag is set in `release.yml`). The "publish" box is off by default, and the run is then a dry run: it
 builds and checks everything and leaves the three files as the run's artifacts (`release-linux`,
 `release-macos`, `release-ios`), with the logs and captures beside them (`linux-logs`,
 `macos-logs`, `ios-logs`), to be looked at first. The files are built from the commit the run
