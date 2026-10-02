@@ -27,12 +27,25 @@ O download do Windows ainda não tem assinatura digital, e o app do Mac não é 
 **[Baixar para Windows](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/releases/latest/download/Penumbra-Windows.zip)**
 
 1. **Mantenha o download.** Se o navegador disser que *Penumbra-Windows.zip não é baixado com frequência* (isn't commonly downloaded): no Edge, clique nos **···** ao lado dele, depois em **Manter** (Keep), em **Mostrar mais** (Show more) e em **Manter mesmo assim** (Keep anyway). No Chrome, escolha **Manter** (Keep).
+
+   <img src="images/install/windows-1-keep.pt.svg" alt="Lista de downloads do Edge: o Penumbra-Windows.zip não é baixado com frequência. 1: clique nos três pontos. 2: escolha Manter. 3: clique em Mostrar mais. 4: clique em Manter mesmo assim." width="440">
+
    - Os navegadores dizem isso de arquivos novos, que poucas pessoas baixaram até agora.
 2. **Extraia o zip.** Na pasta *Downloads*, clique com o botão direito em *Penumbra-Windows*, escolha **Extrair Tudo** e depois **Extrair**. (Ou abra o arquivo e clique em **Extrair tudo**, no alto da janela.)
+
+   <img src="images/install/windows-2-extract.pt.svg" alt="Desenho simplificado do menu que abre ao clicar com o botão direito no zip Penumbra-Windows: Abrir, Extrair Tudo... e Compartilhar. Extrair Tudo está destacado." width="440">
+
    - Não jogue de dentro do zip: o jogo precisa de todos os arquivos dele.
 3. **Abra a nova pasta** e depois a pasta **Penumbra** que está dentro dela. Lá você vai encontrar o **Penumbra**, com o ícone de uma caveira cinza (o mesmo do alto desta página). O tipo dele é *Aplicativo* (se as extensões dos arquivos aparecerem, ele é o *Penumbra.exe*).
+
+   <img src="images/install/windows-3-folder.pt.svg" alt="Dentro da pasta Penumbra: as pastas assets, data e original, e o programa Penumbra com o ícone da caveira cinza, destacado. Uma visão simplificada: a pasta de verdade tem mais alguns arquivos." width="440">
 4. **Clique duas vezes em Penumbra** (a caveira) para abrir o jogo.
+
+   <img src="images/install/windows-4-start.pt.svg" alt="O ícone do Penumbra, uma caveira cinza, recebendo dois cliques: clique, clique." width="440">
 5. **Se aparecer uma janela azul dizendo “O Windows protegeu o computador”**, clique em **Mais informações** e depois em **Executar assim mesmo**. O Windows mostra esse aviso porque o jogo é novo e ainda não tem assinatura digital.
+
+   <img src="images/install/windows-5-protected.pt.svg" alt="A janela azul “O Windows protegeu o computador”. 1: clique em Mais informações. 2: clique no botão Executar assim mesmo." width="440">
+
    - Em alguns computadores com Windows 11 não aparece o botão *Executar assim mesmo* (Controle Inteligente de Aplicativos): veja *Não abriu?* mais abaixo.
 
 Divirta-se!
@@ -58,11 +71,21 @@ Divirta-se!
 **[Baixar para Android](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/releases/latest/download/Penumbra-Android.apk)**
 
 1. **Baixe no próprio celular** e abra o *Penumbra-Android.apk* pela notificação ou pela pasta *Downloads*. Se o Chrome mostrar um aviso sobre o arquivo, toque em **Baixar mesmo assim** (Download anyway).
+
+   <img src="images/install/android-1-download.pt.svg" alt="Uma notificação no celular: Penumbra-Android.apk, Download concluído, com um botão Abrir." width="440">
+
    - **Nada acontece ao tocar em Baixar?** Abra esta página no Chrome: toque no menu (**⋮** ou **···**) e depois em **Abrir no navegador** (Open in browser).
 2. **Permita a instalação.** O Android vai pedir para deixar o navegador instalar apps desconhecidos: toque em **Configurações**, ative **Permitir desta fonte** e volte.
+
+   <img src="images/install/android-2-allow.pt.svg" alt="A tela “Instalar apps desconhecidos” do Android, para o seu navegador, com o interruptor Permitir desta fonte ligado e circulado." width="440">
+
    - **Para um adulto, em celulares Samsung mais novos:** se o celular bloquear a instalação, abra **Configurações**, depois **Segurança e privacidade** e depois **Bloqueador automático** (Auto Blocker). Desative, instale o jogo e depois ative o Bloqueador automático de novo.
 3. **Toque em Instalar.** Se o Google Play Protect mostrar um aviso, é porque o jogo não veio da Play Store: escolha instalar mesmo assim (a opção pode estar em **Mais detalhes**).
+
+   <img src="images/install/android-3-install.pt.svg" alt="A tela de instalação do Android para o Penumbra: “Quer instalar este app?” com os botões Cancelar e Instalar." width="440">
 4. **Toque em Abrir e jogue!** Segure o celular deitado. O jogo mostra os próprios botões na tela, e um controle Bluetooth também funciona.
+
+   <img src="images/install/android-4-open.pt.svg" alt="O jogo num celular deitado, com os próprios botões na tela. Um desenho." width="440">
 
 Divirta-se!
 

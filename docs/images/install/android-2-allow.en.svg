@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 300 140" width="600" height="280" role="img" aria-labelledby="t d" xml:lang="en" font-family="'Segoe UI', system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif">
+<title id="t">Install unknown apps: turn on Allow from this source</title>
+<desc id="d">The Android settings screen Install unknown apps, for your browser. The switch Allow from this source is highlighted with a ring.</desc>
+<rect x="0.5" y="0.5" width="299" height="139" rx="15.5" fill="#1c1228" stroke="#8d7aa8" stroke-opacity="0.6"/>
+<rect x="12" y="12" width="276" height="116" rx="18" fill="#ffffff"/>
+<text x="28" y="40" font-size="14" font-weight="700" fill="#202024">Install unknown apps</text>
+<circle cx="37" cy="63" r="9" fill="#1a73e8"/>
+<path d="M28 63h18M37 54c3 3 3 15 0 18M37 54c-3 3-3 15 0 18" fill="none" stroke="#ffffff" stroke-width="1.4"/>
+<text x="54" y="68" font-size="13" fill="#50505a">Your browser</text>
+<line x1="28" y1="82" x2="272" y2="82" stroke="#e3e3ea" stroke-width="1.5"/>
+<text x="28" y="109" font-size="14" fill="#202024">Allow from this source</text>
+<rect x="228" y="92" width="46" height="26" rx="13" fill="#1a73e8"/>
+<circle cx="261" cy="105" r="10" fill="#ffffff"/>
+<circle cx="261" cy="105" r="21" fill="none" stroke="#ffc247" stroke-width="3"/>
+</svg>

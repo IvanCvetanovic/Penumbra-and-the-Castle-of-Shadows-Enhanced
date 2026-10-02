@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 300 140" width="600" height="280" role="img" aria-labelledby="t d" xml:lang="en" font-family="'Segoe UI', system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif">
+<title id="t">The finished download of Penumbra-Android.apk, with an Open button</title>
+<desc id="d">A notification on the phone: Penumbra-Android.apk, Download complete, and a blue Open button.</desc>
+<rect x="0.5" y="0.5" width="299" height="139" rx="15.5" fill="#1c1228" stroke="#8d7aa8" stroke-opacity="0.6"/>
+<rect x="12" y="26" width="276" height="88" rx="18" fill="#ffffff"/>
+<circle cx="44" cy="70" r="18" fill="#2fbf9f"/>
+<path d="M44 60v16m-6-6 6 6 6-6M36 82h16" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="72" y="62" font-size="14" font-weight="700" fill="#202024">Penumbra-Android.apk</text>
+<text x="72" y="86" font-size="12" fill="#50505a">Download complete</text>
+<rect x="206" y="72" width="70" height="30" rx="15" fill="#1a73e8"/>
+<text x="241" y="92" font-size="14" font-weight="700" fill="#ffffff" text-anchor="middle">Open</text>
+</svg>

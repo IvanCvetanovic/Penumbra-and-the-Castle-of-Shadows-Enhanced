@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 300 140" width="600" height="280" role="img" aria-labelledby="t d" xml:lang="en" font-family="'Segoe UI', system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif">
+<title id="t">The blue “Windows protected your PC” window: More info, then Run anyway</title>
+<desc id="d">The blue Windows window that says Windows protected your PC. Step 1: click More info. Step 2: click the Run anyway button that appears.</desc>
+<rect x="0.5" y="0.5" width="299" height="139" rx="15.5" fill="#0b5cad" stroke="#8cc0f0" stroke-opacity="0.6"/>
+<text x="16" y="32" font-size="16" font-weight="700" fill="#ffffff">Windows protected your PC</text>
+<rect x="16" y="44" width="236" height="6" rx="3" fill="#ffffff" opacity="0.45"/>
+<rect x="16" y="56" width="190" height="6" rx="3" fill="#ffffff" opacity="0.45"/>
+<circle cx="27" cy="85" r="11" fill="#ffc247"/>
+<text x="27" y="90" font-size="14" font-weight="800" fill="#241000" text-anchor="middle">1</text>
+<text x="44" y="90" font-size="15" font-weight="600" fill="#ffffff" text-decoration="underline">More info</text>
+<circle cx="104" cy="116" r="11" fill="#ffc247"/>
+<text x="104" y="121" font-size="14" font-weight="800" fill="#241000" text-anchor="middle">2</text>
+<rect x="121" y="102" width="167" height="28" rx="4" fill="#0b5cad" stroke="#ffffff" stroke-width="2"/>
+<text x="204.5" y="121" font-size="14" font-weight="600" fill="#ffffff" text-anchor="middle">Run anyway</text>
+</svg>

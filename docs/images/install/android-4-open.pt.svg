@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 300 140" width="600" height="280" role="img" aria-labelledby="t d" xml:lang="pt-BR" font-family="'Segoe UI', system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif">
+<title id="t">O jogo num celular deitado, com os próprios botões na tela</title>
+<desc id="d">Um celular deitado mostrando o jogo: um mago com uma bola de fogo, e os botões na tela nos cantos de baixo. Um desenho esquemático.</desc>
+<defs>
+<radialGradient id="glow" r="0.5"><stop offset="0" stop-color="#ffb347" stop-opacity="0.85"/><stop offset="1" stop-color="#ff8a2b" stop-opacity="0"/></radialGradient>
+<linearGradient id="scene" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2a1740"/><stop offset="1" stop-color="#170d24"/></linearGradient>
+</defs>
+<rect x="0.5" y="0.5" width="299" height="139" rx="15.5" fill="#1c1228" stroke="#8d7aa8" stroke-opacity="0.6"/>
+<rect x="16" y="14" width="268" height="112" rx="20" fill="#0a0710" stroke="#6b5a80" stroke-width="3"/>
+<rect x="30" y="24" width="240" height="92" rx="8" fill="url(#scene)"/>
+<circle cx="104" cy="58" r="30" fill="url(#glow)"/>
+<rect x="100" y="60" width="8" height="10" fill="#4a3560"/>
+<path d="M104 46c2 4 5 6 5 10a5 5 0 0 1-10 0c0-3 2-4 3-6 0 2 1 2.5 2 3-.5-3 0-5 0-7z" fill="#ffc247"/>
+<circle cx="206" cy="52" r="20" fill="#5fe3cf" opacity="0.18"/>
+<path d="M197 62l3-14 3 8 3-14 3 14 3-8 3 14z" fill="#5fe3cf"/>
+<rect x="30" y="92" width="240" height="8" fill="#3b2a4d"/>
+<path d="M140 92v-14h10v14zM137 78l8-16 8 16z" fill="#8c2a2a"/>
+<circle cx="145" cy="74" r="3.2" fill="#f3d2b0"/>
+<circle cx="176" cy="84" r="5" fill="#ffc247"/>
+<path d="M158 84h12" stroke="#ff8a2b" stroke-width="3" stroke-linecap="round" stroke-dasharray="2 4"/>
+<circle cx="222" cy="86" r="4" fill="#cc3333"/>
+<rect x="218" y="88" width="8" height="4" fill="#cc3333"/>
+<g fill="#b8b3c2" opacity="0.85">
+<rect x="38" y="100" width="12" height="12" rx="3"/><rect x="62" y="100" width="12" height="12" rx="3"/><rect x="50" y="104" width="12" height="10" rx="3" opacity="0.7"/>
+<rect x="228" y="100" width="12" height="12" rx="3"/><rect x="248" y="100" width="12" height="12" rx="3"/><rect x="238" y="84" width="12" height="12" rx="3"/>
+</g>
+</svg>

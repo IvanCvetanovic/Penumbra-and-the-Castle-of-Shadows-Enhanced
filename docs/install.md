@@ -27,12 +27,25 @@ The Windows download is not code-signed yet, and the Mac app is not notarised by
 **[Download for Windows](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/releases/latest/download/Penumbra-Windows.zip)**
 
 1. **Keep the download.** If the browser says *Penumbra-Windows.zip isn't commonly downloaded*: in Edge, click the **···** next to it, then **Keep**, then **Show more**, then **Keep anyway**. In Chrome, choose **Keep**.
+
+   <img src="images/install/windows-1-keep.en.svg" alt="Edge's download list: Penumbra-Windows.zip isn't commonly downloaded. 1: click the three dots. 2: choose Keep. 3: click Show more. 4: click Keep anyway." width="440">
+
    - Browsers say this about new files that few people have downloaded yet.
 2. **Extract the zip.** In your *Downloads* folder, right-click *Penumbra-Windows*, choose **Extract All**, then **Extract**. (Or open it and click **Extract all** at the top.)
+
+   <img src="images/install/windows-2-extract.en.svg" alt="A simplified drawing of the menu that opens when you right-click the Penumbra-Windows zip: Open, Extract All... and Share. Extract All is highlighted." width="440">
+
    - Don't play from inside the zip: the game needs all of its files.
 3. **Open the new folder**, then the **Penumbra** folder inside it. There you'll find **Penumbra**, with a grey skull icon (the one at the top of this page). Its type is *Application* (with file extensions shown, it's *Penumbra.exe*).
+
+   <img src="images/install/windows-3-folder.en.svg" alt="Inside the Penumbra folder: the folders assets, data and original, and the Penumbra program with the grey skull icon, highlighted. A simplified view: the real folder has a few more files." width="440">
 4. **Double-click Penumbra** (the skull) to start the game.
+
+   <img src="images/install/windows-4-start.en.svg" alt="The Penumbra icon, a grey skull, being double-clicked: click, click." width="440">
 5. **If a blue window says “Windows protected your PC”**, click **More info**, then **Run anyway**. Windows shows this because the game is new and not signed yet.
+
+   <img src="images/install/windows-5-protected.en.svg" alt="The blue “Windows protected your PC” window. 1: click More info. 2: click the Run anyway button." width="440">
+
    - On some Windows 11 PCs there is no *Run anyway* button (Smart App Control): see *It didn't start?* below.
 
 Have fun!
@@ -58,11 +71,21 @@ Have fun!
 **[Download for Android](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/releases/latest/download/Penumbra-Android.apk)**
 
 1. **Download it on the phone** and open *Penumbra-Android.apk* from the notification or your *Downloads*. If Chrome warns about the file, tap **Download anyway**.
+
+   <img src="images/install/android-1-download.en.svg" alt="A phone notification: Penumbra-Android.apk, Download complete, with an Open button." width="440">
+
    - **Nothing happens when you tap Download?** Open this page in Chrome: tap the menu (**⋮** or **···**), then **Open in browser**.
 2. **Allow the install.** Android asks to let your browser install unknown apps: tap **Settings**, turn on **Allow from this source** and go back.
+
+   <img src="images/install/android-2-allow.en.svg" alt="The Android screen “Install unknown apps” for your browser, with the Allow from this source switch turned on and circled." width="440">
+
    - **For a grown-up, on newer Samsung phones:** if the phone blocks the install, open **Settings**, then **Security and privacy**, then **Auto Blocker**. Turn it off, install the game, then turn Auto Blocker back on.
 3. **Tap Install.** If Google Play Protect warns you, that's because the game isn't from the Play Store: choose to install anyway (the option can be under **More details**).
+
+   <img src="images/install/android-3-install.en.svg" alt="The Android install screen for Penumbra: “Do you want to install this app?” with the buttons Cancel and Install." width="440">
 4. **Tap Open and play!** Hold the phone sideways. The game draws its own buttons on the screen, and a Bluetooth gamepad works too.
+
+   <img src="images/install/android-4-open.en.svg" alt="The game on a phone held sideways, with its own buttons on the screen. A drawing." width="440">
 
 Have fun!
 
