@@ -33,3 +33,8 @@ __pycache__/
 *.pfx
 *.pem
 *.log
+
+# Claude Code's local files: a personal addendum to CLAUDE.md and the per-machine
+# settings. Never committed; CLAUDE.md is the shared, tracked brief.
+CLAUDE.local.md
+.claude/settings.local.json

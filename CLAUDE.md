@@ -1,6 +1,6 @@
 # PENUMBRA AND THE CASTLE OF SHADOWS — Enhanced, on the Supersonic Engine
 
-> The working brief for Claude Code sessions on the author's machine: its absolute paths, emulator names and rules are that machine's. To build from any clone, see README.md.
+> The working brief for AI-assisted sessions and contributors: the project's decisions, layout and rules. To build from a clone, see README.md and docs/building.md.
 
 ## What this is
 
@@ -12,10 +12,10 @@ Engine 0.7.12** (D3D9 + NVIDIA Cg, AngelScript gameplay). The enhanced edition r
 
 Decisions (2026-09-27): **enhanced from the start** — the original's scripts are the gameplay
 spec, but visuals, controls, resolution and balance may be modernised freely; **eleven languages**
-(Portuguese, the original's; English; and since E24 the nine others of the author's Magic Rampage
-Companion app), selectable in the game; the original's assets are **read in place** from
-`extracted/app` (committed, and public since 2026-09-30) and never copied or converted into
-the repository.
+(Portuguese, the original's; English; and since E24 the nine others: German, Spanish, French, Italian,
+Russian, Turkish, Ukrainian, Japanese and Arabic, see docs/enhancements.md), selectable in the game; the
+original's assets are **read in place** from `extracted/app` (committed, and public since 2026-09-30) and
+never copied or converted into the repository.
 
 The original's AngelScript SOURCE is in `extracted/app/*.as` (LGPL-3). It is ported to C++ close to
 line by line, on top of a small game-side emulation of the Ethanon runtime ("the Eth layer"), so
@@ -45,16 +45,16 @@ game/
   main.cpp
 tests/               test_pn_*.cpp suites (supersonic_add_test)
 tests/all/           test_pn_all: RunAll.cpp (the runner), WrapSuite.cmake (writes each suite's wrapper), SuiteRegistry.hpp
-tools/build.bat      configure + build with MSVC (Build Tools 18, found by tools/msvc_env.bat) and the Vulkan SDK's glslc
-tools/check.bat      lock-free compile check of single files (parallel agents)
+tools/build.bat      configure + build with MSVC (a Visual Studio or Build Tools install, found by tools/msvc_env.bat) and the Vulkan SDK's glslc
+tools/check.bat      lock-free compile check of single files (needs no build/, so it can run beside a build)
 tools/package.bat    a playable folder in out/package/Penumbra (never committed)
-tools/build_linux.sh Linux (WSL Ubuntu-24.04) build in ~/pn-build-linux, --test runs test_pn_all
+tools/build_linux.sh Linux build (natively or from WSL) in a Linux-filesystem directory, default ~/pn-build-linux; --test runs test_pn_all
 tools/build_android.sh  debug APK without Gradle (android_package.py): out/android/Penumbra-debug.apk;
-                     --release signs with the offline release key (never in the repository)
+                     --release signs with the release key (never in the repository)
 tools/make_release.* the release files: `windows` (the zip, from make_release.bat), `linux` (the tar.gz),
                      `sums` (SHA256SUMS.txt)
 tools/apple/         make_app.sh (Penumbra.app for macOS or iOS), make_release.sh (the Mac zip, the .ipa);
-                     Apple builds run only in CI (this laptop has no Apple SDK)
+                     Apple builds run only in CI
 .github/workflows/   ci.yml (Linux, the gate; Windows, best-effort) and apple.yml: on pushes to main, PRs,
                      by hand; release.yml (by hand): the Linux, Mac and iPhone/iPad downloads, added to a
                      release
@@ -77,25 +77,25 @@ reference/           gitignored: Ethanon 0.7.12 source (eth-0.7.12), GS2D r485, 
 
 1. **Never write into `extracted/`.** The game reads it in place; saves (high scores, checkpoint
    scene, settings) go to `Supersonic::UserDataDirectory("Penumbra")`.
-2. **Never touch the `Supersonic-Engine` checkout on the author's Desktop** — another project's development session
-   (Magic Portals) works from it. Engine changes are made in THIS repo's `engine/` checkout: `git -C engine
-   pull --ff-only` first, keep changes additive (new values/APIs/opt-in flags; never change existing
-   behaviour), add checks to an existing engine suite rather than a new suite where possible (CI
-   checks the documented suite counts), build and run the touched engine suites, `git pull --rebase`
-   right before `git push`, then commit the new pin here (`git add engine`) in a separate commit.
-   Tell the Magic Portals development session (SendMessage to `magic-portals-remake-93`) before each engine push.
-3. **Commits and pushes as `IvanCvetanovic <icvetanovic99@gmail.com>`, with no AI trailers** (no
-   Co-Authored-By, no session lines) — here and in the engine. The use of Claude Code is disclosed
-   once, in README.md's "How this was made", not per commit. Never force-push,
+2. **Engine changes are made in THIS repo's `engine/` checkout**, never in another clone of the engine:
+   other projects build on Supersonic too. `git -C engine pull --ff-only` first, keep changes additive
+   (new values/APIs/opt-in flags; never change existing behaviour), add checks to an existing engine
+   suite rather than a new suite where possible (CI checks the documented suite counts), build and run
+   the touched engine suites, `git pull --rebase` right before `git push`, then commit the new pin
+   here (`git add engine`) in a separate commit.
+3. **Commits and pushes are authored as the repository owner (`IvanCvetanovic <icvetanovic99@gmail.com>`,
+   already public in every commit), with no AI trailers** (no Co-Authored-By, no session lines, even
+   where a tool's default asks for them) — here and in the engine. The use of Claude Code is disclosed
+   once, in README.md's "How it was made", not per commit. Never force-push,
    rewrite history, or `reset --hard` / `checkout --` over uncommitted work. Commit title
    `Penumbra: <what changed>`; body says what was wrong before and what was measured.
 4. **Paths are absolute.** A game built on the engine changes its working directory at startup
    (`AnchorAssetRoot`), so every `--screenshot` path must be absolute. The original and game/data are
    found at run time (game/eth/Paths.hpp): `--original`/`--data`, then `original/` and `data/` beside
    the exe (a package, tools/package.bat), then the baked PENUMBRA_ORIGINAL_DIR / PENUMBRA_DATA_DIR.
-5. **Smart App Control is enforcing on this laptop.** A freshly linked exe is sometimes refused
-   ("An Application Control policy has blocked this file", exit 126, ctest "Not Run") and EVERY
-   refusal pops a notification on the desktop. Launch each suite/exe at most once per build; never loop
+5. **On Windows, Smart App Control can refuse a freshly linked exe.** A refusal ("An Application
+   Control policy has blocked this file", exit 126, ctest "Not Run") can raise a system notification
+   every time. Launch each suite/exe at most once per build; never loop
    ctest or relink-and-retry; report a refused exe as "not run". `ctest --test-dir build -N` lists
    without launching. Every executable gets `penumbra_windows_resources` (icon, VERSIONINFO,
    manifest): refusals stopped once they carried them. Prefer `build/tests/test_pn_all.exe` to
@@ -104,9 +104,10 @@ reference/           gitignored: Ethanon 0.7.12 source (eth-0.7.12), GS2D r485, 
    file, and the runner stops at the first child that cannot start. It is not registered with
    ctest, because ctest already runs each suite's own exe and registering it would run every
    suite twice.
-6. **Builds are serialised.** Only one agent builds at a time, in the one `build/` directory:
+6. **Builds are serialised.** One build at a time, in the one `build/` directory:
    `cmd //c "tools\build.bat --target <T>"` from Git Bash at the repo root. Zero warnings (/W4).
-   Parallel agents write code; an integration step builds and runs.
+   When several people or agents work at once they write code in parallel (tools/check.bat
+   compiles single files without touching `build/`) and one integration step builds and runs.
 7. **The tick.** One Ethanon frame per 60 Hz engine tick. `GetTime()` is simulated ms, one
    app-lifetime uint32 counter never reset by a scene load; `UnitsPerSecond(x) = x/60` (0 on the
    first tick after a scene load); `GetFPSRate() = 60`. No wall clock, no libm-dependent RNG in the
@@ -133,6 +134,8 @@ reference/           gitignored: Ethanon 0.7.12 source (eth-0.7.12), GS2D r485, 
 
 ## Running
 
+docs/building.md has the full build instructions for every platform.
+
 ```bash
 cmd //c "tools\build.bat --target Penumbra"
 build/game/Penumbra.exe                                   # the menu
@@ -146,24 +149,22 @@ build/tests/test_pn_all.exe --list                        # the suites it holds;
 
 Linux (WSL) and Android, from Git Bash. No Smart App Control there: a Linux binary or an APK
 can be launched as often as needed. Put `MSYS_NO_PATHCONV=1` before any `wsl` call. Never install
-a shader compiler (glslc, glslang) in WSL: the engine's build writes SPIR-V into
-engine/assets/shaders, and Ubuntu's glslc rewrote every committed blob with different bytes once.
-Shader edits are compiled on Windows with the Vulkan SDK's glslc (`glslc <src> -o <out>`), which
-reproduces the committed blobs; tools/build_linux.sh stops if a build dir has a compiler cached.
+a shader compiler (glslc, glslang) in the Linux build environment, WSL included: the engine's build
+writes SPIR-V into engine/assets/shaders, and Ubuntu's glslc rewrote every committed blob with
+different bytes once. Shader edits are compiled on Windows with the Vulkan SDK's glslc
+(`glslc <src> -o <out>`), which reproduces the committed blobs; tools/build_linux.sh stops if a build
+dir has a compiler cached.
 
 ```bash
-MSYS_NO_PATHCONV=1 wsl -d Ubuntu-24.04 -u root -- bash /mnt/c/<path to the repository>/tools/build_linux.sh --test
+MSYS_NO_PATHCONV=1 wsl -d Ubuntu-24.04 -- bash /mnt/c/<path to the repository>/tools/build_linux.sh --test
 # headless capture on lavapipe (from the build's game/ folder; absolute --screenshot path):
 cd ~/pn-build-linux/game && VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/lvp_icd.json xvfb-run -a -s "-screen 0 1920x1080x24" \
     ./Penumbra --start level1 --window 1280x720 --fixed-step --frames 300 --screenshot /mnt/c/.../out/shots/linux/level1.png
 bash tools/build_android.sh --abi all                     # APK in out/android/
 ```
 
-The Android emulator is ours only as `Penumbra_API33_x86_64` on port 5560, headless
-(`emulator -avd Penumbra_API33_x86_64 -port 5560 -no-window -no-audio -gpu swiftshader_indirect
--memory 2048 -cores 2`), always addressed with `adb -s emulator-5560`, input only through `adb shell
-input`. Never start or change `MP_Original_API30`: the Magic Portals project's parity rig.
+An Android emulator or device is always addressed with `adb -s <serial>`, never a bare `adb`, so
+that another attached device is left alone; input goes through `adb shell input`.
 
-The original runs from a scratch copy (never from `extracted/app`, which it would write into):
-`reference/analysis/orig_rig.ps1` drives a copy of `machine.exe` (start / shot / keys / stop). An
-HKCU AppCompatFlags `HIGHDPIAWARE` entry is set for that scratch exe only.
+The original, when it is run for comparison, runs from a scratch copy, never from `extracted/app`,
+which it would write into.
