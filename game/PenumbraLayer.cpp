@@ -14,12 +14,14 @@
 #include "core/Input.hpp"
 #include "core/Light2D.hpp"
 #include "core/Log.hpp"
+#include "core/ScreenOverlay.hpp"   // E35
 #include "core/SimulationClock.hpp"
 #include "core/WindowControl.hpp"
 #include "eth/Machine.hpp"
 #include "eth/Paths.hpp"
 #include "platform/SafeArea.hpp"
 #include "render/DrawOrder.hpp"
+#include "render/Splash.hpp"   // E35
 #include "render/WideMenus.hpp"
 #include "render/WindowMode.hpp"
 
@@ -210,6 +212,7 @@ void PenumbraLayer::OnAttach(entt::registry& registry) {
     m_lights.Attach(registry, m_textures);
     m_particles.Attach(registry, m_textures);
     m_hud.Attach(registry, m_textures, m_fonts, m_localization);
+    if (m_options.splash) StartSplash();   // E35
 
     {
         Eth::Machine::Scope scope(*m_machine);
@@ -771,8 +774,84 @@ void PenumbraLayer::StartDevScene(const std::string& scene) {
     SUPERSONIC_LOG_INFO("Penumbra") << "dev start: scenes/" << scene << std::endl;
 }
 
+// ---- E35: the Supersonic Engine's intro (render/Splash.hpp) ---------------------------------------------------------
+//
+// While m_splash holds a clock the Machine is not stepped: no Frame, so no scene load, no music, no GetTime() (it is
+// the frame count), no random number is drawn and nothing waits in a pending load - the first menu frame is the one
+// it would have been at once. m_ticks stands still too, so --hold, --finger and --tour count from that frame.
+
+void PenumbraLayer::StartSplash() {
+    const std::filesystem::path logo = m_options.dataDir / Render::kSplashLogoFile;
+    std::error_code ec;
+    const std::string path = logo.generic_string();
+    if (std::filesystem::is_regular_file(logo, ec)) {
+        m_splashImage = glm::vec2(m_textures.Size(path));
+        // Plain: no colour key, nothing of the logo is a transparent magenta.
+        m_splashKey = m_textures.Key(path, Render::TextureVariant::Plain);
+    }
+    if (m_splashKey.empty() || !(m_splashImage.x > 0.0f) || !(m_splashImage.y > 0.0f)) {
+        m_splashKey.clear();
+        SUPERSONIC_LOG_WARN("Penumbra") << "Supersonic intro: the logo cannot be read (" << path
+                                        << "); starting without it" << std::endl;
+        return;
+    }
+    m_splash.emplace();
+    SUPERSONIC_LOG_INFO("Penumbra") << "Supersonic intro: started" << std::endl;
+}
+
+void PenumbraLayer::WatchSplash(const Render::RawDevices& raw) {
+    std::vector<int> fingers;
+    const int count = Supersonic::Input::ContactCount();
+    for (int i = 0; i < count; ++i) {
+        const Supersonic::Contact contact = Supersonic::Input::GetContact(i);
+        if (contact.id >= 0 && contact.phase != Supersonic::ContactPhase::Ended) fingers.push_back(contact.id);
+    }
+    if (m_splashWatch.Observe(Render::SplashHeldOf(raw, fingers))) m_splashPressSeen = true;
+}
+
+void PenumbraLayer::StepSplash() {
+    // The tick as every tick begins it, so the mapper's latches and its cursor go on as they do under the pause.
+    const Render::RawDevices raw = Render::InputMapper::PollDevices();
+    (void)m_input.BuildTick(raw, m_view);
+    ++m_ticksThisFrame;
+    WatchSplash(raw);
+    const bool pressed = m_splashPressSeen;
+    m_splashPressSeen = false;
+    m_splash->Step(pressed);
+    if (m_splash->Done()) {
+        SUPERSONIC_LOG_INFO("Penumbra") << "Supersonic intro: finished at tick " << m_splash->Ticks() << " ("
+                                        << (m_splash->Skipped() ? "skipped" : "ran out") << ")" << std::endl;
+    }
+}
+
+void PenumbraLayer::EndSplash() {
+    m_splash.reset();
+    // Whatever is down now was pressed during the intro, never seen by the game: the first tick of the game holds
+    // it up until it is released, as after a pause, so the press that skipped the intro (a key, a click, a finger,
+    // a button) is not also a confirm on the menu's first frame. Only when something real is down or was just
+    // pressed: the hold looks at the frame as the first tick makes it, development flags' keys included
+    // (--hold from tick 0), and has nothing to hold back from a start with the devices at rest.
+    if (m_splashWatch.Held().any() || m_splashPressSeen) m_pause.HoldPressed();
+    m_splashPressSeen = false;
+}
+
+void PenumbraLayer::DrawSplash(entt::registry& registry) {
+    const Render::SplashLayout layout =
+        Render::ComputeSplashLayout(m_view.windowPixels, SafeInsets(), m_splashImage);
+    m_splashQuads = Render::BuildSplashQuads(m_view.windowPixels, layout, m_splash->Alpha(), m_splashKey);
+    auto* const* slot = registry.ctx().find<Supersonic::ScreenOverlay*>();
+    if (slot == nullptr || *slot == nullptr) return;   // a bare registry (a suite) has no overlay
+    for (const Supersonic::ScreenOverlay::Quad& quad : m_splashQuads) (*slot)->Add(quad);
+}
+
 void PenumbraLayer::OnFixedUpdate(entt::registry& registry, float fixedDelta) {
     (void)fixedDelta;
+    // E35: the intro ends on the tick after its last, and that tick is the game's first.
+    if (m_splash && m_splash->Done()) EndSplash();
+    if (m_splash) {
+        StepSplash();
+        return;
+    }
     Eth::Machine::Scope scope(*m_machine);
 
     // Which pad player 2 reads follows the live g_controls switch.
@@ -1159,7 +1238,23 @@ void PenumbraLayer::OnUpdate(entt::registry& registry, float deltaTime) {
         // the mouse there, unclamped) and the player had no pointer at all.
         // Measured against this frame's view, after the rig has placed it.
         const bool overBars = Render::InputMapper::PointerOverBars(Supersonic::Input::MousePosition(), m_view);
-        window->SetCursorVisible(!snapshot.cursorHidden || paused || m_editor.IsOpen() || overBars);   // E28: the scripts' cursor is frozen under the editor
+        // E35: not during the intro, whose frame the bars of the machine's (empty) view must not decide.
+        window->SetCursorVisible(!m_splash && (!snapshot.cursorHidden || paused || m_editor.IsOpen() || overBars));   // E28: the scripts' cursor is frozen under the editor
+    }
+    if (m_splash) {
+        // E35: the intro's frame instead of the machine's: its quads in window pixels, so nothing of the machine's
+        // view (its bars, its logical screen) is in it. A press in a frame no tick ran is kept for the next tick;
+        // the mapper's latches go on as in any frame.
+        DrawSplash(registry);
+        if (m_ticksThisFrame == 0) {
+            const Render::RawDevices raw = Render::InputMapper::PollDevices();
+            WatchSplash(raw);
+            m_input.EndFrame(raw);
+        } else {
+            m_input.EndFrame();
+        }
+        m_ticksThisFrame = 0;
+        return;
     }
     // Where the gloss maps' highlights are seen from: 0.7.12's fake eye
     // (ETHShaderManager::SetFakeEyePosition), each light mirrored across the

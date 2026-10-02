@@ -18,6 +18,7 @@
 #include "render/PhoneUi.hpp"
 #include "render/Settings.hpp"
 #include "render/ShadowRenderer.hpp"
+#include "render/Splash.hpp"   // E35
 #include "render/SpriteRenderer.hpp"
 #include "render/TextureCache.hpp"
 #include "render/TouchControls.hpp"

@@ -93,7 +93,7 @@ copy /y "%REPO%\licenses\GPL-3.0.txt" "%PKG%\licenses\GPL-3.0.txt" >nul || exit 
 
 REM What the game needs is there, and nothing of the original that it does not.
 set "MISSING="
-for %%F in (Penumbra.exe assets\shaders\frag.spv assets\shaders\screen_overlay_frag.spv data\strings.json data\images\en\entities\menu_buttons.png data\touch_controls.json data\images\touch\jump.png data\fonts\LiberationSans-Bold.ttf original\data.enml original\hs.enml original\data\shadow.dds original\scenes\menu.esc original\scenes\level1.esc original\soundfx\chefao.mp3 original\entities\menu_buttons.png original\penumbra.ico) do (
+for %%F in (Penumbra.exe assets\shaders\frag.spv assets\shaders\screen_overlay_frag.spv data\strings.json data\images\en\entities\menu_buttons.png data\touch_controls.json data\images\touch\jump.png data\images\splash\supersonic-logo.png data\fonts\LiberationSans-Bold.ttf original\data.enml original\hs.enml original\data\shadow.dds original\scenes\menu.esc original\scenes\level1.esc original\soundfx\chefao.mp3 original\entities\menu_buttons.png original\penumbra.ico) do (
     if not exist "%PKG%\%%F" (
         echo MISSING %%F
         set "MISSING=1"

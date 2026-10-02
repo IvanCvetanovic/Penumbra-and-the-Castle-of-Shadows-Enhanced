@@ -9,13 +9,17 @@
 // dead fingers, locked drags, the size step's re-lock, restore, close, a dropped control that would be buried under a tile going back), the overlay, its art, and its   // E28
 // words through HudRenderer in every language; HoldPressed. Those that use the art, the strings or the fonts need the   // E28
 // data folder.   // E28
+// E35 adds the Supersonic Engine's intro (render/Splash): its timeline and skip, what counts as a press, where   // E35
+// the logo goes, its quads and file, and which starts play it - pure, the file needing the data folder.   // E35
 
 #include <algorithm>
 #include <cmath>   // E28
 #include <cstdio>
+#include <cstdlib>   // E35
 #include <filesystem>   // E28
 #include <fstream>   // E28
 #include <string>
+#include <string_view>   // E35
 #include <system_error>   // E28
 #include <vector>
 
@@ -32,6 +36,7 @@
 #include "render/Localization.hpp"
 #include "render/PauseMenu.hpp"
 #include "render/Settings.hpp"
+#include "render/Splash.hpp"   // E35
 #include "render/TextureCache.hpp"
 #include "render/TextureDecode.hpp"   // E28
 #include "render/TouchControls.hpp"   // E28
@@ -2146,6 +2151,457 @@ void testEditorThroughHudRenderer() {   // E28
     hud.Detach();   // E28
 }   // E28
 
+// ENHANCEMENT E35: THE ENGINE'S INTRO (render/Splash). Pure: the timeline, the skip, what counts as a press, where
+// the logo goes, the quads, the logo's file, and which starts play it. This suite holds them because it already holds
+// what the intro's skip is built from - the ticks a screen stands still for, and the input held back after them
+// (testFilter).
+// The layer's side of it (the machine standing still, the first menu frame, the press kept out of the menu) is
+// test_pn_render_hud's TestSplashInLayer.
+namespace splash {
+
+using Penumbra::Render::SplashClock;
+
+// The logo's size in pixels (images/splash/README.md): the testSplashLogoFile checks the file against it, and the
+// layout takes its proportions from it.
+constexpr int kLogoWidth = 2258;
+constexpr int kLogoHeight = 640;
+
+// A clock run to its end with a press at `pressAt` (never when it is negative), the alpha after each tick.
+struct Run {
+    SplashClock clock;
+    std::vector<float> alpha;   // after tick 1, 2, ...
+};
+
+Run RunClock(const int pressAt) {
+    Run run;
+    for (int tick = 0; tick < 200 && !run.clock.Done(); ++tick) {
+        run.clock.Step(tick == pressAt);
+        run.alpha.push_back(run.clock.Alpha());
+    }
+    return run;
+}
+
+void testSplashTimeline() {   // E35
+    using namespace Penumbra::Render;
+    CHECK_EQ(kSplashFadeInTicks, 24u);
+    CHECK_EQ(kSplashHoldTicks, 72u);
+    CHECK_EQ(kSplashFadeOutTicks, 24u);
+    CHECK_EQ(kSplashTotalTicks, 120u);
+    CHECK_EQ(kSplashFadeOutStart, 96u);
+    CHECK_EQ(kSplashSkipFromTick, 18u);
+
+    CHECK(SplashAlpha(0) == 0.0f);
+    CHECK(SplashAlpha(24) == 1.0f);
+    CHECK(SplashAlpha(60) == 1.0f);
+    CHECK(SplashAlpha(96) == 1.0f);
+    CHECK(SplashAlpha(120) == 0.0f);
+    CHECK(SplashAlpha(100000) == 0.0f);
+    CHECK(!SplashDone(119));
+    CHECK(SplashDone(120));
+
+    // In 0..1 everywhere; strictly rising over the fade-in, level over the hold, strictly falling over the
+    // fade-out; the biggest step is smoothstep's own (1.5 / 24 = 0.0625), so it is a ramp and not a cut.
+    float biggest = 0.0f;
+    for (unsigned t = 0; t <= 130; ++t) {
+        const float a = SplashAlpha(t);
+        CHECK_MSG(a >= 0.0f && a <= 1.0f, "alpha " + std::to_string(t));
+        if (t > 0) biggest = std::max(biggest, std::fabs(a - SplashAlpha(t - 1)));
+        if (t < 24) CHECK_MSG(SplashAlpha(t + 1) > a, "rises at " + std::to_string(t));
+        if (t >= 24 && t < 96) CHECK_MSG(a == 1.0f, "holds at " + std::to_string(t));
+        if (t >= 96 && t < 120) CHECK_MSG(SplashAlpha(t + 1) < a, "falls at " + std::to_string(t));
+        // The fade-out is the fade-in backwards.
+        if (t <= 24) CHECK_NEAR(SplashAlpha(96 + t), SplashAlpha(24 - t));
+    }
+    CHECK_MSG(biggest < 0.0626f, "the biggest step is " + std::to_string(biggest));
+    CHECK(biggest > 0.05f);
+
+    // The clock with no press follows that timeline tick by tick and ends on the 120th.
+    SplashClock clock;
+    CHECK(!clock.Done() && clock.Ticks() == 0 && clock.Alpha() == 0.0f && !clock.Skipped());
+    for (unsigned t = 1; t <= 120; ++t) {
+        CHECK(!clock.Done());
+        clock.Step(false);
+        CHECK_EQ(clock.Ticks(), t);
+        CHECK(clock.Alpha() == SplashAlpha(t));
+    }
+    CHECK(clock.Done() && !clock.Skipped() && clock.Alpha() == 0.0f);
+    clock.Step(true);   // a finished clock stays as it is
+    CHECK(clock.Ticks() == 120u && !clock.Skipped());
+}
+
+void testSplashSkip() {   // E35
+    using namespace Penumbra::Render;
+
+    // Before tick 18 a press is ignored: the intro runs its whole 120 ticks, whatever the press.
+    for (int t = 0; t < 18; ++t) {
+        const Run run = RunClock(t);
+        CHECK_MSG(!run.clock.Skipped(), "a press at tick " + std::to_string(t) + " skipped it");
+        CHECK_MSG(run.clock.Ticks() == 120u, "a press at tick " + std::to_string(t) + " ended it at " +
+                                                 std::to_string(run.clock.Ticks()));
+    }
+
+    // From tick 18 to the tick before the fade-out begins by itself it ends the intro, in 24 ticks at most, by
+    // a fade that never rises (no pop for the presses made while the alpha is still below 1).
+    for (int t = 18; t < 96; ++t) {
+        const Run run = RunClock(t);
+        const std::string where = "a press at tick " + std::to_string(t);
+        CHECK_MSG(run.clock.Skipped() && run.clock.SkipTick() == static_cast<unsigned>(t), where);
+        CHECK_MSG(run.clock.Done() && run.clock.Ticks() == static_cast<unsigned>(t) + 24u,
+                  where + " ended at " + std::to_string(run.clock.Ticks()));
+        CHECK_MSG(run.clock.Ticks() < kSplashTotalTicks, where + " is not sooner than the timeline's end");
+        float before = SplashAlpha(static_cast<unsigned>(t));   // what the previous tick drew
+        for (std::size_t i = static_cast<std::size_t>(t); i < run.alpha.size(); ++i) {
+            CHECK_MSG(run.alpha[i] <= before && run.alpha[i] >= 0.0f,
+                      where + ": the fade rises at " + std::to_string(i + 1));
+            before = run.alpha[i];
+        }
+        CHECK_MSG(run.alpha.back() == 0.0f, where + " ends on nothing");
+        // Not a hard cut: the first tick after the press is within one ramp step of the one before it.
+        CHECK_MSG(std::fabs(run.alpha[static_cast<std::size_t>(t)] - SplashAlpha(static_cast<unsigned>(t))) < 0.0626f,
+                  where + " is a cut");
+    }
+
+    // From the first tick of the timeline's own fade-out, a press changes nothing: it ends at tick 120.
+    for (int t = 96; t < 120; ++t) {
+        const Run run = RunClock(t);
+        CHECK_MSG(!run.clock.Skipped() && run.clock.Ticks() == 120u, "a press at tick " + std::to_string(t));
+    }
+
+    // A second press changes nothing about the first.
+    SplashClock clock;
+    for (int t = 0; t < 40; ++t) clock.Step(t == 30);
+    CHECK(clock.SkipTick() == 30u);
+    clock.Step(true);
+    clock.Step(true);
+    CHECK(clock.SkipTick() == 30u);
+    // And a press held across ticks is one press: the clock is told by SplashPressWatch, below.
+}
+
+void testSplashPress() {   // E35
+    using namespace Penumbra::Render;
+    const std::vector<int> none;
+
+    // A key still down from before the intro is no press; a release is none; a fresh press is.
+    RawDevices raw;
+    raw.keys[Supersonic::Key::Enter] = true;
+    SplashPressWatch watch;
+    CHECK(!watch.Observe(SplashHeldOf(raw, none)));   // the first look only records
+    CHECK(!watch.Observe(SplashHeldOf(raw, none)));   // held on
+    raw.keys[Supersonic::Key::Enter] = false;
+    CHECK(!watch.Observe(SplashHeldOf(raw, none)));   // released
+    raw.keys[Supersonic::Key::Enter] = true;
+    CHECK(watch.Observe(SplashHeldOf(raw, none)));    // pressed again
+    CHECK(!watch.Observe(SplashHeldOf(raw, none)));   // and held
+    // A second key while the first is held is a press: it is what went down, not "anything is down".
+    raw.keys[Supersonic::Key::Space] = true;
+    CHECK(watch.Observe(SplashHeldOf(raw, none)));
+    // Letting one go while the other stays is no press.
+    raw.keys[Supersonic::Key::Enter] = false;
+    CHECK(!watch.Observe(SplashHeldOf(raw, none)));
+
+    // Every kind of input is one, each by itself.
+    const auto pressedBy = [&](const auto& set) {
+        RawDevices device;
+        std::vector<int> fingers;
+        SplashPressWatch w;
+        w.Observe(SplashHeldOf(device, fingers));   // nothing held at the start
+        set(device, fingers);
+        return w.Observe(SplashHeldOf(device, fingers));
+    };
+    for (int code = 0; code <= Supersonic::Key::Last; ++code) {
+        CHECK_MSG(pressedBy([code](RawDevices& d, std::vector<int>&) {
+                      d.keys[static_cast<std::size_t>(code)] = true;
+                  }),
+                  "key " + std::to_string(code));
+    }
+    for (std::size_t b = 0; b < 3; ++b) {
+        CHECK_MSG(pressedBy([b](RawDevices& d, std::vector<int>&) { d.mouse[b] = true; }),
+                  "mouse " + std::to_string(b));
+    }
+    for (int id = 0; id < 8; ++id) {
+        CHECK_MSG(pressedBy([id](RawDevices&, std::vector<int>& f) { f.push_back(id); }),
+                  "finger " + std::to_string(id));
+    }
+    for (std::size_t pad = 0; pad < kSplashPads; ++pad) {
+        for (int b = 0; b < Supersonic::Pad::ButtonCount; ++b) {
+            CHECK_MSG(pressedBy([pad, b](RawDevices& d, std::vector<int>&) {
+                          d.pads.resize(pad + 1);
+                          d.pads[pad].buttons[static_cast<std::size_t>(b)] = true;
+                      }),
+                      "pad " + std::to_string(pad) + " button " + std::to_string(b));
+        }
+        for (std::size_t b = 0; b < 32; ++b) {
+            CHECK_MSG(pressedBy([pad, b](RawDevices& d, std::vector<int>&) {
+                          d.pads.resize(pad + 1);
+                          d.pads[pad].gamepad = false;
+                          d.pads[pad].rawButtons[b] = true;
+                      }),
+                      "pad " + std::to_string(pad) + " raw button " + std::to_string(b));
+        }
+    }
+    // A stick, a trigger, the mouse moving and a pad past the fourth are not presses: they drift, or are not read.
+    CHECK(!pressedBy([](RawDevices& d, std::vector<int>&) {
+        d.pads.resize(1);
+        d.pads[0].axes[Supersonic::Pad::LeftX] = 1.0f;
+        d.pads[0].axes[Supersonic::Pad::RightTrigger] = 1.0f;
+        d.mouseWindow = glm::vec2(300.0f, 200.0f);
+    }));
+    CHECK(!pressedBy([](RawDevices& d, std::vector<int>&) {
+        d.pads.resize(kSplashPads + 1);
+        d.pads[kSplashPads].buttons[0] = true;
+    }));
+    // No two inputs share a bit: each one held adds one.
+    RawDevices every;
+    std::vector<int> fingers;
+    for (std::size_t k = 0; k < every.keys.size(); ++k) every.keys[k] = true;
+    for (std::size_t b = 0; b < 3; ++b) every.mouse[b] = true;
+    for (int id = 0; id < 8; ++id) fingers.push_back(id);
+    every.pads.resize(kSplashPads);
+    for (RawPad& pad : every.pads) {
+        pad.buttons.fill(true);
+        pad.rawButtons.fill(true);
+    }
+    CHECK_EQ(SplashHeldOf(every, fingers).count(), kSplashHeldBits);
+}
+
+void testSplashLayout() {   // E35
+    using namespace Penumbra::Render;
+    const glm::vec2 logo(static_cast<float>(kLogoWidth), static_cast<float>(kLogoHeight));
+    const float aspect = logo.x / logo.y;   // 2258 / 640
+    const Supersonic::SafeAreaInsets none;
+
+    // The shapes the captures are taken at. (Pinned for a logo of 2258 x 640: another picture moves them.)
+    SplashLayout wide =
+        ComputeSplashLayout(glm::uvec2(2992, 1344), Supersonic::SafeAreaInsets{199.0f, 0.0f, 0.0f, 0.0f}, logo);
+    CHECK(wide.size == glm::vec2(2094.0f, 594.0f));   // 70% of 2992 wide
+    CHECK(wide.pos == glm::vec2(549.0f, 375.0f));     // centred in x from 199 to 2992, in y from 0 to 1344
+    SplashLayout hd = ComputeSplashLayout(glm::uvec2(1280, 720), none, logo);
+    CHECK(hd.size == glm::vec2(896.0f, 254.0f) && hd.pos == glm::vec2(192.0f, 233.0f));
+    SplashLayout old = ComputeSplashLayout(glm::uvec2(1024, 768), none, logo);
+    CHECK(old.size == glm::vec2(717.0f, 203.0f) && old.pos == glm::vec2(154.0f, 283.0f));
+    SplashLayout portrait = ComputeSplashLayout(glm::uvec2(1080, 2400), none, logo);
+    CHECK(portrait.size == glm::vec2(756.0f, 214.0f) && portrait.pos == glm::vec2(162.0f, 1093.0f));
+    // A very wide window: the height cap (half the window's) is what limits it.
+    SplashLayout ultra = ComputeSplashLayout(glm::uvec2(5120, 1080), none, logo);
+    CHECK(ultra.size == glm::vec2(1905.0f, 540.0f) && ultra.pos == glm::vec2(1608.0f, 270.0f));
+
+    // In every shape: whole pixels, the logo's proportions, within 70% of the width and half the height, inside the
+    // safe area, and centred in it to a pixel.
+    const glm::uvec2 windows[] = {{640, 480},   {800, 600},   {1024, 768},  {1280, 720},  {1366, 768},
+                                  {1920, 1080}, {2400, 1080}, {2560, 1080}, {2992, 1344}, {3440, 1440},
+                                  {5120, 1080}, {1080, 2400}, {720, 1280},  {600, 1024}};
+    const Supersonic::SafeAreaInsets insets[] = {none, {0.0f, 88.0f, 0.0f, 0.0f}, {199.0f, 0.0f, 0.0f, 0.0f},
+                                                 {88.0f, 0.0f, 88.0f, 0.0f}, {0.0f, 66.0f, 0.0f, 66.0f},
+                                                 {120.0f, 40.0f, 60.0f, 90.0f}};
+    for (const glm::uvec2 window : windows) {
+        for (const Supersonic::SafeAreaInsets& safe : insets) {
+            const SplashLayout layout = ComputeSplashLayout(window, safe, logo);
+            const std::string where = std::to_string(window.x) + "x" + std::to_string(window.y) + " insets " +
+                                      std::to_string(safe.left) + "," + std::to_string(safe.top) + "," +
+                                      std::to_string(safe.right) + "," + std::to_string(safe.bottom);
+            CHECK_MSG(layout.size.x == std::round(layout.size.x) && layout.size.y == std::round(layout.size.y) &&
+                          layout.pos.x == std::round(layout.pos.x) && layout.pos.y == std::round(layout.pos.y),
+                      where + ": not whole pixels");
+            CHECK_MSG(std::fabs(layout.size.x / layout.size.y - aspect) < 2.0f / layout.size.y,
+                      where + ": proportions");
+            CHECK_MSG(layout.size.x <= 0.70f * static_cast<float>(window.x) + 0.5f &&
+                          layout.size.y <= 0.50f * static_cast<float>(window.y) + 0.5f,
+                      where + ": larger than 70% x 50%");
+            const glm::vec2 areaMin(safe.left, safe.top);
+            const glm::vec2 areaMax(static_cast<float>(window.x) - safe.right,
+                                    static_cast<float>(window.y) - safe.bottom);
+            CHECK_MSG(layout.pos.x >= areaMin.x && layout.pos.y >= areaMin.y &&
+                          layout.pos.x + layout.size.x <= areaMax.x && layout.pos.y + layout.size.y <= areaMax.y,
+                      where + ": outside the safe area");
+            const glm::vec2 centre = layout.pos + layout.size * 0.5f;
+            const glm::vec2 middle = (areaMin + areaMax) * 0.5f;
+            CHECK_MSG(std::fabs(centre.x - middle.x) <= 1.0f && std::fabs(centre.y - middle.y) <= 1.0f,
+                      where + ": not centred");
+            // The width's own rule where neither the height cap nor the safe area binds.
+            if (0.70f * static_cast<float>(window.x) / aspect <= 0.50f * static_cast<float>(window.y) &&
+                0.70f * static_cast<float>(window.x) <= areaMax.x - areaMin.x) {
+                CHECK_MSG(std::fabs(layout.size.x - 0.70f * static_cast<float>(window.x)) <= 0.5f,
+                          where + ": not 70% wide");
+            }
+        }
+    }
+
+    // A safe area narrower than 70% of the window holds it; insets that leave nothing are not believed; nothing
+    // to draw gives nothing.
+    const SplashLayout narrow =
+        ComputeSplashLayout(glm::uvec2(1000, 1000), Supersonic::SafeAreaInsets{300.0f, 0.0f, 300.0f, 0.0f}, logo);
+    CHECK(narrow.size.x == 400.0f && narrow.pos.x == 300.0f);
+    const SplashLayout nothingLeft =
+        ComputeSplashLayout(glm::uvec2(1000, 600), Supersonic::SafeAreaInsets{600.0f, 0.0f, 600.0f, 0.0f}, logo);
+    CHECK(nothingLeft.size == ComputeSplashLayout(glm::uvec2(1000, 600), none, logo).size);
+    CHECK(ComputeSplashLayout(glm::uvec2(0, 600), none, logo).size == glm::vec2(0.0f));
+    CHECK(ComputeSplashLayout(glm::uvec2(600, 0), none, logo).size == glm::vec2(0.0f));
+    CHECK(ComputeSplashLayout(glm::uvec2(600, 600), none, glm::vec2(0.0f)).size == glm::vec2(0.0f));
+}
+
+void testSplashQuads() {   // E35
+    using namespace Penumbra::Render;
+    const glm::uvec2 window(1280, 720);
+    const glm::vec2 logo(static_cast<float>(kLogoWidth), static_cast<float>(kLogoHeight));
+    const SplashLayout layout = ComputeSplashLayout(window, Supersonic::SafeAreaInsets{}, logo);
+
+    // The ground first, over the whole image, untextured, in the logo's panel colour as display bytes.
+    const std::vector<Supersonic::ScreenOverlay::Quad> quads = BuildSplashQuads(window, layout, 0.5f, "penumbra:logo");
+    CHECK_EQ(quads.size(), 2u);
+    CHECK(quads[0].min == glm::vec2(0.0f) && quads[0].max == glm::vec2(1.0f) && quads[0].texture.empty());
+    CHECK(quads[0].color == glm::vec4(20.0f / 255.0f, 23.0f / 255.0f, 28.0f / 255.0f, 1.0f));
+    CHECK(kSplashGround[0] == 0x14 && kSplashGround[1] == 0x17 && kSplashGround[2] == 0x1C);
+    // Then the logo at its place, full texture, white at the intro's alpha.
+    CHECK(quads[1].texture == "penumbra:logo");
+    CHECK(quads[1].min == layout.pos / glm::vec2(window) &&
+          quads[1].max == (layout.pos + layout.size) / glm::vec2(window));
+    CHECK(quads[1].uvMin == glm::vec2(0.0f) && quads[1].uvMax == glm::vec2(1.0f));
+    CHECK(quads[1].color == glm::vec4(1.0f, 1.0f, 1.0f, 0.5f));
+
+    // Nothing of the logo at alpha 0, without a texture, or in an empty window; alpha is held to 0..1.
+    CHECK_EQ(BuildSplashQuads(window, layout, 0.0f, "penumbra:logo").size(), 1u);
+    CHECK_EQ(BuildSplashQuads(window, layout, -1.0f, "penumbra:logo").size(), 1u);
+    CHECK_EQ(BuildSplashQuads(window, layout, 1.0f, "").size(), 1u);
+    CHECK_EQ(BuildSplashQuads(glm::uvec2(0, 720), layout, 1.0f, "penumbra:logo").size(), 0u);
+    CHECK_EQ(BuildSplashQuads(window, SplashLayout{}, 1.0f, "penumbra:logo").size(), 1u);
+    CHECK(BuildSplashQuads(window, layout, 7.0f, "penumbra:logo")[1].color.a == 1.0f);
+}
+
+void testSplashLogoFile() {   // E35
+    using namespace Penumbra::Render;
+    const std::filesystem::path path = std::filesystem::path(PENUMBRA_DATA_DIR) / kSplashLogoFile;
+    CHECK_MSG(std::filesystem::is_regular_file(path), path.generic_string());
+    std::error_code ec;
+    const auto bytes = std::filesystem::file_size(path, ec);
+    CHECK_MSG(!ec && bytes > 0 && bytes < 150u * 1024u, "the logo is " + std::to_string(bytes) + " bytes");
+    const glm::ivec2 pixels = ProbeImageSize(path.generic_string());
+    CHECK_MSG(pixels.x == kLogoWidth && pixels.y == kLogoHeight,
+              "the logo is " + std::to_string(pixels.x) + "x" + std::to_string(pixels.y));
+    // As the layer loads it: Plain, which keys nothing. Opaque (no alpha: the canvas is the ground all round, which is
+    // what makes the flat ground meet it), the ground on the whole border, and not one pixel of exact magenta, which
+    // every other HUD image has keyed out.
+    const DecodedImage decoded = DecodeTexture(path.generic_string(), TextureVariant::Plain);
+    CHECK(decoded.Valid());
+    if (!decoded.Valid()) return;
+    const int width = decoded.width;
+    const int height = decoded.height;
+    const auto texel = [&decoded, width](const int x, const int y) {
+        const std::size_t texelIndex = static_cast<std::size_t>(y * width + x);   // int: the picture is small
+        return &decoded.rgba[texelIndex * 4];
+    };
+    const int right = width - 1;
+    const int bottom = height - 1;
+    for (const glm::ivec2 corner :
+         {glm::ivec2(0, 0), glm::ivec2(right, 0), glm::ivec2(0, bottom), glm::ivec2(right, bottom)}) {
+        const std::uint8_t* p = texel(corner.x, corner.y);
+        CHECK_MSG(p[0] == kSplashGround[0] && p[1] == kSplashGround[1] && p[2] == kSplashGround[2] && p[3] == 255,
+                  "corner " + std::to_string(corner.x) + "," + std::to_string(corner.y));
+    }
+    // One pass: magenta, translucency, the border, and the extents of what is off the ground. The lockup is what is
+    // more than 30 levels off it (the mark, the wordmark and the rule's strong part); the faint rest is the rule's
+    // tail and the mark's thinnest arc.
+    struct Box {
+        int minX = 1 << 30, minY = 1 << 30, maxX = -1, maxY = -1;
+        void Add(const int x, const int y) {
+            minX = std::min(minX, x);
+            minY = std::min(minY, y);
+            maxX = std::max(maxX, x);
+            maxY = std::max(maxY, y);
+        }
+    };
+    Box lockup;
+    Box offGround;
+    std::size_t magenta = 0;
+    std::size_t translucent = 0;
+    std::size_t borderOff = 0;
+    for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < width; ++x) {
+            const std::uint8_t* p = texel(x, y);
+            if (p[0] == 255 && p[1] == 0 && p[2] == 255) ++magenta;
+            if (p[3] != 255) ++translucent;
+            const int deviation = std::max({std::abs(p[0] - kSplashGround[0]), std::abs(p[1] - kSplashGround[1]),
+                                            std::abs(p[2] - kSplashGround[2])});
+            if (deviation > 0) offGround.Add(x, y);
+            if (deviation > 30) lockup.Add(x, y);
+            if (deviation > 0 && (x == 0 || y == 0 || x == right || y == bottom)) ++borderOff;
+        }
+    }
+    CHECK_EQ(magenta, 0u);
+    CHECK_EQ(translucent, 0u);
+    CHECK_EQ(borderOff, 0u);
+
+    // The lockup's place, pinned for this picture: x 160 to 2096, y 143 to 496. It is centred in it, to a pixel
+    // (the width is even, so the two sides may differ by one), so that centring the picture centres what is seen.
+    CHECK_MSG(lockup.minX == 160 && lockup.maxX == 2096 && lockup.minY == 143 && lockup.maxY == 496,
+              "the lockup is x " + std::to_string(lockup.minX) + " to " + std::to_string(lockup.maxX) + ", y " +
+                  std::to_string(lockup.minY) + " to " + std::to_string(lockup.maxY));
+    CHECK_MSG(std::abs(lockup.minX - (right - lockup.maxX)) <= 1, "the lockup is not centred across");
+    CHECK_MSG(std::abs(lockup.minY - (bottom - lockup.maxY)) <= 1, "the lockup is not centred down");
+    // Nothing else is in the picture: not a band of any strength across it (the engine's SVG has four faint ones
+    // that would end in square edges at the top and bottom), and not a tail of the rule that runs to the right edge
+    // and is cut there: above and below the lockup the ground is exact, and the rule has faded out well short of
+    // the edge.
+    CHECK_MSG(offGround.minY >= lockup.minY && offGround.maxY <= lockup.maxY,
+              "something off the ground above or below the lockup: y " + std::to_string(offGround.minY) + " to " +
+                  std::to_string(offGround.maxY));
+    CHECK_MSG(offGround.minX >= lockup.minX - 8 && offGround.maxX <= lockup.maxX + 100 && offGround.maxX < right - 40,
+              "something off the ground beside the lockup: x " + std::to_string(offGround.minX) + " to " +
+                  std::to_string(offGround.maxX));
+}
+
+void testSplashWanted() {   // E35
+    using namespace Penumbra::Render;
+    using Args = std::vector<std::string>;
+
+    // A normal start: nothing, or the flags the platform glue and a player's own choices give.
+    CHECK(SplashWanted({}));
+    CHECK(SplashWanted(Args{"--original", "/game/original", "--data", "/game/data"}));
+    CHECK(SplashWanted(Args{"--original", "x", "--data", "y", "--window", "1280x720", "--lang", "pt", "--safe-area",
+                            "199,0,0,0"}));
+    for (const std::string_view flag : kSplashPlayerFlags) {
+        // Each flag a player has, alone and with a value (a value is no flag).
+        CHECK_MSG(SplashWanted(Args{std::string(flag)}), std::string(flag));
+        if (flag != "--splash") CHECK_MSG(SplashWanted(Args{std::string(flag), "on"}), std::string(flag));
+    }
+    CHECK(SplashWanted(Args{"--fullscreen"}));
+    CHECK(SplashWanted(Args{"--windowed", "--widescreen", "off", "--smooth", "on", "--touch", "--zoom", "125",
+                            "--edge-margin", "4", "--refresh", "144"}));
+
+    // Every developer's flag turns it off, alone and among a normal start's.
+    const Args developer = {"--start", "--tour", "--hold", "--cursor", "--pointer", "--spawn", "--princess", "--hp",
+                            "--mobile-layout", "--modes", "--touch-tuning", "--touch-editor", "--finger",
+                            // The engine's.
+                            "--frames", "--screenshot", "--screenshot-every", "--fixed-step", "--scene", "--record",
+                            "--replay", "--import-assets",
+                            // One nobody has written yet: unknown flags fail safe.
+                            "--frobnicate"};
+    for (const std::string& flag : developer) {
+        CHECK_MSG(!SplashWanted(Args{flag}), flag + " alone");
+        CHECK_MSG(!SplashWanted(Args{"--original", "x", "--data", "y", flag, "level1", "--window", "1280x720"}),
+                  flag + " among others");
+        CHECK_MSG(!SplashWanted(Args{flag + "=1"}), flag + "=1");
+    }
+    CHECK(!SplashWanted(Args{"--start", "level1", "--frames", "300", "--screenshot", "/tmp/x.png", "--fixed-step"}));
+
+    // --splash decides over everything, the last one winning.
+    CHECK(!SplashWanted(Args{"--splash", "off"}));
+    CHECK(!SplashWanted(Args{"--original", "x", "--splash", "off", "--data", "y"}));
+    CHECK(SplashWanted(Args{"--splash", "on"}));
+    for (const std::string& flag : developer) {
+        CHECK_MSG(SplashWanted(Args{flag, "--splash", "on"}), flag + " with --splash on");
+        CHECK_MSG(SplashWanted(Args{"--splash", "on", flag}), "--splash on before " + flag);
+    }
+    CHECK(SplashWanted(Args{"--start", "level1", "--frames", "125", "--fixed-step", "--splash", "on"}));
+    CHECK(!SplashWanted(Args{"--splash", "on", "--splash", "off"}));
+    CHECK(SplashWanted(Args{"--splash", "off", "--splash", "on"}));
+    // A --splash with no value (or a wrong one) is not a decision: main.cpp refuses it. Here it is a flag of the
+    // player's.
+    CHECK(SplashWanted(Args{"--splash"}));
+    CHECK(!SplashWanted(Args{"--splash", "--start", "level1"}));
+}
+
+} // namespace splash
+
 void runTests() {
     testOpensOnlyInPlay();
     testInputFrom();
@@ -2173,6 +2629,13 @@ void runTests() {
     testEditorArtRoot();   // E28
     testEditorArt();   // E28
     testEditorThroughHudRenderer();   // E28
+    splash::testSplashTimeline();   // E35
+    splash::testSplashSkip();   // E35
+    splash::testSplashPress();   // E35
+    splash::testSplashLayout();   // E35
+    splash::testSplashQuads();   // E35
+    splash::testSplashLogoFile();   // E35
+    splash::testSplashWanted();   // E35
 }
 
 } // namespace

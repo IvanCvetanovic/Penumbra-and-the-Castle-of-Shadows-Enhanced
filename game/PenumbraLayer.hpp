@@ -27,6 +27,7 @@
 #include "render/PhoneUi.hpp"
 #include "render/Settings.hpp"
 #include "render/ShadowRenderer.hpp"
+#include "render/Splash.hpp"   // E35
 #include "render/SpriteRenderer.hpp"
 #include "render/TextureCache.hpp"
 #include "render/TouchControls.hpp"
@@ -67,6 +68,12 @@ struct InputFrame;
 //    fullscreen at the desktop's size and the monitor's highest rate there, a
 //    window fitted to the monitor; the options screen's mode list and its
 //    refresh-rate row pick either by hand.
+//  - A normal start opens with the Supersonic Engine's logo for two seconds
+//    (E35, render/Splash.hpp). While it runs the Ethanon machine is not
+//    stepped - the menu's first frame, GetTime(), the random numbers and the
+//    music all begin when it is over, as they would have at once - and the
+//    layer draws only its overlay quads; the tick counter the development
+//    flags use (--hold, --finger, --tour) starts after it.
 class PenumbraLayer final : public Supersonic::EngineLayer {
 public:
     static constexpr float kTick = 1.0f / 60.0f;
@@ -182,6 +189,9 @@ public:
         // Any of the three E28 flags above: SaveSettings never writes, so a synthetic drag cannot reach the   // E28
         // player's real settings.json.                                                                       // E28
         bool noSave = false;                                                                                   // E28
+        // E35: play the Supersonic Engine's intro before the menu. Off here, so a layer built by a test or a tool
+        // runs from its first tick as before; main.cpp turns it on for a normal start (Render::SplashWanted).
+        bool splash = false;
     };
 
     explicit PenumbraLayer(Options options);
@@ -203,6 +213,12 @@ public:
     const Render::TouchControls& Touch() const { return m_touch; }                                             // E28
     const std::vector<Eth::HudCmd>& Overlay() const { return m_overlay; }                                      // E28
     const Render::Settings& CurrentSettings() const { return m_settings; }                                     // E28
+
+    // E35: the intro, for the suites: whether it is running (it ends on the first tick after its last), its clock,
+    // and the overlay quads the last frame drew for it.
+    bool SplashRunning() const { return m_splash.has_value(); }
+    const Render::SplashClock* SplashState() const { return m_splash ? &*m_splash : nullptr; }
+    const std::vector<Supersonic::ScreenOverlay::Quad>& SplashQuads() const { return m_splashQuads; }
 
 private:
     // The screen the scripts see for a scene (GetScreenSize): the menus'
@@ -290,6 +306,14 @@ private:
     // asked without the margin, the safe area's alone (where E26's plaque stands).
     Render::HudFrame CurrentHudFrame(bool withMargin = true) const;
 
+    // E35: begins the intro if the options ask for it and the logo can be read; one tick of it; its end; its frame.
+    void StartSplash();
+    void StepSplash();
+    void EndSplash();
+    void DrawSplash(entt::registry& registry);
+    // E35: the devices as the intro watches them for a press; a press seen is kept until a tick takes it.
+    void WatchSplash(const Render::RawDevices& raw);
+
     Options m_options;
     Render::Settings m_settings;
     Render::TextureCache m_textures;
@@ -360,6 +384,14 @@ private:
     Supersonic::SafeAreaInsets m_zoomChoicesSafe;
     bool m_devPrincessDone = false;   // --princess
     bool m_devHpDone = false;         // --hp
+    // E35: the intro's clock while it runs (empty before and after), what watches the devices for the press that
+    // ends it, a press seen in a frame no tick ran, the logo as the texture cache has it, and the last frame's quads.
+    std::optional<Render::SplashClock> m_splash;
+    Render::SplashPressWatch m_splashWatch;
+    bool m_splashPressSeen = false;
+    std::string m_splashKey;
+    glm::vec2 m_splashImage{0.0f};
+    std::vector<Supersonic::ScreenOverlay::Quad> m_splashQuads;
 };
 
 } // namespace Penumbra

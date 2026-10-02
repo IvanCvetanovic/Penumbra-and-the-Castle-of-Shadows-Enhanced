@@ -81,8 +81,9 @@ ORIGINAL_EXCLUDED_NAMES = ("readme.txt",)
 # package.bat's own check list, with the Linux program's name.
 LINUX_MARKERS = ("Penumbra", "assets/shaders/frag.spv", "assets/shaders/screen_overlay_frag.spv",
                  "data/strings.json", "data/images/en/entities/menu_buttons.png", "data/touch_controls.json",
-                 "data/images/touch/jump.png", "data/fonts/LiberationSans-Bold.ttf", "original/data.enml",
-                 "original/hs.enml", "original/data/shadow.dds", "original/scenes/menu.esc",
+                 "data/images/touch/jump.png", "data/images/splash/supersonic-logo.png",
+                 "data/fonts/LiberationSans-Bold.ttf", "original/data.enml", "original/hs.enml",
+                 "original/data/shadow.dds", "original/scenes/menu.esc",
                  "original/scenes/level1.esc", "original/soundfx/chefao.mp3", "original/entities/menu_buttons.png",
                  "original/penumbra.ico")
 

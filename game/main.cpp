@@ -27,6 +27,10 @@
 //   --finger <id>:<x>,<y>@<from>-<to>[/<x2>,<y2>]  a synthetic finger in logical pixels, down from
 //                          tick <from> to <to> (counted as --hold's), moving in a straight line to
 //                          (x2,y2) over that span (E28; repeatable)
+//   --splash on|off        the Supersonic Engine's intro (E35): on forces it, off removes it. Without
+//                          this flag it plays on a normal start and not when any flag outside the
+//                          player's own (render/Splash.hpp, kSplashPlayerFlags) is given: --start,
+//                          --frames, --screenshot, --fixed-step, --hold, --tour...
 //   --original <dir>       the original game's files (the folder holding data.enml)
 //   --data <dir>           the port's own data (the folder holding strings.json)
 // --lang and --widescreen are never saved; --window implies a windowed run
@@ -55,6 +59,7 @@
 #include "eth/Paths.hpp"
 #include "eth/StartupErrors.hpp"
 #include "render/Languages.hpp"
+#include "render/Splash.hpp"   // E35
 #include "render/TouchTuning.hpp"   // E28
 #include "render/WindowMode.hpp"
 
@@ -76,6 +81,8 @@ constexpr const char* kGameUsage =
     "  --lang <id>            this run's language (not saved): en de es fr it pt ru tr uk ja ar\n"
     "  --widescreen on|off    this run's view (not saved)\n"
     "  --smooth on|off        this run's motion between ticks (not saved; off under --fixed-step)\n"
+    "  --splash on|off        the Supersonic Engine's intro: on forces it, off removes it (it plays on a\n"
+    "                         normal start, and not when --start, --frames, --screenshot... are given)\n"
     "  --original <dir>       the original game's files: the folder holding data.enml\n"
     "  --data <dir>           the port's data: the folder holding strings.json\n"
     "  --hold <KEY>@<a>-<b>   hold a key from tick a to tick b (RIGHT, UP, CTRL, S, D, SPACE, ENTER...)\n"
@@ -276,6 +283,8 @@ int PenumbraMain(int argc, char** argv) {
     std::filesystem::path originalFlag;
     std::filesystem::path dataFlag;
     std::vector<char*> engineArgs{argv[0]};
+    // E35: every flag as given, for the intro's decision below (the loop takes some out).
+    const std::vector<std::string> givenArgs(argv + 1, argv + argc);
     for (int i = 1; i < argc; ++i) {
         const std::string arg = argv[i];
         const bool hasValue = i + 1 < argc;
@@ -473,6 +482,13 @@ int PenumbraMain(int argc, char** argv) {
             }   // E28
             layerOptions.devFingers.push_back(finger);   // E28
             layerOptions.noSave = true;   // E28
+        } else if (arg == "--splash" && hasValue) {
+            // E35: only validated here; Render::SplashWanted reads it with the other flags.
+            const std::string value = argv[++i];
+            if (value != "on" && value != "off") {
+                std::cerr << "[Penumbra] --splash wants on or off, got " << value << std::endl;
+                return EXIT_FAILURE;
+            }
         } else if (arg == "--original" && hasValue) {
             originalFlag = argv[++i];
         } else if (arg == "--data" && hasValue) {
@@ -481,6 +497,9 @@ int PenumbraMain(int argc, char** argv) {
             engineArgs.push_back(argv[i]);
         }
     }
+
+    // E35: the Supersonic Engine's intro plays on a normal start only (render/Splash.hpp).
+    layerOptions.splash = Penumbra::Render::SplashWanted(givenArgs);
 
     // E28: --touch-editor shows nothing without the touch controls: on, unless --touch (on or off) said otherwise.
     if (layerOptions.devTouchEditor.has_value() && !layerOptions.touchOverride.has_value()) {   // E28

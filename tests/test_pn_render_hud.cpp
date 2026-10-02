@@ -40,8 +40,10 @@
 #include "TestHarness.hpp"
 #include "core/Input.hpp"   // E28
 #include "core/Json.hpp"
+#include "core/ScreenOverlay.hpp"   // E35
 #include "eth/Defs.hpp"
 #include "eth/Machine.hpp"
+#include "eth/Random.hpp"   // E35
 #include "eth/Snapshot.hpp"
 #include "eth/Text.hpp"
 #include "render/ArabicShaping.hpp"
@@ -50,6 +52,7 @@
 #include "render/HudRenderer.hpp"
 #include "render/Localization.hpp"
 #include "render/PhoneUi.hpp"
+#include "render/Splash.hpp"   // E35
 #include "render/TextureCache.hpp"
 #include "render/TextureDecode.hpp"
 #include "render/TouchControls.hpp"   // E28
@@ -4026,6 +4029,415 @@ void TestTouchEditorInLayer() {                                                 
 
 } // namespace                                                                                                          // E28
 
+// ENHANCEMENT E35: THE ENGINE'S INTRO, DRIVEN IN THE LAYER. test_pn_render_pause holds the intro's timeline, skip,
+// press watch, layout, quads and flags as pure functions; this runs the real PenumbraLayer, on a bare registry with
+// an overlay, through its own frame loop (OnFixedUpdate then OnUpdate, one tick a frame, the devices as the engine's
+// input snapshot). (This is the suite that attaches the layer, and the one that boots the real game through it.) It
+// pins:
+//  - the machine stands still for the intro's 120 ticks: no Frame, so GetTime() is 0, no scene is loaded, no music,
+//    no random number drawn - and the first menu frame is then the one a layer without the intro runs, on the 121st
+//    tick;
+//  - what the intro draws: the ground and the logo at the timeline's alpha, nothing of the game's HUD (no bars);
+//  - a press before tick 18 is ignored, even one still held after it; a press from tick 18 ends it within 24 ticks;
+//  - the press that ended it, and the ones made during it, never reach the menu: a key, the mouse button and a
+//    finger held across the intro's end are not seen by the game until released, and the next press is;
+//  - frames that run no tick (a display faster than 60 Hz has most of its frames so): a key that goes down and up
+//    inside one is a press all the same, at every tick, and one that falls between the intro's last tick and the
+//    game's first never reaches the menu;
+//  - the first tick after the scene load has UnitsPerSecond 0 (FrameSeconds), as without the intro;
+//  - a layer built without the option, or without the logo, starts as before.
+// The scripts' globals outlive a layer, so this runs last, after the E28 layer test.
+namespace {   // E35
+
+PenumbraLayer::Options SplashOptions(const bool splash) {
+    PenumbraLayer::Options options;
+    options.userDir.clear();
+    options.noSave = true;
+    options.windowPixels = glm::uvec2(1024u, 768u);
+    options.settings = Render::Settings::Defaults("en");
+    options.languageOverride = "en";
+    options.widescreenOverride = false;
+    options.smoothMotionOverride = false;
+    options.pauseOnFocusLossOverride = false;
+    options.safeAreaOverride = Supersonic::SafeAreaInsets{};
+    options.splash = splash;
+    return options;
+}
+
+// One layer on a bare registry that has a ScreenOverlay, as the engine's frame drives it. `devices` is the engine's
+// input snapshot, handed to Input::Update before every tick as the engine does each frame.
+struct SplashRig {
+    entt::registry registry;
+    Supersonic::ScreenOverlay overlay;
+    Supersonic::ScreenOverlay* overlayPointer = &overlay;
+    PenumbraLayer layer;
+    Supersonic::RawInputState devices;
+    unsigned tick = 0;   // the ticks run
+    bool attached = false;
+
+    explicit SplashRig(PenumbraLayer::Options options) : layer(std::move(options)) {
+        registry.ctx().emplace<Supersonic::ScreenOverlay*>(overlayPointer);
+        layer.OnAttach(registry);
+        attached = true;
+    }
+    ~SplashRig() {
+        Supersonic::Input::Update(Supersonic::RawInputState{});
+        if (attached) layer.OnDetach(registry);
+    }
+    SplashRig(const SplashRig&) = delete;
+    SplashRig& operator=(const SplashRig&) = delete;
+
+    void step() {
+        overlay.Clear();   // the renderer clears it after drawing
+        Supersonic::Input::Update(devices);
+        layer.OnFixedUpdate(registry, PenumbraLayer::kTick);
+        // The overlay is there for the intro's frames only: the game's own HUD needs fonts and textures that a bare
+        // registry does not have (the E28 test above has no overlay for the same reason).
+        registry.ctx().insert_or_assign<Supersonic::ScreenOverlay*>(layer.SplashRunning() ? overlayPointer : nullptr);
+        layer.OnUpdate(registry, PenumbraLayer::kTick);
+        ++tick;
+    }
+    // A frame in which no tick ran, as on a display faster than 60 Hz: the devices as that frame has them, then
+    // OnUpdate alone.
+    void frameWithoutTick() {
+        overlay.Clear();
+        Supersonic::Input::Update(devices);
+        registry.ctx().insert_or_assign<Supersonic::ScreenOverlay*>(layer.SplashRunning() ? overlayPointer : nullptr);
+        layer.OnUpdate(registry, PenumbraLayer::kTick);
+    }
+    void runTo(const unsigned target) {
+        while (tick < target) step();
+    }
+    Eth::Machine& machine() { return *layer.Machine(); }
+    std::string scene() { return machine().GetSceneFileName(); }
+    Eth::KEY_STATE key(const Eth::KEY k) { return machine().Input().GetKeyState(k); }
+    void finger(const bool down) {
+        devices.contactCount = down ? 1 : 0;
+        devices.contacts[0] = Supersonic::RawContact{down ? 1 : -1, glm::vec2(512.0f, 384.0f)};
+    }
+};
+
+void TestSplashInLayer() {   // E35
+    const std::string savedArtDir = Script::g_artDir;
+    const bool savedMobile = Script::g_mobileLayout;
+    unsigned lastTick = 0;
+    try {
+        // ---- A: no input. The machine stands still for 120 ticks and the picture is the timeline's. ----
+        unsigned noIntroSprites1 = 0;
+        unsigned noIntroHud1 = 0;
+        unsigned noIntroSprites5 = 0;
+        unsigned noIntroHud5 = 0;
+        Eth::Random noIntroRng1;
+        {
+            // The same layer without the option: the first frames of the game as they were, kept for the
+            // comparison below.
+            SplashRig plain(SplashOptions(false));
+            CHECK(!plain.layer.SplashRunning());
+            CHECK(plain.layer.SplashState() == nullptr);
+            CHECK(plain.machine().FrameIndex() == 0u);
+            plain.step();
+            CHECK_EQ(plain.machine().FrameIndex(), 1u);
+            CHECK_EQ(plain.machine().GetTime(), 16u);   // 1000 / 60, whole milliseconds of simulated time
+            CHECK_EQ(plain.machine().FrameSeconds(), 0.0f);   // the first tick after a scene load: UnitsPerSecond is 0
+            CHECK_MSG(plain.scene() == "scenes/menu.esc", "no intro: the first tick loads the menu: " + plain.scene());
+            CHECK(plain.machine().Samples().SampleExists("soundfx/menu.mp3"));   // menuPreLoop starts the song
+            CHECK(plain.layer.SplashQuads().empty());
+            noIntroSprites1 = static_cast<unsigned>(plain.machine().Snapshot().sprites.size());
+            noIntroHud1 = static_cast<unsigned>(plain.machine().Snapshot().hud.size());
+            noIntroRng1 = plain.machine().Rng();
+            plain.runTo(5);
+            CHECK_EQ(plain.machine().FrameIndex(), 5u);
+            CHECK_EQ(plain.machine().FrameSeconds(), PenumbraLayer::kTick);   // a tick's length from the second on
+            noIntroSprites5 = static_cast<unsigned>(plain.machine().Snapshot().sprites.size());
+            noIntroHud5 = static_cast<unsigned>(plain.machine().Snapshot().hud.size());
+        }
+        {
+            SplashRig rig(SplashOptions(true));
+            Eth::Machine& machine = rig.machine();
+            CHECK(rig.layer.SplashRunning());
+            CHECK(rig.layer.SplashState() != nullptr && rig.layer.SplashState()->Ticks() == 0u);
+            CHECK_EQ(machine.FrameIndex(), 0u);
+            CHECK_EQ(machine.GetTime(), 0u);
+            const Eth::Random untouched = machine.Rng();
+            for (unsigned t = 1; t <= 120; ++t) {
+                rig.step();
+                lastTick = rig.tick;
+                const std::string where = "after " + std::to_string(t) + " intro ticks";
+                CHECK_MSG(machine.FrameIndex() == 0u && machine.GetTime() == 0u, where + ": the machine ran");
+                CHECK_MSG(machine.GetSceneFileName().empty(),
+                          where + ": a scene is loaded: " + machine.GetSceneFileName());
+                CHECK_MSG(!machine.Samples().SampleExists("soundfx/menu.mp3"), where + ": the menu's song is loaded");
+                CHECK_MSG(rig.layer.SplashRunning() && rig.layer.SplashState()->Ticks() == t, where + ": the clock");
+                // What is drawn: the ground, and the logo at the timeline's alpha - and nothing else (no HUD, no bars).
+                const auto& quads = rig.overlay.Quads();
+                CHECK_MSG(quads.size() == (t < 120 ? 2u : 1u), where + ": " + std::to_string(quads.size()) + " quads");
+                if (quads.size() == 2) {
+                    CHECK_MSG(quads[1].color.a == Render::SplashAlpha(t), where + ": the logo's alpha");
+                    CHECK_MSG(!quads[1].texture.empty(), where + ": the logo has no texture");
+                }
+                CHECK_MSG(!quads.empty() && quads[0].min == glm::vec2(0.0f) && quads[0].max == glm::vec2(1.0f) &&
+                              quads[0].texture.empty(),
+                          where + ": the ground");
+                CHECK(rig.layer.SplashQuads().size() == quads.size());
+            }
+            // Over, and still the intro's frame: the next tick is the game's first.
+            CHECK(rig.layer.SplashRunning() && rig.layer.SplashState()->Done() && !rig.layer.SplashState()->Skipped());
+            Eth::Random now = machine.Rng();
+            Eth::Random expected = untouched;
+            CHECK_EQ(now.RandI(1 << 30), expected.RandI(1 << 30));   // not one random number was drawn
+            rig.step();
+            lastTick = rig.tick;
+            CHECK(!rig.layer.SplashRunning());
+            CHECK_EQ(machine.FrameIndex(), 1u);
+            CHECK_EQ(machine.GetTime(), 16u);   // as if the game had begun at once
+            // The intro is no scene load the scripts see: the first tick is the one after the load, UnitsPerSecond 0,
+            // and the second has the length of a tick.
+            CHECK_EQ(machine.FrameSeconds(), 0.0f);
+            CHECK_MSG(rig.scene() == "scenes/menu.esc", "the menu is up on the tick after the intro: " + rig.scene());
+            CHECK(machine.Samples().SampleExists("soundfx/menu.mp3"));
+            // The first frame is the one without the intro: the same sprites, the same texts, the same random numbers.
+            CHECK_EQ(machine.Snapshot().sprites.size(), noIntroSprites1);
+            CHECK_EQ(machine.Snapshot().hud.size(), noIntroHud1);
+            Eth::Random first = machine.Rng();
+            Eth::Random expectedFirst = noIntroRng1;
+            CHECK_EQ(first.RandI(1 << 30), expectedFirst.RandI(1 << 30));
+            rig.step();
+            CHECK_EQ(machine.FrameIndex(), 2u);
+            CHECK_EQ(machine.FrameSeconds(), PenumbraLayer::kTick);
+            rig.runTo(125);
+            CHECK_EQ(machine.FrameIndex(), 5u);
+            CHECK_EQ(machine.Snapshot().sprites.size(), noIntroSprites5);
+            CHECK_EQ(machine.Snapshot().hud.size(), noIntroHud5);
+            // Its frames are the game's from then on: nothing of the intro's in the overlay.
+            CHECK(rig.overlay.Empty());
+        }
+
+        // ---- B: presses. Each in a layer of its own: the intro is not restartable. ----
+        {
+            // Before tick 18 a press is ignored, and so is the same key still held after it. A key already down when
+            // the layer attached is no press either (Enter, down from the start until tick 3).
+            SplashRig rig(SplashOptions(true));
+            rig.devices.keys[Supersonic::Key::Enter] = true;
+            rig.runTo(3);
+            rig.devices.keys[Supersonic::Key::Enter] = false;
+            rig.runTo(17);
+            rig.devices.keys[Supersonic::Key::Space] = true;   // the 18th tick, numbered 17
+            rig.runTo(18);
+            CHECK_MSG(!rig.layer.SplashState()->Skipped(), "a press at tick 17 skipped the intro");
+            rig.runTo(60);   // still held: not a new press
+            CHECK_MSG(!rig.layer.SplashState()->Skipped() && rig.layer.SplashState()->Ticks() == 60u,
+                      "a held key skipped it");
+            CHECK_EQ(rig.machine().FrameIndex(), 0u);
+            rig.devices.keys[Supersonic::Key::Space] = false;
+            rig.runTo(120);
+            CHECK(rig.layer.SplashRunning() && rig.layer.SplashState()->Done() && !rig.layer.SplashState()->Skipped());
+            CHECK_EQ(rig.machine().FrameIndex(), 0u);
+            rig.step();
+            CHECK_EQ(rig.machine().FrameIndex(), 1u);
+        }
+        {
+            // From tick 18 a press ends it, by a fade of 24 ticks, and it is the game's from the tick after that.
+            SplashRig rig(SplashOptions(true));
+            rig.runTo(30);
+            rig.devices.keys[Supersonic::Key::Enter] = true;   // the menu's confirm key; the 31st tick, numbered 30
+            rig.step();
+            CHECK_MSG(rig.layer.SplashState()->Skipped() && rig.layer.SplashState()->SkipTick() == 30u,
+                      "a press at tick 30 did not skip");
+            // A fade that does not rise, from where it was.
+            float before = Render::SplashAlpha(30);
+            while (rig.layer.SplashRunning() && !rig.layer.SplashState()->Done() && rig.tick < 100) {
+                CHECK_EQ(rig.machine().FrameIndex(), 0u);
+                const float alpha = rig.layer.SplashState()->Alpha();
+                CHECK_MSG(alpha <= before, "the fade rises");
+                before = alpha;
+                rig.step();
+            }
+            CHECK_MSG(rig.layer.SplashState() != nullptr && rig.layer.SplashState()->Done(), "the skip did not end it");
+            CHECK_MSG(rig.tick == 54u, "it ended at tick " + std::to_string(rig.tick));   // 30 + 24
+            CHECK_EQ(rig.machine().FrameIndex(), 0u);
+            // The quads of that last intro frame: the ground alone.
+            CHECK_EQ(rig.overlay.Quads().size(), 1u);
+            // Enter is down still. The game's first tick holds it up until it is released.
+            for (unsigned t = 54; t < 70; ++t) {
+                rig.step();
+                CHECK_MSG(!rig.layer.SplashRunning(), "still the intro at tick " + std::to_string(t));
+                CHECK_MSG(rig.key(Eth::K_ENTER) == Eth::KS_UP,
+                          "the press that skipped the intro reached the menu at tick " + std::to_string(t));
+            }
+            CHECK_EQ(rig.machine().FrameIndex(), 16u);
+            CHECK(rig.scene() == "scenes/menu.esc");
+            // Released, then pressed again: the new press is the game's.
+            rig.devices.keys[Supersonic::Key::Enter] = false;
+            rig.runTo(72);
+            CHECK(rig.key(Eth::K_ENTER) == Eth::KS_UP);
+            rig.devices.keys[Supersonic::Key::Enter] = true;
+            rig.step();
+            CHECK_MSG(rig.key(Eth::K_ENTER) == Eth::KS_HIT, "a press after the intro does not reach the menu");
+            rig.devices.keys[Supersonic::Key::Enter] = false;
+        }
+        {
+            // The mouse button: a click that skips it and is held until after the end is not a click on the menu.
+            SplashRig rig(SplashOptions(true));
+            rig.runTo(40);
+            rig.devices.mouseButtons[Supersonic::MouseButton::Left] = true;
+            rig.runTo(70);   // skipped at 40, over at 64, the menu's frames from 65
+            CHECK_MSG(rig.layer.SplashState() == nullptr, "the intro did not end");
+            CHECK_EQ(rig.machine().FrameIndex(), 6u);
+            for (unsigned t = 70; t < 80; ++t) {
+                rig.step();
+                CHECK_MSG(rig.key(Eth::K_LMOUSE) == Eth::KS_UP, "the click that skipped the intro reached the menu");
+            }
+            rig.devices.mouseButtons[Supersonic::MouseButton::Left] = false;
+            rig.runTo(82);
+            rig.devices.mouseButtons[Supersonic::MouseButton::Left] = true;
+            rig.step();
+            CHECK_MSG(rig.key(Eth::K_LMOUSE) == Eth::KS_HIT, "a click after the intro does not reach the menu");
+            rig.devices.mouseButtons[Supersonic::MouseButton::Left] = false;
+        }
+        {
+            // A finger, with the touch controls on (it is the menu's pointer then): the same.
+            PenumbraLayer::Options options = SplashOptions(true);
+            options.touchOverride = true;
+            options.mobileLayoutOverride = false;
+            SplashRig rig(options);
+            rig.runTo(30);
+            rig.finger(true);
+            rig.runTo(70);
+            CHECK_MSG(rig.layer.SplashState() == nullptr && rig.machine().FrameIndex() == 16u, "the intro did not end");
+            for (unsigned t = 70; t < 90; ++t) {
+                rig.step();
+                CHECK_MSG(rig.key(Eth::K_LMOUSE) == Eth::KS_UP, "the finger that skipped the intro clicked the menu");
+            }
+            rig.finger(false);
+            rig.runTo(95);
+            rig.finger(true);
+            rig.step();
+            CHECK_MSG(rig.key(Eth::K_LMOUSE) == Eth::KS_HIT, "a tap after the intro does not reach the menu");
+            rig.finger(false);
+        }
+
+        {
+            // Frames with no tick (a 120 or 144 Hz display runs most of its frames without one). A key that goes down
+            // and up inside such a frame is in no tick's own look at the devices; the intro keeps the press for the
+            // next tick, and it counts as the press of the tick it is handed to: ignored before tick 18, ending the
+            // intro from tick 18 on (24 ticks later), and from tick 96, where the timeline's own fade-out has begun,
+            // changing nothing. The outcome of each is compared with that of a press the tick itself sees.
+            struct Outcome {
+                bool skipped = false;
+                unsigned skipTick = 0;
+                unsigned endTick = 0;
+            };
+            const auto pressAt = [](const unsigned at, const bool tickless) {
+                SplashRig rig(SplashOptions(true));
+                rig.runTo(at);
+                rig.devices.keys[Supersonic::Key::Enter] = true;
+                if (tickless) {
+                    rig.frameWithoutTick();   // down in this frame only...
+                    rig.devices.keys[Supersonic::Key::Enter] = false;   // ...and up again before the next tick
+                }
+                rig.step();   // the tick numbered `at`: the press is handed to it
+                rig.devices.keys[Supersonic::Key::Enter] = false;
+                while (rig.layer.SplashRunning() && !rig.layer.SplashState()->Done() && rig.tick < 200) rig.step();
+                Outcome outcome;
+                CHECK_MSG(rig.layer.SplashState() != nullptr && rig.layer.SplashState()->Done(),
+                          "the intro did not end");
+                if (rig.layer.SplashState() == nullptr) return outcome;
+                outcome.skipped = rig.layer.SplashState()->Skipped();
+                outcome.skipTick = rig.layer.SplashState()->SkipTick().value_or(0u);
+                outcome.endTick = rig.layer.SplashState()->Ticks();
+                CHECK_EQ(rig.machine().FrameIndex(), 0u);
+                rig.step();   // the game's first tick
+                CHECK_MSG(rig.key(Eth::K_ENTER) == Eth::KS_UP,
+                          "a press at tick " + std::to_string(at) + " reached the menu");
+                return outcome;
+            };
+            for (const unsigned at : {17u, 18u, 50u, 95u, 96u}) {
+                const std::string where = "a press at tick " + std::to_string(at) + " in a frame with no tick";
+                const Outcome direct = pressAt(at, false);
+                const Outcome tickless = pressAt(at, true);
+                CHECK_MSG(tickless.skipped == direct.skipped && tickless.skipTick == direct.skipTick &&
+                              tickless.endTick == direct.endTick,
+                          where + " is not the press a tick sees");
+                if (at < 18 || at >= 96) {
+                    CHECK_MSG(!tickless.skipped && tickless.endTick == 120u, where + " changed the intro");
+                } else {
+                    CHECK_MSG(tickless.skipped && tickless.skipTick == at && tickless.endTick == at + 24u,
+                              where + " did not end it 24 ticks later: " + std::to_string(tickless.endTick));
+                }
+            }
+        }
+        for (const bool releaseSeen : {false, true}) {
+            // A tap that falls in frames with no tick between the intro's last tick and the game's first: the intro's
+            // clock is over, so nothing of it is looking, and no tick sees the key down. The menu must not get it, and
+            // the next press is the menu's. Once with the key seen down in one such frame and up again before the next
+            // tick (the intro's press watch still has it down when the game's first tick begins), and once with the
+            // release seen in a second frame with no tick (the watch has it up, and only the press kept from the
+            // first frame is left to hold the tap back).
+            const std::string variant =
+                releaseSeen ? "a tap over two frames with no tick" : "a tap in one frame with no tick";
+            SplashRig rig(SplashOptions(true));
+            rig.runTo(120);
+            CHECK(rig.layer.SplashRunning() && rig.layer.SplashState()->Done());
+            rig.devices.keys[Supersonic::Key::Enter] = true;
+            rig.frameWithoutTick();
+            rig.devices.keys[Supersonic::Key::Enter] = false;
+            if (releaseSeen) rig.frameWithoutTick();
+            for (unsigned t = 121; t < 135; ++t) {
+                rig.step();
+                CHECK_MSG(rig.key(Eth::K_ENTER) == Eth::KS_UP,
+                          variant + " between the intro and the game reached the menu at tick " + std::to_string(t));
+            }
+            CHECK_EQ(rig.machine().FrameIndex(), 14u);
+            rig.devices.keys[Supersonic::Key::Enter] = true;
+            rig.step();
+            CHECK_MSG(rig.key(Eth::K_ENTER) == Eth::KS_HIT,
+                      variant + ": a press after the intro does not reach the menu");
+            rig.devices.keys[Supersonic::Key::Enter] = false;
+        }
+
+        {
+            // The tick counter the development flags count from stands still for the intro: a key held from the game's
+            // tick 0 to 100 (--hold) is down on the menu's first frame and through its 101st, and the intro's end does
+            // not hold it back (nothing real is down, so there is nothing to hold back from).
+            PenumbraLayer::Options options = SplashOptions(true);
+            options.holds = {PenumbraLayer::DevHold{Eth::K_RIGHT, 0u, 100u}};
+            SplashRig rig(options);
+            rig.runTo(120);
+            CHECK_EQ(rig.machine().FrameIndex(), 0u);
+            CHECK(rig.key(Eth::K_RIGHT) == Eth::KS_UP);
+            rig.step();   // the game's first tick
+            CHECK_MSG(rig.key(Eth::K_RIGHT) == Eth::KS_HIT,
+                      "a key held from the game's first tick is not down on its first frame");
+            rig.runTo(150);
+            CHECK(rig.key(Eth::K_RIGHT) == Eth::KS_DOWN);
+            rig.runTo(221);   // the game's 101st tick: the last of the hold
+            CHECK(rig.key(Eth::K_RIGHT) == Eth::KS_DOWN);
+            rig.step();
+            CHECK_MSG(rig.key(Eth::K_RIGHT) == Eth::KS_RELEASE, "the hold did not end after 101 game ticks");
+        }
+
+        // ---- C: no intro when the option is off, or the logo is missing ----
+        {
+            PenumbraLayer::Options options = SplashOptions(true);
+            options.dataDir = std::filesystem::temp_directory_path() / "penumbra_no_such_data_folder";
+            SplashRig rig(options);
+            CHECK_MSG(!rig.layer.SplashRunning(), "an intro without its logo");
+            rig.step();
+            CHECK_EQ(rig.machine().FrameIndex(), 1u);
+            CHECK(rig.layer.SplashQuads().empty());
+        }
+    } catch (const std::exception& e) {
+        CHECK_MSG(false, "the layer threw (last tick " + std::to_string(lastTick) + "): " + e.what());
+    }
+    Supersonic::Input::Update(Supersonic::RawInputState{});
+    Script::g_adjustTouchControls = false;
+    Script::g_touchControls.setCurrent(0u);
+    Script::g_mobileLayout = savedMobile;
+    Script::g_artDir = savedArtDir;
+}
+
+} // namespace   // E35
+
 int main() {
     if (!std::filesystem::exists(PENUMBRA_ORIGINAL_DIR "/main.as")) {
         std::printf("SKIP: the original is not at %s\n", PENUMBRA_ORIGINAL_DIR);
@@ -4057,5 +4469,6 @@ int main() {
     TestFitRightAnchoredUnchanged();   // E31
     TestPhoneOptionsNarrowBodyFit();   // E31: a bare Machine of its own, its globals put back
     TestTouchEditorInLayer();   // E28: the layer itself, driven on a bare registry (its globals die with the process)
+    TestSplashInLayer();   // E35: the layer again, after it: the intro, the machine standing still, the presses
     return test::summary("test_pn_render_hud", 150);
 }
