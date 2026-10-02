@@ -937,3 +937,35 @@ first-time visitor could download it instead of the enhanced edition.
   (`git apply --check --include=README.md <patch>` first, untested) and check the button sentence against E32; the held screenshots are E29's, redone with the release.
 - docs/code-signing.md says the SignPath application is prepared, not sent; if it was sent with the old homepage URL, update it to the repository's.
 - The local release notes under out/release/ (gitignored) were given the same link replacement, so a 1.0.3 body starts clean.
+
+## 2026-10-02 (afternoon) — Release 1.0.3; the old releases removed; a privacy pass over the repository and its records
+
+**Why.** E28 to E32, the in-repo install guides and the retired Pages page needed a release; the README and the downloads that carry it described 1.0.2; a check of what the public
+repositories hold about the working sessions and the machine found material that belonged in an untracked file or nowhere.
+
+**Done.**
+- *The release.* v1.0.3 is published as Latest, tagged at 3849876 (the commit every file is built from; CI at that commit: Linux, Windows with every step, and Apple all green). The Windows
+  zip (610 entries) and the APK (versionCode 4, signed with the release key, certificate AC:1D:43:BD) were built from a clean clone at a short neutral path, C:\pn, so that the baked
+  `PENUMBRA_ORIGINAL_DIR` / `PENUMBRA_DATA_DIR` / `SUPERSONIC_ASSET_ROOT` strings name that path and not a user folder (the v1.0.0 and v1.0.2 Windows exe and Android libraries carried
+  `C:/Users/<account>/Desktop/...`): 0 occurrences of the account name in the exe and in both `libPenumbra.so`, scanned in the downloaded files. The Linux, Mac and iPhone/iPad files came from
+  release.yml (run 36989970786, four jobs green), which also rewrote SHA256SUMS.txt (five lines, in order). A script checked the downloaded six files: sums, the zip's layout (README, both guides,
+  the 18 install pictures, five licence files, the runtime DLLs; no original-installer, no penumbra_setup.exe, none of the original's scripts or machine.exe; the README without a github.io link
+  and without the globe sentence), the exe's version resource 1.0.3.0, the plists' 1.0.3 / 4, the APK's version, non-debuggable, apksigner Verifies and the certificate. All six `releases/latest/download`
+  addresses answer 200. Not done: the downloaded Windows exe was not launched (Smart App Control), and no real phone has run the E32 grid.
+- *The old releases.* v1.0.0 and v1.0.2 were deleted after 1.0.3 was published and verified as Latest (their tags stay); their files and notes are kept, checked against their own SHA256SUMS,
+  in out/release/published/ (gitignored). The Windows zip of a release is never replaced afterwards; v1.0.3's README links only repository files.
+- *README and guides.* Brought up to date for 1.0.3 (the stale globe sentence, the check count, the controls, the credits, the Android row: played on a real phone, the touch editor included, in an
+  earlier build; the newest layout only on an emulator); four screenshots (menu, touch controls, touch editor, and the phone settings screen); building.md, code-signing.md and the enhancements
+  rows E10 and E19 follow. A phone screenshot of the editor, taken after the E29-E31 build, shows the editor and E29's layout running on a real phone, which the E25, E31 and E32 entries' "no real
+  phone has been tried" predates.
+- *Privacy.* An audit of both public repositories (HEAD, history, branches, releases, release files, CI) found no secret. Done: Penumbra's current files and records no longer cite a private
+  repository or paraphrase conversations (docs/spec/41, a survey of a private project, removed; its citations neutralised; laptop, AVD and conversational wording reworded; DEVLOG edited in place as
+  on 2026-09-30); seven code comments cite docs/spec instead of another project; CLAUDE.md keeps what any contributor needs and the machine-specific rules moved to an untracked CLAUDE.local.md
+  (listed in .gitignore); a stray remote branch created by a web session was deleted.
+- *The ten translation units touched by comment edits compile at /W4 without warnings; the diff of game/ and tests/ in that commit has no code line.*
+
+**Open.**
+- History cannot be changed by a commit: earlier commits of both repositories (Penumbra's from before the 2026-09-30 rewrite included) still carry content that the current files no longer
+  have, and GitHub still serves commits that no branch points to. A purge request, a recreated repository or acceptance are the options; nothing was rewritten or force-pushed.
+- Secret scanning is off on both public repositories.
+- The 117-unit right margin of E32 comes from a phone with a left cut-out; the editor's tiles still overlap the Light button on 4:3 screens (E32's open list).
