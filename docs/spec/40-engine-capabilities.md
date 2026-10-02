@@ -1,20 +1,20 @@
 # What Supersonic Engine offers the Penumbra port, and what it lacks
 
-Everything below was read at engine commit `4bfcf67` ("The games moved to their own repositories"). The working tree at `<Desktop>\Supersonic-Engine` was clean on 2026-09-27. Magic Portals' `engine/` submodule is pinned to the same commit.
+Everything below was read at engine commit `4bfcf67` ("The games moved to their own repositories"). The engine's working tree was clean on 2026-09-27.
 
-All engine citations are relative to `<Desktop>\Supersonic-Engine`. Citations prefixed `MPR:` are relative to `<Desktop>\Magic-Portals-Remake`. Citations prefixed `PEN:` are relative to `...\Penumbra-and-the-Castle-of-Shadows-Enhanced\extracted\app`.
+All engine citations are relative to the engine's repository root (`engine/` in this repository). Citations prefixed `PEN:` are relative to `extracted/app/`. "The other port" is another Ethanon game built on this engine (a private project, not in this repository); no citations into its files are given.
 
-**Coordination note.** Another project (Magic Portals) is developing this engine for a different game. Every gap below is therefore split into two groups:
-- **ENGINE CHANGE REQUIRED**: this needs a change in Supersonic (C++ and/or shader SPIR-V), and the change must not break Magic Portals or the other game.
+**Coordination note.** Another project that uses the engine develops it for a different game. Every gap below is therefore split into two groups:
+- **ENGINE CHANGE REQUIRED**: this needs a change in Supersonic (C++ and/or shader SPIR-V), and the change must not break the games of the engine's other users.
 - **GAME-SIDE**: this can be done entirely in the port's repository with no engine edit.
 
-**Recommendation.** The port should consume the engine the way MPR does: as a git submodule pinned to a commit (`4bfcf67` today). It should not `add_subdirectory` the live Desktop checkout, which the other project is changing.
+**Recommendation.** The port should consume the engine as the other port does: as a git submodule pinned to a commit (`4bfcf67` at the time). It should not `add_subdirectory` a live checkout that the other project is changing.
 
 ---
 
 ## 0. Verdict in one paragraph
 
-Supersonic already has the backbone a 2D Ethanon port needs. It was built out for Magic Portals, which is a later (2013, GLES2) Ethanon game. That backbone includes:
+Supersonic already has the backbone a 2D Ethanon port needs. It was built out for another game, a later (2013, GLES2) Ethanon one. That backbone includes:
 - an `EngineLayer` seam with a fixed-step tick;
 - an orthographic camera;
 - unlit textured quads with a 2D sprite record (ambient, tint, additive lightmap overlay, premultiplied/additive/alpha blends);
@@ -46,7 +46,7 @@ What it does **not** have, measured against Penumbra's 2010 D3D9/Cg data:
 
 ### 1.1 CMake contract (README.md:208-253, AGENTS.md "As a subproject of a game", cmake/SupersonicTesting.cmake)
 
-A game's top-level `CMakeLists.txt` does the following. MPR's is the working template (MPR:CMakeLists.txt:1-52).
+A game's top-level `CMakeLists.txt` does the following. Penumbra's own top-level `CMakeLists.txt` is a working example.
 
 ```cmake
 cmake_minimum_required(VERSION 3.20)
@@ -71,14 +71,14 @@ A subproject build contributes exactly the following (README.md:229-239):
 
 Windows audio links `xaudio2 ole32 mfplat mfreadwrite mfuuid` privately (CMakeLists.txt:402).
 
-MPR splits the port into two static libraries plus an exe (MPR:game/CMakeLists.txt):
-- `MagicPortalsSim`: pure logic, linked by the tests.
-- `MagicPortalsGame`: the layer, a static library so tests can attach it to a bare registry.
-- `MagicPortals`: `main.cpp` only.
+The other port splits into two static libraries plus an exe:
+- a simulation library: pure logic, linked by the tests;
+- a game library: the layer, a static library so tests can attach it to a bare registry;
+- the executable: `main.cpp` only.
 
 The port should copy this shape.
 
-### 1.2 main.cpp pattern (MPR:game/main.cpp:30-431)
+### 1.2 main.cpp pattern
 
 1. Strip the game's own flags from `argv`. `LaunchOptions::Parse` rejects unknown flags, so the remaining args go to `Supersonic::LaunchOptions::Parse(argc, argv)` (src/core/LaunchOptions.hpp:129).
 2. Optionally call `Supersonic::Log::SetFileSink(path)` (src/core/Log.hpp:54). A shipped WIN32 exe has no console.
@@ -91,7 +91,7 @@ The port should copy this shape.
    app.PushLayer(std::make_unique<PenumbraLayer>(...));          // SupersonicApp.hpp:66
    app.Run();                                                     // SupersonicApp.hpp:55
    ```
-4. After `Run`, check `Supersonic::VulkanContext::ValidationErrorCount()` (VulkanContext.hpp:48). MPR fails the process if it is greater than 0 and logs `ValidationLayersActive()`.
+4. After `Run`, check `Supersonic::VulkanContext::ValidationErrorCount()` (VulkanContext.hpp:48). The other port fails the process if it is greater than 0 and logs `ValidationLayersActive()`.
 5. Save directory: `Supersonic::UserDataDirectory(title)` (src/platform/ExecutablePath.hpp:164) resolves `%APPDATA%\<title>`. This is the place for Penumbra's `hs.enml` high scores.
 6. Quit from the game: `Supersonic::Application::RequestQuit()` (src/core/Application.hpp:27). This replaces Ethanon's `Exit()`.
 
@@ -135,7 +135,7 @@ Constants:
 - `kDefaultGameTick = 1/60` (:72)
 - `kMaxPhysicsStepsPerFrame = 5` (:74)
 
-The game tick is **authored** in `SimulationClock::fixedDelta` (SimulationClock.hpp:38). MPR sets it in `OnAttach` (MPR:game/MagicPortalsLayer.cpp:199-203). Physics substeps underneath: `lround(gameTick/kFixedPhysicsStep)` substeps (:1375-1378).
+The game tick is **authored** in `SimulationClock::fixedDelta` (SimulationClock.hpp:38). The other port sets it in `OnAttach`. Physics substeps underneath: `lround(gameTick/kFixedPhysicsStep)` substeps (:1375-1378).
 
 Per frame, while playing (a manifest game is always playing):
 
@@ -184,7 +184,7 @@ Per frame, while playing (a manifest game is always playing):
 
 Consequences:
 - Relative `--screenshot`/`--record`/`--replay` paths resolve from the engine root, so pass absolute paths (README.md:248-253).
-- **The port's own data paths must be absolute.** MPR bakes compile-time directories such as `MAGICPORTALS_LEVELS_DIR` (MPR:game/main.cpp:275). Penumbra's relative paths (`soundfx/x.ogg`, `entities/x.png`) must be joined to an absolute data root before they reach the texture or audio caches.
+- **The port's own data paths must be absolute.** The other port bakes compile-time data directories into its build. Penumbra's relative paths (`soundfx/x.ogg`, `entities/x.png`) must be joined to an absolute data root before they reach the texture or audio caches.
 
 ---
 
@@ -192,7 +192,7 @@ Consequences:
 
 ### 2.1 Sprites are textured quads
 
-There is no sprite batcher API. A sprite is an entity with the following components (the MPR pattern, MPR:game/MagicPortalsLayer.cpp:3096-3121):
+There is no sprite batcher API. A sprite is an entity with the following components (the other port's pattern):
 - `TransformComponent`: position, Euler rotation in radians, scale (Components.hpp:143).
 - `MeshComponent{primitiveType="Quad"}`: a unit quad, `kQuadWidth = kQuadHeight = 1` (ModelLoader.hpp:31-32), centred and facing +Z (MeshRegistry.cpp:238).
 - `MaterialComponent{unlit=true, transparent=true, blend=..., albedoTexturePath=...}`.
@@ -227,9 +227,9 @@ Batching: consecutive compatible draws are instanced. The caps are:
 
 - `CameraComponent::projection = Projection::Orthographic` (:268).
 - `orthoHeight` is the world units spanned vertically (:274). Width follows `aspect`, which the game view sets from the window.
-- The camera looks along `front` (default `(0,0,-1)`) from `position`. World **+Y is up**. Ethanon's screen space is y-down, so the port converts (MPR `Units::ToWorld`).
+- The camera looks along `front` (default `(0,0,-1)`) from `position`. World **+Y is up**. Ethanon's screen space is y-down, so the port converts (the other port does it in `Units::ToWorld`).
 - Set `nearPlane`/`farPlane` to cover the z range used for layering.
-- **Set `flyControlsEnabled = false`** (:310). It defaults to true, and `CameraSystem` would otherwise fly the camera on WASD/arrows. MPR does this at MPR:MagicPortalsLayer.cpp:2892-2921.
+- **Set `flyControlsEnabled = false`** (:310). It defaults to true, and `CameraSystem` would otherwise fly the camera on WASD/arrows. The other port does this.
 
 ### 2.4 Draw order
 
@@ -238,7 +238,7 @@ Transparent quads (`MaterialComponent::transparent`) go through the blended pass
 2. `RenderableComponent::sortKey` ascending (Components.hpp:999);
 3. gather order.
 
-The sort is `RenderSystem::SortTransparentDraws`, RenderSystem.cpp:158-176. Under the ortho camera, **a larger world z is nearer and is drawn later**. MPR draws every sprite as transparent and encodes draw order in z (`placeSprite`, MPR:MagicPortalsLayer.cpp:3113-3121).
+The sort is `RenderSystem::SortTransparentDraws`, RenderSystem.cpp:158-176. Under the ortho camera, **a larger world z is nearer and is drawn later**. The other port draws every sprite as transparent and encodes draw order in z (`placeSprite`).
 
 Opaque quads (`transparent=false`) write depth with a `lessOrEqual` test and can use `alphaCutoff` (Components.hpp:825) for 1-bit cut-outs. This fits Ethanon `AM_ALPHA_TEST` if `blendMode="2"` means that in 2010 (see open questions): 76 `.ent` files carry `blendMode="2"`.
 
@@ -250,7 +250,7 @@ Opaque quads (`transparent=false`) write depth with a `lessOrEqual` test and can
 | `Additive` (Add) | colour: **SrcAlpha, One** (not One, One); alpha: Zero, One |
 | `Premultiplied` | colour: One, OneMinusSrcAlpha. The shader multiplies rgb by alpha. |
 
-There is **no Multiply/Modulate** (`GL_ZERO, GL_SRC_COLOR`). Penumbra uses `alphaMode="4"` in 4 `.par` files (`fade_out_shadow_beam`, `shadow_beam`, `shadow_beam_wide`, `sword_beam`) and 10 `.ent` files (`bruxo`, `bruxo_dead`, `checkpoint`, `fade_out_beam`, `master_knight`, `minion`, `princess`, `sword_beam`, `vert_bruxo`, `vert_master_knight`). In the 2013 enum, 4 = `AM_MODULATE` (MPR:docs/ethanon-formats.md:1081-1090).
+There is **no Multiply/Modulate** (`GL_ZERO, GL_SRC_COLOR`). Penumbra uses `alphaMode="4"` in 4 `.par` files (`fade_out_shadow_beam`, `shadow_beam`, `shadow_beam_wide`, `sword_beam`) and 10 `.ent` files (`bruxo`, `bruxo_dead`, `checkpoint`, `fade_out_beam`, `master_knight`, `minion`, `princess`, `sword_beam`, `vert_bruxo`, `vert_master_knight`). In the 2013 enum, 4 = `AM_MODULATE`.
 
 Additive with SrcAlpha equals Ethanon's One, One whenever alpha = 1. That covers every JPG/BMP and opaque PNG. It differs for PNGs whose alpha is below 1.
 
@@ -258,7 +258,7 @@ The ScreenOverlay pipeline is Mix only (VulkanRenderer.cpp:523-545).
 
 ### 2.6 Colour pipeline for 2D (src/core/RenderSettings.hpp)
 
-The game puts a `RenderSettings` into `registry.ctx()` (MPR:MagicPortalsLayer.cpp:149-160, :205):
+The game puts a `RenderSettings` into `registry.ctx()`:
 - `encoding = SceneEncoding::DisplayEncoded` (:117): texture bytes are display values, there is no sRGB decode, no bloom, no tonemap, and each sprite's base is clamped as on an 8-bit target;
 - `background = Background::Color` with `backgroundColor` (:63-91), so no sky pass;
 - `bloomIntensity = 0`;
@@ -278,7 +278,7 @@ This is the right mode for a D3D9 8-bit-per-channel game.
   - `overlayStrength`
 - `overlayTexturePath` (:697) is an additive map applied after the multiply (a baked lightmap).
 - The base is `clamp(texel*vertexColour*tint*ambient + overlay*strength, 0, 1)`.
-- Ethanon's emissive (`<EmissiveColor>`) is not a separate field. MPR folds `min(1, ambient + emissive)` into `sprite2D.ambient` on the CPU (MPR `Lighting::AmbientTerm`, MagicPortalsLayer.cpp:4655-4690). `MaterialComponent::emissiveColor/emissiveStrength` belong to the PBR path and are not used by sprites.
+- Ethanon's emissive (`<EmissiveColor>`) is not a separate field. The other port folds `min(1, ambient + emissive)` into `sprite2D.ambient` on the CPU (its `Lighting::AmbientTerm`). `MaterialComponent::emissiveColor/emissiveStrength` belong to the PBR path and are not used by sprites.
 
 ### 2.8 Light2D: normal-mapped 2D point lights, with no shadows
 
@@ -311,9 +311,9 @@ There are **no 2D shadows or occluders**. The 3D `LightComponent` shadow maps ha
 |---|---|---|---|
 | Attenuation | `1 - d²/max(d², r²)` | `1 - d²/r²`, zero at or beyond r | yes |
 | Facing | `dot(normalize(P-L), -N)` | `dot(normalize(L-P), N)` | yes (same sign) |
-| Normal decode | `-normalize(2*(n-0.5))`, **renormalised** | decoded, **not** renormalised (MP/GLES2 behaviour) | **no**. Game-side fix: renormalise normal-map texels at load and upload them via `UploadRGBA` under `"data:"+path`. |
+| Normal decode | `-normalize(2*(n-0.5))`, **renormalised** | decoded, **not** renormalised (the other port's GLES2 behaviour) | **no**. Game-side fix: renormalise normal-map texels at load and upload them via `UploadRGBA` under `"data:"+path`. |
 | Horizontal (`type 0`) P | `topLeft3DPos + (x*w, y*h, 0)`, constant z | `(fragX, fragY, height)` | yes |
-| Horizontal output | `... * diffuse.w` (light weighted by texel alpha) | `Premultiplied` adds light at full weight; `Alpha` gives `(base+lit)*alpha` | Use **`Alpha`, not `Premultiplied`** (MP uses Premultiplied), assuming the 2010 light pass is One,One (open question) |
+| Horizontal output | `... * diffuse.w` (light weighted by texel alpha) | `Premultiplied` adds light at full weight; `Alpha` gives `(base+lit)*alpha` | Use **`Alpha`, not `Premultiplied`** (the other port uses Premultiplied), assuming the 2010 light pass is One,One (open question) |
 | **Vertical (`type 2`)** P | `topLeft3DPos + (x*w, 0, -y*h)`: the pixel's height varies up the sprite, y is constant at the base (pixelLightVS.cg `verticalSprite_ppl`) | height constant per draw | **no. ENGINE CHANGE.** |
 | Vertical normal | swizzled `n.xzy`, `z *= -1` (vPixelLight.cg) | none | **no. ENGINE CHANGE.** |
 | Vertical depth | per-vertex `z = (1-depth) - ((1-v)*rectSize.y)/spaceLength`: the sprite leans back in the z-buffer | flat quad | Partly game-side: tilt the quad about X under the ortho camera, but lighting then uses the wrong P |
@@ -336,16 +336,16 @@ Behaviour:
 - Hashed: the frame and accumulator are in `StateHash` (StateHash.cpp:203); the grid is not.
 - Applied as `MaterialComponent::uvScale/uvOffset` by `SpriteAnimationSystem::Apply` (:1678). `CellTransform(columns, rows, cell, scale, offset)` is public.
 
-For Ethanon's `SetFrame`/`SpriteCut`, MPR sets `playing=false`, `frameCount=1` and writes `firstFrame` itself (MPR:MagicPortalsLayer.cpp:975-989). The cut is always an even split. Ethanon strides whole pixels, which only matters when the sheet size is not a multiple of the cut.
+For Ethanon's `SetFrame`/`SpriteCut`, the other port sets `playing=false`, `frameCount=1` and writes `firstFrame` itself. The cut is always an even split. Ethanon strides whole pixels, which only matters when the sheet size is not a multiple of the cut.
 
 UV-transform alternatives: `MaterialComponent::uvScale/uvRotation/uvOffset` (Components.hpp:848-866) for scrolling (Ethanon `scroll`/`multiply`). **Sprite flipping** is a negative `scale.x`/`scale.y`; `Light2D::WorldNormal` handles mirrored sprites.
 
-### 2.10 How Magic Portals draws (reference pattern)
+### 2.10 How the other port draws (reference pattern)
 
-- Every visible thing is `makeSprite(...)`: an unlit, transparent Quad with Alpha or Additive blend and the albedo path (MPR:MagicPortalsLayer.cpp:3096-3111).
-- It is placed by `placeSprite(centrePx, sizePx, z, rotation)` (:3113-3121).
-- Each frame `tint(...)` (:4640-4690) writes `albedoColor`, `sprite2D` (ambient, height, `lightMask`, `normalYDown`), `overlayTexturePath` (lightmap), `normalTexturePath` and `blend`. Alpha becomes Premultiplied when lit. Each field is written only when it changes, to keep `SyncResources` signatures stable.
-- Lights are `Light2DComponent` entities (:4694-4930). Halos are additive sprites.
+- Every visible thing is `makeSprite(...)`: an unlit, transparent Quad with Alpha or Additive blend and the albedo path.
+- It is placed by `placeSprite(centrePx, sizePx, z, rotation)`.
+- Each frame `tint(...)` writes `albedoColor`, `sprite2D` (ambient, height, `lightMask`, `normalYDown`), `overlayTexturePath` (lightmap), `normalTexturePath` and `blend`. Alpha becomes Premultiplied when lit. Each field is written only when it changes, to keep `SyncResources` signatures stable.
+- Lights are `Light2DComponent` entities. Halos are additive sprites.
 - Particles are game-simulated, one quad entity per live particle (§3).
 - The HUD is `ScreenOverlay` quads plus BitmapFont glyphs (§4, §5).
 
@@ -365,7 +365,7 @@ What Penumbra needs: 93 particle systems (43 `.par` in `effects/`, the rest inli
 - `animationMode`, `growth`, `minSize`/`maxSize`, `randAngle`, gravity, direction and randomisation, `Color0`→`Color1`, `Luminance`;
 - a `<SoundEffect>` per system (e.g. blood.par plays `hit01.ogg`).
 
-**GAME-SIDE (the MPR pattern, MPR:game/sim/Particles.hpp/.cpp, MagicPortalsLayer.cpp:940-1000):**
+**GAME-SIDE (the other port's pattern):**
 1. Port Ethanon's particle arithmetic as pure code, stepped on the tick with a seeded game RNG.
 2. Draw each live particle as a pooled quad entity from `makeSprite`, with a `SpriteAnimationComponent` for cut sheets.
 3. Hide a quad with `RenderableComponent::isVisible = false` rather than destroying it.
@@ -391,7 +391,7 @@ Budget: each flipbooked particle takes one of the 4095 UV slots per frame. 2064 
   - **UTF-8 input is not decoded.** "ã" as UTF-8 (C3 A3) would draw as "Ã£".
   - Penumbra's `.as` strings are Latin-1, e.g. `"Não é possível invocar 2 criaturas ao mesmo tempo"`.
   - Game-side: keep strings as Latin-1, or convert UTF-8 to Latin-1 before `BuildText`/`Measure`.
-- For the HUD, MPR lays out glyphs itself (MPR:game/sim/Hud.cpp:406-451, `LayOutText`/`LayOutCaption`). It emits one `ScreenOverlay::Quad` per glyph with `uvMin/uvMax` over the page texture (MPR:MagicPortalsLayer.cpp:2740-2870). World text would go through `BuildText` → `MeshRegistry::Upload` → `meshKey`.
+- For the HUD, the other port lays out glyphs itself (`LayOutText`/`LayOutCaption`). It emits one `ScreenOverlay::Quad` per glyph with `uvMin/uvMax` over the page texture. World text would go through `BuildText` → `MeshRegistry::Upload` → `meshKey`.
 
 ### 4.2 Fonts Penumbra asks for
 
@@ -453,7 +453,7 @@ It draws through ImGui's draw list with `ImGui::GetFont()` (Inter). Its fields a
   - `IsVoicePlaying` (:96)
   - `StopVoicesUsing`, `UnloadClip`
   - Finished one-shots are reaped every frame by `AudioSystem::Update` (AudioSystem.cpp:175), which runs whenever playing.
-  - The engine is reached via `registry.ctx().find<AudioEngine*>()` (MPR:MagicPortalsLayer.cpp:6257).
+  - The engine is reached via `registry.ctx().find<AudioEngine*>()`.
 - **Mapping to Penumbra's calls:** `PlaySample` ×27, `LoopSample` ×4, `SetSampleVolume` ×5, `IsSamplePlaying` ×4, `StopSample` ×3, `LoadSoundEffect` ×35, `LoadMusic` ×4. All of them map. There is **no master or global volume**; volume is per voice only.
 - `AudioSourceComponent` (Components.hpp:1423) offers 3D inverse-distance attenuation with the listener at the camera. A 2D game can simply call `Play` directly.
 - `AudioSystem::Update` runs on the frame delta and outside the replay. Audio is presentation only.
@@ -499,7 +499,7 @@ It draws through ImGui's draw list with `ImGui::GetFont()` (Inter). Its fields a
 ## 8. Test harness and determinism
 
 - **Harness** (tests/TestHarness.hpp): `CHECK(expr)`, `CHECK_MSG(expr,msg)`, `CHECK_NEAR(a,b)` (eps 1e-4), `CHECK_EQ(a,b)`. `test::summary(suite, minChecks)` returns non-zero on any failure **or when fewer than `minChecks` ran**. Each suite is a plain `main()`, registered with `supersonic_add_test(test_penumbra_xxx)`.
-- The MPR test pattern: the sim library is pure and deterministic, and the layer is a static library attachable to a bare `entt::registry` (no device). Services that are absent from `ctx()` are skipped.
+- The other port's test pattern: the sim library is pure and deterministic, and the layer is a static library attachable to a bare `entt::registry` (no device). Services that are absent from `ctx()` are skipped.
 - **SimulationClock** (SimulationClock.hpp): `tick`, `fixedDelta` (authored), `alpha` (render interpolation, never read in a tick), `droppedSeconds`, and `Seconds()` = `tick*fixedDelta` in double.
   - Penumbra calls `GetTime()` 59 times (wall-clock ms). The port must derive all game time from the tick. Timers such as `timer.as` must count ticks.
 - **StateHash** (StateHash.hpp): `Compute(registry)` (:62) walks every live entity: transforms, bodies, script state, sprite-animation frame, tilemap cells.
@@ -508,29 +508,29 @@ It draws through ImGui's draw list with `ImGui::GetFont()` (Inter). Its fields a
   - `Mixer` has `U64` and similar methods (:96-110).
   - The tick-zero hash is necessary, not sufficient. A replay is scoped to one scene (README.md "Known and written down elsewhere").
 - **Determinism:** the engine avoids libm in the simulation (`DetMath.hpp`: sin/cos/asin/atan2/pow). A game calling `std::sin` inside its tick gets its C runtime's last bit (README.md "Two limits remain"). Penumbra's AngelScript uses `sin`/`cos`/`rand`, so the port should use DetMath or an owned seeded RNG.
-- **`--fixed-step` plus `--frames` plus `--screenshot[-every]`** gives reproducible frame captures. MPR measured the stamped frames as byte-identical to separate runs (ARCHITECTURE.md §8c).
+- **`--fixed-step` plus `--frames` plus `--screenshot[-every]`** gives reproducible frame captures. The other port measured the stamped frames as byte-identical to separate runs (ARCHITECTURE.md §8c).
 - `tools/verify-replay.ps1` in the engine repository is the pattern for record → replay → corrupt → expect failure.
 
 ---
 
-## 9. Constraints on this machine
+## 9. Constraints of the build environment
 
-- **Smart App Control is in enforce mode** (MPR:CLAUDE.md:146-150; README.md:285-288; DEVLOG.md:1529-2392; engine docs/planning/2026-09-10-migration-readiness.md:161-164).
+- **Smart App Control is in enforce mode** on the Windows build machine.
   - It randomly refuses the first launch of freshly linked exes: "An Application Control policy has blocked this file", "Permission denied", ctest "Not Run", rc 126.
-  - **Every refusal shows the desktop's user a Windows notification.**
+  - **Every refusal shows a Windows notification.**
   - Rules: relink nothing unnecessary; launch each suite at most once; never loop ctest or relinks; report a refused exe as not run; use `ctest --test-dir build -N` to list tests without launching them.
-- **Toolchain** (MPR:tools/parity/port_build.bat; paths verified present):
-  - `call "C:\Program Files (x86)\Microsoft Visual Studio\18\BuildTools\VC\Auxiliary\Build\vcvars64.bat"`: VS Build Tools 18, MSVC toolset 14.50 (v145), x64.
-  - CMake 3.29.2, Ninja 1.12.0 and ctest are Strawberry Perl's (`C:\Strawberry\c\bin`, on PATH). **Pass `-DCMAKE_C_COMPILER=cl -DCMAKE_CXX_COMPILER=cl`**, or CMake picks Strawberry's GCC.
-  - Vulkan SDK 1.4.357.0 at `C:\VulkanSDK\1.4.357.0`: validation layers, plus `-DGLSL_COMPILER=C:/VulkanSDK/1.4.357.0/Bin/glslc.exe`.
-  - Configure: `cmake -S <repo> -B <repo>\build -G Ninja -DCMAKE_BUILD_TYPE=Release -DSUPERSONIC_ENABLE_VALIDATION=ON -DCMAKE_C_COMPILER=cl -DCMAKE_CXX_COMPILER=cl -DGLSL_COMPILER=...`, then `cmake --build build --target <exe>`. Invoke it from bash as `cmd //c "tools\...\port_build.bat --target X"`.
+- **Toolchain:**
+  - MSVC from the VS Build Tools 18 (toolset 14.50, v145), x64, set up by `vcvars64.bat`.
+  - CMake and Ninja. **Pass `-DCMAKE_C_COMPILER=cl -DCMAKE_CXX_COMPILER=cl`**, or CMake may pick a GCC that happens to be on PATH.
+  - The Vulkan SDK (1.4.357.0 at the time): validation layers, plus `-DGLSL_COMPILER=<sdk>/Bin/glslc.exe`.
+  - Configure: `cmake -S <repo> -B <repo>\build -G Ninja -DCMAKE_BUILD_TYPE=Release -DSUPERSONIC_ENABLE_VALIDATION=ON -DCMAKE_C_COMPILER=cl -DCMAKE_CXX_COMPILER=cl -DGLSL_COMPILER=...`, then `cmake --build build --target <exe>`.
   - Engine standard: `/W4` with zero warnings.
-- **No `D:` drive.** Keep paths free of spaces.
+- Keep paths free of spaces.
 - **Asset-root chdir** (§1.5): the port's data paths must be absolute.
 - **Window:** the size comes from the manifest or `--window` only. There is no fullscreen (no `glfwSetWindowMonitor` anywhere), no runtime resize or video-mode enumeration API, and `Window` is not exposed to layers (src/platform/Window.hpp).
   - Present mode is Mailbox, else FIFO (VulkanSwapchain.cpp:66-72).
   - Penumbra defaults to 1024×768 and offers a windowed/fullscreen toggle plus a video-mode list (main.as:144, menu.as:111, videoModes.as:95-129).
-- **Shared engine:** the engine is read-only for this port and another project edits it. The rest of this bullet is my inference, not something I checked: every ENGINE CHANGE below probably touches shared files (`shader.frag`, `Components.hpp`, `VulkanPipeline`, `AudioClip`, `InputPolling`), needs recompiled committed SPIR-V, and must keep `test_materials`/`test_light2d`/`test_screenoverlay` (which read `shader.frag`) green for MPR and the other game.
+- **Shared engine:** the engine was read-only for this survey and another project that uses it edits it. The rest of this bullet is an inference, not something checked: every ENGINE CHANGE below probably touches shared files (`shader.frag`, `Components.hpp`, `VulkanPipeline`, `AudioClip`, `InputPolling`), needs recompiled committed SPIR-V, and must keep `test_materials`/`test_light2d`/`test_screenoverlay` (which read `shader.frag`) green for the other project's game and this one.
 
 ---
 
@@ -554,7 +554,7 @@ It draws through ImGui's draw list with `ImGui::GetFont()` (Inter). Its fields a
 
 - **OGG:** vendor stb_vorbis, then `AudioEngine::AddClip(key, clip)` before `Play(key)`.
 - **DDS:** decode the uncompressed A8R8G8B8 DDS (a 128-byte header, then BGRA) and pre-seed with `TextureRegistry::UploadRGBA("data:"+path, ...)`. Or convert offline in a converter (it must not write into `extracted/app`).
-- **Particles:** port Ethanon's particle math. One pooled quad entity per particle, stepped on the tick with a seeded RNG (the MPR `sim/Particles` pattern).
+- **Particles:** port Ethanon's particle math. One pooled quad entity per particle, stepped on the tick with a seeded RNG (the other port's particle simulation pattern).
 - **Fonts:** pre-baked BMFont `.fnt` + PNG for "Arial Narrow", "Arial Black", "Verdana", "Arial" or substitutes, at the sizes used (15–40 px), with glyphs 0x20–0xFF. Lay out glyphs as ScreenOverlay quads with the game's own `shadowText`. Feed Latin-1 bytes; convert any UTF-8.
 - **Renormalised normal maps:** load with the game's own stb pass, renormalise, then `UploadRGBA("data:"+path, ..., srgb=false)`.
 - **Horizontal light weighting:** use `BlendMode::Alpha` (not `Premultiplied`) to get `(base+lit)*alpha`, matching `hPixelLight`'s `*diffuse.w`.
@@ -600,9 +600,9 @@ It draws through ImGui's draw list with `ImGui::GetFont()` (Inter). Its fields a
 
 ## Key facts
 
-- Engine read at commit 4bfcf67 ('The games moved to their own repositories'); clean tree on 2026-09-27; Magic-Portals-Remake's engine/ submodule pins the same commit. The port should consume the engine as a submodule pinned to a commit, not the live Desktop checkout another project is editing.
+- Engine read at commit 4bfcf67 ('The games moved to their own repositories'); clean tree on 2026-09-27. The port should consume the engine as a submodule pinned to a commit, not a live checkout another project is editing.
 - Game build: add_subdirectory(engine) gives SupersonicCore (static), Supersonic::TestHarness and supersonic_add_test(name), which builds <name>.cpp at /W4 and calls add_test (cmake/SupersonicTesting.cmake:26-47). Editor, plugin and engine suites are off in a subproject build. The game uses the engine's committed SPIR-V; the Shaders target is editor-only.
-- main.cpp: GameManifest{isGame=true, title, startupScene.clear()} -> SupersonicApp app(options,&manifest) -> app.PushLayer(make_unique<Layer>) -> app.Run(); then check VulkanContext::ValidationErrorCount() (MPR game/main.cpp:357-431).
+- main.cpp: GameManifest{isGame=true, title, startupScene.clear()} -> SupersonicApp app(options,&manifest) -> app.PushLayer(make_unique<Layer>) -> app.Run(); then check VulkanContext::ValidationErrorCount().
 - EngineLayer hooks (EngineLayer.hpp): OnAttach/OnDetach, OnFixedUpdate(registry, fixedDelta) inside the tick loop after physics and SpriteAnimationSystem::Update, and OnUpdate(registry, frameDelta) per frame. There is no render hook: visuals are components, plus ScreenOverlay/WorldShapes filled in OnUpdate.
 - Tick rate is authored in registry.ctx() SimulationClock::fixedDelta (default 1/60), with at most 5 ticks per frame and the frame delta clamped to 0.1 s (SupersonicApp.cpp:62-74, 1370-1540). ARCHITECTURE.md:2248 wrongly says OnFixedUpdate always gets kFixedPhysicsStep.
 - CLI: --frames N, --scene, --screenshot PATH, --screenshot-every N, --fixed-step [s], --window WxH, --record PATH, --replay PATH (exclusive with --record), --import-assets, --help (LaunchOptions.cpp:29-50). AnchorAssetRoot changes the working directory to the engine root for a subproject game, so pass absolute paths for screenshots/replays and for all game data.
@@ -610,19 +610,19 @@ It draws through ImGui's draw list with `ImGui::GetFont()` (Inter). Its fields a
 - The ortho camera is CameraComponent::Projection::Orthographic with orthoHeight world units vertically, +Y up. flyControlsEnabled defaults to true and must be set false.
 - Blended draw order: viewDepth back to front, then RenderableComponent::sortKey, then gather order (RenderSystem.cpp:158-176). In 2D a larger z draws later. Transparent draws do not write depth; opaque quads with alphaCutoff do.
 - Textures load through stb_image 2.30 (PNG, JPEG incl. progressive, BMP incl. 8-bit paletted, TGA, GIF, PSD, HDR, PNM). There is no DDS. Mips are always generated, the filter is linear unless the .meta says Filter:nearest, and the sampler is always eRepeat. The cache key is 'srgb:'/'data:'+path; a DisplayEncoded scene uses 'data:'.
-- RenderSettings in ctx: encoding=DisplayEncoded (8-bit display-value arithmetic, no bloom or tonemap), background=Color, bloomIntensity=0, optional Rgb565 quantize. This is what MP uses.
+- RenderSettings in ctx: encoding=DisplayEncoded (8-bit display-value arithmetic, no bloom or tonemap), background=Color, bloomIntensity=0, optional Rgb565 quantize. This is what the other port uses.
 - MaterialComponent::sprite2D {enabled, ambient, height, lightMask, normalYDown, overlayStrength} plus overlayTexturePath (an additive lightmap). Base = clamp(texel*tint*ambient + overlay, 0, 1).
 - Light2DComponent {color, intensity, range, height, layers, enabled}, at most 64 per frame, is a normal-mapped 2D point light: clamp(texel*tint*color*(1-d2/r2)*dot(L-P,N)/d, 0, 1) per light, with P=(fragX, fragY, constant sprite height). The normal is NOT renormalised, and there are no shadows or occluders.
 - Penumbra's own Cg (hPixelLight/vPixelLight/pixelLightVS): same attenuation and facing, but it renormalises the normal, weights light by texel alpha for horizontal sprites, and uses P varying along the sprite height plus an xzy normal swizzle for VERTICAL (type=2) entities. It also has specular (gloss maps) and extruded dynamic sprite shadows (dynaShadowVS). None of the vertical, specular or shadow features exist in the engine.
 - SpriteAnimationComponent {columns, rows, firstFrame, frameCount, framesPerSecond, loop, playing; frame, elapsed} advances on the tick, is hashed, and is applied as uvScale/uvOffset. It takes one of 4095 UV slots per frame.
-- The engine's ParticleEmitterComponent/ParticleSystem draws untextured cubes with a hard-coded gravity of 1.5, runs on the frame delta and a static mt19937(12345), and is not hashed: unusable for .par. MP simulates particles in game code, with one pooled quad entity per particle.
+- The engine's ParticleEmitterComponent/ParticleSystem draws untextured cubes with a hard-coded gravity of 1.5, runs on the frame delta and a static mt19937(12345), and is not hashed: unusable for .par. The other port simulates particles in game code, with one pooled quad entity per particle.
 - BitmapFont reads BMFont TEXT .fnt only, rasterises nothing and ignores kerning. It maps each BYTE to a code point, so Latin-1 strings work (ã=0xE3, ç=0xE7) and UTF-8 does not. UITextComponent draws via ImGui with the embedded Inter font, UTF-8, and has no font-family field.
 - Penumbra's DrawText names system TTFs: Arial Narrow x18, Arial Black x4, Verdana x2, Arial x1, sizes 15-40 px. The extracted game ships no .fnt.
-- ScreenOverlay: immediate display-value quads after the tonemap, in fractions of the image with +y down, uv sub-rect, colour multiply, texture path, 2x2 basis rotation. Mix blend only, at most 4096 per frame, emitted in OnUpdate. MP draws its HUD and BitmapFont glyphs through it.
+- ScreenOverlay: immediate display-value quads after the tonemap, in fractions of the image with +y down, uv sub-rect, colour multiply, texture path, 2x2 basis rotation. Mix blend only, at most 4096 per frame, emitted in OnUpdate. The other port draws its HUD and BitmapFont glyphs through it.
 - Audio is XAudio2 with no voice cap. AudioClip::Load handles .wav and .mp3 only (MP3 via Windows Media Foundation) and refuses .ogg. AudioEngine::Play(path, loop, volume, pitch), Stop, SetVoiceParameters(volume [0,1], pitch [0.5,2], pan), IsVoicePlaying, AddClip(name, AudioClip). Finished voices are reaped each frame. There is no master volume and no streaming; clips are decoded whole on first use.
 - Input: all GLFW keys are polled. IsKeyDown/WasKeyPressed are per frame, with no raw release edge. Named actions have IsDown and the tick-latched TickWasPressed/TickWasReleased; only actions, axes, mouse and UI clicks are recorded or replayed. The gamepad is only GLFW_JOYSTICK_1 as a GLFW gamepad. LoadDefaultBindings runs at startup (WASD/arrows/Space...); call ClearBindings().
 - StateHash::Compute(registry) and StateHash::RegisterContributor(name, fn(registry, Mixer&)) cover game-owned state. Use DetMath for trig inside the tick. Penumbra's 59 GetTime() calls must become SimulationClock ticks.
-- Machine: VS Build Tools 18 vcvars64 at C:\Program Files (x86)\Microsoft Visual Studio\18\BuildTools\VC\Auxiliary\Build\vcvars64.bat; CMake 3.29.2 and Ninja from C:\Strawberry\c\bin (force -DCMAKE_C_COMPILER=cl -DCMAKE_CXX_COMPILER=cl); Vulkan SDK C:\VulkanSDK\1.4.357.0 with GLSL_COMPILER=.../Bin/glslc.exe; configure Ninja, Release, SUPERSONIC_ENABLE_VALIDATION=ON. Smart App Control is enforcing: fresh exes are randomly blocked and each block shows a notification, so launch once and never loop.
+- Build environment: VS Build Tools 18 (vcvars64) with CMake and Ninja (force -DCMAKE_C_COMPILER=cl -DCMAKE_CXX_COMPILER=cl); Vulkan SDK with GLSL_COMPILER=.../Bin/glslc.exe; configure Ninja, Release, SUPERSONIC_ENABLE_VALIDATION=ON. Smart App Control is enforcing: fresh exes are randomly blocked and each block shows a notification, so launch once and never loop.
 - Other useful APIs: Supersonic::Application::RequestQuit(); Supersonic::UserDataDirectory(title) for saves; MeshRegistry::Upload/Replace plus MeshComponent::meshKey for game-built geometry (text meshes, shadow trapezoids); TextureRegistry::UploadRGBA to pre-seed decoded images (e.g. DDS) under the 'data:'+path key.
 
 ## Engine gaps
@@ -638,7 +638,7 @@ It draws through ImGui's draw list with `ImGui::GetFont()` (Inter). Its fields a
 - ENGINE LIMIT: raw IsKeyDown/WasKeyPressed are per frame, have no release edge, and are not recorded or replayed. Only named actions get TickWasPressed/TickWasReleased and replay coverage.
 - GAME-SIDE (engine lacks it): no OGG Vorbis decoding; AudioClip::Load accepts only .wav/.mp3 (AudioClip.cpp:85-91), and Penumbra has 19 .ogg. Workaround: vendor stb_vorbis in the port and call AudioEngine::AddClip(path, clip) before Play(path).
 - GAME-SIDE (engine lacks it): no DDS loader (stb_image only). 8 referenced DDS files (thorn, dirt, tree01/02/03/05_alpha, black_sword, fog), all uncompressed A8R8G8B8. Workaround: decode and pre-seed with TextureRegistry::UploadRGBA('data:'+path), or convert offline.
-- GAME-SIDE (engine particle system unusable): ParticleEmitterComponent draws untextured cubes, hard-codes gravity, runs on the frame delta with a static RNG, and is unhashed. 93 Ethanon particle systems (2064 pooled particles) must be simulated in game code as pooled quad entities (the MPR pattern).
+- GAME-SIDE (engine particle system unusable): ParticleEmitterComponent draws untextured cubes, hard-codes gravity, runs on the frame delta with a static RNG, and is unhashed. 93 Ethanon particle systems (2064 pooled particles) must be simulated in game code as pooled quad entities (the other port's pattern).
 - GAME-SIDE (engine lacks it): no TrueType text for the game. BitmapFont reads pre-baked BMFont text .fnt only, with no kerning and byte-per-glyph (Latin-1 works, UTF-8 does not); UITextComponent is Inter-only via ImGui. Penumbra needs Arial Narrow/Arial Black/Verdana/Arial at 15-40 px, so .fnt files must be pre-baked.
 - MINOR: ScreenOverlay is Mix-blend only with one colour per quad (no additive HUD, no 4-corner gradient DrawRectangle); the vertex colour in the scene path is RGB only (no per-vertex alpha).
 - MINOR: no master/global audio volume (per voice only); no streaming (fase.mp3 is about 26 MB of PCM, decoded whole on first Play, so preload); MP3 loop points go through Media Foundation, whose encoder-delay handling is unverified.
@@ -646,8 +646,8 @@ It draws through ImGui's draw list with `ImGui::GetFont()` (Inter). Its fields a
 
 ## Open questions
 
-- Does Penumbra's 2010 Ethanon use the same ALPHA_MODE enum as the 2013 source MPR decoded (0 PIXEL, 1 ADD, 2 ALPHA_TEST, 3 NONE, 4 MODULATE) for .ent blendMode and .par alphaMode? blendMode="2" (76 .ent) and alphaMode="4" (14 files) change meaning otherwise. No 2010 D3D9 gs2d source is in the tree to confirm.
-- Does the 2010 ENTITY_TYPE enum match the 2013 one (0 HORIZONTAL, 1 GROUND_DECAL, 2 VERTICAL, 3 OVERALL, 4 OPAQUE_DECAL, 5 LAYERABLE, per MPR docs/ethanon-formats.md:2398)? Penumbra uses types 0, 2 and 5.
+- Does Penumbra's 2010 Ethanon use the same ALPHA_MODE enum as the 2013 source (0 PIXEL, 1 ADD, 2 ALPHA_TEST, 3 NONE, 4 MODULATE) for .ent blendMode and .par alphaMode? blendMode="2" (76 .ent) and alphaMode="4" (14 files) change meaning otherwise. No 2010 D3D9 gs2d source is in the tree to confirm.
+- Does the 2010 ENTITY_TYPE enum match the 2013 one (0 HORIZONTAL, 1 GROUND_DECAL, 2 VERTICAL, 3 OVERALL, 4 OPAQUE_DECAL, 5 LAYERABLE)? Penumbra uses types 0, 2 and 5.
 - What D3D9 blend state did 2010 Ethanon use for the per-pixel light pass (One,One vs SrcAlpha,One) and for AM_ADD? It decides whether horizontal sprites should use engine BlendMode::Alpha (matches hPixelLight's *diffuse.w under One,One) or something else, and what vPixelLight's missing *diffuse.w implies.
 - Should vertical-entity lighting, specular, modulate blend, clamp sampling, dual pads and fullscreen become engine features, which means coordinating with the other project developing Supersonic and recompiling committed SPIR-V? Or should the port accept approximations or drop them?
 - Fonts: is it acceptable to pre-bake BMFont atlases from Microsoft's Arial Narrow/Arial Black/Verdana (licensing), or should metric-compatible free substitutes be used (e.g. Liberation Sans Narrow for Arial Narrow; there is no exact free Arial Black clone)?

@@ -1,6 +1,6 @@
 # Penumbra (2010 Ethanon): particles, lighting, shadows and lightmaps, decoded
 
-Scope: `effects/*.par`, `data/*.cg`, `data/shadow.dds`, and the lighting and shadow fields of `.ent`/`.esc`, all from `<Desktop>\Penumbra-and-the-Castle-of-Shadows-Enhanced\extracted\app`. Cross-checked against the Dec 2013 Ethanon source in `<Desktop>\Magic-Portals-Remake\reference\ethanon\toolkit\Source\src` and against the Magic Portals (MP) port.
+Scope: `effects/*.par`, `data/*.cg`, `data/shadow.dds`, and the lighting and shadow fields of `.ent`/`.esc`, all from `extracted/app/`. Cross-checked against the Dec 2013 Ethanon source (`toolkit/Source/src/`; not in this repository) and against another Ethanon port on the same engine (a private project, not in this repository; "the other port" below).
 
 ## 0. Evidence levels and method
 
@@ -17,7 +17,7 @@ The game is a **side-view 2D platformer** drawn with Ethanon's top-down lighting
 - Torches sit at z ≈ -70..-32, with their light 8 units in front.
 - `ZAxisDirection` is (0,0) in every level and (0,-1) only in `menu.esc` and `arena_select.esc`.
 - `lightIntensity` = 2 in all 13 scenes.
-- The back buffer is 32-bit (`PF32BIT`, `main.as:144`, `menu.as:111`, `videoModes.as:100-110`), so every blend saturates at 8 bits per channel. MP's RGB565 finding does **not** apply.
+- The back buffer is 32-bit (`PF32BIT`, `main.as:144`, `menu.as:111`, `videoModes.as:100-110`), so every blend saturates at 8 bits per channel. The other port's RGB565 finding does **not** apply.
 
 ---
 
@@ -26,14 +26,14 @@ The game is a **side-view 2D platformer** drawn with Ethanon's top-down lighting
 ### 1.1 Container
 
 - There are 43 `.par` files plus `effects/readme.txt` ("All *.PAR effect files must be in this folder.") and one stray `effects/sky.png`.
-- All 43 are **ASCII XML with CRLF**. None has a UTF-16 BOM (MP's corpus was UTF-16LE+BOM). `.ent` and `.esc` files are ASCII too; other agents say their text is Latin-1.
+- All 43 are **ASCII XML with CRLF**. None has a UTF-16 BOM (the other port's corpus was UTF-16LE+BOM). `.ent` and `.esc` files are ASCII too; the other spec files say their text is Latin-1.
 - Shape: `<?xml version="1.0" ?>` → `<Ethanon>` → exactly one `<ParticleSystem …>`, which has 16 or 17 attributes and 9 to 11 child elements. No file has a second system.
 - **No `.par` is loaded at run time.** No `.as`, `.esc` or `.ent` names a `.par`: a grep for `.par` finds nothing, and the 2010 API has no `PlayParticleEffect`.
 - The `.par` files are the **editor library**. The editor copied a system into an entity's `<Particles>` block, scaled by the editor's scale factor (see §1.6). At run time the game only uses the copies embedded in `.ent`/`.esc`, up to `ETH_MAX_PARTICLE_SYS_PER_ENTITY` = 2 per entity (the 2010 string "ETHRenderEntity::PlayParticleSystem: n > ETH_MAX_PARTICLE_SYS_PER_ENTITY"). Every Penumbra carrier has exactly 1.
 
 ### 1.2 Field table: names, meaning, and value ranges across all 43 files
 
-Semantics are the same as MP `docs/ethanon-formats.md` §7.2–7.6, except where §1.4 says otherwise. The 2010 reader's attribute order, from the `machine.exe` string table: `particles allAtOnce alphaMode repeat boundingSphere lifeTime randomLifeTime angleDir randAngle size randomizeSize growth minSize maxSize angleStart randAngleStart animationMode Bitmap SoundEffect Gravity Direction RandomizeDir StartPoint RandStartPoint Color0 Color1 Luminance`. `animationMode` comes last, which suggests it was added late. That fits the two legacy files that lack it.
+Semantics are the same as the 2013 source's (`ETHParticleManager`), except where §1.4 says otherwise. The 2010 reader's attribute order, from the `machine.exe` string table: `particles allAtOnce alphaMode repeat boundingSphere lifeTime randomLifeTime angleDir randAngle size randomizeSize growth minSize maxSize angleStart randAngleStart animationMode Bitmap SoundEffect Gravity Direction RandomizeDir StartPoint RandStartPoint Color0 Color1 Luminance`. `animationMode` comes last, which suggests it was added late. That fits the two legacy files that lack it.
 
 | Field | Presence | Values seen (value×count) | Meaning (units at 60 fps) |
 |---|---|---|---|
@@ -130,7 +130,7 @@ The child values per file are in the census script `reference/analysis/par.py` (
 | blood.png | 41×41 paletted with alpha | AM_PIXEL portal and blood |
 | unused | black.bmp, dust.png, particle.bmp, white.bmp, black_sword.png | |
 
-### 1.4 Compared with Magic Portals: same schema, older variant
+### 1.4 Compared with the 2013 format: same schema, older variant
 
 **Same.**
 - The 17 attributes and 10 children, their names and meanings.
@@ -144,22 +144,22 @@ The child values per file are in the census script `reference/analysis/par.py` (
 1. **`<SoundEffect>` is live.** 21 `.par` files and 18 `.ent` embeds carry one.
    - The 2010 reader lists `SoundEffect`. The particle-load function `@0x421e90–0x422550` resolves the bitmap under `particles\` (`@0x421f93`) and the sound under `soundfx\` (`@0x422318`).
    - The entity has `bool HasSoundEffect() const` and a `soundVolume` attribute. `silent_sword.ent` has `soundVolume="0"`; other values are 0.2, 0.3, 0.5, 0.7 and 1.
-   - The 2013 source removed both `SoundEffect` and `soundVolume`, and MP documents the child as dead data.
+   - The 2013 source removed both `SoundEffect` and `soundVolume`, so a reader written for it treats the child as dead data.
    - The port must play the embedded `SoundEffect` at the entity's `soundVolume` when the system starts. The exact trigger is an open question.
 2. **Encoding:** ASCII/CRLF, not UTF-16LE+BOM.
 3. **Legacy files:** `explosion_particles.par` and `sword.par` lack `animationMode` and `<SpriteCut>`. Defaults apply: animationMode 1 and cut (1,1). Neither file is embedded anywhere.
-4. **Frame-speed cap.** The 2010 `ETHParticleManager` update at `@0x41e370` measures its own delta: `dt = (now - m_lastTime)/1000.0` (the double 1000 at `0x4d1220`). It computes `frameSpeed = min(dt*60.0, 2.0)` (60.0 at `0x4d12e8`, 2.0f at `0x4d1228`), so motion is capped at **2 frame-units, about 33.3 ms**. 2013 caps at 250 ms, or 15 units (`Particles/ETHParticleManager.cpp:195-196`), and the MP port copies 250 (`game/sim/Particles.cpp:315`).
+4. **Frame-speed cap.** The 2010 `ETHParticleManager` update at `@0x41e370` measures its own delta: `dt = (now - m_lastTime)/1000.0` (the double 1000 at `0x4d1220`). It computes `frameSpeed = min(dt*60.0, 2.0)` (60.0 at `0x4d12e8`, 2.0f at `0x4d1228`), so motion is capped at **2 frame-units, about 33.3 ms**. 2013 caps at 250 ms, or 15 units (`Particles/ETHParticleManager.cpp:195-196`), and the other port copies 250.
    - Particle age is `now - particle.startTime` (`@0x41e5b3–0x41e5cd`), an uncapped absolute clock. That is equivalent to 2013's uncapped `elapsed +=`.
    - At 60 fps both versions give identical motion. Below 30 fps, 2010 particles slow down while still ageing in real time.
 5. **Entity scale is always 1 at run time.** There is no `<Scale>` element in the 2010 entity schema (no "Scale" string among the XML names). The editor scale was baked into the embedded copy (§1.6). `ScaleParticleSystem` exists in the API but scripts never call it.
 6. Script-used particle API: `MirrorParticleSystemX(0, true)` at `swords.as:85-86` and `doDamage.as:228` (swords and beams facing left), `KillParticleSystem(0)` at death (`controlCharacters.as:379,422`), and `HasParticleSystem(0)`.
 
-**What MP's reader (`game/sim/Particles.cpp`) would do with Penumbra data.**
-- `ReadUtf16` (`:22-48`) rejects every Penumbra `.ent` and `.par`, because none starts with `FF FE`.
-- `Parse` (`:245-281`) looks for `<Particles>…</Particles>`. A standalone `.par` has no wrapper, so it would return **zero systems silently**. Embedded `.ent` blocks do have the wrapper.
-- `ParseSystem` (`:93-230`) demands `animationMode` and `<SpriteCut>`. It would refuse the two legacy files, which are unused anyway.
+**What the other port's particle reader would do with Penumbra data.**
+- Its `ReadUtf16` rejects every Penumbra `.ent` and `.par`, because none starts with `FF FE`.
+- Its `Parse` looks for `<Particles>…</Particles>`. A standalone `.par` has no wrapper, so it would return **zero systems silently**. Embedded `.ent` blocks do have the wrapper.
+- Its `ParseSystem` demands `animationMode` and `<SpriteCut>`. It would refuse the two legacy files, which are unused anyway.
 - It tolerates `<SoundEffect>`, because it searches substrings, but ignores it.
-- `Drawable` (`:283-285`) refuses alphaMode 4. That drops every AM_MODULATE aura.
+- Its `Drawable` refuses alphaMode 4. That drops every AM_MODULATE aura.
 - `Step` uses the 250 ms cap.
 
 ### 1.5 Blend, colour and depth of a particle (2010 plus 2013)
@@ -523,7 +523,7 @@ for each static active light L (pos = owner.pos + light.pos, colour c, range r, 
 
 **4. Real-time shadows.** Draw them only for those same pairs, using the real-time alpha formula.
 
-**5. Blend in encoded 8-bit values, not linear light.** MP measured this for the 2013 build, and the 2010 D3D9 fixed-function and 8-bit pipeline is the same kind. Use the engine's `DisplayEncoded` mode.
+**5. Blend in encoded 8-bit values, not linear light.** The other port measured this for the 2013 build, and the 2010 D3D9 fixed-function and 8-bit pipeline is the same kind. Use the engine's `DisplayEncoded` mode.
 
 **6. Resolution.** Match the original's default window of 1024×768 (`main.as:144`). The fake eye uses `screenH`, and the initial `maxH` is `screenH`.
 
@@ -559,7 +559,7 @@ That matches Penumbra's horizontal diffuse model and composite. The mismatches a
 
 Things the port can do without the engine:
 - the offline lightmap baker
-- particles drawn as their own depth-sorted quads, as MP does
+- particles drawn as their own depth-sorted quads, as the other port does
 - `SoundEffect` playback
 - the 2.0 frame-speed cap
 - halos as additive quads
@@ -567,13 +567,13 @@ Things the port can do without the engine:
 
 ## Key facts
 
-- effects/*.par: 43 files, ASCII XML with CRLF (not UTF-16), one <ParticleSystem> each. The schema is the same 17 attributes + 10 children as Magic Portals, plus a LIVE <SoundEffect> child in 21 .par and 18 .ent embeds.
+- effects/*.par: 43 files, ASCII XML with CRLF (not UTF-16), one <ParticleSystem> each. The schema is the same 17 attributes + 10 children as the 2013 format, plus a LIVE <SoundEffect> child in 21 .par and 18 .ent embeds.
 - No .par is loaded at run time: no script, scene or entity names one. The runtime uses only copies embedded in .ent/.esc <Particles>, max 2 per entity (Penumbra uses 1). The copies were pre-scaled by the editor, e.g. torch.ent = torch_fire.par x1.2 with StartPoint edited to (0,-8,8).
 - 8 .par files are unreferenced: blood, explosion_particles, heavy_sword, small_explosion, sword, sword02, sword03.ent, sword04. fall.par and jumpfx.par are identical except for SoundEffect (a tie). explosion_particles.par and sword.par lack animationMode and SpriteCut (legacy).
 - alphaMode census over 43 .par: 1 (AM_ADD, One/One) x25, 0 (AM_PIXEL) x14, 4 (AM_MODULATE, Zero/SrcColor) x4. AM_MODULATE draws the dark black_opaque.png auras: player bruxo/princess, minion, master_knight, checkpoints, sword_beam, fade_out_beam.
 - Verified 2010 GS_ALPHA_MODE (GameSpace.dll SetAlphaMode @0x10006170, jump table @0x10006448): 0 SrcAlpha/InvSrcAlpha, 1 One/One, 2 no blend, 3 none, 4 Zero/SrcColor. Every mode except 3 alpha-tests alpha > 1/255 (ALPHAREF 1, GREATER). Identical to 2013 Video.h.
 - Verified 2010 entity type enum (ComputeDepth @0x4230f6): 0 horizontal, 1 ground decal, 2 vertical, 3 overall (depth 1), 4 opaque decal (z+0.1), 5 layerable (depth max(layerDepth, 0.001)). Penumbra uses 0 (2492 defs), 5 (218), 2 (41).
-- 2010 particle motion step = min(dt*60, 2.0) frame units, i.e. capped at about 33 ms (@0x41e370). 2013 and the MP port cap at 250 ms. Particle age uses an uncapped absolute clock. Luminance/ambient rule and vertical depth shift of 10 verified identical in 2010 (@0x41f3fd, @0x41f711).
+- 2010 particle motion step = min(dt*60, 2.0) frame units, i.e. capped at about 33 ms (@0x41e370). 2013 and the other port cap at 250 ms. Particle age uses an uncapped absolute clock. Luminance/ambient rule and vertical depth shift of 10 verified identical in 2010 (@0x41f3fd, @0x41f711).
 - Depth: z_clip = 1 - (z - minH)/(maxH - minH), z-buffer LESSEQUAL, z-write on. Vertical sprites subtract (1-v)*rectSize.y/spaceLength per vertex, so each row's depth = z + height above the bottom in unscaled texture pixels. ZAxisDirection is (0,0) in all levels and (0,-1) only in menu.esc and arena_select.esc.
 - Ambient pass: clamp(T*C*min(1, Ambient+Emissive) + Lightmap). The lightmap goes on texture stage 1 with D3DTOP_ADD and is sampled with raw 0..1 quad UVs (defaultStaticAmbientVS.cg:119,136).
 - Pixel-light pass (One/One per light, alpha test): att = max(0, 1 - dist^2/range^2) with 3-D distance; d = dot(normalize(P-L), -normalize(2*nm-1)), renormalised. h: out = T*C*d*att*Lc*LI*T.a. v: same without T.a, and the normal is swizzled (n.x, n.z, -n.y). Negative values are clamped by the 8-bit target, not the shader.
@@ -591,7 +591,7 @@ Things the port can do without the engine:
 
 ## Engine gaps
 
-- No AM_MODULATE blend. The engine has Mix (SrcAlpha,1-SrcAlpha), Add (SrcAlpha,One) and Premultiplied (One,1-SrcAlpha), but not Zero/SrcColor multiply. Penumbra needs it for the player, minion, master_knight and checkpoint dark auras, sword_beam and fade_out_beam (4 .par, 11 carrier .ent). MP's Particles::Drawable refuses alphaMode 4.
+- No AM_MODULATE blend. The engine has Mix (SrcAlpha,1-SrcAlpha), Add (SrcAlpha,One) and Premultiplied (One,1-SrcAlpha), but not Zero/SrcColor multiply. Penumbra needs it for the player, minion, master_knight and checkpoint dark auras, sword_beam and fade_out_beam (4 .par, 11 carrier .ent). The other port's Particles::Drawable refuses alphaMode 4.
 - Ethanon AM_ADD is One/One, where alpha only feeds the alpha test. The engine Add is SrcAlpha/One. It must be emulated (alpha forced to 1, or premultiplied with alpha 0) plus a 1/255 discard.
 - Normal maps: the 2010 Cg renormalises (-normalize(2*(nm-0.5))). The engine's shadeSprite2D deliberately does not renormalise. Needs a per-material switch.
 - Vertical (type 2) lighting space is missing. Its pixel position runs along XZ (z = baseZ + height above bottom, y constant) with the normal swizzled (n.x, n.z, -n.y). The engine's 2D light uses P = (x, y, constant height) only.
@@ -601,10 +601,10 @@ Things the port can do without the engine:
 - No runtime render-to-texture lightmap bake. The engine only loads an overlay file (MaterialComponent::overlayTexturePath). An offline CPU baker in the port repo that writes PNG overlays avoids any engine change. **The bake's shadows modelled since 2026-09-28** without a bake: a static light carries its static casters' strips (engine Light2DShadowsComponent, scene binding 13, shadow.dds's alpha as Light2DShadowMask) and a static flat receiver multiplies that light's add by what survives them (Sprite2DLight::lightShadows; port kBakedShadowsOwnLight), which is §3.2 step 3's temporary target per fragment.
 - Overlay UVs: the engine samples overlayMap with the albedo's transformed UV. The original samples the lightmap with raw 0..1 quad UVs, and its lightmap is frame-sized. For the ~255 static placements with SpriteCut > 1, the baker must emit sheet-sized overlays with only the frame rect filled, or the engine needs a separate overlay UV.
 - Per-pixel depth for vertical sprites (depth rising along the sprite's height via the z-buffer). Engine 2D sprites sort by a single quad z. **Modelled game-side since 2026-09-28**: render/DrawOrder cuts a vertical sprite into bands of rows wherever a sprite or particle overlapping it has a depth strictly inside its rows (the cursor's sparkles over the arena thumbnails, fog over the menu logo and barrels). Not modelled: a translucent texel's depth write, which rejected pieces drawn later behind it outright.
-- Particles are sorted among themselves and drawn after all transparents in the engine. The original interleaves particle pieces with sprites by depth: layerable clouds at depth 0.001 behind everything, fog at layerDepth 1 in front, torch flames at z+8. The port should draw particles as its own depth-sorted quads (MP approach).
-- Light gathering: the engine sends every enabled Light2D (cap 64). The original uses only lights whose owners are in visible buckets, each pass scissored to a 2*range square. level1 alone places 44 static lights plus dynamic ones; use layers (static lights excluded from static receivers, as in MP's ReceiverMask) and/or culling to stay under 64.
-- No 2010 particle SoundEffect/soundVolume support anywhere. It is gameplay/audio code the port must add. Also the 2010 particle frame-speed cap (2.0 units) differs from MP's Particles.cpp (250 ms).
-- MP's Particles.cpp reader cannot be reused as-is. It requires a UTF-16LE BOM (Penumbra is ASCII), silently returns nothing for standalone .par (no <Particles> wrapper), demands animationMode and SpriteCut, and rejects alphaMode 4.
+- Particles are sorted among themselves and drawn after all transparents in the engine. The original interleaves particle pieces with sprites by depth: layerable clouds at depth 0.001 behind everything, fog at layerDepth 1 in front, torch flames at z+8. The port should draw particles as its own depth-sorted quads (the other port's approach).
+- Light gathering: the engine sends every enabled Light2D (cap 64). The original uses only lights whose owners are in visible buckets, each pass scissored to a 2*range square. level1 alone places 44 static lights plus dynamic ones; use layers (static lights excluded from static receivers, as in the other port's ReceiverMask) and/or culling to stay under 64.
+- No 2010 particle SoundEffect/soundVolume support anywhere. It is gameplay/audio code the port must add. Also the 2010 particle frame-speed cap (2.0 units) differs from the other port's particle code (250 ms).
+- The other port's particle reader cannot be reused as-is. It requires a UTF-16LE BOM (Penumbra is ASCII), silently returns nothing for standalone .par (no <Particles> wrapper), demands animationMode and SpriteCut, and rejects alphaMode 4.
 
 ## Open questions
 

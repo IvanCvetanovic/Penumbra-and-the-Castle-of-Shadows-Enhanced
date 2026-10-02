@@ -165,7 +165,7 @@
 
 The game only behaves as designed at about 60 fps. The original always ran vsynced: `SetWindowProperties(…, sync=true, …)` at `A:main.as:144`.
 
-**Port.** Run scripts at a fixed 60 Hz tick, as Magic Portals does (`Magic-Portals-Remake/game/MagicPortalsLayer.cpp:198-203`, `SimulationClock.fixedDelta`):
+**Port.** Run scripts at a fixed 60 Hz tick, as another port on this engine does (`SimulationClock.fixedDelta`):
 - `UnitsPerSecond(x) = x/60`, except **0 on the first tick after a scene load**;
 - `GetFPSRate() = 60`;
 - `GetTime()` = simulated ms since window creation, as uint32.
@@ -714,9 +714,9 @@ All 118 engine-registered identifiers the scripts call (from `reference/analysis
 
 ---
 
-## 6. 2010 (0.7.12) vs Dec-2013 (Magic Portals reference): do not reuse MP glue blindly
+## 6. 2010 (0.7.12) vs Dec-2013: do not carry 2013 behaviour over blindly
 
-The 2013 source is `Magic-Portals-Remake/reference/ethanon/toolkit/Source/src/engine`.
+The 2013 source is the Dec-2013 Ethanon source's `toolkit/Source/src/engine` (not in this repository).
 
 | Topic | 0.7.12 | 2013 |
 |---|---|---|
@@ -724,7 +724,7 @@ The 2013 source is `Magic-Portals-Remake/reference/ethanon/toolkit/Source/src/en
 | Scene load | After the loop, same frame | Start of the next Update (`:153,174-191`) |
 | UnitsPerSecond | clock()-based seconds | truncated ms/1000 (`Script/ETHScriptWrapper.System.cpp:95-98`) |
 | GetLastFrameElapsedTime | absent | present |
-| drawHash | horizontal depth/2; vertical 0.5+depth+(y−camY); decals depth/2+0.01 | horizontal depth; vertical depth+(y−camY)/screenH+0.1; decals depth+0.1 (MP `docs/ethanon-formats.md` §5.3) |
+| drawHash | horizontal depth/2; vertical 0.5+depth+(y−camY); decals depth/2+0.01 | horizontal depth; vertical depth+(y−camY)/screenH+0.1; decals depth+0.1 |
 | Visible buckets | exact (+1 ring if border) | adds a clearance factor (`Scene/ETHScene.cpp:525-532`) |
 | DrawText | D3DX system font, weight 1000 | bitmap .fnt |
 | Physics | none (script AABB) | Box2D |
@@ -752,7 +752,7 @@ The 2013 source is `Magic-Portals-Remake/reference/ethanon/toolkit/Source/src/en
 
 Read-only sources: `AGENTS.md`; `README.md` (Features, "How a frame runs"); `ARCHITECTURE.md` §4, §10 and §11; `src/core/AudioClip.hpp`.
 
-**Another project (Magic Portals) ports a different game on the same engine**, so every item below should be an **opt-in addition**, never a change to existing behaviour. See `engineGaps` for the list.
+**Another project that uses the engine ports a different game on it**, so every item below should be an **opt-in addition**, never a change to existing behaviour. See `engineGaps` for the list.
 
 ## Key facts
 
@@ -770,7 +770,7 @@ Read-only sources: `AGENTS.md`; `README.md` (Features, "How a frame runs"); `ARC
 - Textures load at their original non-power-of-two size (D3DX_DEFAULT_NONPOW2, size taken from D3DXIMAGE_INFO), so a 128×192 sheet cut 4×4 gives 32×48 frames. Colour keys: 0xFFFF00FF (magenta) for sprites, 0xFF000000 (black) for halos and ADD particles. skull.png and skull_interface.png contain exact magenta pixels.
 - Input: keys are read once per frame via GetKeyState and go UP → HIT → DOWN → RELEASE. KeyDown means HIT or DOWN. Joysticks go through winmm joyGetPosEx: axes are normalised to [-1,1] with a 0.01 dead zone, and the JK_UP/DOWN/LEFT/RIGHT buttons fire at |axis| ≥ 0.8. SetCursorPos uses desktop coordinates.
 - Custom data getters return 0 or "" when the key is missing or has the wrong type. enml getInt/getFloat leave the out-param unwritten when a key is missing, and data.enml lacks the lv20 key. GetAngle(v) = atan2(v.x, v.y), giving [0,2π). rand(n) returns 0..n inclusive.
-- Differences from the 2013 engine that Magic Portals was built on: callbacks there run before render, the drawHash formulas differ, UnitsPerSecond uses truncated milliseconds, text uses bitmap fonts, and a virtual resolution exists. Magic Portals timing and draw-order glue does not transfer.
+- Differences from the 2013 engine that another port on this engine was built on: callbacks there run before render, the drawHash formulas differ, UnitsPerSecond uses truncated milliseconds, text uses bitmap fonts, and a virtual resolution exists. That port's timing and draw-order glue does not transfer.
 
 ## Engine gaps
 

@@ -8,7 +8,7 @@ The same report is saved at `reference/analysis/report_enemies_hazards.txt`. The
 - **[S file:line]**: read in the Penumbra AngelScript.
 - **[D]**: read in `.ent`/`.esc`/`.enml` data.
 - **[B]**: read in the 2010 `machine.exe` string table (its registered AngelScript signatures).
-- **[E13 file:line]**: read in the Dec-2013 Ethanon source at `Magic-Portals-Remake/reference/ethanon/toolkit/Source/src/`. It is assumed to match the 2010 engine, but that is not verified.
+- **[E13 file:line]**: read in the Dec-2013 Ethanon source (`toolkit/Source/src/`; not in this repository). It is assumed to match the 2010 engine, but that is not verified.
 - **[I]**: my inference.
 
 **Encoding:** the text files are **Windows-1252, not Latin-1**. `switch.as:76` and `menu.as:124,133` contain byte 0x95, which is "•" in cp1252 and an invisible C1 control character in Latin-1. Decode everything as cp1252.
@@ -59,7 +59,7 @@ Dynamic ones: all enemies, `fire_shoot.ent`, `falling_bridge.ent`, weapons and s
 - `bucket = floor(pos.xy / bucketSize)` **[E13 Scene/ETHBucketManager.cpp:47-50]**.
 - `GetEntitiesFromBucket(b, arr)` **appends** the entities whose *position* (centre) lies in bucket b **[B signature; E13]**. The entity's size is ignored: a 256x256 wall lives only in its centre's bucket.
 - `GetCurrentBucket()` is the bucket of the entity's current position.
-- **Bucket size:** levels are loaded with `LoadScene(file, "setupScene", "levelLoop")`, which takes no size, so they use the default. `_ETH_DEFAULT_BUCKET_SIZE = 256` **[E13 ETHTypes.h:58, per Magic-Portals docs/ethanon-formats.md:770-771]**. The menu passes (1024,256) explicitly **[S main.as:126, menu.as:387,398]**.
+- **Bucket size:** levels are loaded with `LoadScene(file, "setupScene", "levelLoop")`, which takes no size, so they use the default. `_ETH_DEFAULT_BUCKET_SIZE = 256` **[E13 ETHTypes.h:58]**. The menu passes (1024,256) explicitly **[S main.as:126, menu.as:387,398]**.
 - The port must assume **256x256** (OPEN #2). The level3 boss layout fits it: the king at x≈10920 is in bucket 42; the summon markers at 10632 and 11223 are in buckets 41 and 43.
 - **Consequence:** enemies "see" the player only if the player's centre is in the **same bucket row** and within ±2 bucket columns (see 3.1).
 
@@ -1071,8 +1071,8 @@ Not used anywhere in scope: SetSprite, SetEmissiveColor, SetLightRange, DrawShap
   - the path-keyed sample API,
   - the per-frame knockback.
 
-  The Magic Portals port does the same (game/sim).
-- Another project (Magic Portals) is porting a different game onto the same Supersonic engine. Any engine change must be coordinated with it. This investigation made none.
+  Another game ported onto the same engine does the same.
+- Another project that uses Supersonic ports a different game onto it. Any engine change must be coordinated with it. This survey made none.
 
 ## Key facts
 
@@ -1101,7 +1101,7 @@ Not used anywhere in scope: SetSprite, SetEmissiveColor, SetLightRange, DrawShap
 - Not checked: whether src/core/ParticleSystem.cpp can reproduce Ethanon particle semantics (staggered release, repeat count, allAtOnce, MirrorX, alphaMode, per-particle randomisation), temporary-entity auto-deletion, and SoundEffect-on-spawn.
 - Not checked: 2D normal-mapped per-pixel point lights with halos, and sprite-sheet frame animation (SpriteAnimationSystem exists but was not read).
 - Port-side layer needed rather than engine changes: the 256-px bucket grid with centre-based membership, the typed custom-data bag, callbacks bound by entity label with static/dynamic gating, the path-keyed sample API (play/loop/stop/isPlaying/volume) and camera earthquake.
-- Coordination: another project (Magic Portals) is porting a different game onto the same Supersonic engine. Any engine change must be coordinated with that project; this investigation changed nothing.
+- Coordination: another project that uses Supersonic ports a different game onto it. Any engine change must be coordinated with that project; this survey changed nothing.
 
 ## Open questions
 

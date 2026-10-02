@@ -12,7 +12,7 @@ conversational phrasing removed, every fact kept. See the last entry.)
 Found the exact engine build the game shipped on — Ethanon 0.7.12, SourceForge SVN tag v0-7-12 —
 and GS2D r485 as a stand-in for the closed GameSpaceLib; both in gitignored reference/. Ran the
 original from a scratch copy (it works on Windows 11 with a HIGHDPIAWARE compat flag) and captured
-the menu. Scaffolded the repo on the Magic Portals pattern and wrote the Eth contract headers.
+the menu. Scaffolded the repo (the engine as a submodule, game/ and tests/ beside it) and wrote the Eth contract headers.
 
 **Decisions.** Port the AngelScript to C++ over an emulated 0.7.12 runtime (not embed AngelScript,
 not re-derive gameplay from data). One Ethanon frame per 60 Hz tick. Snapshot taken at 0.7.12's
@@ -26,7 +26,7 @@ it is mouse-driven through CollideDynamic. First capture was offset by DPI virtu
 ## 2026-09-27 (continued) — the game runs, whole
 
 **Built.** eth runtime + 25 scripts (9c64f8a); render/ + layer (abbc062); engine Ogg Vorbis (abb9e8a)
-and window control (a516b7c), both additive and announced to the Magic Portals project, which
+and window control (a516b7c), both additive and announced to the other project that
 shares the engine; English image variants; live shadows to the light's reach; ten headless
 gameplay scenarios.
 
@@ -46,7 +46,7 @@ live mouse (cursor.ent follows it) - hence --cursor.
 ## 2026-09-27 (night) — standing statues, highlights, options, a package
 
 **Built.** Engine f30df7c + b999491 (vertical 2D sprites, gloss highlights; opt-in, bit-identical
-for everything else; announced to the Magic Portals project and cleared by it before the push). The
+for everything else; announced to the other project that shares the engine before the push). The
 original's Settings screen gained the enhanced rows (E10). Interpolation between ticks (E8). A
 runtime path resolver and tools/package.bat; README.md; LICENSE.md + the LGPL/GPL texts;
 Penumbra.exe without a console, logging to %APPDATA%\Penumbra\penumbra.log.
@@ -84,14 +84,14 @@ decision.
 
 **Later the same day.** E15 (the misnamed horror markers play). The round's gates: test_pn_all once,
 16 suites, 3719 checks, 0 failures. Mistakes, owned: a capture loop launched a freshly relinked
-Penumbra.exe eight times after Smart App Control had refused it (eight notifications), and later a
+Penumbra.exe eight times after Smart App Control had refused it, and later a
 build-then-run chain relaunched a refused test_pn_all because the edit meant to relink it had not
 applied. Rule written down (CLAUDE.md rule 5 practice): launch a new binary once, alone, and only
 after the build log shows it was relinked.
 
 **The pause, live.** Driven with real input events: Esc in level 1 opened the pause, froze the game
 (two frames 1.5 s apart byte-identical), and Main menu reached the main menu. Two anomalies came
-from the test, not the game: the window moved under a resting mouse, and the Magic Portals
+from the test, not the game: the window moved under a resting mouse, and another
 project's game windows, opening on the same desktop, took the focus and some of the rig's input.
 The pointer now selects a pause row only when it moves 2 logical pixels or more in a tick (against
 a pixel of rounding wobble; the rig's window move is larger and is a test artifact, and a pointer
@@ -134,7 +134,7 @@ width. The simulator's base-instance limit is left to the renderer.
 ## 2026-09-28 — every platform, touch controls, the open polish
 
 **Goal.** The open polish; the game playing on Android, iOS, Windows, Linux and macOS where
-possible; controls for mobile, with the buttons from Magic Rampage (not on this laptop at first:
+possible; controls for mobile, with the buttons from Magic Rampage (not at hand at first:
 placeholder art until its package was available); Apple builds verified on GitHub Actions (with,
 at the time, a read-only deploy key on the engine for the CI).
 
@@ -153,7 +153,7 @@ menu, taps, level 1 with the controls, Back, Home and resume, the music, the dev
 **Broke.** A docs script dropped the planning doc's "Open" heading (restored a commit later).
 Ubuntu's glslc, installed in WSL by the polish work, rewrote every committed .spv through the
 engine's build; caught before the push, removed, and build_linux.sh now refuses a configured
-shader compiler. Smart App Control refused test_pn_all once (exit 126, one notification), at the
+shader compiler. Smart App Control refused test_pn_all once (exit 126), at the
 polish build; the next relink ran.
 
 **Not verified.** A real phone (Android arm64, any iPhone), a frame in the iOS simulator
@@ -161,8 +161,8 @@ polish build; the next relink ran.
 playing on each.
 
 **Last.** The packaged Windows game (tools/package.bat, the new fonts and touch art in its data)
-launched once, headless and without input, with the go-ahead of the Magic Portals project, which
-shares the desktop: level 1 at frame 300 on the laptop's Radeon, lights, torches, HUD and English
+launched once, headless and without input, on a desktop shared with another project: level 1 at
+frame 300 on an integrated GPU, lights, torches, HUD and English
 text drawn, no touch controls (off on the desktop by default), exit 0.
 
 ## 2026-09-29 — small fixes, the pause with real input
@@ -179,7 +179,7 @@ Esc opens and closes it, a focus loss opens it, the refocus click does not choos
 **Broke.** A descriptor pool one storage buffer short (a literal 7 against the new binding 13):
 SwiftShader refused it at startup, desktop drivers did not notice; caught on the emulator before
 the push, now sized from the layout and guarded. Smart App Control refused one freshly linked
-Penumbra.exe (one notification). The live test's first arrow keys were sent without scan codes.
+Penumbra.exe. The live test's first arrow keys were sent without scan codes.
 
 ---
 
@@ -398,7 +398,7 @@ for a test on a real phone. No release was made.
 
 ## 2026-09-30 — E25: a phone-sized UI
 
-**Why.** Played on a phone, 1.0.1 was small everywhere. The levels showed a wide stretch of the
+**Why.** On a phone, 1.0.1 was small everywhere. The levels showed a wide stretch of the
 castle around a small wizard. The menu sat in the middle of the screen, with the panel's text at a
 4:3 monitor's size. The direction control's down arrow did something only at a level's exit. All
 three now change while the touch controls are on (E16), and nowhere else.
@@ -490,7 +490,7 @@ and the timer sits in the top-right corner.
 **Numbers.**
 - WSL (GCC 13): zero warnings. test_pn_all: 17 suites, 21254 checks, 16 suites pass. The only
   failures are 4 in test_pn_render_hud's font coverage: the Japanese touch wording for "Próxima
-  fase" (rewritten in another session) uses U+73FE, which the bundled Noto Sans JP lacks.
+  fase" (rewritten at the same time) uses U+73FE, which the bundled Noto Sans JP lacks.
   TestRooms passes with every language file as it stands.
 - The message rule on ten shapes, widescreen on and off, at every zoom offered and E1's: the
   smallest room is 785 px. Offered steps with the automatic frame: 20:9 up to 175% (limit 182%),
@@ -592,7 +592,7 @@ left stone lies over the first panel's shadow (about 3 px darker). Neither shows
 behind the HUD; the cuts were not changed. Android: build_android.sh --package-only, zero warnings; aapt2
 dump badging gives `res/mipmap-anydpi-v26/ic_launcher.xml` for the application icon at every density, the
 farthest visible pixel 32.5 dp from the layer's centre (limit 33). On the Android 13 emulator
-(Penumbra_API33_x86_64, Pixel launcher) the 1.0.0 icon sits on a white circle, the transparent-background
+(Android 13, Pixel launcher) the 1.0.0 icon sits on a white circle, the transparent-background
 adaptive icon on a black one, and the violet-tile icon on its own tile; the launch splash shows the same
 tile on the window's black, with no white disc.
 
@@ -606,7 +606,7 @@ tile on the window's black, with no white disc.
 
 ## 2026-10-01 — A closer camera, larger direction buttons; version 1.0.2
 
-**Why.** Played again on a phone, the levels still showed more than needed and the left and right
+**Why.** On a phone, the levels still showed more than needed and the left and right
 buttons were smaller than the action buttons beside the thumb.
 
 **Built.**
@@ -731,7 +731,7 @@ render_pause 4083, render_hud 11440, scenarios 1085 (scenario 24 added); the oth
   frame 30; the tuning in level 1; the title in de, ja, ar and ru; size 1.4 and size 0.4 with
   opacity 0.2, in the editor and in play. A pair meant to show a finger pressing a moved jump button (and not its old place) came out identical at frame 60 and shows
   nothing; that the hit areas follow the drawn ones is pinned by test_pn_render_touch instead.
-- *Windows* (MSVC, this laptop, with the real Arial Narrow installed): Penumbra and test_pn_all build with zero warnings; `test_pn_all.exe` was launched once
+- *Windows* (MSVC, with the real Arial Narrow installed): Penumbra and test_pn_all build with zero warnings; `test_pn_all.exe` was launched once
   and ran: 16 suites pass.
 
 **Open.**
@@ -836,7 +836,7 @@ on the touched files.
   globe; E31, 2400x1080 in all eleven languages, 1920x1080, 1280x720, 1280x800, 1920x1200, 3120x1440, 2532x1170 with `--safe-area 132,0,132,63`, 1024x768, 1024x768 with 88/0/88/24 px cut-outs
   (the 848 px body), touch off, widescreen off and a 150 px bottom bar, and presses by `--finger`, `--pointer` and `--cursor` on every kind of cell, button and gap, the editor opened from Adjust
   and Back and Esc leaving; they match the mockups the geometry was worked out on.
-- *Windows* (this laptop, real Arial Narrow): test_pn_all still shows the 18 failures described under E28's Open.
+- *Windows* (real Arial Narrow): test_pn_all still shows the 18 failures described under E28's Open.
 
 **Open.**
 - No real phone has been tried. E31's dp figures are model values (a row is 47.1 dp at density 2.625, 44.2 at 2.8, 41.2 at 3.0), and the new button places have been seen only in headless
@@ -877,14 +877,14 @@ Separately, the README sent a reader to a GitHub Pages site for "How to install"
   credits" the page alone held; no file sizes. Four help items that only the how-to-play files carried were added (Linux: libvulkan.so.1, the Vulkan instance extensions, GLFW; Mac: the
   game that jumps in the Dock and closes), a pointer from the Windows "Run anyway" step to the Smart App Control note, and a link to the Issues page. README lines 9 to 14 now link them;
   the guides ship in the Windows zip and the Linux tar.gz with the rest of docs/. The Pages site (site/, pages.yml, the repository's homepage field) and the published v1.0.0 and v1.0.2
-  release bodies, which link it, are untouched; it is still deployed and its retirement awaits a decision. What did not carry over: the nine SVG step illustrations, the screenshot
+  release bodies, which link it, are untouched; it is still deployed; its retirement is open. What did not carry over: the nine SVG step illustrations, the screenshot
   gallery, the device badges, the language auto-switch.
 - *Docs.* docs/enhancements.md has row E32; controls.md, testing.md, the E28 planning page and game/data/images/touch/README.md follow the numbers; docs/planning/2026-10-01-e32-touch-layout-grid.md
   has the measurements, the rules and why each moved, and the open items; CLAUDE.md's layout block lists the guides and says the steps live in four places that change together.
 
 **Numbers.** Linux (WSL, gcc): test_pn_all 17 suites, 39290 checks, 0 failures (39140 at E31); render_touch 7457 (7307), render_pause 4088, render_hud 13112, as before. MSVC
 `tools\check.bat` on TouchControls.cpp and the two touched suites: zero warnings at /W4. The Windows suites were not run (Smart App Control).
-- *Confirmed in the Android emulator* (`Penumbra_API33_x86_64`, a 1344x2992 screen, a fresh install of the debug APK built from this tree, `--safe-area 199,0,0,0` because the emulator reports
+- *Confirmed in the Android emulator* (Android 13, a 1344x2992 screen, a fresh install of the debug APK built from this tree, `--safe-area 199,0,0,0` because the emulator reports
   no cut-out): the unpacked touch_controls.json holds the new numbers; the editor capture's boxes equal the Linux render's edge for edge; the left column's centres are within 0.5 px in x,
   so are the right column's, and each row's two buttons have the same y; against the hand-placed picture the residuals are those above. Driven with `adb shell input` only: menu, Settings,
   Adjust controls, the padlock, Restore (nothing moves), Back twice, New Game, level 1 with the six buttons; the jump and sword buttons held light and the wizard jumps and swings; Pause opens.
@@ -905,8 +905,8 @@ Separately, the README sent a reader to a GitHub Pages site for "How to install"
 ## 2026-10-02 (later) — The Pages download page retired; a button for every platform; the install pictures in the repository; the original's installer moved
 
 **Why.** Everything a visitor needs should be inside the repository: the README linked out to a GitHub Pages site (site/ and pages.yml) for "How to install" and "the other downloads",
-and the page's content had to be kept in step with the guides. The author decided to retire it, to put a download button on the README for every platform, to bring the page's picture
-tutorials into the repository, and to move penumbra_setup.exe (the original 2010 game's installer, 13.5 MB, at the repository root since 2026-09-19) off the front page, where a
+and the page's content had to be kept in step with the guides. The Pages download page was retired; the README got a download button for every platform, the page's picture
+tutorials came into the repository, and penumbra_setup.exe (the original 2010 game's installer, 13.5 MB, at the repository root since 2026-09-19) moved off the front page, where a
 first-time visitor could download it instead of the enhanced edition.
 
 **Built.**

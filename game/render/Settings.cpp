@@ -697,8 +697,8 @@ bool Settings::Save(const std::filesystem::path& userDir, std::string* error) co
     ec.clear();
     fs::rename(temp, path, ec);
     if (ec) {
-        // Some filesystems refuse a rename onto an existing file (MagicPortals
-        // Scores.cpp met the same): remove and retry.
+        // Some filesystems refuse a rename onto an existing file: remove and
+        // retry.
         ec.clear();
         fs::remove(path, ec);
         ec.clear();

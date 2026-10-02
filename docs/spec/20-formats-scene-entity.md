@@ -19,7 +19,7 @@
 **Confidence convention used below:**
 - **[exe]**: confirmed from the 2010 `machine.exe` string table.
 - **[data]**: observed in the files.
-- **[2013]**: taken from the Dec-2013 Ethanon source in `Magic-Portals-Remake\reference\ethanon`, whose semantics are assumed unchanged.
+- **[2013]**: taken from the Dec-2013 Ethanon source (`toolkit/Source/src/`; not in this repository), whose semantics are assumed unchanged.
 - **[script]**: from the game's .as sources.
 
 ---
@@ -726,7 +726,7 @@ Key: *collid* = collidable, *cut* = SpriteCut cols x rows, *pivot* = PivotAdjust
 
 ### 10.1 Grammar
 
-[2013] `gs2d::enml::File::ParseString` (`Magic-Portals-Remake\reference\ethanon\toolkit\Source\src\gs2d\src\Enml\Enml.cpp:313-448`, `ReadValue` at `:645-671`). The 2010 script API is `[exe]` `enmlFile`/`enmlEntity` at 0xca558–0xca894: `parseString`, `get(entity,key)`, `getInt`, `getUint`, `getFloat`, `getDouble`, `exists`, `addEntity`, `generateString`, `writeToFile`, `parseFromFile`, `getEntityNames`, `getAttributeNames`, `clear`, `add`.
+[2013] `gs2d::enml::File::ParseString` (`toolkit/Source/src/gs2d/src/Enml/Enml.cpp:313-448`, `ReadValue` at `:645-671`, in the Dec-2013 source). The 2010 script API is `[exe]` `enmlFile`/`enmlEntity` at 0xca558–0xca894: `parseString`, `get(entity,key)`, `getInt`, `getUint`, `getFloat`, `getDouble`, `exists`, `addEntity`, `generateString`, `writeToFile`, `parseFromFile`, `getEntityNames`, `getAttributeNames`, `clear`, `add`.
 
 ```
 file      := ( ws | comment | section )*
@@ -892,7 +892,7 @@ These are listed in openQuestions. In short: the numeric enum values (2013 value
 - No OGG Vorbis decoder: src/core/AudioClip.cpp:87-89 accepts only .wav and .mp3, and .mp3 decodes through Windows-only Media Foundation. 16 distinct .ogg files are played at runtime (19 on disk). Either transcode offline or add a decoder.
 - No DDS loader: textures go through stb_image, which cannot read DDS. 9 DDS files, all uncompressed (8x A8R8G8B8 + shadow.dds A8L8), so an offline PNG conversion is trivial.
 - Extension-based decoder selection would fail on entities/normalmaps/nm_white_ground.jpg, which is a 32-bpp BMP (stb_image sniffs content, so it is OK there; an extension-dispatching tool is not).
-- No XML reader in the engine: the README lists a hand-written JSON reader for .scene/.prefab only. Porting needs either an offline Ethanon->engine converter (as Magic Portals did with a Python .tscn converter) or a TinyXML-grade parser with entity decoding (&apos;) and Latin-1 input.
+- No XML reader in the engine: the README lists a hand-written JSON reader for .scene/.prefab only. Porting needs either an offline Ethanon->engine converter (as another port on this engine did, with a Python converter) or a TinyXML-grade parser with entity decoding (&apos;) and Latin-1 input.
 - No multiply/modulate blend: MaterialComponent::BlendMode is {Alpha, Additive, Premultiplied} (src/core/Components.hpp:804). Particle alphaMode 4 (modulate) is used by 20 embedded systems (character shadow beams, checkpoint, fade_out_beam, sword_beam).
 - No runtime scene writer in Ethanon .esc form: the game calls SaveScene("scenes/checkpoint.esc") (main.as:184) and reloads it (controlCharacters.as:444). The live scene, including CustomData added at runtime (waitBeforeAttack, lastTimeAlive, pvpMode, hitBy, ownerID...), must round-trip, and it needs a writable location. The same applies to rewriting hs.enml (scores.as:88).
 - 2D sprite lighting likely lacks specular + gloss maps: Light2DComponent's formula (Components.hpp:403-410) has no specular term, but the 2010 hPixelLight.cg:87-126 uses glossMap*specularBrightness*pow(N.H, specularPower). 241 scene instances carry <Gloss>, and specularPower varies (20-100). Verify with the rendering dimension.

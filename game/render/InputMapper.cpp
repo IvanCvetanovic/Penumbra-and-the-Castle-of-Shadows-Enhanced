@@ -192,8 +192,8 @@ std::array<int, kMaxJoysticks> InputMapper::PadOrder(const ControlSettings& cont
 glm::vec2 InputMapper::WindowToLogical(const glm::vec2& window, const View& view) {
     if (!(view.scale > 0.0f)) return window;
     // Input::MousePosition() is in ViewportInfo::rect's coordinates, where the
-    // game's image starts at imageOrigin (Magic Portals maps its pointer the
-    // same way, ViewportInfo::ToLocal); 0 when the image is the window.
+    // game's image starts at imageOrigin (ViewportInfo::ToLocal maps it the same
+    // way); 0 when the image is the window.
     return (window - view.imageOrigin - view.viewportMin) / view.scale;
 }
 

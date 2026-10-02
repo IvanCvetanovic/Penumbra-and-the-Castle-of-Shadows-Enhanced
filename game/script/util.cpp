@@ -442,7 +442,7 @@ bool fadeOut(const uint startTime, float& bias)
 // copied back is an open question (docs/spec/30-ethanon-runtime.md). In that
 // runaway loop g_charLevel's ++ (util.as:414) eventually passes INT_MAX:
 // AngelScript wraps, C++ leaves it undefined (MSVC wraps) - moot once the hang
-// gets its ruling.
+// is resolved.
 void addToExp(const uint player, const int exp)
 {
     g_exp[player] += exp;

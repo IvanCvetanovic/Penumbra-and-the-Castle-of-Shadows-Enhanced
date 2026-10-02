@@ -1,12 +1,12 @@
 # Penumbra e o Castelo das Sombras: player characters and combat porting spec
 
-**Scope.** This covers `controlCharacters.as` (732 lines), `playerInput.as` (441), `combo.as` (154), `swords.as` (136), `spells.as` (152), `potions.as` (75), `doDamage.as` (243) and `constants.as` (96), all in `<Desktop>\Penumbra-and-the-Castle-of-Shadows-Enhanced\extracted\app\`. I read every file in full. It also covers the helpers those files call that live elsewhere: `util.as`, `interface.as`, `eth_util.as` (frameTimer), `main.as`, `setupScene.as` (spawn and doLoop), `messageManager.as` and `cameraManager.as`. It also covers the relevant `.ent` and `.esc` data and the `data.enml` numbers.
+**Scope.** This covers `controlCharacters.as` (732 lines), `playerInput.as` (441), `combo.as` (154), `swords.as` (136), `spells.as` (152), `potions.as` (75), `doDamage.as` (243) and `constants.as` (96), all in `extracted/app/`. I read every file in full. It also covers the helpers those files call that live elsewhere: `util.as`, `interface.as`, `eth_util.as` (frameTimer), `main.as`, `setupScene.as` (spawn and doLoop), `messageManager.as` and `cameraManager.as`. It also covers the relevant `.ent` and `.esc` data and the `data.enml` numbers.
 
-**Where the engine semantics come from.** They are taken from the Dec-2013 Ethanon source at `<Desktop>\Magic-Portals-Remake\reference\ethanon\toolkit\Source\src`. Anything derived only from that source is labelled **[2013]**, because the game ran on a 2010 engine. I cross-checked the 2010 `machine.exe` API strings wherever possible.
+**Where the engine semantics come from.** They are taken from the Dec-2013 Ethanon source (`toolkit/Source/src/`; not in this repository). Anything derived only from that source is labelled **[2013]**, because the game ran on a 2010 engine. I cross-checked the 2010 `machine.exe` API strings wherever possible.
 
 **File encoding.** Text files are Latin-1. Every Portuguese string below is given with its accents; the port must keep them.
 
-Nothing was modified. The only scratch output was the sprite-grid PNGs, written to the scratchpad.
+Nothing was modified. The only scratch output was the sprite-grid PNGs.
 
 ---
 
@@ -1055,7 +1055,7 @@ The AI itself belongs to another dimension. Every NPC callback does the same ste
 
 ## Engine gaps
 
-- OGG Vorbis decoding: src/core/AudioClip.cpp:86-89 reads only .wav and .mp3, and most Penumbra combat SFX are .ogg (jump01/02, fall, blast_attack, cast_fire_spell, hit01, sword_combo, explosion, potion_pick, vanish, dark_hit, pvp_win). Adding a decoder is an engine change that must be coordinated with the other project developing Supersonic (Magic Portals). The game-side alternative is to convert to .wav/.mp3 in the asset converter.
+- OGG Vorbis decoding: src/core/AudioClip.cpp:86-89 reads only .wav and .mp3, and most Penumbra combat SFX are .ogg (jump01/02, fall, blast_attack, cast_fire_spell, hit01, sword_combo, explosion, potion_pick, vanish, dark_hit, pvp_win). Adding a decoder is an engine change that must be coordinated with the other project that uses Supersonic. The game-side alternative is to convert to .wav/.mp3 in the asset converter.
 - Text fonts: the engine draws in-world and HUD text only from BMFont text-format fonts (src/core/BitmapFont.hpp), or ImGui. The game needs 'Arial Narrow' (sizes 15-60), 'Arial Black' 17, 'Arial' 15/30 and 'Verdana' 15, all with Latin-1 Portuguese glyphs. These must be generated as BMFont assets (tooling or asset work, not engine code), or any engine-side TTF support must be coordinated with the other project.
 - Ethanon sample semantics (to emulate game-side over the mixer): one voice per file name; PlaySample restarts an already-playing file; per-file persistent volume via SetSampleVolume; IsSamplePlaying queries.
 - Particle-system <SoundEffect> plus the entity soundVolume attribute (2010 feature). To emulate game-side: play the sound on spawn of the temporary effect entity.

@@ -24,7 +24,7 @@ namespace Penumbra::Render {
 
 struct SpriteLighting {
     // MaterialComponent::sprite2D.ambient: min(1, sceneAmbient + emissive) per
-    // channel (MPR's Lighting::AmbientTerm) for EVERY sprite, lit or not:
+    // channel (docs/spec/40 section 2.7) for EVERY sprite, lit or not:
     // 0.7.12 drew each entity's ambient pass that way whatever its applyLight
     // (E:ETHRenderEntity.cpp:687-691).
     glm::vec3 ambient{1.0f};

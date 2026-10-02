@@ -49,7 +49,7 @@
 //
 // ONE BYTE BEYOND CP1252 (ENHANCEMENT E21, eth/Text.hpp): 0x8D, which cp1252
 // leaves undefined, is drawn as U+0107 (c with acute), for the enhanced
-// edition's credit ("Cvetanovi" + c-acute, with the diacritic, as decided).
+// edition's credit ("Cvetanovi" + c-acute, spelled with the diacritic).
 // Every face the scripts name has it: the Windows files (ARIALNB.TTF,
 // arialbd.ttf, ariblk.ttf, verdanab.ttf) and both stand-ins (Liberation Sans
 // Bold, DejaVu Sans Bold) map U+0107 in their cmap (test_pn_render_hud checks

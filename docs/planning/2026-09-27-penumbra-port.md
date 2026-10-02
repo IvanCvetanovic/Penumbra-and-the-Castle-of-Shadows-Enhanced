@@ -14,7 +14,7 @@ Engine, in this repository, with the engine improved where the game needs it.
 - **R5 Commits as IvanCvetanovic, no AI trailers**, here and in the engine; checkpoints at the
   implementer's discretion.
   The use of Claude Code is disclosed in README.md ("How this was made").
-- **R6 A second project (Magic Portals) also develops Supersonic.** Engine changes are additive,
+- **R6 Another project that uses the engine also develops Supersonic.** Engine changes are additive,
   made from this repo's `engine/`, rebased before push, announced to that project. Agreed with it on
   2026-09-27: keep existing enum values and their order (append new ones).
 
@@ -27,8 +27,8 @@ Engine, in this repository, with the engine improved where the game needs it.
 - `game/render` + `PenumbraLayer` — the snapshot drawn with the engine: sprite quads, Light2D with
   normal maps, projected shadows, particles as pooled quads, HUD via ScreenOverlay, TrueType text.
 - Alternatives rejected: embedding AngelScript and running the original scripts (exact, but no room
-  for the planned enhancements and no C++ to test); a data-only rewrite in the Magic Portals
-  style (the scripts ARE the spec here, so re-deriving them would only add error).
+  for the planned enhancements and no C++ to test); a data-only rewrite in the style of the engine's
+  other port (the scripts ARE the spec here, so re-deriving them would only add error).
 
 ## Enhancements (planned; each switchable where it changes gameplay)
 
@@ -64,7 +64,7 @@ Engine, in this repository, with the engine improved where the game needs it.
 
 ### Step 0 — scaffold (done 2026-09-27)
 Engine submodule at 4bfcf67; CMake (engine subproject, game/eth, game/script, PenumbraGame, tests);
-tools/build.bat; CLAUDE.md; docs/spec (eight mapping reports + synthesis); reference/ (gitignored
+tools/build.bat; CLAUDE.md; docs/spec (eight mapping reports + synthesis; the eighth, a survey of the engine's other users, since removed); reference/ (gitignored
 Ethanon 0.7.12 source, GS2D r485, disassembly, scripts); the Eth contract headers.
 
 ### Step 1 — the Eth runtime (done 2026-09-27, 9c64f8a)
@@ -140,8 +140,8 @@ test_pn_scenarios 458); menu in English and Portuguese, level 1, fullscreen 1920
 Alt+Enter directions captured, all exit 0 with validation active.
 
 ### Step 6 — standing sprites, highlights, smooth motion, the options screen, a package (done 2026-09-27)
-- **Vertical sprites and gloss highlights (engine b999491: f30df7c + b999491, pushed after the Magic
-  Portals project's go-ahead; at b999491 test_light2d 151, test_resourcesync 37, test_audio 90 pass,
+- **Vertical sprites and gloss highlights (engine b999491: f30df7c + b999491, pushed after announcing it to the
+  engine's other user; at b999491 test_light2d 151, test_resourcesync 37, test_audio 90 pass,
   test_materials refused by Smart App Control).**
   Sprite2DLight::vertical/verticalBaseY stands a 2D sprite up in the light - the flat frame turned a
   quarter turn about x through the base line, which through the port's y flip is exactly
@@ -149,7 +149,7 @@ Alt+Enter directions captured, all exit 0 with validation active.
   MaterialComponent::glossTexturePath (a fifth material binding, white when unnamed) add
   mainSpecular's Blinn highlight per light before the clamp, seen from a per-light eye
   (Light2DEye). Both opt-in; AllPasses and every non-opted sprite are bit-identical (engine suites,
-  run in the engine agent's clone at f30df7c: test_light2d 151, test_materials 371,
+  run in the engine's own clone at f30df7c: test_light2d 151, test_materials 371,
   test_resourcesync 37, and four more, 0 failures; not rerun at b999491, nor in this build).
   Wiring: render/Lighting stands every lit ET_VERTICAL sprite on verticalBaseY = -position.y at
   height z + ZAxisDirection.y * z (replacing the middle-row height); a lit <Gloss> sprite with pixel
@@ -198,7 +198,7 @@ test_pn_formats were refused by Smart App Control on both launches of this build
   before the assertion was added); the added assertion's build was refused by Smart App Control.
 - Kept as the original (harmless): a checkpoint is part of its own save, so each respawn at it takes
   it again; g_lives also counts Versus deaths (resetData restores them; Versus shows points).
-- Performance on this laptop (Radeon 780M, 1920x1080, level 3): 60 fps at vsync (FIFO), 2.7 ms of
+- Performance on a laptop with an integrated GPU (1920x1080, level 3): 60 fps at vsync (FIFO), 2.7 ms of
   CPU per frame at the median; loading a level costs one 0.7 s frame (the original: ~14 s).
 
 ### Step 8 — played live, and a lone gamepad (done 2026-09-27)
@@ -293,9 +293,9 @@ Gates: test_pn_all once - 16 suites, 3719 checks, 0 failures.
 
 ### Step 11 - the platform work opens: the pause's options row (2026-09-28)
 The goal from here: polish the open list, and make the game play on Android, iOS, Windows,
-Linux and macOS, with on-screen controls for mobile (button art from Magic Rampage, which was not on
-this laptop: placeholder art until its package was available; macOS/iOS verified on a GitHub Actions
-macOS runner). The Magic Portals project does no platform work: the engine's platform backends are ours,
+Linux and macOS, with on-screen controls for mobile (button art from Magic Rampage, which was not at
+hand: placeholder art until its package was available; macOS/iOS verified on a GitHub Actions
+macOS runner). The engine's other user does no platform work: the engine's platform backends are this port's,
 additive, the desktop path unchanged.
 - **pauseOnFocusLoss** now has its row: "Pausa ao perder o foco" / "Continua sem o foco" (Pause on
   focus loss / Play on without focus), a Switch at x 540-796, y 694-744, beside E8's (the column at
@@ -359,8 +359,8 @@ particles, one lit area). Silent without a sound device; ALSA's null device play
   penumbra_args.txt. game/android/AndroidManifest.xml: NativeActivity, no code, landscape,
   minSdk 26, targetSdk 35. tools/build_android.sh + tools/android_package.py: NDK CMake, aapt2,
   zipalign, apksigner - no Gradle.
-- **Measured** on an emulator of our own (Penumbra_API33_x86_64, port 5560, SwiftShader Vulkan 1.2,
-  headless; never the Magic Portals project's AVD): the menu, a tap as a click, New Game to level 1,
+- **Measured** on an Android 13 emulator (API 33, x86_64, SwiftShader Vulkan 1.2,
+  headless): the menu, a tap as a click, New Game to level 1,
   the touch controls moving the wizard, Back opening the pause, Home and back (surface rebuilt,
   pause open, 5 of 5), the pause's Main menu, Quit, a pad's Select and A. The emulator draws about
   5 frames a second (SwiftShader), so its game clock runs slow. AAudio opens, pauses and closes
@@ -414,11 +414,11 @@ Not measured: Android 15+ (edge-to-edge enforced; the emulator is API 33), a rea
 - docs/spec/21: the bake-eye formula, which held only in the bake's moved frame.
 Gates: Linux test_pn_all 17 suites, 5008 checks, 0 failures (render_lights 193, render_textures
 184); engine suites on Linux (test_light2d 187, test_materials 395); Windows build zero warnings;
-Windows test_pn_all refused by Smart App Control this build (exit 126, one notification): not run.
+Windows test_pn_all refused by Smart App Control this build (exit 126): not run.
 
 ### Step 17 - macOS and iOS (2026-09-28, branch apple-port)
 Built and run only on GitHub's macOS runners (macos-15 arm64, Xcode 26.3, iOS 26.2 simulators):
-this laptop cannot compile against Apple's SDKs. `.github/workflows/apple.yml`, on pushes to the
+the development machine cannot compile against Apple's SDKs. `.github/workflows/apple.yml`, on pushes to the
 `apple-port` branch and by hand, never on main; MoltenVK 1.4.2 from the KhronosGroup release's
 static xcframework, linked into the program (no loader, no SDK). The engine's side is on its
 `apple-port` branch, all behind `__APPLE__` / `SUPERSONIC_PLATFORM_IOS` / `if (APPLE)`: CoreAudio
@@ -522,7 +522,7 @@ check.bat clean on every touched file; not built or run this step.
   again, Esc reopens and Esc closes without leaving the level, a click selects and chooses, Main
   menu reaches the menu. Not testable without OS input or a pad: Alt-Tab, a real pad, the music at
   40%.
-- **Android, the touch controls** (my emulator, adb input only, default settings): a tap on New
+- **Android, the touch controls** (the Android emulator, adb input only, default settings): a tap on New
   Game; hold right, hold left, a slide from left to right; jump, sword, fire, light; two fingers
   (hold right and tap sword, through the emulator's multi-touch events); both combo buttons (the
   sword beam, the combo fireball, their mana); the pause pill, Resume, Main menu; Back opening and
@@ -661,7 +661,7 @@ failures; Linux 7935, 0 failures; engine 57 of 57 (ctest, on Linux); Android bot
 and level 1 on the emulator (out/shots/android/fixes/final_*.png).
 
 ### Step 22 - the pause with real input on Windows (2026-09-29)
-With the Magic Portals project idle and the desktop free, the packaged game (the Smart App
+With the desktop free, the packaged game (the Smart App
 Control-accepted binary; PauseMenu has not changed since it was built) was driven with real OS
 input for half a minute (keybd_event, mouse_event, and a small window of the test's own taking the
 foreground), from penumbra.log's pause lines and client-area captures (out/shots/windows/live/):
@@ -673,12 +673,12 @@ foreground), from penumbra.log's pause lines and client-area captures (out/shots
 - a real click on Resume closes it (tick 887).
 The first run's arrow keys never arrived: the test sent them with scan code 0, and GLFW reads keys
 by scan code (a test-side mistake; real arrows were checked live in Step 10 and by --hold in
-Step 19). A freshly linked build/game/Penumbra.exe was refused by Smart App Control first (one
-notification); the accepted packaged binary was used instead, never the refused one again. Still
+Step 19). A freshly linked build/game/Penumbra.exe was refused by Smart App Control first;
+the accepted packaged binary was used instead, never the refused one again. Still
 unmeasured: a real gamepad, and the music's 40% while paused, by ear.
 
 ### Step 23 - fullscreen modes, and the pointer over the bars (2026-09-29)
-Reported from a playtest on Windows: in fullscreen, picking another resolution changed nothing;
+Found in a playtest on Windows: in fullscreen, picking another resolution changed nothing;
 and the mouse pointer could not reach into the black bars at the sides of the screen.
 - **A mode picked in fullscreen.** 0.7.12: a line of the options screen's list calls
   SetWindowProperties(title, w, h, Windowed(), ...) (videoModes.as:110), which reset the D3D9
@@ -726,9 +726,9 @@ failures (render_input 286); the engine alone on Linux, 57 of 57 suites (test_ga
 new warning. The Android and iOS NativeWindowControl files were syntax-checked with GCC
 (-Wall -Wextra -Wpedantic, the native-surface window backend by define), not built with the NDK
 or Xcode: they see only new private declarations of plain types in the shared header, and drop a
-mode request as they drop any fullscreen request. Windows not built or run by this step's author; a mode switch needs
+mode request as they drop any fullscreen request. Windows not built or run in this step; a mode switch needs
 a real monitor, so the switch itself is measured only by a live run.
-- **Measured live** (the development laptop, 1920x1200 panel; one run of the new Penumbra.exe, the game's
+- **Measured live** (a 1920x1200 panel; one run of the new Penumbra.exe, the game's
   own --hold input, settings.json backed up and restored): fullscreen at the desktop's 1920x1200;
   the list's first line picked -> "at 800x600 @ 60 Hz, switched from the desktop's 1920x1200"
   (swapchain 800x600); Alt+Enter -> "Windowed at 1920x1170" (the saved window, a 1914x1153 client
@@ -742,7 +742,7 @@ Gates: Windows build zero warnings, test_pn_all once - 17 suites, 8087 checks, 0
 7998; engine ctest 57 of 57 (Linux); Android both ABIs build.
 
 ### Step 24 - the thin lines at the pits' edges: textures clamped, as 0.7.12 sampled them (2026-09-29)
-Reported after a playthrough of the whole game on Windows (a 1920x1200 panel, fullscreen, the
+Found in a playthrough of the whole game on Windows (a 1920x1200 panel, fullscreen, the
 widescreen view): thin lines at the edges of the holes that lead to the bottom of a level.
 - **Where** (Linux, lavapipe, 1920x1200 widescreen, fixed-step; the wizard put near the pits with
   the new `--spawn x,y`): a 1-2 pixel dark line hanging two or three pixels above the top of every
@@ -803,11 +803,11 @@ widescreen view): thin lines at the edges of the holes that lead to the bottom o
   an arena (PenumbraLayer; in --help).
 Gates: check.bat clean at /W4 (engine TextureRegistry.cpp; game TextureCache.cpp, PenumbraLayer.cpp,
 main.cpp; test_pn_render_textures.cpp); Linux (WSL, GCC) test_pn_all 17 suites, 9605 checks,
-0 failures (render_textures 191; the tree held the MENUS agent's work in progress too). Windows not
+0 failures (render_textures 191; the tree held other work in progress too). Windows not
 built or run by this step.
 
 ### Step 25 - the menus fill a wide window (E1, 2026-09-29)
-Reported after a playthrough of the whole game on Windows (a 1920x1200 panel): the menus still had
+Found in a playthrough of the whole game on Windows (a 1920x1200 panel): the menus still had
 black bars at the left and right, while the levels filled the widescreen view; the same question
 stood for very wide Android screens.
 - **What the four fixed-layout screens hold past their 1024x768** (extracted/app/scenes; their
@@ -878,8 +878,8 @@ stood for very wide Android screens.
     cursor.ent and its light there (measured at the pointer's own column: 64, 96, 192, 224 px).
     The English How to Play and Credits panels fit their 4:3 box at 21:9; no text runs into the
     sides.
-  - Android (my emulator, Penumbra_API33_x86_64, cold-booted headless with `-skin 2400x1080` on
-    the command line - the AVD untouched - SwiftShader; android/): the main menu fills the 20:9
+  - Android (the emulator, cold-booted headless with `-skin 2400x1080` on
+    the command line, SwiftShader; android/): the main menu fills the 20:9
     screen (adb screencap), and an adb tap at Settings' window pixel (1062, 627) opened the
     options screen - E20's phone layout - filling it too. The first boot froze under the Linux
     captures' load (qemu stopped using CPU) and was killed and booted again; the emulator's own
@@ -910,7 +910,7 @@ suites, 9605 checks, 0 failures (render_input 821, render_hud 1629, render_touch
 by this step.
 
 ### Step 26 - the enhanced edition's credit, Versus on a phone, the options' picker (2026-09-29)
-From a playtest: the enhanced edition credited on the Credits panel, the name exactly
+Goals: the enhanced edition credited on the Credits panel, the name exactly
 "Ivan Cvetanović", with the diacritic; on a phone player 1 plays on the touchscreen and
 player 2 on a Bluetooth gamepad (or two pads), Versus without a pad stays and says to connect one,
 and the co-op princess works the same way. And Step 25's unmeasured note: on the 2400x1080 emulator
@@ -971,7 +971,7 @@ the options screen's picker light was seen at the tap's x but near y 298, not at
   after the lift the picker went back to it - the same x as Settings (414), y 298. Reproduced
   exactly with `--cursor 416,213` in penumbra_args.txt (round5/20). No fix; the --cursor comment
   (PenumbraLayer.hpp) says what a finger does to a pin.
-- **Measured on the emulator** (Penumbra_API33_x86_64, headless, port 5560, SwiftShader;
+- **Measured on the emulator** (Android 13, headless, SwiftShader;
   out/shots/android/round5/): at 1280x720, a fresh install with no pad: Versus says "Connect a
   gamepad for player 2..." in touch wording (02). `adb shell input gamepad keyevent` creates a
   connected pad by itself (logcat "Gamepad 1 connected (input device -1)": the engine takes a
@@ -984,8 +984,7 @@ the options screen's picker light was seen at the tap's x but near y 298, not at
   (y 302 -> 191) and not him; in level 1 the pad's Start summons the princess ("Magical creature
   summoned", mp -50, lives 13 -> 12, 11) and its d-pad walks her 425 -> 638 with the wizard at 410
   (12); touch controls off in the options (13): the same pad now moves the menu's cursor (300 ->
-  5, E12, 14); back on: it does not. At 2400x1080 (`-skin 2400x1080` on the command line, the AVD
-  untouched): the picker at the tap (16, 17, 18), and the Step 25 view reproduced (20).
+  5, E12, 14); back on: it does not. At 2400x1080 (`-skin 2400x1080` on the command line): the picker at the tap (16, 17, 18), and the Step 25 view reproduced (20).
 - **Measured on Linux** (lavapipe, out/shots/credits/): the Credits panel at 1024x768 and 1920x1080
   in both languages, the name with its acute in the stand-in face, the role line inside the
   column, nothing past y 745.
@@ -1012,11 +1011,11 @@ Windows not built or run by this step.
 ### Step 27 - the display mode chosen for the player, and by hand (E23, 2026-09-30)
 The goal: the game chooses the best resolution and refresh rate by itself, and offers a way to set
 them by hand.
-- **What "best" is on this laptop** (read-only, no display touched: WMI `Win32_VideoController`
-  and `root\wmi WmiMonitorListedSupportedSourceModes`): an AMD Radeon 780M driving the 1920x1200
-  panel at 60 Hz, and the panel's EDID lists one source mode, 1920x1200 at 60. So on this laptop's panel
+- **What "best" is on a laptop panel with one mode** (read-only, no display touched: WMI `Win32_VideoController`
+  and `root\wmi WmiMonitorListedSupportedSourceModes`): an integrated GPU driving a 1920x1200
+  panel at 60 Hz, whose EDID lists one source mode, 1920x1200 at 60. So on such a panel
   the automatic mode is the desktop's own and switches nothing; a faster external monitor is where
-  the rate part shows. The game's last log on this machine: "Present Mode: FIFO (V-Sync Fallback)".
+  the rate part shows. The game's last log there: "Present Mode: FIFO (V-Sync Fallback)".
 - **Native = the desktop's current size, not the largest listed mode.** Windows sets the panel's
   native size by default and a player who changed it chose to; the largest mode can be a virtual one
   above the panel's (NVIDIA DSR, AMD VSR: 2880x1800 or 3840x2400 on a 1920x1200 panel, rendered at
@@ -1099,7 +1098,7 @@ them by hand.
   SimulationClock::alpha, so a 120/144/165 Hz display gets a blended frame at its rate; `GetFPSRate()
   = 60` and the tick are the scripts' clock, not the display's. The swapchain was left alone: it takes
   MAILBOX where offered (vsynced, no tearing, frames not capped at the refresh) and FIFO otherwise,
-  as on this laptop.
+  as on a 60 Hz laptop panel.
 - **Measured on Linux** (lavapipe under xvfb at 1920x1200; each run its own XDG_DATA_HOME;
   out/shots/displaymode/, logs/ beside them; out/e23_captures.sh):
   - The options screen at 1024x768 and 1920x1200 in both languages with a 1920x1200 panel's list
@@ -1122,7 +1121,7 @@ them by hand.
   - Widths (test_pn_render_hud, the Windows faces where present and the stand-ins): the widest list
     line ends at x 229 (pt, "[•] Automático (melhor)"; the switches start at 255), the widest
     rate value at x 766 (pt "Automática (1000 Hz)"; the [>] box starts at 780).
-- **Measured on Android** (Penumbra_API33_x86_64, headless, port 5560; out/shots/displaymode/android/,
+- **Measured on Android** (the Android 13 emulator, headless; out/shots/displaymode/android/,
   logcat.txt): at attach, "Display: refresh rate asked for the highest at 720x1280 (now 60.000004
   Hz, mode 1); offered 60.000004 Hz (mode 1); preferred mode 1 at 60.000004 Hz", "Refresh rate: asked
   for the highest; the display mode chosen runs at 60 Hz", "Frame rate: 60 Hz set on the window
@@ -1133,7 +1132,7 @@ them by hand.
   and logged", not a rate seen to change; the emulator's old version-1 settings.json kept its
   1366x768 and gained fullscreenRefresh.
 - **Tests**: test_pn_render_input (the defaults, the automatic and half sizes, the rate's reading and
-  its refusals, a version-1 file as the development laptop's reads, the round trip; ChooseFullscreen and ChooseRates on
+  its refusals, a version-1 file as an earlier build wrote it, the round trip; ChooseFullscreen and ChooseRates on
   a 60/165 Hz panel, a monitor without the saved size, Xvfb's unknown rate, no monitor; the automatic
   line through DecideWindowAction), test_pn_scenarios (scenario 10's list as "[x] WxH" under the
   automatic line; 21: the row stays on a phone; the new 22 in the third runtime: the marks, the
@@ -1156,23 +1155,23 @@ one rate.
 - **After review:** an older settings.json with fullscreen on now runs at the HIGHEST rate its size
   offers, not the desktop's: on a faster monitor whose desktop runs below its maximum (60 on a
   144 Hz panel), launch and Alt+Enter switch the display's rate, and leaving switches it back
-  (the development laptop's panel has one 60 Hz mode: nothing switches). The phone row is Android's only:
+  (a laptop panel with one 60 Hz mode: nothing switches). The phone row is Android's only:
   Script::g_refreshRateRow leaves it out on iOS, whose backend sets no rate (scenario 22 checks
   the row goes and comes back with the flag). A list line must end inside its 200 px hit column.
 
 ### Step 28 - public release (2026-09-30)
 - **Any clone builds.** The CMake defaults were already the source tree's (PENUMBRA_ORIGINAL_DIR
   <repo>/extracted/app, PENUMBRA_DATA_DIR game/data, the engine's asset root engine/; each a cache
-  path one -D moves). What named this laptop was the Windows scripts. build.bat, check.bat and
+  path one -D moves). What named the development machine was the Windows scripts. build.bat, check.bat and
   package.bat called Build Tools 18's vcvars64.bat by its path; they now go through
   tools/msvc_env.bat (%PENUMBRA_VCVARS%, else the newest Visual Studio or Build Tools vswhere
   reports: here the same Build Tools 18). check.bat baked this clone's path into its
   PENUMBRA_ORIGINAL_DIR/PENUMBRA_DATA_DIR and the SDK's include folder: now the repository it runs
   from (each define quoted whole, for a path with spaces) and %VULKAN_SDK%\Include, else the
   engine's vendored headers. build.bat's glslc: %PENUMBRA_GLSLC%, else the SDK 1.4.357.0's at
-  C:\VulkanSDK (this laptop: unchanged), else GLSL_COMPILER=OFF. build_android.bat: Git Bash from
+  C:\VulkanSDK, else GLSL_COMPILER=OFF. build_android.bat: Git Bash from
   %PENUMBRA_GIT_BASH%, else %ProgramFiles%\Git; build_android.sh also takes ANDROID_HOME and
-  ANDROID_SDK_ROOT (on this laptop all three name the same SDK). make_mr_touch_art.py always took
+  ANDROID_SDK_ROOT. make_mr_touch_art.py always took
   --xapk/--assets; run bare or given a missing file it now says what it needs, and that nobody
   needs it (its PNGs are committed).
 - **GLSL_COMPILER=OFF, not -NOTFOUND** (measured, CMake 3.28): find_program searches again for a
@@ -1188,7 +1187,7 @@ one rate.
   /root/pn-fresh/extracted/app, /root/pn-fresh/game/data, /root/pn-fresh/engine); the clone's engine
   tree clean afterwards. Windows: check.bat through msvc_env.bat (which picked the same vcvars64.bat
   as before) clean on eth/Paths, eth/EthApi, render/FontAtlas and render/Localization, which use both
-  defines; build.bat and package.bat read, not run (the desktop was not to be touched).
+  defines; build.bat and package.bat read, not run (the desktop was in use).
 - **CI.** apple.yml: no deploy key (actions/checkout, submodules: recursive; the engine is public),
   on pushes to main, pull requests and by hand, the apple-port trigger gone, the GLSL guard and the
   timeouts kept, `contents: read`. New ci.yml: Linux (ubuntu-24.04, GCC, build_linux.sh --jobs 4,
@@ -1279,7 +1278,7 @@ one rate.
   screen. Not run on Windows (Smart App Control refused test_pn_all; CI runs it).
 
 ### Step 31 - E25: a phone-sized UI (2026-09-30)
-- **Why.** Played on a phone, 1.0.1 was small everywhere: the levels showed a wide stretch around a
+- **Why.** On a phone, 1.0.1 was small everywhere: the levels showed a wide stretch around a
   small wizard, the menu sat in the middle of the screen with the panel's text at a 4:3 monitor's
   size, and the direction control's down arrow did something only at a level's exit. All three
   change only while the touch controls are on; a desktop without them draws exactly as before.
@@ -1320,7 +1319,7 @@ one rate.
 - **Why.** E25's review found the zoom tightening co-op's leash, messages that could run under the
   pause button on a zoomed tablet, the gamepad icon over the enlarged panel text, How to Play and
   the credits no larger on a phone, and the phone menu ignoring the safe area's top and bottom.
-  Played on a phone with curved edges, the hp and mp values could not be read: the bars start at
+  On a phone with curved edges, the hp and mp values could not be read: the bars start at
   the screen's top-left corner, the values ride the bars' ends in the bars' own dark colours, and
   the timer sits in the top-right corner.
 - **The message rule** (render/PhoneUi.hpp) now holds the messages, the zoom and the frame
@@ -1365,8 +1364,8 @@ one rate.
   changes only with `on`.
 - **Checked.** See DEVLOG.md (2026-10-01, E25's review and E26).
 
-### Step 33 - round two and three of the phone feedback; release 1.0.2 (2026-10-01)
-Played on a phone, E25 and E26 changed in four ways, and the version went to 1.0.2 (the first release
+### Step 33 - round two and three of the phone polish; release 1.0.2 (2026-10-01)
+E25 and E26 changed in four ways on a phone, and the version went to 1.0.2 (the first release
 since 1.0.0 to carry the eleven languages and the phone UI; 1.0.1 was a development build).
 - **The HUD panel is a plaque.** `frame.png` is the original's border for a screen corner: stone along
   its bottom and right only. On a touch screen the panel now stands at the safe area's corner, with no
@@ -1396,12 +1395,12 @@ since 1.0.0 to carry the eleven languages and the phone UI; 1.0.1 was a developm
 - **E24: a release with the languages.** The 1.0.0 downloads carry Portuguese and English only;
   a 1.1.0 needs versionCode 2, the versions bumped (CMake, manifests, both Info.plists), the APK
   signed on the development machine, the Windows zip, and the release workflow for the rest.
-- **E23 on Windows, live (not run: the desktop was not to be touched).** Flags and the log lines to
-  expect are in Step 27's report; on the development laptop's panel (one 60 Hz mode) automatic switches nothing.
+- **E23 on Windows, live (not run: the desktop was in use).** Flags and the log lines to
+  expect are in Step 27's report; on a laptop panel with one 60 Hz mode automatic switches nothing.
   From E23 on, a run without `--window` or `--windowed` covers the screen on a first launch (and on
   a faster monitor may switch its rate): any script or package check that launches the game bare.
-- **E23, on the development laptop:** its settings.json holds a windowed size of 1920x1200
-  (explicit, from a Step 23 pick), larger than its work area: kept as the file says, so Alt+Enter gives that window
+- **E23, a settings.json with a windowed size larger than the work area:** one that holds 1920x1200
+  (explicit, from a Step 23 pick), larger than the work area, is kept as the file says, so Alt+Enter gives that window
   until "Automático (melhor)" is picked in a window once. Every version-1 file holds a windowed
   size (1366x768 was the default written into all of them); kept too, not guessed to be automatic.
 - **iOS: an experimental download, never run** (decided 2026-09-28: it only needed to build).
@@ -1442,7 +1441,7 @@ since 1.0.0 to carry the eleven languages and the phone UI; 1.0.1 was a developm
   (pause.tick)`), so a tour with a held Esc would move on to its next scenes while the pause is
   open. Dev-only; left as is (not measured).
 - **test_pn_all's child processes** (17 starts of one file per run) against rule 5's "once per
-  build": run once this build as instructed, every start accepted. A full build now compiles every
+  build": run once this build, every start accepted. A full build now compiles every
   suite twice.
 - **The public release (2026-09-30).** This repository is public with its full history,
   the original's files (`extracted/`, `penumbra_setup.exe`) and the Magic Rampage buttons included

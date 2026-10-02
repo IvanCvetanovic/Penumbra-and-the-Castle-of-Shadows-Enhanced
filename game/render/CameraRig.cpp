@@ -23,7 +23,7 @@ glm::vec2 LogicalScreen(const Eth::RenderSnapshot& snapshot) {
                                                                                                 : kOriginalScreen;
 }
 
-// What a D3D9 game on an 8-bit target drew in (MPR's SceneRendering, the same
+// What a D3D9 game on an 8-bit target drew in (docs/spec/40 section 2.6, the same
 // reasons): texture bytes are display values and every multiply and blend
 // happens on them; no sky pass, a flat clear colour; no bloom, which the
 // original never drew.

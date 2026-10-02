@@ -147,7 +147,7 @@ The first run of the suites after only the manifest change (before any test was 
 - Renders of the editor and of play at 2992x1344 with `--safe-area 199,0,0,0`, at 2400x1080 with `--safe-area 132,0,132,63` (a notch), at 1024x768 with 88/0/88/24, and at 1920x1080,
   2560x1600, 1280x800, 1280x720 and a bare 1024x768 were read: no control is drawn over another in play on any of them, nothing is clipped by the safe area, and the six boxes measured in the editor renders
   are the manifest's within a unit. The shipped screenshots (`docs/images/*.jpg`, `site/images/*`) were not retaken; they show E29's layout until the release's pass.
-- The Android emulator (`Penumbra_API33_x86_64`, a 1344x2992 screen, landscape, a fresh install of a debug APK built from this tree, `--safe-area 199,0,0,0` in the args file): the
+- The Android emulator (Android 13, x86_64, a 1344x2992 screen, landscape, a fresh install of a debug APK built from this tree, `--safe-area 199,0,0,0` in the args file): the
   unpacked `touch_controls.json` holds the new numbers, and the editor capture's box edges equal the Linux render's, edge for edge. Measured in that capture the left column's centres
   are within 0.5 px of each other in x, and so are the right column's; the paired buttons of each row have the same y (0 px apart); the columns' centres are 187 units apart and the
   rows 136. A real-touch pass with `adb shell input` only: the menu, Settings, Adjust controls (opens locked), the padlock (unlocks), Restore (the layout is already the default:

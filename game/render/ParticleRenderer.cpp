@@ -123,8 +123,7 @@ ParticleQuad ParticleRenderer::ComputeQuad(const Eth::ParticleDraw& particle, co
     // screen-down (0,1) turns to screen-right (1,0) - counter-clockwise on
     // screen, which is also why GetAngle = atan2(x, y) calls +x 90 degrees.
     // The engine's +z rotation is counter-clockwise on screen too (y up,
-    // looking down -Z). Magic Portals' Particles::WorldRotation lands on the
-    // same +radians through two negations.
+    // looking down -Z).
     quad.rotationZ = glm::radians(particle.angle);
 
     // The cell. 0.7.12 set a rect only when the cut is more than 1x1, cutting

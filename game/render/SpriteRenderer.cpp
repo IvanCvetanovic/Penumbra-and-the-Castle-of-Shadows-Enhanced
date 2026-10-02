@@ -61,8 +61,8 @@ Look LookFor(const Eth::SpriteDraw& sprite, const SpriteLighting& lighting) {
     // (hPixelLight.cg:main, out = T*C*d*att*Lc*LI*T.a), which is Alpha: the
     // engine gives (base + lit) * alpha. The vertical pass (vPixelLight.cg:main)
     // and the gloss pass (mainSpecular, both files) do not weight it, which is
-    // Premultiplied: base * alpha + lit. So unlike MPR's tint(), which turns
-    // every lit sprite Premultiplied, only those two are (docs/spec/40 §2.8).
+    // Premultiplied: base * alpha + lit. So not every lit sprite turns
+    // Premultiplied: only those two do (docs/spec/40 §2.8).
     // Only a mixed sprite has the choice: an additive one adds either way.
     if (lighting.lit && look.blend == MaterialComponent::BlendMode::Alpha && look.transparent &&
         sprite.blendMode != Eth::AM_MODULATE && (sprite.type == Eth::ET_VERTICAL || !sprite.gloss.empty())) {
@@ -305,7 +305,7 @@ void SpriteRenderer::drawSprite(entt::registry& registry, const Eth::RenderSnaps
     const SpriteLighting lighting = ComputeSpriteLighting(sprite, snapshot, *m_textures, m_localization);
     const Look look = LookFor(sprite, lighting);
 
-    // The 2D record exactly as MPR's tint() writes it: always enabled, so the
+    // The 2D record: always enabled, so the
     // ambient multiplies and the base clamps as one fixed-point draw did; the
     // light mask and the normal map only when lights reach it (a sprite that
     // takes none keeps the flat map, and so the material set its image's other

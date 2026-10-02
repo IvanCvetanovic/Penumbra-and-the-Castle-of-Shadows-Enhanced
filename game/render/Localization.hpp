@@ -109,7 +109,7 @@ public:
     bool HasLanguageFile(Language language) const;
 
     // The language Translate(text) and the HUD use. English by default: the
-    // enhanced port's own language (a project decision); Portuguese is the original.
+    // enhanced port's own language; Portuguese is the original.
     void SetLanguage(Language language) { m_language = language; }
     Language CurrentLanguage() const { return m_language; }
     bool RightToLeft() const { return IsRightToLeft(m_language); }

@@ -1,10 +1,10 @@
 # Penumbra e o Castelo das Sombras: game flow, scenes and UI porting spec
 
-Scope: `main.as`, `setupScene.as`, `menu.as`, `videoModes.as`, `gameover.as`, `scores.as`, `timer.as`, `interface.as`, `messageManager.as`, `cameraManager.as`, `events.as`, `environment.as`. I also read the helpers they depend on: `util.as`, `playerInput.as`, `switch.as`, `constants.as`, `eth_util.as`, and `controlCharacters.as:270-469` and `:645-732` (death, lives, respawn, king). All paths are relative to `<Desktop>\Penumbra-and-the-Castle-of-Shadows-Enhanced\extracted\app`. Lines 1-41 of every file are the LGPL header. I checked that line 41 is `*/` in all 16 files.
+Scope: `main.as`, `setupScene.as`, `menu.as`, `videoModes.as`, `gameover.as`, `scores.as`, `timer.as`, `interface.as`, `messageManager.as`, `cameraManager.as`, `events.as`, `environment.as`. I also read the helpers they depend on: `util.as`, `playerInput.as`, `switch.as`, `constants.as`, `eth_util.as`, and `controlCharacters.as:270-469` and `:645-732` (death, lives, respawn, king). All paths are relative to `extracted/app/`. Lines 1-41 of every file are the LGPL header. I checked that line 41 is `*/` in all 16 files.
 
 **How each engine claim is sourced:**
 - **[2010-bin]**: from the string and signature table of `machine.exe` or `GameSpace.dll`, which is the shipped 2010 runtime.
-- **[2013-src]**: from `<Desktop>\Magic-Portals-Remake\reference\ethanon` (Dec 2013). It may differ from 2010.
+- **[2013-src]**: from the Dec-2013 Ethanon source (not in this repository). It may differ from 2010.
 - **[data]**: inferred from the scenes and scripts.
 - **[script]**: read directly from the `.as` files.
 
@@ -149,7 +149,7 @@ UI colour everywhere: RGB **(203,203,228)**.
 4. `g_gameData.getInt("global","lives",g_lives)` gives 13.
 5. `SetWindowProperties(APPLICATION_TITLE, 1024, 768, windowed=true, true, PF32BIT)`. The 5th bool is vsync in 2013 [2013-src]; unverified for 2010.
 
-**ENML semantics** [2013-src, per `Magic-Portals-Remake/docs/ethanon-formats.md` §6.1]:
+**ENML semantics** [2013-src]:
 - `key = value;` with leading whitespace skipped and trailing whitespace kept. Values may span lines.
 - The files use CRLF, so multi-line values contain `\r\n`; the port should normalize to `\n`.
 - Typed getters **leave the out-variable unchanged** when the key is missing. This matters for Section 12 bugs #10-#11.
@@ -942,8 +942,8 @@ In the table below, "Joystick" means the joystick of that player's own index, an
 - An ENML reader and writer for `data.enml` and `hs.enml`.
 
 **Coordination:**
-- Another project (Magic Portals) is developing Supersonic for a different game. Any engine-side addition (OGG decoding, a TTF text path, gradient quads, a second gamepad) must be coordinated with that project, or kept game-side.
-- This task was read-only. I changed nothing in any of the three trees.
+- Another project that uses Supersonic develops it for a different game. Any engine-side addition (OGG decoding, a TTF text path, gradient quads, a second gamepad) must be coordinated with that project, or kept game-side.
+- This survey was read-only: it changed nothing in the engine, the original's files or the port.
 
 ## Key facts
 
@@ -979,7 +979,7 @@ In the table below, "Joystick" means the joystick of that player's own index, an
 - No runtime world snapshot preserving arbitrary per-entity custom data (Ethanon SaveScene to checkpoint.esc and reload). The engine's SceneSerializer is for its own JSON component scenes; checkpoint save and restore must be a game-side snapshot of the entities and their custom-data maps.
 - No bucket-grid spatial queries (GetEntitiesFromBucket, GetCurrentBucket with 256 or 1024x256 buckets) and no visible-bucket-only callback scheduling for static entities. Both must be emulated game-side for exact trigger semantics.
 - No global ambient-light and per-entity 2D light model with the Ethanon 'lightIntensity/ambient' semantics is confirmed here (Light2D exists; this belongs to the rendering dimension). Lightning needs SetAmbientLight(vec3) every frame.
-- Coordination: another project (Magic Portals) develops Supersonic for a different game. Every gap above should preferably be solved game-side in the Penumbra repository; any engine change must be coordinated with that project.
+- Coordination: another project that uses Supersonic develops it for a different game. Every gap above should preferably be solved game-side in the Penumbra repository; any engine change must be coordinated with that project.
 
 ## Open questions
 

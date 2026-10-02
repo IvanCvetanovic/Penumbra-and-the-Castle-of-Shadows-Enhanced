@@ -2,7 +2,8 @@
 
 Decoded on 2026-09-27 by eight parallel readers plus a completeness critic, from the original's
 AngelScript source (`extracted/app/*.as`), its data, the Ethanon 0.7.12 engine source the game
-shipped on, disassembly of `machine.exe` / `GameSpace.dll`, and the Supersonic engine at 4bfcf67.
+shipped on, disassembly of `machine.exe` / `GameSpace.dll`, and the Supersonic engine at 4bfcf67. The eighth
+reader's report, a survey of the engine's other users, has since been removed.
 
 | File | What |
 |---|---|
@@ -13,7 +14,6 @@ shipped on, disassembly of `machine.exe` / `GameSpace.dll`, and the Supersonic e
 | `21-formats-particles-shaders.md` | .par particles, the 2010 Cg lighting/shadow/lightmap math |
 | `30-ethanon-runtime.md` | the 0.7.12 frame loop, buckets, ids, callbacks, custom data, draw order, blend modes, input, audio |
 | `40-engine-capabilities.md` | what Supersonic offers and lacks for this game |
-| `41-magic-portals-reuse.md` | what the Magic Portals port (also Ethanon) solved that applies here |
 | `42-magic-rampage-screenpad.md` | what Magic Rampage 7.8.7's screen that adjusts the on-screen pad does (size, transparency, lock, move, restore, storage), decoded on 2026-10-01 from its Android package as the reference for E28; its paths are inside that package, not in this repository |
 | `90-synthesis.md` | corrections to the above, gaps, engine-gap list, module breakdown and build order |
 
@@ -23,7 +23,11 @@ Known correction: text is Windows-1252, not Latin-1 (bytes 0x95 in menu.as/switc
 
 **Citation keys.** `A:` or a bare `file.as:line` = `extracted/app/`; `E:` = `reference/eth-0.7.12/src/`;
 `G:` = `reference/gs2d-r485/`; `DLL@0x…` = a virtual address in `extracted/app/GameSpace.dll`
-(listing: `reference/analysis/gs.asm`); `reference/analysis/*.py` are the census scripts. Engine
+(listing: `reference/analysis/gs.asm`); `reference/analysis/*.py` are the census scripts. `[2013]`, `[2013-src]` and `[E13 ...]`
+= the Dec-2013 Ethanon source (`toolkit/Source/src/`), a later engine than the game's that served as the
+first reference before 0.7.12 was found; it is not in this repository, and `90-synthesis.md` records
+where 0.7.12 differs. "The other port" (in `21`, `40` and `90`) is another Ethanon game built on
+the same engine, a private project that is not in this repository. Engine
 citations are relative to `engine/`. `reference/` is gitignored and lives on the development machine only; it
 is recreated from SourceForge SVN (`https://svn.code.sf.net/p/ethanon/code/tags/v0-7-12`, via
 `reference/analysis/svncrawl.py`).

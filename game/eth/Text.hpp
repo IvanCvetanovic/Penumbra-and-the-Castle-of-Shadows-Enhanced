@@ -5,8 +5,8 @@
 // the edges - logs, the font rasteriser, JSON.
 //
 // ONE PRIVATE BYTE (ENHANCEMENT E21). cp1252 has no c with acute, and the
-// enhanced edition's credit ends its name in U+0107 (decided: with the
-// diacritic, "Cvetanovi" + c-acute). 0x8D, one of the five bytes cp1252 leaves undefined, is the
+// enhanced edition's credit ends its name in U+0107 (the name is spelled with
+// the diacritic, "Cvetanovi" + c-acute). 0x8D, one of the five bytes cp1252 leaves undefined, is the
 // port's own code for U+0107, both ways: a script literal writes it as \x8D,
 // strings.json writes the character itself (the loader converts it to 0x8D),
 // FontAtlas draws the font's U+0107 glyph for it and a log shows U+0107. None
