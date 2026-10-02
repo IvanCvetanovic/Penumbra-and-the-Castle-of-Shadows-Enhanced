@@ -2,6 +2,7 @@
 
 How to run the game once it is built ([building.md](building.md)) or downloaded, where it looks
 for its files, what it saves, and its command line. The controls are in [controls.md](controls.md).
+Installing a download, step by step: [install.md](install.md) (English), [install.pt.md](install.pt.md) (Português).
 
 ## The packaged game (Windows)
 

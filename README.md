@@ -6,12 +6,12 @@
 
 <a href="https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/releases/latest/download/Penumbra-Windows.zip"><img alt="Download for Windows" height="56" src="https://img.shields.io/badge/Download%20for-Windows-D9531E?style=for-the-badge&labelColor=2F1F42&logo=data:image/svg%2bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0iI2ZmZiIgZD0iTTExIDNoMnY5LjZsMy4zLTMuMyAxLjQgMS40TDEyIDE2LjRsLTUuNy01LjcgMS40LTEuNCAzLjMgMy4zVjN6TTQgMThoMTZ2Mkg0eiIvPjwvc3ZnPg=="></a>&nbsp;&nbsp;<a href="https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/releases/latest/download/Penumbra-Android.apk"><img alt="Download for Android" height="56" src="https://img.shields.io/badge/Download%20for-Android-1E8C6E?style=for-the-badge&labelColor=2F1F42&logo=data:image/svg%2bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0iI2ZmZiIgZD0iTTExIDNoMnY5LjZsMy4zLTMuMyAxLjQgMS40TDEyIDE2LjRsLTUuNy01LjcgMS40LTEuNCAzLjMgMy4zVjN6TTQgMThoMTZ2Mkg0eiIvPjwvc3ZnPg=="></a>
 
-Also for **Mac**, **Linux** and, experimental, **iPhone and iPad**: [the other downloads](https://ivancvetanovic.github.io/Penumbra-and-the-Castle-of-Shadows-Enhanced/#other)
+Also for **Mac**, **Linux** and, experimental, **iPhone and iPad**: [the other downloads](docs/install.md#other-downloads)
 
-### [How to install: the download page](https://ivancvetanovic.github.io/Penumbra-and-the-Castle-of-Shadows-Enhanced/)
+### [How to install: step by step](docs/install.md)
 
-Most players should just use that page: every download and simple install steps, in English
-and [Portuguese](https://ivancvetanovic.github.io/Penumbra-and-the-Castle-of-Shadows-Enhanced/?lang=pt).<br>
+Most players should just use that guide: every download and simple install steps, in English
+and [Portuguese](docs/install.pt.md).<br>
 Free. Windows 10 or 11 (64-bit), Android 8 or newer, or 64-bit (x86_64) Linux from about 2022 on, with
 Vulkan 1.2 graphics; or a Mac with macOS 13.3 or newer.<br>
 The Windows download is not code-signed yet, and the Mac app is not notarised by Apple:
