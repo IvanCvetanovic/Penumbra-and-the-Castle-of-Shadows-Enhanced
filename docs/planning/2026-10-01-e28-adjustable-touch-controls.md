@@ -156,6 +156,9 @@ be re-clamped when the window changes shape.
 These figures are E28's, for the arrangement E16 gave the buttons. E29 put the action buttons in two columns of three, and the same measurement then gives **1.2** in
 every in-play case, the spell combo button no longer reaching the Pause. Above 1.2 the direction control's right button meets the sword button on a 4:3 screen
 with an 88 px notch, and the fire button meets the Pause under a 100 px bottom bar; the editor's top size, `kMaxSize`, stays 1.4.
+E32 spread the columns (67 apart, in from the edge) and levelled the rows, and the measurement then gives **1.0** in every in-play case: from 1.1 the sword button
+meets the direction control's right button on that notched 4:3 screen, and from 1.2 the fire button meets the Pause under the 100 px bar, counted in the
+768-tall pixels the layout is written in (E1's; from 1.3 counted in a window's pixels) ([`2026-10-01-e32-touch-layout-grid.md`](2026-10-01-e32-touch-layout-grid.md)).
 
 ## Tests
 
@@ -194,7 +197,7 @@ Headless, Linux/lavapipe, `--touch on --mobile-layout on --lang en --fixed-step`
 | c11 | 2400x1080; 12 and 120 | `--touch-tuning "size=1.4"`, `"size=0.4,opacity=0.2"` | the limits, in the editor and in play |
 
 The default captures (`--start level1` at 2400x1080 and 1024x768, 120 frames) are byte-identical to the ones taken at the previous commit.
-Since E29's arrangement, c3's `jump=-40:30` would put the jump button over the sword button; an example for the two columns is `--touch-tuning "size=1.2,opacity=0.6,light=-60:-20,pause=-30:20,dpad=12:0"`.
+Under E29's arrangement c3's `jump=-40:30` would put the jump button over the sword button (E32's grid keeps them 67 apart, and the moved jump button clears the sword by 27 at size 1.0); an example for the two columns is `--touch-tuning "size=1.2,opacity=0.6,light=-60:-20,pause=-30:20,dpad=12:0"`.
 A capture of a finger at a moved jump button's new centre and at its old one (`--start level1 --zoom 100 --touch-tuning "jump=-40:30" --finger 1:772,714@40-44`, and `1:812,684` for the old centre) came out identical at frame 60, so it shows nothing: that the hit areas follow the drawn ones is pinned by `test_pn_render_touch` (a button at size 0.5 is pressed where it is drawn and not where it was, and one at size 1.4 is pressed beyond its old edge).
 
 ## Open

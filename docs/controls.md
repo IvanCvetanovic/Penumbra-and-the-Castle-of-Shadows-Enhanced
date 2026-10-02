@@ -82,28 +82,31 @@ the mouse, held down, is the finger.
 
 | Action | Touch | The key it presses |
 |---|---|---|
-| Walk | The two buttons at the bottom left (left, right), level with the sword button: one control, the thumb slides between them | Left, Right |
+| Walk | The two buttons at the bottom left (left, right), a little under the bottom row of action buttons: one control, the thumb slides between them | Left, Right |
 | Next level (E25) | The down button that shows above the two, only while the wizard stands at a level's exit | Down |
-| Jump | The right-most button, at the very bottom right, a little higher than the sword button (the bottom of the right column) | Ctrl |
-| Sword | The button at the very bottom right, on the left (the bottom of the left column) | S |
+| Jump | The right-most button, at the bottom right, level with the sword button (the bottom of the right column) | Ctrl |
+| Sword | The bottom button of the left column, level with the jump button | S |
 | Fireball | The top of the right column, above the spell combo button | D |
 | Light spell | The top of the left column, above the sword combo button | Space |
 | Sword combo | The middle of the left column, between the sword and the light | the way he faces twice, then S |
 | Spell combo | The middle of the right column, between the jump and the fireball | Down, the way he faces, then D |
 | Pause (in a level) / back (arena select, game over, the end screens) | The button at the top right | Esc |
 
-The six action buttons at the bottom right are two columns of three, a thumb's reach from the corner (E29):
+The six action buttons at the bottom right are a grid of two columns of three under the right thumb (E29, E32):
 
 | | Left column | Right column |
 |---|---|---|
 | Top | Light spell | Fireball |
 | Middle | Sword combo | Spell combo |
-| Bottom | Sword | Jump (a little higher than the sword) |
+| Bottom | Sword | Jump |
 
-The right column is 24 from the screen's edge (inside its safe area), the columns are 16 apart, and so are the buttons of a
-column; the combo buttons, 100 wide in columns of 120, are centred over their columns. The right column stands 30 higher than the
-left one, so the two bottom buttons follow the arc of a thumb pivoting at the corner. The sword button is level with the direction
-control's two buttons.
+The grid is set in from the screen's edge (inside its safe area): the right column's edge is 117 units from it and the left
+column's 304, so the two columns of 120 are 67 apart, a wider gap between neighbouring buttons. The rows are
+level, with no stagger between the columns: the bottom row 49 above the edge and the top row 321, the combo buttons (100 wide,
+centred over their columns of 120) halfway between them, so that the three rows are 136 apart centre to centre. The columns are as
+far apart as the direction control allows on a 4:3 screen that a notch narrows to 848 units: the left column ends where the control's
+box does. The direction control's two buttons sit 25 units under the bottom row. (E29 had the columns 16 apart and 24 from the
+edge, the right one 30 higher than the left; before it the four buttons were a diamond with a row of the two combos above.)
 
 - Several fingers work at once: hold a direction and tap the buttons.
 - The down button (E25) appears only where down does something on its own: at a level's exit
@@ -146,14 +149,14 @@ control's two buttons.
   layout are in `game/data/touch_controls.json` and `game/data/images/touch/`, so new art is a data
   change; `"enabled": false` there removes a button (the combo buttons, say), and `"overhang"` lets a
   control's box lie past the screen edge it hangs from (the direction control's empty lower half
-  does, which is what puts its two buttons level with the sword button). The first,
+  does, which is what puts its two buttons 25 units under the action buttons' bottom row). The first,
   placeholder look is kept in `game/data/images/touch/placeholder/` with its own manifest: copy that
   over `game/data/touch_controls.json` to go back to it.
 
 ### Adjusting the buttons (E28)
 
 The buttons' size, opacity and places are the player's to change. With the touch controls on, the options screen has an **Adjust controls** button
-next to the touch controls' switch (on a phone, a cell of the large layout of E31, beside the switch's cell; under it in the art-less layout). It opens a full-screen editor that shows the real buttons on a dark background, as they are in a level: the two columns of three described above (E29), at the size, opacity and places set.
+next to the touch controls' switch (on a phone, a cell of the large layout of E31, beside the switch's cell; under it in the art-less layout). It opens a full-screen editor that shows the real buttons on a dark background, as they are in a level: the grid of two columns of three described above (E29, E32), at the size, opacity and places set.
 
 ![The editor on a 20:9 phone, with the size at 1.2, the opacity at 0.6, the padlock open and some buttons moved](images/touch-editor.jpg)
 
@@ -176,9 +179,11 @@ next to the touch controls' switch (on a phone, a cell of the large layout of E3
 - Every button stays inside the screen's safe area, and the pause button below the run's timer. The direction control keeps its overhang below the
   screen's edge, and the down button (E25) moves with it. The back button, in the arena select and on the end screens, never moves.
 - Nothing stops a button from covering the HUD or another button, and the circular arrow puts the places back, not the size. With the shipped layout,
-  no button is drawn over another in play up to size 1.2, on every screen shape and with a notch, a gesture bar or a tablet's bars (E29: it was 1.1,
-  and 1.0 with a tall bottom bar, with the buttons arranged as before). Above that the direction control's right button meets the sword button on a 4:3
-  screen with a notch, and the fire button meets the pause button under a 100-pixel bottom bar (at 1.4, also on a 20:9 phone with a notch, or with a status bar and a gesture bar); the
+  no button is drawn over another in play: the layout is clear at 1.0 and no higher, on every screen shape and with a notch, a gesture bar or a tablet's bars
+  (E32: E29's two columns held to 1.2, and E16's arrangement to 1.1, or 1.0 with a tall bottom bar). From 1.1 the direction control's right button meets the sword
+  button on a 4:3 screen with a notch (10 units apart at 1.0; on a plain 4:3 screen it is from 1.3), at 1.2 the fire button meets the pause button under a
+  100-pixel bottom bar (counted in the 768-tall pixels the layout is written in; counted in a 1080-pixel window's pixels, from 1.3) and the down button meets the sword
+  button on that notched 4:3 screen, and at 1.4 the fire button meets the pause button on a 20:9 phone as well (with no bar, or with a status bar and a gesture bar); the
   buttons are then moved apart by hand, the editor being a live preview of it.
 - The editor is opened by hand from the options screen. For captures, `--touch-editor`, `--touch-tuning` and `--finger`
   ([playing.md](playing.md#command-line)) open it, set a tuning and put a finger on the screen; a run with any of them saves nothing.

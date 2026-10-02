@@ -848,3 +848,56 @@ on the touched files.
 - A player who moved buttons to suit the old arrangement may want Restore once.
 - The screenshots docs/images/menu.jpg (also the site's) show the old main-menu globe, and touch-controls.jpg (also the site's) and touch-editor.jpg the old arrangement of the buttons; they
   are retaken with the next release, and the README and the download page still describe 1.0.2.
+
+## 2026-10-02 — E32: the action buttons as a grid; the install guide moves into the repository
+
+**Why.** E29's offsets came from a model (a thumb pivoting at the bottom-right corner), not from a layout a player had chosen. A layout placed by hand in the editor on a 2992x1344
+phone was measured from a screenshot of it (1.75 px a unit; a left cut-out of 199 px found by pixel match; the right inset assumed 0, it is not observable). It had the right column
+about 117 in from the right edge and the left about 313, the rows level and a little further apart: two columns of three as in E29, but spread, set in from the edge, with no stagger.
+Separately, the README sent a reader to a GitHub Pages site for "How to install" and "the other downloads", outside the repository.
+
+**Built.**
+- *E32, the buttons.* Offsets from the bottom right: jump 117, 49 (E29: 24, 54); sword 304, 49 (160, 24); fire 117, 321 (24, 306); light 304, 321 (160, 276); sword combo 314, 195
+  (170, 160); spell combo 127, 195 (34, 190). Sizes (120, combos 100), hit paddings, the direction control, the down button and the pause are as they were. The columns are 67
+  apart (16), the rows level (the right column was 30 higher), the three rows 136 apart centre to centre with each combo centred over its column and 26 clear of its buttons; the
+  cluster is 307 wide (256) and reaches 441 up (426); the direction control's buttons now sit 25 under the bottom row (they were level with the sword button). A clean grid would
+  have the left column at 313; on a 4:3 screen narrowed to 848 by 88 px cut-outs the direction control's box and the sword's would overlap by 9 (`DrawnOver`), so the left column is at
+  304 and the boxes touch. The sword is then 10.3 units off the measured placement, the sword combo 19.0 in y (the grid is even where the picture was not), the others within 9.
+  `touch_controls.json` and `TouchControls::DefaultManifest()` carry the numbers (a test compares them). A tuning saved before keeps its moves (deltas from the default) until Restore;
+  nothing is migrated.
+- *Tests.* The first run after only the manifest change: 276 failures in test_pn_render_touch, 7 in test_pn_render_pause. The literals that restated E29 became relations
+  (`CheckColumns`: equal column edges, level and evenly spaced rows, combos halfway, columns apart, the right column 100 in, the top row 150 clear of the pause) or are derived from the
+  manifest; the absolute numbers are pinned in `testTuningIdentity`, `testButtonColumns` (four screens, one notched) and the pause suite's editor centres. `DrawnOver` is unchanged.
+  The half-screen rule and `ReachBoth` for the direction control are restated on its two drawn buttons for the shipped look (the placeholder keeps the old rules): `hit()` sends a finger
+  that two controls reach to the nearest centre. The top-row bound went from 40 % to 39 % of the height for the shipped look. The size ceiling is 1.0 on every set (E29: 1.2); the
+  notched 4:3 shape alone sets it (without it, 1.2 and 1.1), and `kMaxSize` stays 1.4. The fire button's clearance of the pause at size 1.0 is 72.9 (E1's pixels) and 101.8 (window pixels),
+  was 87.9 and 116.8. Putting the left column back at 313 makes test_pn_render_touch fail 37 checks, so the rules are not vacuous.
+- *The install guide in the repository.* docs/install.md and docs/install.pt.md carry what the download page said: the five downloads with direct links to the latest release's files,
+  every platform's steps, the SmartScreen, Smart App Control, unknown-sources, Play Protect, Auto Blocker and Gatekeeper notes, the help lists, requirements, and the PT "what is it, controls,
+  credits" the page alone held; no file sizes. Four help items that only the how-to-play files carried were added (Linux: libvulkan.so.1, the Vulkan instance extensions, GLFW; Mac: the
+  game that jumps in the Dock and closes), a pointer from the Windows "Run anyway" step to the Smart App Control note, and a link to the Issues page. README lines 9 to 14 now link them;
+  the guides ship in the Windows zip and the Linux tar.gz with the rest of docs/. The Pages site (site/, pages.yml, the repository's homepage field) and the published v1.0.0 and v1.0.2
+  release bodies, which link it, are untouched; it is still deployed and its retirement awaits a decision. What did not carry over: the nine SVG step illustrations, the screenshot
+  gallery, the device badges, the language auto-switch.
+- *Docs.* docs/enhancements.md has row E32; controls.md, testing.md, the E28 planning page and game/data/images/touch/README.md follow the numbers; docs/planning/2026-10-01-e32-touch-layout-grid.md
+  has the measurements, the rules and why each moved, and the open items; CLAUDE.md's layout block lists the guides and says the steps live in four places that change together.
+
+**Numbers.** Linux (WSL, gcc): test_pn_all 17 suites, 39290 checks, 0 failures (39140 at E31); render_touch 7457 (7307), render_pause 4088, render_hud 13112, as before. MSVC
+`tools\check.bat` on TouchControls.cpp and the two touched suites: zero warnings at /W4. The Windows suites were not run (Smart App Control).
+- *Confirmed in the Android emulator* (`Penumbra_API33_x86_64`, a 1344x2992 screen, a fresh install of the debug APK built from this tree, `--safe-area 199,0,0,0` because the emulator reports
+  no cut-out): the unpacked touch_controls.json holds the new numbers; the editor capture's boxes equal the Linux render's edge for edge; the left column's centres are within 0.5 px in x,
+  so are the right column's, and each row's two buttons have the same y; against the hand-placed picture the residuals are those above. Driven with `adb shell input` only: menu, Settings,
+  Adjust controls, the padlock, Restore (nothing moves), Back twice, New Game, level 1 with the six buttons; the jump and sword buttons held light and the wizard jumps and swings; Pause opens.
+- *Reviewed* by four independent reads (code and tests, docs, the guides, renders at nine window shapes): no blocker; their findings were applied (stale phrases, the half-screen rule kept
+  as `>=` beside the face rule, 39 % instead of 35 %, the missing help items) or are in the open list.
+
+**Open.**
+- No real phone has been tried; the right inset of the phone the layout was measured on is assumed 0, and with a right cut-out of r units the cluster sits r units further in.
+- The 117 right margin comes from a phone with a 113.7-unit cut-out on the left; on a screen with no cut-out the direction control is 24 from the left edge and the cluster 117 from the right.
+  Mirroring the larger side inset to both sides for the touch controls is the option, not done.
+- On 4:3 screens the editor's tiles cover part of the Light button's box (Restore over it 16x96 on a bare 1024x768; opacity-up and Restore together up to 96x79 on the notched shape): a
+  finger on the covered part lands on the tile, and Restore is destructive. Moving the Lock and Restore pair left on narrow areas would clear it; not done, no test covers it.
+- docs/images/touch-controls.jpg, touch-editor.jpg and the site's copies still show E29's layout, and the README still describes 1.0.2; both are redone with the release (the held patch
+  in out/e29 needs its button sentence checked against E32 first).
+- The published release bodies and the README inside the 1.0.2 zip and tar.gz still link the Pages site, so it has to stay deployed until the bodies are edited and 1.0.3 supersedes the zips.
+- The Mac log path in the guide comes from how-to-play.txt and was not traced on a Mac; the Issues link answered 504 once from this machine (the releases link 200).
