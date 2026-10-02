@@ -19,7 +19,7 @@ cmake_minimum_required(VERSION 3.20)
 # VERSION is the release's: the Windows resources carry it (game/windows),
 # and tools/make_release.py checks that the Windows manifest and the Android
 # manifest say the same.
-project(Penumbra VERSION 1.0.3 LANGUAGES C CXX)
+project(Penumbra VERSION 1.0.4 LANGUAGES C CXX)
 set(PENUMBRA_PRODUCT_NAME "Penumbra and the Castle of Shadows - Enhanced")
 
 # Objective-C++ on Apple platforms: the entries in game/macos and game/ios ask
