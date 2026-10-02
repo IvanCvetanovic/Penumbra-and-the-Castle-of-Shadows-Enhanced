@@ -175,7 +175,9 @@ struct Settings {
     float edgeMargin = -1.0f;
     // E28: the touch controls' own size, opacity and places (render/TouchTuning.hpp),   // E28
     // set on the options screen's editor and applied over touch_controls.json's        // E28
-    // layout; the default is that layout exactly.                                       // E28
+    // layout; the default is that layout exactly. E34: the places are read back only    // E34
+    // when they were saved against this build's arrangement of that layout             // E34
+    // (TouchTuning::kLayoutVersion); the size and the opacity always are.              // E34
     TouchTuning touchTuning;                                                             // E28
     ControlSettings controls;
 

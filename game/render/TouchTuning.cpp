@@ -163,6 +163,13 @@ void TouchTuning::ReadFrom(const Value& block, TouchTuning& out, std::string* wa
         return;
     }
     double number = 0.0;
+    // E34: looked up first, whatever order the file has its keys in. Compared as the double it is: a number past
+    // int's range cannot be narrowed to it, and 3.5 is not layout 3.
+    bool sameLayout = false;
+    if (block.Has("layout")) {
+        if (FiniteNumber(block["layout"], number)) sameLayout = number == static_cast<double>(kLayoutVersion);
+        else Warn(warning, "touchTuning.layout is not a number");
+    }
     if (block.Has("size")) {
         if (FiniteNumber(block["size"], number)) out.size = SnapSize(NarrowTo(number, -1.0e6, 1.0e6));
         else Warn(warning, "touchTuning.size is not a number");
@@ -171,7 +178,8 @@ void TouchTuning::ReadFrom(const Value& block, TouchTuning& out, std::string* wa
         if (FiniteNumber(block["opacity"], number)) out.opacity = SnapOpacity(NarrowTo(number, -1.0e6, 1.0e6));
         else Warn(warning, "touchTuning.opacity is not a number");
     }
-    if (!block.Has("move")) return;
+    // E34: the moves are deltas from an arrangement of the default that is not this one's: not read, not warned about.
+    if (!sameLayout || !block.Has("move")) return;
     const Value& moves = block["move"];
     if (!moves.IsObject()) {
         Warn(warning, "touchTuning.move is not an object");
@@ -203,7 +211,8 @@ void TouchTuning::ReadFrom(const Value& block, TouchTuning& out, std::string* wa
 std::string TouchTuning::ToJson() const {
     // What is held, not what was asked: a NaN would be written as "nan", which is not JSON.
     const TouchTuning held = Clamped();
-    std::string text = "{ \"size\": " + Number(held.size) + ", \"opacity\": " + Number(held.opacity) + ", \"move\": {";
+    std::string text = "{ \"layout\": " + std::to_string(kLayoutVersion) + ", \"size\": " + Number(held.size) +
+                       ", \"opacity\": " + Number(held.opacity) + ", \"move\": {";   // E34: the layout first
     bool first = true;
     for (int i = 0; i < kTuningBackIndex; ++i) {
         const TouchMove& entry = held.move[static_cast<std::size_t>(i)];

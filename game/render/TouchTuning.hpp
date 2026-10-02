@@ -37,6 +37,18 @@ struct TouchTuning {
     static constexpr float kMaxMove = 2048.0f;    // |x| and |y|
     static constexpr float kMoveQuantum = 0.1f;
 
+    // ENHANCEMENT E34: which arrangement of the shipped default (touch_controls.json, TouchControls::DefaultManifest)
+    // the saved moves were made against. A move is a delta from where the default puts a control, so a move saved
+    // against another arrangement would be laid on this one's places (a wide, staggered cluster, until Restore).
+    // settings.json's touchTuning carries the value it was written under as "layout"; ReadFrom keeps the saved
+    // moves only when it is this number and drops them otherwise (a missing "layout" is every file written before
+    // E34), keeping the size and the opacity, which do not depend on the arrangement. The numbers: 1 is E29's
+    // arrangement (two columns, the right one higher), 2 is E32's (a level grid, 117 in from the edge), 3 is E33's
+    // (two staggered columns, the left one higher, 40 in from the edge). WHOEVER CHANGES ANY OF THE SIX ACTION
+    // BUTTONS' DEFAULT OFFSETS (or the direction control's, the down button's or the pause button's) BUMPS THIS BY
+    // ONE; tests/test_pn_render_touch.cpp pins the value beside the table of the default places (testTuningIdentity).
+    static constexpr int kLayoutVersion = 3;
+
     float size = 1.0f;                            // every control but Pause and Back
     float opacity = 1.0f;                         // times the manifest's idleAlpha (held: see WithTuning)
     std::array<TouchMove, kTuningControls> move{};
@@ -54,9 +66,11 @@ struct TouchTuning {
     static const char* ControlKey(int index);     // kTuningControlKeys[index], "" out of range
 
     // The settings.json block, `block` = root["touchTuning"]. `out` starts as the caller's default; every wrong
-    // field is left as it is and described in `warning` (may be null). Never throws.
+    // field is left as it is and described in `warning` (may be null). Never throws. E34: the block's "layout" must be
+    // kLayoutVersion for its "move" to be read; a missing or different one (an expected migration, no warning) leaves
+    // the moves as the caller had them, and a "layout" that is not a number warns and counts as different.
     static void ReadFrom(const Supersonic::Json::Value& block, TouchTuning& out, std::string* warning);
-    // The object text written after "touchTuning": (no trailing comma), one line.
+    // The object text written after "touchTuning": (no trailing comma), one line; E34: it starts with the current layout.
     std::string ToJson() const;
     // --touch-tuning's text (key=value pairs, see game/main.cpp's usage). False with `error` set when it is not that grammar; `out` is left Clamped().
     static bool ParseFlag(const std::string& text, TouchTuning& out, std::string* error);

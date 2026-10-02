@@ -1062,7 +1062,9 @@ void testSettings() {
 // unchanged; a block written by the game reads back the same; an older file has none and says nothing; every
 // wrong field is a warning and keeps its default while the rest of the block is read; numbers are held to
 // their ranges and snapped to their grids (size and moves a tenth, opacity a fifth); and the steps the
-// editor's tiles take land exactly on the limits and stop there.
+// editor's tiles take land exactly on the limits and stop there. E34: the block carries the layout (the
+// arrangement of the default) it was written under, and a block written under another keeps its size and its
+// opacity but not its moves, which are deltas from places that are no longer the default's.
 Penumbra::Render::TouchMove Mv(const float x, const float y) { return Penumbra::Render::TouchMove{x, y}; }
 
 void testSettingsTouchTuning() {
@@ -1074,7 +1076,8 @@ void testSettingsTouchTuning() {
     CHECK(en.touchTuning.IsDefault());
     CHECK(!en.touchTuning.Moved());
     CHECK_EQ(Settings::kVersion, 2);   // nothing reads it: E24-E27 added fields without bumping it, and so did E28
-    CHECK(en.ToJson().find(R"("touchTuning": { "size": 1, "opacity": 1, "move": {} },)") != std::string::npos);
+    const std::string layoutField = "\"layout\": " + std::to_string(TouchTuning::kLayoutVersion);   // E34: the value is pinned in test_pn_render_touch
+    CHECK(en.ToJson().find("\"touchTuning\": { " + layoutField + R"(, "size": 1, "opacity": 1, "move": {} },)") != std::string::npos);   // E34
 
     // What the game writes: one line, the controls in their order, only the moved ones, the shortest numbers.
     Settings tuned = en;
@@ -1083,8 +1086,8 @@ void testSettingsTouchTuning() {
     tuned.touchTuning.move[static_cast<std::size_t>(TouchControl::Pause)] = {-30.0f, 20.0f};   // set first: written by order
     tuned.touchTuning.move[static_cast<std::size_t>(TouchControl::Jump)] = {-40.0f, 12.0f};
     const std::string json = tuned.ToJson();
-    CHECK(json.find(R"("touchTuning": { "size": 1.1, "opacity": 0.6, "move": { "jump": [-40, 12], "pause": [-30, 20] } },)") !=
-          std::string::npos);
+    CHECK(json.find("\"touchTuning\": { " + layoutField +
+                    R"(, "size": 1.1, "opacity": 0.6, "move": { "jump": [-40, 12], "pause": [-30, 20] } },)") != std::string::npos);   // E34
     CHECK(tuned.touchTuning.Moved());
     CHECK(!tuned.touchTuning.IsDefault());
     std::string warning;
@@ -1119,8 +1122,14 @@ void testSettingsTouchTuning() {
     CHECK(Settings::FromJson(R"({"language": "en", "edgeMargin": 3.5})", en, &warning).touchTuning == TouchTuning{});
     CHECK(warning.empty());
 
-    const auto read = [&en](const std::string& block, std::string* warn) {
+    const auto readRaw = [&en](const std::string& block, std::string* warn) {   // E34: the block exactly as written
         return Settings::FromJson("{\"touchTuning\": " + block + "}", en, warn).touchTuning;
+    };
+    // E34: a block as a game of this layout writes it, for the tests of what is read: the current "layout" put into an
+    // object's text (anything that is not an object is left as it is, being what is wrong with it).
+    const auto read = [&](const std::string& block, std::string* warn) {
+        if (block.size() < 2 || block.front() != '{') return readRaw(block, warn);
+        return readRaw("{ " + layoutField + (block == "{}" ? std::string(" }") : ", " + block.substr(1)), warn);
     };
     constexpr std::size_t kJump = static_cast<std::size_t>(TouchControl::Jump);
     constexpr std::size_t kBack = static_cast<std::size_t>(TouchControl::Back);
@@ -1178,6 +1187,89 @@ void testSettingsTouchTuning() {
     // And a hand-edited file loses nothing else.
     const Settings rest = Settings::FromJson(R"({"language": "pt", "touchTuning": 5, "zoom": 150})", en, &mixed);
     CHECK(rest.language == "pt" && rest.zoom == 150);
+
+    // E34: the layout the moves were saved against. The same block, "layout" aside: the size and the opacity are read
+    // whatever it says; the moves only when it is the current one.
+    const std::string body = R"("size": 1.2, "opacity": 0.6, "move": { "jump": [-40, 12], "pause": [-30, 20] })";
+    const auto keeps = [&](const std::string& text, const char* what) {   // size, opacity and both moves, no warning
+        std::string warn;
+        const TouchTuning got = readRaw(text, &warn);
+        CHECK_MSG(got.size == 1.2f && got.opacity == 0.6f, what);
+        CHECK_MSG(got.move[kJump] == Mv(-40.0f, 12.0f) &&
+                      got.move[static_cast<std::size_t>(TouchControl::Pause)] == Mv(-30.0f, 20.0f), what);
+        CHECK_MSG(warn.empty(), std::string(what) + ": " + warn);
+    };
+    const auto drops = [&](const std::string& text, const char* what, const char* complaint) {   // size and opacity, no move
+        std::string warn;
+        const TouchTuning got = readRaw(text, &warn);
+        CHECK_MSG(got.size == 1.2f && got.opacity == 0.6f, what);
+        CHECK_MSG(!got.Moved(), what);
+        if (complaint == nullptr) CHECK_MSG(warn.empty(), std::string(what) + ": " + warn);   // an expected migration is not a fault
+        else CHECK_MSG(warn.find(complaint) != std::string::npos, std::string(what) + ": " + warn);
+    };
+    keeps("{ " + layoutField + ", " + body + " }", "the current layout");
+    keeps("{ \"layout\": 3.0, " + body + " }", "the current layout, written 3.0");
+    keeps("{ " + body + ", " + layoutField + " }", "the layout after the moves");   // looked up, not read in order
+    drops("{ " + body + " }", "no layout: a file from E28 to E32", nullptr);
+    drops("{ " + body + ", \"layout\": 2 }", "the layout after the moves, another one", nullptr);
+    for (const char* other : {"0", "1", "2", "4", "99", "-3", "3.5", "2.9999999", "1e40", "-1e300"}) {
+        drops("{ \"layout\": " + std::string(other) + ", " + body + " }", other, nullptr);   // older, newer, never a layout
+    }
+    for (const char* notNumber : {"\"3\"", "true", "null", "[3]", "{}", "\"x\""}) {
+        drops("{ \"layout\": " + std::string(notNumber) + ", " + body + " }", notNumber, "touchTuning.layout");
+    }
+    // What is dropped is not read: no complaint about a move the file could not have meant for this layout.
+    warning.clear();
+    CHECK(!readRaw(R"({ "layout": 2, "move": 5 })", &warning).Moved() && warning.empty());
+    CHECK(!readRaw(R"({ "size": 1.2, "move": { "jump": [1], "fly": [1, 2] } })", &warning).Moved() && warning.empty());
+    // ...but the size and the opacity are checked as ever, whatever the layout.
+    CHECK(complains(R"({ "layout": 2, "size": "x" })", "touchTuning.size").size == 1.0f);
+    // An empty block and one with a layout alone are the defaults.
+    CHECK(readRaw("{ " + layoutField + " }", &warning) == TouchTuning{} && warning.empty());
+    CHECK(readRaw("{}", &warning) == TouchTuning{} && warning.empty());
+
+    // Through the whole settings text and the file: what the game wrote under E28 to E32 is the current text without
+    // its "layout"; read, it keeps the size and the opacity and loses the moves, the next save writes the current layout
+    // (and no moves), and that file reads back as written.
+    std::string oldText = json;
+    const std::size_t layoutAt = oldText.find(layoutField + ", ");
+    CHECK(layoutAt != std::string::npos);
+    if (layoutAt != std::string::npos) oldText.erase(layoutAt, layoutField.size() + 2);
+    CHECK(oldText.find("\"layout\"") == std::string::npos);
+    CHECK(oldText.find("\"touchTuning\": { \"size\": 1.1, \"opacity\": 0.6, \"move\": { \"jump\": [-40, 12]") != std::string::npos);
+    warning.clear();
+    const Settings migrated = Settings::FromJson(oldText, en, &warning);
+    CHECK_MSG(warning.empty(), warning);
+    CHECK(migrated.touchTuning.size == 1.1f && migrated.touchTuning.opacity == 0.6f && !migrated.touchTuning.Moved());
+    Settings withoutMoves = tuned;   // everything else in the file is read as ever
+    withoutMoves.touchTuning.move = {};
+    CHECK(migrated == withoutMoves);
+    const std::string migratedBlock = "\"touchTuning\": { " + layoutField + R"(, "size": 1.1, "opacity": 0.6, "move": {} },)";
+    CHECK(migrated.ToJson().find(migratedBlock) != std::string::npos);
+    fs::remove_all(dir, ec);
+    fs::create_directories(dir, ec);
+    {
+        std::ofstream file(Settings::FilePath(dir), std::ios::binary | std::ios::trunc);
+        file << oldText;
+    }
+    warning.clear();
+    const Settings loaded = Settings::Load(dir, en, &warning);
+    CHECK_MSG(warning.empty(), warning);
+    CHECK(loaded == withoutMoves);
+    CHECK(loaded.Save(dir, &error));
+    std::string saved;
+    {
+        std::ifstream file(Settings::FilePath(dir), std::ios::binary);
+        saved.assign(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>());
+    }
+    CHECK(saved.find(migratedBlock) != std::string::npos);
+    CHECK(Settings::Load(dir, en, &warning) == loaded);
+    // A player who moves a control after that keeps it: written with the current layout, read back.
+    Settings moved = loaded;
+    moved.touchTuning.move[kJump] = {-40.0f, 12.0f};
+    CHECK(moved.Save(dir, &error));
+    CHECK(Settings::Load(dir, en, &warning) == moved);
+    fs::remove_all(dir, ec);
 
     // Clamped: what every use of a tuning goes through.
     TouchTuning wild;

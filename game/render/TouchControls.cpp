@@ -251,30 +251,34 @@ TouchManifest TouchControls::DefaultManifest() {
     constexpr TouchShape kSquare = TouchShape::Rect;
     // The disc's two buttons are drawn 21.7 above its centre and its lower half is empty, so the
     // box hangs 138 below the screen's bottom edge: the buttons' centres are then 200 - 138 + 21.7
-    // = 83.7 above it, 25 under the action buttons' bottom row (49 + 60 = 109). overhang is the allowance for that.   // E32
+    // = 83.7 above it, 25 under the mean of the action buttons' bottom-row centres (the jump button's
+    // 34 + 60 = 94 and the sword button's 64 + 60 = 124: 109). overhang is the allowance for that.   // E33
     // The box is 400 across (the art's 406 px): each button 126 units, a face of about 118.
     m[TouchControl::Dpad] = Spec("images/touch/dpad.png", TouchAnchor::BottomLeft, {24.0f, -138.0f}, {400.0f, 400.0f},
                                  TouchShape::Circle, 30.0f, {0.0f, 150.0f});
-    // E32: the six actions are a grid under the right thumb, two columns of three, set well in from the
-    // screen's right edge (the right column's 117 from it, E29 had 24) with 67 between the columns, a wider
-    // gap between neighbouring buttons, and no stagger between the columns (E29 had the
-    // right one 30 higher). The left column is as far from the right as the direction control's box allows on
-    // a 4:3 screen a notch narrows to 848: its far edge, 304 + 120 from the right, is the box's, 24 + 400 from
-    // the left. From the bottom: left sword, the sword combo, light; right jump, the spell combo, fire; the
-    // rows 136 apart centre to centre and each combo (100 wide) centred in its column of 120.   // E32
+    // E33: the six actions are two staggered columns of three under the right thumb. Every pair of
+    // neighbours is 16 apart, the columns and the buttons in a column alike (E32 had 67 between the
+    // columns and 26 between rows, E29 16), and the right column is only 40 in from the screen's right
+    // edge (E32: 117), so the cluster, 256 wide, reaches 296 in from it where E32's, 307 wide, reached
+    // 424: it uses less of the screen. The left column is 30 higher than the right at every row, the
+    // right one the lower. From the bottom: left sword, the sword combo, light; right jump, the spell
+    // combo, fire. Each combo (100 wide) is centred in its column of 120 and halfway between its two
+    // buttons, so a column's rows are 126 apart centre to centre. The right column's top is 406 above
+    // the edge and the left's 436. Changing any of these offsets means bumping TouchTuning::kLayoutVersion
+    // (a saved move is a delta from them).   // E33
     m[TouchControl::Jump] =
-        Spec("images/touch/jump.png", TouchAnchor::BottomRight, {117.0f, 49.0f}, kButton, kSquare, 4.0f);   // E32
+        Spec("images/touch/jump.png", TouchAnchor::BottomRight, {40.0f, 34.0f}, kButton, kSquare, 4.0f);   // E33
     m[TouchControl::Sword] =
-        Spec("images/touch/sword.png", TouchAnchor::BottomRight, {304.0f, 49.0f}, kButton, kSquare, 4.0f);   // E32
+        Spec("images/touch/sword.png", TouchAnchor::BottomRight, {176.0f, 64.0f}, kButton, kSquare, 4.0f);   // E33
     m[TouchControl::Fire] =
-        Spec("images/touch/fire.png", TouchAnchor::BottomRight, {117.0f, 321.0f}, kButton, kSquare, 4.0f);   // E32
+        Spec("images/touch/fire.png", TouchAnchor::BottomRight, {40.0f, 286.0f}, kButton, kSquare, 4.0f);   // E33
     m[TouchControl::Light] =
-        Spec("images/touch/light.png", TouchAnchor::BottomRight, {304.0f, 321.0f}, kButton, kSquare, 4.0f);   // E32
-    // E16 combos, E32: each in the middle of its column, halfway between its two buttons.
+        Spec("images/touch/light.png", TouchAnchor::BottomRight, {176.0f, 316.0f}, kButton, kSquare, 4.0f);   // E33
+    // E16 combos, E33: each in the middle of its column, halfway between its two buttons.
     m[TouchControl::SwordCombo] =
-        Spec("images/touch/combo_sword.png", TouchAnchor::BottomRight, {314.0f, 195.0f}, kComboButton, kSquare, 6.0f);   // E32
+        Spec("images/touch/combo_sword.png", TouchAnchor::BottomRight, {186.0f, 200.0f}, kComboButton, kSquare, 6.0f);   // E33
     m[TouchControl::SpellCombo] =
-        Spec("images/touch/combo_spell.png", TouchAnchor::BottomRight, {127.0f, 195.0f}, kComboButton, kSquare, 6.0f);   // E32
+        Spec("images/touch/combo_spell.png", TouchAnchor::BottomRight, {50.0f, 170.0f}, kComboButton, kSquare, 6.0f);   // E33
     // E25's down button: the arrows' size, centred over the gap between the left and right buttons
     // (the disc's centre, 24 + 200 across) and about 17 px above their faces (the disc's centre,
     // 768 + 138 - 200 = 706, less 21.7 to theirs, less 59): x 161-287, y 482-608.
