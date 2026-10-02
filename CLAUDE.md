@@ -57,17 +57,17 @@ tools/apple/         make_app.sh (Penumbra.app for macOS or iOS), make_release.s
                      Apple builds run only in CI (this laptop has no Apple SDK)
 .github/workflows/   ci.yml (Linux, the gate; Windows, best-effort) and apple.yml: on pushes to main, PRs,
                      by hand; release.yml (by hand): the Linux, Mac and iPhone/iPad downloads, added to a
-                     release; pages.yml: site/, the Pages download page (still deployed)
-site/                the download page (EN/PT) on GitHub Pages: still published, but the README no longer
-                     links to it (it links docs/install.md instead); its retirement awaits the author's decision
+                     release
 docs/install.md      the install guide, linked from the README: every download's steps, the controls, the credits;
-                     the steps also live in game/*/how-to-play.txt and site/index.html: change them together
+                     the steps also live in game/*/how-to-play.txt: change them together
 docs/install.pt.md   the same in Portuguese; docs/*.md ship in the Windows and Linux downloads, so both travel there
 tools/art/           make_localized_art.py: the image variants with translated words, game/data/images/<id>
                      (make_english_art.py: the same for English only)
 tools/l10n/          make_fonts.py: the bundled Noto Sans JP / Arabic subsets (rerun when ja.json changes)
 docs/spec/           what the original is and does (read-only knowledge base, cited)
 docs/planning/       the port's step record
+docs/original-installer/  the 2010 original's installer, moved off the repository's front page so that no
+                     .exe sits where a first-time visitor looks; not for players, never in a download
 DEVLOG.md            append-only work log
 extracted/app/       THE ORIGINAL GAME, read-only. Never write into it.
 reference/           gitignored: Ethanon 0.7.12 source (eth-0.7.12), GS2D r485, disassembly, scripts
