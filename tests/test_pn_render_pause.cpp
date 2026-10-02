@@ -1246,14 +1246,14 @@ void testEditorDrag() {   // E28
     CHECK(!rig.editor.Locked());   // E28
     CHECK(rig.controls.Visible(TouchControl::Jump));   // E28
     const glm::vec2 jump = rig.Where(TouchControl::Jump);   // E28
-    CHECK(AtPoint(jump, 924.0f, 674.0f));   // 4:3, size 1: the box (864,614)-(984,734)   // E28, E33: the staggered columns
-    // E33: the editor shows the shipped arrangement: from the bottom, left the sword, its combo and the light, right the jump (30 lower than   // E33
+    CHECK(AtPoint(jump, 924.0f, 644.0f));   // 4:3, size 1: the box (864,584)-(984,704)   // E28, E33: the staggered columns
+    // E33: the editor shows the shipped arrangement: from the bottom, left the sword, its combo and the light, right the jump (30 higher than   // E33
     // the sword), the spell combo and the fire, the combos centred over their columns and 30 apart in height as the columns are.   // E33
-    CHECK(AtPoint(rig.Where(TouchControl::Sword), 788.0f, 644.0f));   // E33
-    CHECK(AtPoint(rig.Where(TouchControl::SwordCombo), 788.0f, 518.0f));   // E33
-    CHECK(AtPoint(rig.Where(TouchControl::Light), 788.0f, 392.0f));   // E33
-    CHECK(AtPoint(rig.Where(TouchControl::SpellCombo), 924.0f, 548.0f));   // E33
-    CHECK(AtPoint(rig.Where(TouchControl::Fire), 924.0f, 422.0f));   // E33
+    CHECK(AtPoint(rig.Where(TouchControl::Sword), 788.0f, 674.0f));   // E33
+    CHECK(AtPoint(rig.Where(TouchControl::SwordCombo), 788.0f, 548.0f));   // E33
+    CHECK(AtPoint(rig.Where(TouchControl::Light), 788.0f, 422.0f));   // E33
+    CHECK(AtPoint(rig.Where(TouchControl::SpellCombo), 924.0f, 518.0f));   // E33
+    CHECK(AtPoint(rig.Where(TouchControl::Fire), 924.0f, 392.0f));   // E33
     const glm::vec2 target = jump + glm::vec2(-40.0f, 12.0f);   // E28
 
     CHECK(!rig.Tick({Finger(1, jump)}).changed);   // landing moves nothing   // E28
@@ -1269,7 +1269,7 @@ void testEditorDrag() {   // E28
     CHECK_NEAR(rig.editor.Tuning().move[Index(TouchControl::Jump)].x, -40.0f);   // E28
     CHECK_NEAR(rig.editor.Tuning().move[Index(TouchControl::Jump)].y, 12.0f);   // E28
     // The controls took it at once: the box is where the finger left it.   // E28
-    CHECK(AtPoint(rig.Where(TouchControl::Jump), 884.0f, 686.0f, 0.2f));   // E28, E33
+    CHECK(AtPoint(rig.Where(TouchControl::Jump), 884.0f, 656.0f, 0.2f));   // E28, E33
     // A finger standing still changes nothing.   // E28
     CHECK(!rig.Tick({Finger(1, target)}).changed);   // E28
     const TouchEditStep lift = rig.Tick();   // E28

@@ -43,11 +43,13 @@ struct TouchTuning {
     // settings.json's touchTuning carries the value it was written under as "layout"; ReadFrom keeps the saved
     // moves only when it is this number and drops them otherwise (a missing "layout" is every file written before
     // E34), keeping the size and the opacity, which do not depend on the arrangement. The numbers: 1 is E29's
-    // arrangement (two columns, the right one higher), 2 is E32's (a level grid, 117 in from the edge), 3 is E33's
-    // (two staggered columns, the left one higher, 40 in from the edge). WHOEVER CHANGES ANY OF THE SIX ACTION
-    // BUTTONS' DEFAULT OFFSETS (or the direction control's, the down button's or the pause button's) BUMPS THIS BY
-    // ONE; tests/test_pn_render_touch.cpp pins the value beside the table of the default places (testTuningIdentity).
-    static constexpr int kLayoutVersion = 3;
+    // arrangement (two columns, the right one higher), 2 is E32's (a level grid, 117 in from the edge), 3 is an
+    // intermediate build of E33 (two staggered columns 40 in from the edge, the LEFT one the higher), which was
+    // never in a release, and 4 is E33's (the same columns with the RIGHT one the higher). WHOEVER CHANGES ANY OF
+    // THE SIX ACTION BUTTONS' DEFAULT OFFSETS (or the direction control's, the down button's or the pause button's)
+    // BUMPS THIS BY ONE; tests/test_pn_render_touch.cpp pins the value beside the table of the default places
+    // (testTuningIdentity).
+    static constexpr int kLayoutVersion = 4;
 
     float size = 1.0f;                            // every control but Pause and Back
     float opacity = 1.0f;                         // times the manifest's idleAlpha (held: see WithTuning)

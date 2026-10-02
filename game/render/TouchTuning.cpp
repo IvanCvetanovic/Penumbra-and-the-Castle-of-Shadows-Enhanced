@@ -164,7 +164,7 @@ void TouchTuning::ReadFrom(const Value& block, TouchTuning& out, std::string* wa
     }
     double number = 0.0;
     // E34: looked up first, whatever order the file has its keys in. Compared as the double it is: a number past
-    // int's range cannot be narrowed to it, and 3.5 is not layout 3.
+    // int's range cannot be narrowed to it, and 4.5 is not layout 4.
     bool sameLayout = false;
     if (block.Has("layout")) {
         if (FiniteNumber(block["layout"], number)) sameLayout = number == static_cast<double>(kLayoutVersion);

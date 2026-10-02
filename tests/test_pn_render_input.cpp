@@ -1208,22 +1208,29 @@ void testSettingsTouchTuning() {
         else CHECK_MSG(warn.find(complaint) != std::string::npos, std::string(what) + ": " + warn);
     };
     keeps("{ " + layoutField + ", " + body + " }", "the current layout");
-    keeps("{ \"layout\": 3.0, " + body + " }", "the current layout, written 3.0");
+    keeps("{ \"layout\": " + std::to_string(TouchTuning::kLayoutVersion) + ".0, " + body + " }", "the current layout, written as a double");
     keeps("{ " + body + ", " + layoutField + " }", "the layout after the moves");   // looked up, not read in order
     drops("{ " + body + " }", "no layout: a file from E28 to E32", nullptr);
-    drops("{ " + body + ", \"layout\": 2 }", "the layout after the moves, another one", nullptr);
-    for (const char* other : {"0", "1", "2", "4", "99", "-3", "3.5", "2.9999999", "1e40", "-1e300"}) {
+    // 3 is the number an intermediate build of E33 (the left column the higher; never released) wrote beside its moves, which
+    // were made against places that are not this layout's: they go, as every older number's do.
+    drops("{ \"layout\": 3, " + body + " }", "layout 3: the intermediate E33 build", nullptr);
+    drops("{ \"layout\": 3.0, " + body + " }", "layout 3, written as a double", nullptr);
+    drops("{ " + body + ", \"layout\": 3 }", "the layout after the moves, another one", nullptr);
+    for (const char* other : {"0", "1", "2", "3", "5", "99", "-3", "4.5", "3.9999999", "1e40", "-1e300"}) {
         drops("{ \"layout\": " + std::string(other) + ", " + body + " }", other, nullptr);   // older, newer, never a layout
     }
-    for (const char* notNumber : {"\"3\"", "true", "null", "[3]", "{}", "\"x\""}) {
-        drops("{ \"layout\": " + std::string(notNumber) + ", " + body + " }", notNumber, "touchTuning.layout");
+    // The current number as text and as the one element of an array: not numbers, so not the current layout either.
+    const std::string currentLayout = std::to_string(TouchTuning::kLayoutVersion);
+    for (const std::string& notNumber : {"\"" + currentLayout + "\"", std::string("true"), std::string("null"),
+                                         "[" + currentLayout + "]", std::string("{}"), std::string("\"x\"")}) {
+        drops("{ \"layout\": " + notNumber + ", " + body + " }", notNumber.c_str(), "touchTuning.layout");
     }
     // What is dropped is not read: no complaint about a move the file could not have meant for this layout.
     warning.clear();
-    CHECK(!readRaw(R"({ "layout": 2, "move": 5 })", &warning).Moved() && warning.empty());
+    CHECK(!readRaw(R"({ "layout": 3, "move": 5 })", &warning).Moved() && warning.empty());
     CHECK(!readRaw(R"({ "size": 1.2, "move": { "jump": [1], "fly": [1, 2] } })", &warning).Moved() && warning.empty());
     // ...but the size and the opacity are checked as ever, whatever the layout.
-    CHECK(complains(R"({ "layout": 2, "size": "x" })", "touchTuning.size").size == 1.0f);
+    CHECK(complains(R"({ "layout": 3, "size": "x" })", "touchTuning.size").size == 1.0f);
     // An empty block and one with a layout alone are the defaults.
     CHECK(readRaw("{ " + layoutField + " }", &warning) == TouchTuning{} && warning.empty());
     CHECK(readRaw("{}", &warning) == TouchTuning{} && warning.empty());
