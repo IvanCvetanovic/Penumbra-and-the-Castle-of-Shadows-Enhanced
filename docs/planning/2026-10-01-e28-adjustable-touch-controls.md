@@ -159,7 +159,7 @@ with an 88 px notch, and the fire button meets the Pause under a 100 px bottom b
 E32 spread the columns (67 apart, in from the edge) and levelled the rows, and the measurement then gives **1.0** in every in-play case: from 1.1 the sword button
 meets the direction control's right button on that notched 4:3 screen, and from 1.2 the fire button meets the Pause under the 100 px bar, counted in the
 768-tall pixels the layout is written in (E1's; from 1.3 counted in a window's pixels) ([`2026-10-01-e32-touch-layout-grid.md`](2026-10-01-e32-touch-layout-grid.md)).
-E33 brought the columns to 16 apart and 40 from the edge and staggered them (the left one 30 higher), and the measurement then gives **1.1** in every in-play case: from 1.2 the sword button meets the direction control's right button on that notched 4:3 screen, and from 1.3 the fire button meets the Pause under the 100 px bar in E1's pixels ([`2026-10-02-e33-touch-grid-staggered.md`](2026-10-02-e33-touch-grid-staggered.md)).
+E33 brought the columns to 16 apart and 40 from the edge and staggered them (the right one 30 higher), and the measurement then gives **1.1** in every in-play case: from 1.2 the sword button meets the direction control's right button on that notched 4:3 screen, and from 1.2 the fire button meets the Pause under the 100 px bar in E1's pixels (from 1.3 in a window's pixels) ([`2026-10-02-e33-touch-grid-staggered.md`](2026-10-02-e33-touch-grid-staggered.md)).
 
 ## Tests
 

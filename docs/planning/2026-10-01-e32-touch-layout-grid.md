@@ -2,7 +2,7 @@
 
 > **2026-10-02: superseded by E33** ([`2026-10-02-e33-touch-grid-staggered.md`](2026-10-02-e33-touch-grid-staggered.md)). The arrangement below is E32's. E33 replaced it with two staggered
 > columns, nearer the edge and closer together, which changes every number in "What it is", the size ceilings and the pause clearances, and the editor tiles' overlap with the Light button (the
-> open item below: it remains only where a notch narrows a 4:3 or 5:4 screen). E34 made a saved tuning's moves follow the default's arrangement, which this page's "nothing is migrated" did not. The page is kept as it was written.
+> open item below: it remains only where a notch narrows a 5:4 screen). E34 made a saved tuning's moves follow the default's arrangement, which this page's "nothing is migrated" did not. The page is kept as it was written.
 
 Built 2026-10-02, on E29's two columns of action buttons and E28's editor. This page is what was wrong with E29's numbers, what was measured to replace them, the
 numbers, the test rules that had to move and why, and what was checked. The player's view is in [`../enhancements.md`](../enhancements.md) and
@@ -188,7 +188,7 @@ The first run of the suites after only the manifest change (before any test was 
   its centre fires Restore, a drag from there does nothing, and a drag from its uncovered top strip still moves it. "Captured" is a render of the editor with the Linux headless build
   (`--touch-editor unlocked`, with the safe area given); "modelled" is the tile and box arithmetic from `TouchEditor.hpp`'s constants and the manifest, which reproduces the captured
   rows. A fix, not done: shift the Lock and Restore pair left on narrow areas, by how far the Light's box reaches into it, computed from the manifest. No test covers it.
-  *2026-10-02, E33: with the Light's box starting 296 from the edge instead of 424, the overlap is gone on plain 4:3 screens and on the 4:3 screens with a bottom bar; it remains as the brighten tile over a 32 x 16 corner of the Light's box on a 4:3 screen with a notch's two 88-unit cut-outs, and as 64 x 16 and 8 x 84 on the modelled 5:4 one. The table above is E32's.*
+  *2026-10-02, E33: with the Light's box starting 296 from the edge instead of 424 and its top 406 above the bottom edge (E32: 321 + 120 = 441), the overlap is gone on every 4:3 screen, the one with a notch's two 88-unit cut-outs included; it remains only as the Restore tile over an 8 x 96 strip of the Light's box on the modelled 5:4 screen with a notch. The table above is E32's.*
 - The sword combo's y is 19 units from the picture's (above).
 - The size ceiling of 1.0 is the notched 4:3 screen's, a 4:3 screen with a phone's 88-unit cut-outs on both sides, which no device is known to have. Leaving that one shape out, the
   sets' ceilings would read 1.2 (the unzoomed screens, the nine bars, the 48 px bar, and the window-pixel reading with the 100 px bar) and 1.1 (the 100 px bar in E1's pixels).
