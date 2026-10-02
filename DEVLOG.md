@@ -969,3 +969,42 @@ repositories hold about the working sessions and the machine found material that
   have, and GitHub still serves commits that no branch points to. A purge request, a recreated repository or acceptance are the options; nothing was rewritten or force-pushed.
 - Secret scanning is off on both public repositories.
 - The 117-unit right margin of E32 comes from a phone with a left cut-out; the editor's tiles still overlap the Light button on 4:3 screens (E32's open list).
+
+## 2026-10-02 (evening) — Release 1.0.4: the staggered button columns (E33), the reset of saved moves (E34), the Supersonic intro (E35), public-readiness polish; only the newest version downloadable
+
+**Why.** 1.0.3's button grid took too much of a phone's screen and its columns were level; the buttons were rearranged, the engine this edition runs on got its two seconds at the start, and a
+walk through the repository as a first-time visitor found gaps a beginner would hit. The files of a published release are never replaced, so all of it is a new release.
+
+**Built (details in docs/planning/2026-10-02-e33-touch-grid-staggered.md and ...-e35-supersonic-intro.md).**
+- *E33.* The six action buttons: 16 units between neighbours, 40 from the right edge (cluster 256 wide; E32: 307, 117, 67), and the RIGHT column (jump, spell combo, fire) 30 units higher than
+  the left (sword, sword combo, light): jump 40,64; spell combo 50,200; fire 40,316; sword 176,34; sword combo 186,170; light 176,286. An intermediate build had the left column higher; it never
+  shipped. Size ceiling 1.1 on every set (E32: 1.0). Android emulator: the six boxes at the manifest's places within 0.3 units.
+- *E34.* `touchTuning` in settings.json carries `layout` (TouchTuning::kLayoutVersion = 4: 1 is E29's arrangement, 2 is E32's, 3 the intermediate build's); a file with another number or none loses
+  its moves on loading and keeps size and opacity, because moves are deltas from the default's places and a changed default stacked them. Emulator: old-format and layout-3 files show the default
+  with the opacity kept, layout-4 moves apply, a drag saved in the real editor writes the number.
+- *E35.* A normal start opens on the Supersonic Engine's logo for 2.0 s (24 ticks in, 72 held, 24 out; the machine is not stepped meanwhile, so the first menu frame, time and random sequence are
+  as before), any press ends it by fading out from tick 18 and is held back from the menu; off with `--splash off` and with every developer flag (`--start`, `--frames`, `--screenshot`,
+  `--fixed-step`...), so tests and captures are unchanged (five captures byte-identical). The logo is the engine's own branding SVG drawn at 2x without its decorative bars and cropped around the
+  lettering (2258x640, game/data/images/splash/, MIT-0), centred within 0.2 %. 17 suites, 45088 checks, 0 failures.
+- *Public-readiness polish* (a first-visitor walk): the README and the guides say before the steps that a Windows 11 PC with Smart App Control on may refuse the unsigned download, and how to
+  check; a bug report form (.github/ISSUE_TEMPLATE), CONTRIBUTING.md and SECURITY.md (private vulnerability reporting switched on); a plainer first screen (what to do after the download, what
+  Vulkan 1.2 means, the iPhone and iPad file needs a computer, the translations were made with AI help and not checked by native speakers); the README's PowerShell build row; docs/controls.md in
+  plain words. Repository settings: secret scanning and push protection on, approval for every outside contributor's workflow run, artifact and log retention 14 days, projects off, merged
+  branches deleted, topics macos and ios.
+
+**Released.** 1.0.4 (build 5), tagged at e332853, Latest; CI at that commit (Linux, Windows with every step, Apple) green. The Windows zip (612 entries) and the APK (signed with the release key,
+certificate AC:1D:43:BD) were built from a clean clone at a short neutral path (no user folder name in the exe or the Android libraries: 0 occurrences scanned); Linux, Mac and iPhone/iPad files
+by release.yml (run 37032884220, four jobs green), which also rewrote SHA256SUMS.txt. A script checked the downloaded six files (39 checks: sums, layouts, versions, certificate, no installer, no
+original scripts, no user name), the logo was found byte-identical in all five packages, and all six `releases/latest/download` addresses answer 200. Not done: the downloaded Windows exe was not
+launched (Smart App Control); no real phone has run the E33 arrangement or the intro; on the emulator (about 4 frames a second) stale logo frames reappeared after the intro in some runs with
+one `started` and one `finished` line each: probably the software swapchain, to be looked at on a phone.
+
+**Only the newest version is downloadable.** The v1.0.3 release (after v1.0.0 and v1.0.2 earlier) and the tags v1.0.0 (2b5cdff), v1.0.2 (516f869) and v1.0.3 (3849876) were deleted after 1.0.4 was
+verified as Latest; the files and notes of the three old releases are kept, checked against their own SHA256SUMS, in out/release/published/ (gitignored); 129 older Actions build artifacts were
+deleted (the 11 left are the 1.0.4 runs'). A tag can be recreated with `git push origin <sha>:refs/tags/<tag>`.
+
+**Open.**
+- No real phone has tried E33, E34 or E35; whether the logo flashes back after the fade on a phone needs a look.
+- The arrangement's first numbers were measured on a phone with a left cut-out and the right inset was taken as 0 (E32's open list).
+- History cannot be changed by a commit (see the entry of 2026-10-02, afternoon).
+- Mac, Linux and iPhone/iPad have never been run by a person; Windows is still unsigned.
