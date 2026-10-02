@@ -148,6 +148,15 @@ absolute paths baked in by CMake. It finds the engine's shaders in `engine/asset
 can therefore be started from any directory. The Linux, Android and Apple builds are described in
 [building.md](building.md).
 
+## When the game starts
+
+A normal start opens with the logo of the Supersonic Engine, which the game runs on, for two seconds (E35), and then the menu.
+Any key, mouse button, tap or gamepad button skips it once its first 0.3 seconds are over: the logo fades out and the menu
+follows, and the press is not also a click or a confirm on the menu. `--splash off` removes the intro and `--splash on` plays it
+with any other option; a start with an option that is not a player's own (`--start`, `--frames`, `--screenshot`, `--fixed-step`,
+`--hold`...) has none, so scripted captures are as they were. A copy of the game without its `data\images\splash\` folder starts
+without it and says so in `penumbra.log`.
+
 ## Where the files are found
 
 At startup the game looks for two folders, and logs where it found each one:
@@ -203,6 +212,7 @@ The game's own options:
 | `--lang <id>` | This run's language: `en`, `de`, `es`, `fr`, `it`, `pt`, `ru`, `tr`, `uk`, `ja` or `ar`. It is not saved. |
 | `--widescreen on\|off` | This run's view. It is not saved. |
 | `--smooth on\|off` | This run's motion between ticks (E8). It is not saved. Off under `--fixed-step` unless given as `on`, so fixed-step captures show the ticks themselves. |
+| `--splash on\|off` | The Supersonic Engine's intro (E35). `on` plays it with any other option (a capture of the intro: `--splash on --fixed-step --frames 30 --screenshot <path>`, where `--frames 30` is the 30th tick of the intro and the menu's first frame is `--frames 121`); `off` removes it. Without it, it plays on a normal start only. |
 | `--original <dir>`, `--data <dir>` | Where the original's files and the enhanced edition's data are ([above](#where-the-files-are-found)) |
 | `--hold <KEY>@<a>-<b>` | Hold an Ethanon key from tick *a* to tick *b*, for scripted captures. KEY is one of `UP DOWN LEFT RIGHT CTRL ALT SHIFT SPACE ENTER ESC BACKSPACE PAGEUP PAGEDOWN J S D 1 2 3 LMOUSE RMOUSE`. |
 | `--cursor <x>,<y>` | Pin the scripts' cursor at a point of the 1024x768 menu screen, for menu captures |

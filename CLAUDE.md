@@ -147,6 +147,9 @@ build/tests/test_pn_all.exe --suite boot                  # one suite, in-proces
 build/tests/test_pn_all.exe --list                        # the suites it holds; runs nothing
 ```
 
+A normal launch plays a two-second Supersonic Engine intro first; pass `--splash off`, or any developer flag
+such as `--start` or `--frames`, when scripting a launch.
+
 Linux (WSL) and Android, from Git Bash. No Smart App Control there: a Linux binary or an APK
 can be launched as often as needed. Put `MSYS_NO_PATHCONV=1` before any `wsl` call. Never install
 a shader compiler (glslc, glslang) in the Linux build environment, WSL included: the engine's build

@@ -57,8 +57,8 @@ to the castle's king, alone, in co-op, or in Versus.
 This is an **enhanced edition**, not a remake: the original's own scripts are ported to C++ line by
 line and read the original's own files, so the game plays as it did, apart from the changes listed in
 [`docs/enhancements.md`](docs/enhancements.md). It runs on Ivan Cvetanović's
-[Supersonic Engine](https://github.com/IvanCvetanovic/Supersonic-Engine), and is published with
-André Santee's explicit permission.
+[Supersonic Engine](https://github.com/IvanCvetanovic/Supersonic-Engine), whose logo it shows for
+two seconds when it starts, and is published with André Santee's explicit permission.
 
 ## What's enhanced
 
