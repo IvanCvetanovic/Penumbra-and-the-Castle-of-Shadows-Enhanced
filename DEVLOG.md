@@ -1040,6 +1040,14 @@ original one, with its own best times, and a one-second rest on the two combo bu
 - Looked at, in headless captures on Linux (lavapipe, 1280x720 and 1024x768): a combo button idle, pressed, dark right after it fired, recharging, red on a refused tap (ticks 90 and 150) and not on
   the accepted one (tick 135), and glowing when ready; the desktop and phone options rows; the New Game and Best Times panels.
 
+**Released.** 1.0.5 (build 6), tagged at cb49562, Latest; CI at that commit (Linux, Windows with every step, Apple) green. The Windows zip (612 entries) and the APK (signed with the release key, certificate AC:1D:43:BD,
+versionCode 6) were built from a clean clone at a short neutral path (no user folder name in the exe or the Android libraries: 0 occurrences scanned in all five packages); Linux, Mac and iPhone/iPad files by release.yml
+(run 37133645254, four jobs green), which also rewrote SHA256SUMS.txt. A script checked the six downloaded files (122 checks: the sums and their order; the layouts; the exe's version resource 1.0.5.0 and the manifests; the
+plists' 1.0.5 / 6; the APK's version, non-debuggable, apksigner Verifies, the certificate, both ABIs; the new texts, the Japanese face, the splash and touch art and fail.ogg in all five packages; the shipped hs.enml with no
+hsHard; no installer, no machine.exe, none of the original's scripts in the Windows, Linux, Mac and iPhone/iPad files; `data/` byte-identical across the packages), and all six `releases/latest/download` addresses answer 200.
+The APK still carries the original's scripts, as it always has (tools/android_package.py skips only binaries). Not done: the Windows `Penumbra.exe` of the release and the last build's `test_pn_all.exe` were refused by Windows
+Smart App Control on the development machine and were never launched; no real phone has run 1.0.5. The 1.0.4 release stays published beside it.
+
 **Open.**
 - Nothing of 1.0.5 has run on a real phone: the rest's length, the flash and the cue are untried under a thumb, and so are the phone options screen's shorter cells.
 - The Windows `Penumbra.exe` could not be launched on the development machine (Windows Smart App Control refused the new binary, as it can for any unsigned build), so the Windows build is covered
