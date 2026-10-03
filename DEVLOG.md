@@ -1008,3 +1008,46 @@ deleted (the 11 left are the 1.0.4 runs'). A tag can be recreated with `git push
 - The arrangement's first numbers were measured on a phone with a left cut-out and the right inset was taken as 0 (E32's open list).
 - History cannot be changed by a commit (see the entry of 2026-10-02, afternoon).
 - Mac, Linux and iPhone/iPad have never been run by a person; Windows is still unsigned.
+
+## 2026-10-03 — Release 1.0.5: Normal and Hard (E36), a cooldown on the touch combo buttons (E37)
+
+**Why.** The campaign had one difficulty, the original's, and a touch combo button fired the sword combo or the 225-damage blast in one tap with no rest. 1.0.5 adds a harder campaign beside the
+original one, with its own best times, and a one-second rest on the two combo buttons. The files of a published release are never replaced, so all of it is a new release.
+
+**Built (details in docs/planning/2026-10-03-e36-e37-difficulty-and-combo-cooldown.md).**
+- *E36.* Normal is the original's game; Hard doubles every enemy's hp in `spawn()` (warrior 75 to 150, minion 45 to 90, knight 150 to 300, impy 75 to 150, paladin 400 to 800, master knight 1700 to
+  3400, king 3500 to 7000, and the king's summoned warriors), with the experience a kill gives unchanged. The players, the potions, the princess and Versus are as before. A "Difficulty: Normal / Hard"
+  row on the options screen (a two-line switch at (600, 564) beside the language chooser on a desktop; one more cell, a fifth row of toggles, on a phone, which makes seven rows share the height:
+  78 px cells on a 4:3 window and 75 on a 20:9 phone, from 88), `difficulty` in settings.json, `--difficulty normal|hard` for one run. New Game latches the choice when its fade ends and the run keeps
+  it through deaths, checkpoints and next_level doors. The five best times are kept per difficulty in the one hs.enml: the original's entity `hs` is Normal's list, unchanged, and Hard's is a second
+  entity, `hsHard`; a missing key or entity reads 59:59 (never 0, which would unlock the locked arenas). The Best Times panel lists both, the end screen adds the time to the played difficulty's list
+  and shows only that one, the New Game panel names the difficulty, and a locked arena opens for the better of the two lists' best times. Four new strings and three new patterns in all eleven
+  languages; the Japanese face regenerated (two new kanji).
+- *E37.* Each combo button rests 60 game ticks from the tick its macro presses S or D (two attacks of one button are at least 64 ticks apart for the sword combo and 63 for the spell combo); the
+  buttons rest apart. A tap on a resting button, or on either combo button while a macro runs, starts nothing and is not queued: the button flashes red and shakes for 15 ticks and the original's
+  `soundfx/fail.ogg` plays (at most once in 10 ticks, not restarted while sounding). A resting button is grey with a dark shade over the part not yet recharged, and glows for 12 ticks when ready.
+  A scene load clears the rests; the pause and the touch editor stop the count; a macro cancelled before its attack key starts none. Keyboard and pad combos, and combos made of the ordinary
+  buttons, are unchanged.
+- *Documents.* README (a Difficulty row, the check count, the Android row and the notice on what has run on a phone, the Controls tip), enhancements.md (E36, E37, and a note under E31 for the phone
+  options cells), controls.md, playing.md (a "Difficulty and best times" section, the settings key, the hs.enml row, the flag), testing.md, the install guides' touch sentence and a Difficulty
+  paragraph in the three HOW TO PLAY files, English and Portuguese.
+
+**Numbers.**
+- Linux: `test_pn_all` 17 suites, 48,327 checks, 0 failures (45,088 at 1.0.4). Windows, with the real Arial Narrow installed: the first full run passed 15 of the 17 suites (the two others: one Versus check of the new boot test, fixed afterwards, and the 18 failures below); the final build's `test_pn_all.exe` was refused by Windows Smart App Control (exit 126) and was not run, as `Penumbra.exe` had been. E25's panels check in `test_pn_render_hud` has 18 known failures there, older than this release and described under E28's Open.
+- New tests: `test_pn_boot` (`TestDifficultyStats`, `TestHardRun`, `TestRecords`), `test_pn_scenarios` (scenario 27 plays Hard up to the king; scenario 8's end screen updated), `test_pn_formats`
+  (`TestHpOwners`: only bruxo, princess, vert_bruxo and the two potions define an hp, and every scene placement with an hp is a potion), `test_pn_render_pause`, `_input` and `_hud` (the setting, the
+  flag, the layer's row, the phone layout re-pinned for seven rows, the new texts in their rooms), `test_pn_render_touch` (the gate, fingers, resets, the look, typed combos unlimited).
+- Looked at, in headless captures on Linux (lavapipe, 1280x720 and 1024x768): a combo button idle, pressed, dark right after it fired, recharging, red on a refused tap (ticks 90 and 150) and not on
+  the accepted one (tick 135), and glowing when ready; the desktop and phone options rows; the New Game and Best Times panels.
+
+**Open.**
+- Nothing of 1.0.5 has run on a real phone: the rest's length, the flash and the cue are untried under a thumb, and so are the phone options screen's shorter cells.
+- The Windows `Penumbra.exe` could not be launched on the development machine (Windows Smart App Control refused the new binary, as it can for any unsigned build), so the Windows build is covered
+  by the suites that ran there and by the Linux captures. Mac, iPhone and iPad are built by CI only.
+- A tap on the other combo button while a macro runs is refused too (flash and cue), not ignored.
+- A Hard kill gives the Normal experience, so a Hard run levels up more slowly per hit. A Hard finish opens a locked arena at the Normal thresholds.
+- A build older than this one that writes a record rewrites hs.enml with `hs` alone and so drops Hard's list.
+- docs/images/options.jpg and options-phone.jpg were regenerated for E36 (headless captures of the Linux build, 1600x900 and 1600x720: the Difficulty row on the desktop screen, the fifth row of toggles and the shorter cells on
+  the phone's); touch-controls.jpg is unchanged, since a combo button at rest looks as it did.
+- A combo button rests after its attack key even when the script then refuses the move for lack of mana (the sword combo needs 5, the spell combo 25): the cooldown is the touch layer's and does not know the mana. A retry
+  within the second is refused with the flash and the cue.

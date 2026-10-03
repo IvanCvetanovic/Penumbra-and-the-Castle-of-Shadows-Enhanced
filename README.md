@@ -66,6 +66,7 @@ two seconds when it starts, and is published with André Santee's explicit permi
 |---|---|
 | **Display** | Widescreen at any resolution; the best resolution and refresh rate chosen automatically, or by hand; smooth motion on fast monitors |
 | **Controls** | Modern gamepads, a keyboard second player, on-screen touch controls you can resize, fade and move, a pause |
+| **Difficulty** | Normal, the original game, and Hard, where every enemy has twice the health; the best times are kept for each |
 | **Languages** | English, German, Spanish, French, Italian, Portuguese, Russian, Turkish, Ukrainian, Japanese and Arabic, following your system's language by itself, and switchable in game from the Settings screen. The translations were made with AI help and have not been checked by native speakers; corrections are welcome ([report a problem](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/issues/new/choose)) |
 | **Platforms** | Downloads for Windows, Android, Mac and Linux, and an experimental one for iPhone and iPad |
 | **Fixes** | Bugs of the original fixed, and its rendering matched more closely |
@@ -76,16 +77,16 @@ Every change is listed with what the original did in [`docs/enhancements.md`](do
 
 | Platform | Status | What was checked | Download |
 |---|---|---|---|
-| Windows | ![playtested](https://img.shields.io/badge/-playtested-2ea44f) | Played through by a person; over 39,000 automated checks, all passing on GitHub's Windows runner; not code-signed, so Windows 11 PCs with Smart App Control on may refuse to run it | [Penumbra-Windows.zip](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/releases/latest/download/Penumbra-Windows.zip) |
-| Linux | ![tested](https://img.shields.io/badge/-tested-1f6feb) | All 17 test suites (over 39,000 checks) pass in the release build; the download itself, unpacked read-only, plays level 1 on a software Vulkan driver; not played by a person | [Penumbra-Linux.tar.gz](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/releases/latest/download/Penumbra-Linux.tar.gz) |
-| Android | ![playtested](https://img.shields.io/badge/-playtested-2ea44f) | Played through on a real phone by a person, the touch editor included (an earlier build); the newest button layout was only checked on an emulator; scripted tests on an emulator | [Penumbra-Android.apk](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/releases/latest/download/Penumbra-Android.apk) |
+| Windows | ![playtested](https://img.shields.io/badge/-playtested-2ea44f) | Played through by a person; over 48,000 automated checks, all passing on GitHub's Windows runner; not code-signed, so Windows 11 PCs with Smart App Control on may refuse to run it | [Penumbra-Windows.zip](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/releases/latest/download/Penumbra-Windows.zip) |
+| Linux | ![tested](https://img.shields.io/badge/-tested-1f6feb) | All 17 test suites (over 48,000 checks) pass in the release build; the download itself, unpacked read-only, plays level 1 on a software Vulkan driver; not played by a person | [Penumbra-Linux.tar.gz](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/releases/latest/download/Penumbra-Linux.tar.gz) |
+| Android | ![playtested](https://img.shields.io/badge/-playtested-2ea44f) | Played through on a real phone by a person, the touch editor included (an earlier build); the newest button layout was only checked on an emulator, and nothing new in 1.0.5 (Hard, the combo buttons' rest) has run on a real phone; scripted tests on an emulator | [Penumbra-Android.apk](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/releases/latest/download/Penumbra-Android.apk) |
 | macOS | ![CI](https://img.shields.io/badge/-CI%20only-d29922) | Tests pass on GitHub Actions; the download runs level 1 on GitHub's Apple silicon Macs, and its Intel half there under Rosetta; not played; never run on a real Intel Mac; not notarised | [Penumbra-macOS.zip](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/releases/latest/download/Penumbra-macOS.zip) |
 | iOS | ![builds](https://img.shields.io/badge/-builds%20only-8b949e) | Compiles; never run on any iPhone or iPad | Experimental: [Penumbra-iOS.ipa](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/releases/latest/download/Penumbra-iOS.ipa), for [sideloading](docs/playing.md#iphone-and-ipad-experimental) |
 
 > [!IMPORTANT]
 > The Windows version, and an earlier Android build on one real phone, have been played by a person; the newest
-> Android button layout was only checked on an emulator. Linux and macOS are verified by automated tests only; the
-> iPhone/iPad version has never run on an iPhone or iPad.
+> Android button layout was only checked on an emulator, and nothing new in 1.0.5 has run on a real phone. Linux and macOS
+> are verified by automated tests only; the iPhone/iPad version has never run on an iPhone or iPad.
 
 ## Build from source
 
@@ -115,7 +116,8 @@ downloaded, and `bash tools/build_linux.sh --test` or `build\tests\test_pn_all.e
 
 > [!TIP]
 > Combos: **← ← S** (sword beam) and **↓ ← D** (blast). On phones the game draws its own buttons,
-> including one-tap combos. Everything else is in [`docs/controls.md`](docs/controls.md).
+> including one-tap combos, which rest for a second after each use (combos typed on a keyboard or a pad do not).
+> Everything else is in [`docs/controls.md`](docs/controls.md).
 
 ## How it was made
 
@@ -125,7 +127,7 @@ downloaded, and `bash tools/build_linux.sh --test` or `build\tests\test_pn_all.e
 > engine work, the tests and the documentation. [`CLAUDE.md`](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/blob/main/CLAUDE.md), [`DEVLOG.md`](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/blob/main/DEVLOG.md)
 > and [`docs/planning/`](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/blob/main/docs/planning/2026-09-27-penumbra-port.md) are the working record.
 
-Tests: 17 suites (over 39,000 checks) check the port against the original's files, and five of them play the game
+Tests: 17 suites (over 48,000 checks) check the port against the original's files, and five of them play the game
 headless ([`docs/testing.md`](docs/testing.md)).
 
 ## Credits

@@ -42,6 +42,9 @@ Controls: arrow keys to walk, Up or Ctrl to jump, S sword, D fireball,
 Space light, Esc pause. Gamepads work too (A jump, X sword, B fireball,
 Y light). Combos: Left Left S, and Down Left D.
 
+Difficulty: the settings have a Difficulty row. Normal is the original
+game; in Hard every enemy has twice the health.
+
 For parents:
 - The game is free. It works offline. It has no ads, no purchases and no
   accounts, and it collects no data: it never connects to the internet.
@@ -92,6 +95,9 @@ Controles: setas para andar, Cima ou Ctrl para pular, S espada, D bola de
 fogo, Espaço luz, Esc pausa. Controles de videogame (gamepads) também
 funcionam (A pular, X espada, B bola de fogo, Y luz). Combos: Esquerda
 Esquerda S, e Baixo Esquerda D.
+
+Dificuldade: as configurações têm uma linha de Dificuldade. Normal é o
+jogo original; no modo Difícil, todo inimigo tem o dobro de vida.
 
 Para os pais:
 - O jogo é grátis. Ele funciona offline. Não tem anúncios, compras nem

@@ -46,7 +46,7 @@ body:
     id: game-version
     attributes:
       label: Game version
-      description: "On Windows: right-click Penumbra.exe, choose Properties, then Details, and read Product version. On Android: Settings, Apps, Penumbra, and scroll down to Version (the words differ from phone to phone). If you cannot find it, write the name of the release you downloaded, for example 1.0.4, or the day you downloaded it."
+      description: "On Windows: right-click Penumbra.exe, choose Properties, then Details, and read Product version. On Android: Settings, Apps, Penumbra, and scroll down to Version (the words differ from phone to phone). If you cannot find it, write the name of the release you downloaded, for example 1.0.5, or the day you downloaded it."
     validations:
       required: true
   - type: textarea

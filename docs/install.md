@@ -199,7 +199,7 @@ This **enhanced edition** by **Ivan Cvetanović** plays just like the original, 
 | Light spell | `Space` | `Y` |
 | Pause | `Esc` | `Back` |
 
-**Touch:** on a phone or tablet the game draws its own buttons, including buttons that do the combos with one tap. Slide your thumb over the arrow buttons to walk. The six action buttons are at the bottom right in two columns: sword and jump at the bottom, light and fireball at the top, and the two buttons in the middle do the combos in one tap. There is also a button to pause. In the settings, Adjust controls changes the buttons' size, opacity and place.
+**Touch:** on a phone or tablet the game draws its own buttons, including buttons that do the combos with one tap. Slide your thumb over the arrow buttons to walk. The six action buttons are at the bottom right in two columns: sword and jump at the bottom, light and fireball at the top, and the two buttons in the middle do the combos in one tap (each needs a second to recharge after it is used). There is also a button to pause. In the settings, Adjust controls changes the buttons' size, opacity and place.
 
 **Combos:** `←` `←` `S` for a sword beam, and `↓` `←` `D` for a big blast (or the same with `→`).
 

@@ -199,7 +199,7 @@ Esta **edição aprimorada**, de **Ivan Cvetanović**, é igualzinha ao original
 | Feitiço de luz | `Espaço` | `Y` |
 | Pausar | `Esc` | `Back` |
 
-**Toque:** num celular ou tablet, o jogo mostra os próprios botões, inclusive botões que fazem os combos com um toque só. Deslize o polegar pelos botões de seta para andar. Os seis botões de ação ficam embaixo à direita, em duas colunas: espada e pulo embaixo, luz e bola de fogo em cima, e os dois botões do meio fazem os combos com um toque só. Também há um botão para pausar. Nas configurações, Ajustar controles muda o tamanho, a transparência e a posição dos botões.
+**Toque:** num celular ou tablet, o jogo mostra os próprios botões, inclusive botões que fazem os combos com um toque só. Deslize o polegar pelos botões de seta para andar. Os seis botões de ação ficam embaixo à direita, em duas colunas: espada e pulo embaixo, luz e bola de fogo em cima, e os dois botões do meio fazem os combos com um toque só (cada um precisa de um segundo para recarregar depois de usado). Também há um botão para pausar. Nas configurações, Ajustar controles muda o tamanho, a transparência e a posição dos botões.
 
 **Combos:** `←` `←` `S` para um raio de espada, e `↓` `←` `D` para uma grande explosão (ou o mesmo com `→`).
 

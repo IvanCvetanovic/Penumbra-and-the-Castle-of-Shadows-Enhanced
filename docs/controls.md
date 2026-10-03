@@ -27,6 +27,10 @@ arrows choose, Enter confirms and Esc resumes; the mouse works too.
 - **Sword combo (5 mana):** ← ← S or → → S. A stronger sword and a beam; the screen shakes.
 - **Blast (25 mana):** ↓ ← D or ↓ → D. A big fireball with 225 damage.
 
+Typed on a keyboard or a pad, a combo has no rest: it can be repeated as often as the keys can be pressed
+and the mana lasts, as in the original. The combo buttons of the touch controls are the only ones that
+rest after each use ([E37](#touch-controls-e16)).
+
 **The original's hidden keys.** When the menu's fade ends on New Game:
 
 - Hold 2 or 3 to start at level 2 or level 3.
@@ -88,8 +92,8 @@ the mouse, held down, is the finger.
 | Sword | The bottom button of the left column, 30 units lower than the jump button | S |
 | Fireball | The top of the right column, above the spell combo button (the highest of the six) | D |
 | Light spell | The top of the left column, above the sword combo button | Space |
-| Sword combo | The middle of the left column, between the sword and the light | the way he faces twice, then S |
-| Spell combo | The middle of the right column, between the jump and the fireball | Down, the way he faces, then D |
+| Sword combo | The middle of the left column, between the sword and the light; rests for a second after each use (E37) | the way he faces twice, then S |
+| Spell combo | The middle of the right column, between the jump and the fireball; rests for a second after each use (E37) | Down, the way he faces, then D |
 | Pause (in a level) / back (arena select, game over, the end screens) | The button at the top right | Esc |
 
 The six action buttons at the bottom right are two staggered columns of three under the right thumb (E29, E32, E33):
@@ -126,8 +130,22 @@ The exact positions are in [the layout's record](https://github.com/IvanCvetanov
   direction, the sword or the fireball was pressed in the last fifth of a second, it first waits
   until the game's combo memory has emptied (the original forgets a combo 210 ms after its last
   key), so the combo always registers. While it runs, the disc, the sword and the fireball buttons
-  wait; jump, light and pause do not. A second tap is ignored until it is done; the pause or a new
-  scene stops it.
+  wait; jump, light and pause do not. A tap on either combo button while a combo runs is refused
+  (the next bullet); the pause or a new scene stops the combo.
+- Each combo button rests for one second (60 game ticks) after it is used (E37), counted from the tick
+  its keys press the attack key, S or D. The sword combo and the spell combo rest separately, so the
+  rest of one does not hold the other back. While a button rests it is grey, with a dark shade over
+  the part not yet recharged, from the top, shrinking until the button takes a tap again, and then it
+  glows for a moment. A tap on a resting button, or on either combo button while a combo runs (a few
+  ticks), starts nothing and is not queued: that button flashes red and shakes for a quarter of a
+  second, and the original's "not yet" sound (`soundfx/fail.ogg`, the one its menu plays for a locked
+  arena) plays, at most once in a sixth of a second and not restarted while it is still sounding. A
+  finger held on a resting button does not fire it when the rest ends; lift it and tap again. A combo
+  that is stopped before its attack key (the pause, a menu, the controls switched off, a scene load,
+  giving up the wait for the combo memory) starts no rest, every new scene (the next level, a death's
+  reload, leaving to a menu) starts with both buttons ready, and the pause and the touch editor stop
+  the count. The editor's preview shows the buttons at rest. Combos typed on a keyboard or a pad, and
+  combos made from the ordinary buttons (walking plus sword or fireball), have no rest.
 - In the menus, the options, game over and the pause, the buttons are hidden and a tap clicks
   where it lands. The options screen has no touch back button at the top right: the original's own Back
   arrow is on it (at the top left on a phone's large layout, E31), and a tap on it goes back. The main menu and the pause have none either.

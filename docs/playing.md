@@ -184,8 +184,8 @@ ever written into the original's folder.
 
 | File | What it is |
 |---|---|
-| `settings.json` | Language (`language`: `auto`, the default, or one of `en`, `de`, `es`, `fr`, `it`, `pt`, `ru`, `tr`, `uk`, `ja`, `ar`); the window (`window`: `width`/`height`, `0` for a window fitted to the monitor; `fullscreen`, true on a first launch; the fullscreen mode, `fullscreenWidth`/`fullscreenHeight`, `0` for the desktop's resolution; `fullscreenRefresh` in Hz, `0` for the highest the monitor offers at that resolution); widescreen, volumes, pixel shaders, `smoothMotion`, `pauseOnFocusLoss`, `touchControls` (`"auto"`, `"on"`, `"off"`); `zoom` (E25: `"auto"` or a percentage from 100 to 200, the campaign camera's zoom while the touch controls are on); `edgeMargin` (E26: `"auto"` or a percentage from 0 to 8, how far in from a curved screen's edges the HUD is drawn while the touch controls are on); `touchTuning` (E28: the touch controls' own layout, set on the options screen's Adjust controls: `size` 0.4 to 1.4, `opacity` 0.2 to 1.8 times the normal look, and `move`, a `[dx, dy]` for each moved control in the manifest's pixels from where `touch_controls.json` puts it, +x right and +y down, and `layout` (E34), the number of the default arrangement the moves were made against, 4 since E33: a file with another number or none keeps its `size` and `opacity` and loses its `move`, and the next save writes the current number); and the controls: `joystickLayout`, `keyboardPlayer2`, `firstPadIsPlayer1`, `rawJoysticks`, `stickDeadzone`, and the `player1`/`player2` key lists. A broken or missing field falls back to its default, field by field. |
-| `hs.enml` | The best times, written after a new record. Until then the original's `hs.enml` is read. |
+| `settings.json` | Language (`language`: `auto`, the default, or one of `en`, `de`, `es`, `fr`, `it`, `pt`, `ru`, `tr`, `uk`, `ja`, `ar`); the window (`window`: `width`/`height`, `0` for a window fitted to the monitor; `fullscreen`, true on a first launch; the fullscreen mode, `fullscreenWidth`/`fullscreenHeight`, `0` for the desktop's resolution; `fullscreenRefresh` in Hz, `0` for the highest the monitor offers at that resolution); widescreen, volumes, pixel shaders, `smoothMotion`, `pauseOnFocusLoss`, `difficulty` (E36: the campaign's difficulty, `"normal"`, the default, or `"hard"`, set on the options screen's Difficulty row; read in any case, and anything else is Normal with a warning), `touchControls` (`"auto"`, `"on"`, `"off"`); `zoom` (E25: `"auto"` or a percentage from 100 to 200, the campaign camera's zoom while the touch controls are on); `edgeMargin` (E26: `"auto"` or a percentage from 0 to 8, how far in from a curved screen's edges the HUD is drawn while the touch controls are on); `touchTuning` (E28: the touch controls' own layout, set on the options screen's Adjust controls: `size` 0.4 to 1.4, `opacity` 0.2 to 1.8 times the normal look, and `move`, a `[dx, dy]` for each moved control in the manifest's pixels from where `touch_controls.json` puts it, +x right and +y down, and `layout` (E34), the number of the default arrangement the moves were made against, 4 since E33: a file with another number or none keeps its `size` and `opacity` and loses its `move`, and the next save writes the current number); and the controls: `joystickLayout`, `keyboardPlayer2`, `firstPadIsPlayer1`, `rawJoysticks`, `stickDeadzone`, and the `player1`/`player2` key lists. A broken or missing field falls back to its default, field by field. |
+| `hs.enml` | The best times, written after a new record. It holds both difficulties' lists (E36): the original's entity `hs` is Normal's five, and `hsHard` is Hard's five. Until the first record the original's `hs.enml` is read, and its `hs` is Normal's list. A key or an entity that is missing reads 59:59. See [Difficulty and best times](#difficulty-and-best-times). |
 | `scenes\checkpoint.esc` | The level saved at the last checkpoint. |
 
 The language is automatic until it is chosen: it follows the system when the game speaks it
@@ -201,6 +201,41 @@ files go to `$XDG_DATA_HOME/Penumbra`, else `~/.local/share/Penumbra`. On macOS 
 `~/Library/Caches/com.ivancvetanovic.penumbra`. On an iPhone or iPad they are inside the app's own
 container: deleting the app deletes them.
 
+## Difficulty and best times
+
+The campaign has two difficulties (E36), chosen on the options screen's Difficulty row, "Difficulty:
+Normal" or "Difficulty: Hard" (on a desktop beside the language chooser, on a phone its own cell). **Normal**
+is the original's game. **Hard** is the same game with every enemy's hp doubled when it is spawned:
+
+| Enemy | Normal | Hard |
+|---|---|---|
+| Warrior (also the ones the king summons) | 75 | 150 |
+| Minion | 45 | 90 |
+| Knight | 150 | 300 |
+| Impy | 75 | 150 |
+| Paladin | 400 | 800 |
+| Master knight | 1700 | 3400 |
+| King | 3500 | 7000 |
+
+- A kill gives the same experience in both (the enemy's base hp), so in Hard each kill takes twice the
+  damage for the same experience, and the wizard levels up more slowly. The players, the potions'
+  healing and the co-op princess are the same in both. Versus never plays Hard.
+- A New Game reads the choice when its fade ends. The run keeps it through deaths, checkpoints and the
+  next-level doors, and a change made during a run applies from the next New Game. Hovering New Game
+  shows the difficulty the run will be played at and where it is changed. `--difficulty normal|hard`
+  ([below](#command-line)) sets it for one run and saves nothing.
+- The five best campaign times are kept for each difficulty. The Best Times panel lists Normal's five and
+  then Hard's five, each under its name. The campaign's end screen adds the time to the list of the
+  difficulty that was played and shows only that list, headed "Best times (Normal):" or "Best times
+  (Hard):".
+- In `hs.enml` the original's entity `hs` (keys `hs0` to `hs4`, in milliseconds, best first) is Normal's
+  list, unchanged, so records made before this version stay valid and count as Normal. Hard's list is a
+  second entity, `hsHard`, in the same file with the same keys. A key or an entity that is missing reads
+  59:59 (3,599,000 ms, what the shipped file holds). The first record written creates both entities, and
+  a time never changes the other difficulty's list.
+- A locked arena (Templo Sagrado at 12:00, Neblina at 15:00) opens when the better of the two lists' best
+  times is below its score, so a finish in either difficulty opens it. With no record yet, both stay locked.
+
 ## Command line
 
 The game's own options:
@@ -210,6 +245,7 @@ The game's own options:
 | `--start <scene>` | Skip the menu and start `scenes/<scene>.esc`: `level1`–`level3` or `pvp_lv1`–`pvp_lv6`; `arena_select`, `gameover` and `videoModes` start as the scripts start them |
 | `--tour <a,b,...>@<N>` | After the menu, start each scene in turn for *N* ticks: many screens in one launch |
 | `--lang <id>` | This run's language: `en`, `de`, `es`, `fr`, `it`, `pt`, `ru`, `tr`, `uk`, `ja` or `ar`. It is not saved. |
+| `--difficulty normal\|hard` | This run's campaign difficulty (E36), over the setting. It is not saved, and a pick on the options screen's row replaces it. A campaign level started with `--start` is played at it. Any other value is an error. Like every option a player does not use, it removes the intro. |
 | `--widescreen on\|off` | This run's view. It is not saved. |
 | `--smooth on\|off` | This run's motion between ticks (E8). It is not saved. Off under `--fixed-step` unless given as `on`, so fixed-step captures show the ticks themselves. |
 | `--splash on\|off` | The Supersonic Engine's intro (E35). `on` plays it with any other option (a capture of the intro: `--splash on --fixed-step --frames 30 --screenshot <path>`, where `--frames 30` is the 30th tick of the intro and the menu's first frame is `--frames 121`); `off` removes it. Without it, it plays on a normal start only. |
