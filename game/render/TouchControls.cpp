@@ -11,6 +11,7 @@
 #include <utility>
 
 #include "core/Json.hpp"
+#include "render/TextureDecode.hpp"   // E37: ProbeImageSize
 
 namespace Penumbra::Render {
 
@@ -198,7 +199,15 @@ Eth::uint8 AlphaByte(float alpha) {
     return static_cast<Eth::uint8>(std::lround(std::clamp(alpha, 0.0f, 1.0f) * 255.0f));
 }
 
-Eth::HudCmd Sprite(const std::string& path, const glm::vec2& min, const glm::vec2& size, Eth::uint8 alpha) {
+// E37: a colour multiplied into the art (white leaves it as it is), as a control's alpha is.
+struct Tint {   // E37
+    Eth::uint8 r = 255;   // E37
+    Eth::uint8 g = 255;   // E37
+    Eth::uint8 b = 255;   // E37
+};   // E37
+
+Eth::HudCmd Sprite(const std::string& path, const glm::vec2& min, const glm::vec2& size, Eth::uint8 alpha,
+                   const Tint tint = Tint{}) {   // E37: the tint
     Eth::HudCmd cmd;
     // Stretched to the box: the art has at least the box's logical pixels
     // (Magic Rampage's 128 px buttons for 96-120), for the phones whose
@@ -207,22 +216,62 @@ Eth::HudCmd Sprite(const std::string& path, const glm::vec2& min, const glm::vec
     cmd.sprite = path;
     cmd.pos = min;
     cmd.size = size;
-    cmd.color = Eth::ARGB(alpha, 255, 255, 255);
+    cmd.color = Eth::ARGB(alpha, tint.r, tint.g, tint.b);   // E37: was white
     return cmd;
 }
 
-Eth::HudCmd Plain(const glm::vec2& min, const glm::vec2& size, Eth::uint8 alpha) {
+Eth::HudCmd Plain(const glm::vec2& min, const glm::vec2& size, Eth::uint8 alpha, const Tint tint = Tint{}) {   // E37: the tint
     Eth::HudCmd cmd;
     cmd.kind = Eth::HudCmd::Kind::Rectangle;
     cmd.pos = min;
     cmd.size = size;
+    // E37: the tint multiplies the grey, as it multiplies a sprite's texels (white: the grey itself).
+    const auto grey = [](const Eth::uint8 channel) {   // E37
+        return static_cast<Eth::uint8>(std::lround(static_cast<float>(kPlainGrey) * static_cast<float>(channel) / 255.0f));   // E37
+    };   // E37
     // Every corner: HudCmd's corners default to opaque white.
-    cmd.color = cmd.color1 = cmd.color2 = cmd.color3 = Eth::ARGB(alpha, kPlainGrey, kPlainGrey, kPlainGrey);
+    cmd.color = cmd.color1 = cmd.color2 = cmd.color3 = Eth::ARGB(alpha, grey(tint.r), grey(tint.g), grey(tint.b));   // E37: was kPlainGrey x 3
     // E28: a square that meets the screen's left or right edge (the direction control's, in the editor's wide
     // area) stays the square it is, not a bar out to the edge of what the view shows.
     cmd.stretchToSides = false;   // E28
     return cmd;
 }
+
+// E37: how a combo button shows its cooldown and a refused tap. A recharging button's art is this grey, and the part of it not
+// yet recharged is covered by black at kShadeShare of the pressed alpha, but never by more than kShadeOverIdle times the
+// resting alpha: the pressed alpha has a floor, so at a low opacity the shade would otherwise be far darker than the button
+// it covers (at the default look both limits are the same 0.675). A refused tap tints the art from this red back to white,
+// brightens it, and shakes it by up to kDeniedShakePx (the manifest's pixels, scaled like the button), less as the flash fades.
+constexpr Eth::uint8 kCoolingGrey = 150;      // E37
+constexpr float kShadeShare = 0.75f;          // E37
+constexpr float kShadeOverIdle = 1.5f;        // E37
+constexpr Eth::uint8 kDeniedGreenBlue = 60;   // E37: the red is (255, 60, 60)
+constexpr float kDeniedShakePx = 5.0f;        // E37
+
+// E37: `a` toward `b` by `amount` (0: a, 1: b), as the bytes of an alpha.
+Eth::uint8 MixByte(const Eth::uint8 a, const Eth::uint8 b, const float amount) {   // E37
+    const float mixed = static_cast<float>(a) + (static_cast<float>(b) - static_cast<float>(a)) * std::clamp(amount, 0.0f, 1.0f);   // E37
+    return static_cast<Eth::uint8>(std::lround(mixed));   // E37
+}   // E37
+
+// E37: the dark shade over the top `fraction` of a combo button's box (0 < fraction <= 1): the button's own art again, black,
+// cut to the same top part of the image, so the rounded corners of the art stay clear of it - or, where the art is not known
+// (a missing image drawn as a plain square, or one the header of which cannot be read), a black rectangle.
+Eth::HudCmd Shade(const std::string& path, const glm::ivec2& art, const glm::vec2& min, const glm::vec2& size,
+                  const float fraction, const Eth::uint8 alpha) {   // E37
+    const float covered = std::clamp(fraction, 0.0f, 1.0f);   // E37
+    const glm::vec2 shown(size.x, size.y * covered);   // E37
+    if (path.empty() || art.x <= 0 || art.y <= 0) {   // E37
+        Eth::HudCmd cmd = Plain(min, shown, alpha);   // E37
+        cmd.color = cmd.color1 = cmd.color2 = cmd.color3 = Eth::ARGB(alpha, 0, 0, 0);   // E37
+        return cmd;   // E37
+    }   // E37
+    Eth::HudCmd cmd = Sprite(path, min, shown, alpha, Tint{0, 0, 0});   // E37
+    // The part of the image, in its pixels: the same top share the box shows.
+    cmd.spriteRectMin = glm::vec2(0.0f);   // E37
+    cmd.spriteRectMax = glm::vec2(static_cast<float>(art.x), static_cast<float>(art.y) * covered);   // E37
+    return cmd;   // E37
+}   // E37
 
 bool Contains(const std::vector<TouchContact>& contacts, int id) {
     return std::any_of(contacts.begin(), contacts.end(), [id](const TouchContact& c) { return c.id == id; });
@@ -575,6 +624,7 @@ void TouchControls::SetManifest(TouchManifest manifest) {
 void TouchControls::SetImageRoot(const std::filesystem::path& dataDir) {
     m_imageRoot = dataDir;
     m_images.clear();
+    m_comboArtSize.fill(glm::ivec2(0));   // E37
     if (m_imageRoot.empty()) return;
     std::vector<std::string> names = {m_manifest.dpadLeft, m_manifest.dpadRight, m_manifest.dpadDown,
                                       m_manifest.knobImage};
@@ -587,6 +637,12 @@ void TouchControls::SetImageRoot(const std::filesystem::path& dataDir) {
         // art reaches it the same way, Localization::ImageVariant).
         m_images.emplace(name, std::filesystem::is_regular_file(path, ec) ? path.generic_string() : std::string());
     }
+    // E37: the two combo buttons' art, in pixels, for the shade that covers the top of it (the header alone is read).
+    for (const TouchCombo button : {TouchCombo::Sword, TouchCombo::Spell}) {   // E37
+        const TouchControl control = button == TouchCombo::Sword ? TouchControl::SwordCombo : TouchControl::SpellCombo;   // E37
+        const std::string path = resolved(m_manifest[control].image);   // E37
+        if (!path.empty()) m_comboArtSize[TouchComboSlot(button)] = ProbeImageSize(path);   // E37
+    }   // E37
 }
 
 std::string TouchControls::resolved(const std::string& image) const {
@@ -656,9 +712,49 @@ void TouchControls::ObserveFrame(const Eth::InputFrame& frame, int player1Pad) {
     m_observed = now;
     if (pressed) m_quietTicks = 0;
     else if (m_quietTicks < kComboQuietTicks) ++m_quietTicks;
+
+    // E37: one game tick has run. The layer calls this once for each, after the pause's filter and never while the pause or
+    // the editor holds the game still, so it is the one clock the cooldowns, the flash, the glow and the cue's spacing
+    // need; Update runs on those ticks too, and in the editor's extra paths, and counts nothing.
+    for (std::size_t slot = 0; slot < kTouchComboCount; ++slot) {   // E37
+        // The attack key went to the game on this tick: from here the button rests (60 now, 59 once this tick is counted).
+        if (m_restPending[slot]) {   // E37
+            m_restPending[slot] = false;   // E37
+            m_cooldownLeft[slot] = kComboCooldownTicks;   // E37
+            m_readyLeft[slot] = 0;   // E37
+        }   // E37
+        if (m_cooldownLeft[slot] > 0) {   // E37
+            // The tick it takes a tap again, it glows.
+            if (--m_cooldownLeft[slot] == 0) m_readyLeft[slot] = kComboReadyPulseTicks;   // E37
+        } else if (m_readyLeft[slot] > 0) {   // E37
+            --m_readyLeft[slot];   // E37
+        }   // E37
+        if (m_deniedLeft[slot] > 0) --m_deniedLeft[slot];   // E37
+    }   // E37
+    if (m_soundGap > 0) --m_soundGap;   // E37
 }
 
 void TouchControls::CancelCombo() { m_combo = Combo{}; }
+
+void TouchControls::clearCooldowns() {   // E37
+    m_cooldownLeft.fill(0);   // E37
+    m_restPending.fill(false);   // E37
+    m_deniedLeft.fill(0);   // E37
+    m_readyLeft.fill(0);   // E37
+    // m_soundGap stays: it spaces the cue by game ticks, whatever scene they are in.   // E37
+}
+
+unsigned TouchControls::CooldownTicksLeft(const TouchCombo button) const {   // E37
+    return button == TouchCombo::None ? 0u : m_cooldownLeft[TouchComboSlot(button)];   // E37
+}
+
+float TouchControls::CooldownFraction(const TouchCombo button) const {   // E37
+    return static_cast<float>(CooldownTicksLeft(button)) / static_cast<float>(kComboCooldownTicks);   // E37
+}
+
+unsigned TouchControls::DeniedFlashTicksLeft(const TouchCombo button) const {   // E37
+    return button == TouchCombo::None ? 0u : m_deniedLeft[TouchComboSlot(button)];   // E37
+}
 
 void TouchControls::startCombo(TouchCombo combo, TouchFacing facing) {
     m_combo = Combo{};
@@ -699,6 +795,12 @@ TouchStep TouchControls::Update(const TouchInput& input) {
     if (m_combo.combo != TouchCombo::None && (!play || input.sceneSerial != m_sceneSerial || !Visible(comboButton))) {
         CancelCombo();
     }
+    // E37: a new scene (a load, a death's reload) starts with both combo buttons ready - and only that does: the pause, a
+    // menu or the editor do not, or they would be a way round the cooldown.
+    if (input.sceneSerial != m_sceneSerial) clearCooldowns();   // E37
+    // A rest still pending here is one whose tick the game did not play (ObserveFrame commits it on the tick itself): the
+    // pause or the editor took it, and the attack key never reached the game.
+    if (!play) m_restPending.fill(false);   // E37
     m_sceneSerial = input.sceneSerial;
 
     // The fingers down this tick: the input's, and those a frame without a
@@ -735,6 +837,21 @@ TouchStep TouchControls::Update(const TouchInput& input) {
         pointerTaken = pointerTaken || held.owner == Owner::Pointer;
     }
 
+    // E37: a new finger on a combo button starts its combo when nothing runs and the button has recharged. Any other is
+    // refused, never queued; but a second finger that lands on the very button this tick started is one press, not a
+    // refusal. `refused` and `started` are by TouchComboSlot, and TouchStep (below) is made after the fingers are read.
+    std::array<bool, kTouchComboCount> refused{};   // E37
+    std::array<bool, kTouchComboCount> started{};   // E37
+    const auto tapCombo = [&](const TouchCombo button) {   // E37
+        const std::size_t slot = TouchComboSlot(button);   // E37
+        if (m_combo.combo == TouchCombo::None && m_cooldownLeft[slot] == 0) {   // E37
+            startCombo(button, input.facing);   // E37
+            started[slot] = true;   // E37
+        } else if (!started[slot]) {   // E37
+            refused[slot] = true;   // E37
+        }   // E37
+    };   // E37
+
     // Each finger belongs to what it first landed on.
     for (const TouchContact& contact : down) {
         const auto known = m_contacts.find(contact.id);
@@ -758,14 +875,16 @@ TouchStep TouchControls::Update(const TouchInput& input) {
             case TouchControl::Sword: held.owner = Owner::Sword; break;
             case TouchControl::Fire: held.owner = Owner::Fire; break;
             case TouchControl::Light: held.owner = Owner::Light; break;
-            // A tap starts its combo; one while a combo runs is ignored, not queued.
+            // A tap starts its combo; one while a combo runs is ignored, not queued. E37: so is one on a button that is
+            // still recharging. The finger owns the button either way, and only its landing is a tap: held on, it
+            // fires nothing when the cooldown ends.
             case TouchControl::SwordCombo:
                 held.owner = Owner::SwordCombo;
-                if (m_combo.combo == TouchCombo::None) startCombo(TouchCombo::Sword, input.facing);
+                tapCombo(TouchCombo::Sword);   // E37
                 break;
             case TouchControl::SpellCombo:
                 held.owner = Owner::SpellCombo;
-                if (m_combo.combo == TouchCombo::None) startCombo(TouchCombo::Spell, input.facing);
+                tapCombo(TouchCombo::Spell);   // E37
                 break;
             case TouchControl::ExitDown: held.owner = Owner::ExitDown; break;
             case TouchControl::Pause:
@@ -783,6 +902,16 @@ TouchStep TouchControls::Update(const TouchInput& input) {
 
     TouchStep step;
     step.touching = !down.empty();
+    // E37: the refusals of this tick - the flash, and the cue, which waits out the last one's gap.
+    for (std::size_t slot = 0; slot < kTouchComboCount; ++slot) {   // E37
+        if (!refused[slot]) continue;   // E37
+        step.comboDenied[slot] = true;   // E37
+        m_deniedLeft[slot] = kComboDeniedFlashTicks;   // E37
+        if (m_soundGap == 0) {   // E37
+            step.deniedSound = true;   // E37
+            m_soundGap = kComboDeniedSoundGapTicks;   // E37
+        }   // E37
+    }   // E37
     // While a combo runs, its keys are the only ones of the buffer's it may see.
     const bool comboRuns = m_combo.combo != TouchCombo::None;
     const TouchLayout::Box& dpad = m_layout[TouchControl::Dpad];
@@ -862,6 +991,14 @@ TouchStep TouchControls::Update(const TouchInput& input) {
                 case ComboKey::Fire: hold(TouchAction::Fire); break;
             }
             m_combo.pressed = m_combo.pressed || key != ComboKey::None;
+            // E37: the attack key is the last of the macro: from this tick on the button rests. Set here and not when
+            // the tap lands, so that two attacks from one button are never less than kComboCooldownTicks apart, and a
+            // macro that is cancelled before this key (the pause, a load, the wait for the buffer) starts no rest.
+            // The rest begins in ObserveFrame, which runs only on a tick the game plays: a pause opening on this very
+            // tick keeps the key from the game, and the next Update (the pause's scene) drops the pending rest.
+            if (key != ComboKey::None && m_combo.next + 1 >= ComboLength(m_combo.combo)) {   // E37
+                m_restPending[TouchComboSlot(m_combo.combo)] = true;   // E37
+            }   // E37
             // Its last tick: from the next one the fingers have the keys again.
             if (++m_combo.next >= ComboLength(m_combo.combo)) m_combo = Combo{};
         }
@@ -936,7 +1073,39 @@ void TouchControls::AppendOverlay(std::vector<Eth::HudCmd>& out) const {
             case TouchControl::SpellCombo: {
                 // Lit while its combo runs.
                 const TouchCombo mine = control == TouchControl::SwordCombo ? TouchCombo::Sword : TouchCombo::Spell;
-                draw(spec.image, box.min, box.Size(), m_last.combo == mine ? pressed : idle, true);
+                // E37: while it recharges it is grey, with a dark shade over the part not yet recharged; a refused tap
+                // turns it red and shakes it; a recharged one glows. All from the counters ObserveFrame keeps, none of
+                // them in the editor's preview, and with none of them active the commands are exactly the rest look's.
+                const std::size_t slot = TouchComboSlot(mine);   // E37
+                const bool inPlay = m_scene == TouchScene::Play;   // E37
+                const unsigned cooling = inPlay ? m_cooldownLeft[slot] : 0u;   // E37
+                const unsigned flashing = inPlay ? m_deniedLeft[slot] : 0u;   // E37
+                const unsigned glowing = inPlay ? m_readyLeft[slot] : 0u;   // E37
+                const bool running = m_last.combo == mine;   // E37
+                Eth::uint8 alpha = running ? pressed : idle;   // E37
+                Tint tint;   // E37
+                glm::vec2 at = box.min;   // E37
+                if (flashing > 0) {   // E37
+                    // 1 at the refusal, down to nearly 0 at the flash's end.
+                    const float fade = static_cast<float>(flashing) / static_cast<float>(kComboDeniedFlashTicks);   // E37
+                    alpha = MixByte(alpha, pressed, fade);   // E37
+                    const Eth::uint8 channel = MixByte(255, kDeniedGreenBlue, fade);   // E37
+                    tint = Tint{255, channel, channel};   // E37
+                    // Left and right every two ticks, from the countdown alone: no clock, no random number.
+                    const float side = (flashing / 2u) % 2u == 0u ? 1.0f : -1.0f;   // E37
+                    at.x += side * kDeniedShakePx * fade * std::clamp(m_manifest.scale, kMinScale, kMaxScale) * m_unit;   // E37
+                } else if (!running && cooling > 0) {   // E37
+                    tint = Tint{kCoolingGrey, kCoolingGrey, kCoolingGrey};   // E37
+                } else if (!running && glowing > 0) {   // E37
+                    alpha = MixByte(idle, pressed, static_cast<float>(glowing) / static_cast<float>(kComboReadyPulseTicks));   // E37
+                }   // E37
+                const std::string art = resolved(spec.image);   // E37
+                if (!art.empty()) out.push_back(Sprite(art, at, box.Size(), alpha, tint));   // E37: was draw(), without a tint
+                else out.push_back(Plain(at, box.Size(), alpha, tint));   // E37
+                if (cooling > 0) {   // E37
+                    out.push_back(Shade(art, m_comboArtSize[slot], at, box.Size(), CooldownFraction(mine),   // E37
+                                        AlphaByte(std::min(m_manifest.pressedAlpha * kShadeShare, m_manifest.idleAlpha * kShadeOverIdle))));   // E37
+                }   // E37
                 break;
             }
             case TouchControl::Count: break;

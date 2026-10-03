@@ -98,7 +98,11 @@
     "O clima em Penumbra é muito\nagradável. Quando acaba a neblina,\nvem a tempestade. Depois, anoitece.": "Погода в Penumbra просто\nчудесная. Когда уходит туман,\nприходит буря. А потом — ночь.",
     "Penumbra e o Castelo das Sombras - Ethanon Engine": "Penumbra и Замок Теней - Ethanon Engine",
     "Penumbra e o Castelo das Sombras": "Penumbra и Замок Теней",
-    "Idioma": "Язык"
+    "Idioma": "Язык",
+    "Dificuldade normal": "Уровень сложности: Обычный",
+    "Dificuldade difícil": "Уровень сложности: Сложный",
+    "Normal": "Обычный",
+    "Difícil": "Сложный"
   },
   "patterns": [
     {
@@ -136,6 +140,18 @@
     {
       "pt": "Automática ({int} Hz)",
       "text": "Авто ({1} Гц)"
+    },
+    {
+      "pt": "Melhores tempos ({text}):\n{any}",
+      "text": "Рекорды ({1}):\n{2}"
+    },
+    {
+      "pt": "Normal\n{any}\n\nDifícil\n{any}",
+      "text": "Обычный\n{1}\n\nСложный\n{2}"
+    },
+    {
+      "pt": "{text}\n\nDificuldade: {text}\nMude em Configurações.",
+      "text": "{1}\n\nУровень сложности: {2}\nИзмените это в настройках."
     }
   ],
   "touch": {

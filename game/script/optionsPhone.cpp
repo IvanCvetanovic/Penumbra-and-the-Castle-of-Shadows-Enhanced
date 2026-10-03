@@ -6,11 +6,12 @@
 // What was wrong: a phone's options screen was the original's single column, 25 px rows with 22 px check boxes
 // and 24 px arrows, about 13 dp on a 2400x1080 screen, the row that is not selected at a third of full alpha,
 // and the Back arrow at the top right of the 4:3 box. This is one layout for every window shape, with no paging
-// and no scrolling: a stone panel of two columns of cells, 88 logical px tall (down to 68 where a bottom inset
-// leaves less room), a header whose Back arrow is at the top-left of what the window shows and whose language
+// and no scrolling: a stone panel of two columns of cells, 78 logical px tall on a 4:3 window and 75 on a 20:9
+// phone (down to 68 where a bottom inset leaves less room; E36's difficulty cell made seven rows of what had been
+// six, whose cells were 88), a header whose Back arrow is at the top-left of what the window shows and whose language
 // chooser (its globe, arrows and name) is at the top-right, 30 px text, and arrow, minus and plus buttons hit over
 // 86 px. A two-way Switch is ONE cell: a ticked check box and the wording of its current state, a tap anywhere in
-// it flips it. All 14 controls stay, in every language, with no string the desktop layout does not have.
+// it flips it. All 15 controls stay, in every language, with no string the desktop layout does not have.
 // A cell lights only while it is pressed (the cursor inside it and a confirm held), never on hover: a finger
 // leaves the cursor where it lifted, and a hover tint would leave the last cell it touched lit for ever.
 //
@@ -43,7 +44,7 @@ constexpr float kPanelGap = 2.0f;          // the header's bottom to the panel's
 constexpr float kPad = 16.0f;              // the panel's edge to the cells (the stone takes 13)
 constexpr float kColGap = 20.0f;
 constexpr float kRowGap = 6.0f;
-constexpr float kGroupGap = 10.0f;         // between the fourth row and the choosers
+constexpr float kGroupGap = 10.0f;         // between the fifth row (E36: the fourth before) and the choosers
 constexpr float kLabelStrip = 30.0f;       // a chooser cell's label strip above its buttons
 constexpr float kTextSize = 30.0f;
 constexpr float kLabelSize = 26.0f;
@@ -62,10 +63,12 @@ constexpr float kLangValueW = 168.0f;
 constexpr float kGlobe = 56.0f;
 constexpr float kLangRowH = 84.0f;
 constexpr float kHcMin = 68.0f;
-constexpr float kHcMax = 88.0f;
+constexpr float kHcMax = 80.0f;            // E36: 88 before; the most seven rows get is 79, from a screen with no frame at all
+constexpr float kRows = 7.0f;              // E36: five rows of toggles, the choosers, the steppers (six before the difficulty cell)
 constexpr float kBottom = 6.0f;            // the panel's bottom to the frame's
 // The height the header, the panel's padding, the gaps and the chooser strip take; what the rows share is the rest.
-constexpr float kFixedHeight = kHeaderMargin+kBackH+kPanelGap+kPad+(3.0f*kRowGap+kGroupGap+kLabelStrip+kRowGap)+kPad+kBottom;
+// E36: four gaps between the five toggle rows, then the group gap, the strip and the gap before the steppers (210).
+constexpr float kFixedHeight = kHeaderMargin+kBackH+kPanelGap+kPad+(4.0f*kRowGap+kGroupGap+kLabelStrip+kRowGap)+kPad+kBottom;   // E36: 4.0f (3.0f before)
 
 // --- The look -----------------------------------------------------------------------------------------------
 constexpr uint8 kCardAlpha = 34;           // a cell's card: ARGB(.., 203,203,228) over the stone
@@ -310,8 +313,8 @@ PhoneOptionsLayout phoneOptionsLayout(const OptionsArea& given, const bool touch
     const float fr = std::round(area.right);
 
     PhoneOptionsLayout l;
-    // The six rows' height: what the frame's top and bottom leave of the screen, less the fixed parts, shared by six.
-    l.hc = std::clamp(std::floor((kScreenH-kFixedHeight-area.bottom-ft)/6.0f), kHcMin, kHcMax);
+    // The rows' height: what the frame's top and bottom leave of the screen, less the fixed parts, shared by kRows (E36: seven, six before).
+    l.hc = std::clamp(std::floor((kScreenH-kFixedHeight-area.bottom-ft)/kRows), kHcMin, kHcMax);   // E36: kRows
     const float hc = l.hc;
 
     // The header: the Back arrow at the top-left corner of what the window shows, inside the frame; its hit box
@@ -343,7 +346,7 @@ PhoneOptionsLayout phoneOptionsLayout(const OptionsArea& given, const bool touch
     const float panelY = ft+kHeaderMargin+kBackH+kPanelGap;
     const float wc = std::floor((pw-2.0f*kPad-kColGap)*0.5f);
     const float col[2] = {px+kPad, px+kPad+wc+kColGap};
-    float rowY[4];
+    float rowY[5];   // E36: five rows of toggles (four before the difficulty's)
     float y = panelY+kPad;
     for (float& r : rowY)
     {
@@ -368,6 +371,7 @@ PhoneOptionsLayout phoneOptionsLayout(const OptionsArea& given, const bool touch
         place(PC_ADJUST, col[1], rowY[2]);
     place(PC_KEYBOARD_P2, col[0], rowY[3]);
     place(PC_JOYSTICK, col[1], rowY[3]);
+    place(PC_DIFFICULTY, col[0], rowY[4]);   // E36: a row of its own, in the left column as Zoom is where nothing sets a refresh rate
 
     // Refresh | Zoom, each a card of its label strip and a row of two buttons; Zoom takes the left place where
     // nothing sets a refresh rate (iOS).
@@ -438,6 +442,7 @@ void phoneOptionsLoop()
         putAdjust(f, l.cell[PC_ADJUST]);
     putToggle(f, l.cell[PC_KEYBOARD_P2], g_keyboardP2, false);
     putJoystick(f, l.cell[PC_JOYSTICK]);
+    putToggle(f, l.cell[PC_DIFFICULTY], g_difficulty, false);   // E36
     if (g_refreshRateRow)
         putChooser(f, l, PC_REFRESH, g_refreshRate);
     putChooser(f, l, PC_ZOOM, g_zoom);

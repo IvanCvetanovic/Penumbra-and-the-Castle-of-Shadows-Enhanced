@@ -98,7 +98,11 @@
     "O clima em Penumbra é muito\nagradável. Quando acaba a neblina,\nvem a tempestade. Depois, anoitece.": "الطقس في Penumbra لطيف\nللغاية. حين ينقشع الضباب،\nتأتي العاصفة. ثم يحل الليل.",
     "Penumbra e o Castelo das Sombras - Ethanon Engine": "Penumbra وقلعة الظلال - Ethanon Engine",
     "Penumbra e o Castelo das Sombras": "Penumbra وقلعة الظلال",
-    "Idioma": "اللغة"
+    "Idioma": "اللغة",
+    "Dificuldade normal": "مستوى الصعوبة: عادي",
+    "Dificuldade difícil": "مستوى الصعوبة: صعب",
+    "Normal": "عادي",
+    "Difícil": "صعب"
   },
   "patterns": [
     {
@@ -136,6 +140,18 @@
     {
       "pt": "Automática ({int} Hz)",
       "text": "تلقائي ({1} هرتز)"
+    },
+    {
+      "pt": "Melhores tempos ({text}):\n{any}",
+      "text": "أفضل الأوقات ({1}):\n{2}"
+    },
+    {
+      "pt": "Normal\n{any}\n\nDifícil\n{any}",
+      "text": "عادي\n{1}\n\nصعب\n{2}"
+    },
+    {
+      "pt": "{text}\n\nDificuldade: {text}\nMude em Configurações.",
+      "text": "{1}\n\nمستوى الصعوبة: {2}\nيمكنك تغييره من قائمة الإعدادات."
     }
   ],
   "touch": {

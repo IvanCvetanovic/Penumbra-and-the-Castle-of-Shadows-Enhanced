@@ -208,6 +208,28 @@ void showData(const string& title, const string& content)
     shadowText(rectPos+vector2(10,70), content, "Arial Narrow", textSize, 255,203,203,228, rtlRight);   // E24: rtlRight
 }
 
+// ENHANCEMENT E36: the best times panel's body. Both difficulties' lists, Normal's first, each under its name  // E36
+// (menu.as:240 drew the one list). A heading and its list are one paragraph, one blank line between the two,  // E36
+// so that a phone's panel, where it sets the body in two columns (at a blank line), breaks it between the     // E36
+// lists and nowhere else; 2 + 10 lines and the blank one, 13 of the 27 the panel's body has room for.        // E36
+// getRecordTimeList's lines each end in a break.                                                              // E36
+string recordsPanelText()                                       // E36
+{
+    return difficultyName(DIFFICULTY_NORMAL) + "\n" + getRecordTimeList(DIFFICULTY_NORMAL)   // E36
+        + "\n" + difficultyName(DIFFICULTY_HARD) + "\n" + getRecordTimeList(DIFFICULTY_HARD);   // E36
+}
+
+// ENHANCEMENT E36: the New Game panel's body, menu.as:186's story and, below it, the difficulty the run will be    // E36
+// played at (the options' choice, latched by newGame when the fade ends) and where it is changed. Built as E21's  // E36
+// credit is: novo_jogo ends in the lone CR AngelScript left, and CR LF is one break, so "\n\r\n" makes exactly one // E36
+// blank line; no CR at the end (FontAtlas counts one as a line). 20 lines + 1 + 2 = 23 of the panel's 27.        // E36
+string newGamePanelText()                                       // E36
+{
+    return novo_jogo + "\n\r\n"                                                                   // E36
+        + "Dificuldade: " + difficultyName(g_difficulty.getCurrent() == DIFFICULTY_HARD ? DIFFICULTY_HARD : DIFFICULTY_NORMAL) + "\r\n"   // E36
+        + "Mude em Configura\xE7\xF5" "es.";                                                      // E36
+}
+
 // menu.as:232. The whole menu and arena-select logic, run every frame (the
 // cursor is dynamic).
 void ETHCallback_cursor(ETHEntity thisEntity)
@@ -237,7 +259,7 @@ void ETHCallback_cursor(ETHEntity thisEntity)
             } else
             if (entityName == "melhores_tempos")
             {
-                showData("Melhores tempos", getRecordTimeList());
+                showData("Melhores tempos", recordsPanelText());   // E36: both difficulties' lists (menu.as:240: the one)
             } else
             if (entityName == "como_jogar")
             {
@@ -272,7 +294,7 @@ void ETHCallback_cursor(ETHEntity thisEntity)
             } else
             if (entityName == "novo_jogo")                             // menu.as:288
             {
-                showData("Novo jogo", novo_jogo);
+                showData("Novo jogo", newGamePanelText());   // E36: menu.as:288 drew novo_jogo alone
                 if (confirmed)
                 {
                     // Starts the 3 s fade-out; newGame() runs when it ends
@@ -305,7 +327,8 @@ void ETHCallback_cursor(ETHEntity thisEntity)
                 bool allow = true;
 
                 // An arena with a "score" unlocks only for a best campaign
-                // time strictly below it (menu.as:318-326).
+                // time strictly below it (menu.as:318-326). E36: the better of
+                // Normal's and Hard's best times, getGetBestTime().
                 if (handle->CheckCustomData("score") != DT_NODATA)
                 {
                     if (handle->GetUIntData("score") <= getGetBestTime())

@@ -1563,9 +1563,15 @@ void ScenarioBridgeAndBoss(Game& g) {
     }
     std::printf("\n");
     CHECK(hs.get("hs", "hs5").empty());
+    // E36: a Normal record is written with Hard's list beside it, still the shipped five 59:59.
+    CHECK(hs.exists("hsHard"));
+    for (uint t = 0; t < Script::MAX_SCORES; ++t) {
+        uint v = 0;
+        CHECK(hs.getUint("hsHard", "hs" + std::to_string(t), v) && v == 3599000u);
+    }
     CHECK(WaitForHud(g, "Seu tempo total foi:", 3));
     CHECK(HudHas(g.m, Script::getTimeString(record)));
-    CHECK(HudHas(g.m, "Melhores tempos:"));
+    CHECK(HudHas(g.m, "Melhores tempos (Normal):"));   // E36: the end screen names the difficulty of the list it shows
     CHECK_EQ(p->GetIntData("hp"), 100);
     g.Steps(200);
     CHECK(!king->IsAlive());
@@ -2047,6 +2053,8 @@ void ScenarioOptionsE10(Game& g) {
     CHECK(HudHas(g.m, "[ ] Desativa movimento suave"));
     CHECK(HudHas(g.m, "[\x95] Pausa ao perder o foco"));   // E13's, beside it
     CHECK(HudHas(g.m, "[ ] Continua sem o foco"));
+    CHECK(HudHas(g.m, "[\x95] Dificuldade normal"));   // E36's, beside the language chooser
+    CHECK(HudHas(g.m, "[ ] Dificuldade dif\xED" "cil"));   // E36
     CHECK(HudHas(g.m, "[<]"));
     CHECK(HudHas(g.m, "[>]"));
     CHECK(HudHas(g.m, "100%"));
@@ -2054,8 +2062,8 @@ void ScenarioOptionsE10(Game& g) {
     CHECK(HudHas(g.m, "[\x95] Ativa pixel shaders"));
     CHECK(HudHas(g.m, "[\x95] Janela"));
 
-    // Three switches, each two 25 px rows 256 wide from x 255: a click on the
-    // second row selects it, one on the first selects it back.
+    // Four switches, each two 25 px rows 256 wide from x 255 (E36's 300 wide from x 600): a click on
+    // the second row selects it, one on the first selects it back.
     struct E10Switch {
         Script::Switch* widget;
         float x;
@@ -2068,6 +2076,8 @@ void ScenarioOptionsE10(Game& g) {
         {&Script::g_widescreen, 255.0f, 494.0f, "Tela larga (widescreen)", "Tela 4:3 (original)"},
         // E13's, in the second column (x 540-796) beside E8's.
         {&Script::g_pauseOnFocusLoss, 540.0f, 694.0f, "Pausa ao perder o foco", "Continua sem o foco"},
+        // E36's, to the right of the language chooser (x 600-900, y 564-614).
+        {&Script::g_difficulty, 600.0f, 564.0f, "Dificuldade normal", "Dificuldade dif\xED" "cil"},
     };
     const auto switchRow = [&](const E10Switch& row) {
         CHECK_EQ(row.widget->getCurrent(), 0u);
@@ -2095,11 +2105,13 @@ void ScenarioOptionsE10(Game& g) {
     CHECK_EQ(Script::g_language.getCurrent(), 6u);
     CHECK(WaitForHud(g, "{language:pt}", 3));
     switchRow(e10Switches[2]);
+    switchRow(e10Switches[3]);   // E36
     // None of them moved the original's switches, nor E8's beside E13's.
     CHECK_EQ(Script::g_smoothMotion.getCurrent(), 0u);
     CHECK_EQ(Script::g_enablePS.getCurrent(), 0u);
     CHECK_EQ(Script::g_windowed.getCurrent(), 0u);
     CHECK_EQ(Script::g_controls.getCurrent(), 0u);
+    CHECK_EQ(Script::g_difficulty.getCurrent(), Script::DIFFICULTY_NORMAL);   // E36: switchRow put it back, and the other rows left it alone
 
     // Two steppers, one 25 px row each from x 255: the label column is 180 px,
     // then "[<]" in x 435-475, the value, "[>]" in x 535-575. They stop at 0
@@ -2996,6 +3008,122 @@ void ScenarioArenas(Game& g) {
     g.Steps(5);
 }
 
+// === 27. Hard (E36): the panels, the king, the end screen and the two lists ======================   // E36
+//
+// The options' choice is read when New Game's fade ends (newGame): level3 by the K_3 cheat, as scenario 6b+8 gets
+// there, then the king and the warriors he summons with twice the hp and the experience they always gave, the end
+// screen naming the difficulty and the time going into Hard's list alone, beside the Normal record scenario 6b+8 set.
+
+void ScenarioHardE36(Game& g) {                                                                    // E36
+    CHECK(EnsureMenu(g));
+    const string normalBefore = Script::getRecordTimeList(Script::DIFFICULTY_NORMAL);
+    const uint normalBest = Script::getGetBestTime(Script::DIFFICULTY_NORMAL);
+    CHECK(normalBest < Script::DEFAULT_RECORD_TIME);   // scenario 6b+8's record
+    CHECK_EQ(Script::getGetBestTime(Script::DIFFICULTY_HARD), Script::DEFAULT_RECORD_TIME);
+
+    std::printf("-- the panels name the difficulty and show both lists\n");
+    Script::g_difficulty.setCurrent(Script::DIFFICULTY_HARD);
+    g.base.cursor = kRecordsButton;
+    g.Steps(3);
+    CHECK(LastButton() == "melhores_tempos");
+    CHECK(WaitForHud(g, "Normal\n1    " + Script::getTimeString(normalBest), 3));
+    CHECK(HudHas(g.m, "\nDif\xED" "cil\n1    59:59"));
+    g.base.cursor = kNewGameButton;
+    g.Steps(3);
+    CHECK(LastButton() == "novo_jogo");
+    CHECK(WaitForHud(g, "Dificuldade: Dif\xED" "cil", 3));
+    CHECK(HudHas(g.m, "Mude em Configura\xE7\xF5" "es."));
+    Script::g_difficulty.setCurrent(Script::DIFFICULTY_NORMAL);
+    g.Steps(2);
+    CHECK(WaitForHud(g, "Dificuldade: Normal", 3));
+    Script::g_difficulty.setCurrent(Script::DIFFICULTY_HARD);
+    g.Steps(2);
+
+    std::printf("-- New game with 3 held (main.as:112-113): level3, in Hard\n");
+    g.Step(g.With({K_RETURN, K_3}));
+    const InputFrame hold3 = g.With({K_3});
+    const int loaded = WaitFor(g, 200, [] { return GetSceneFileName() == "scenes/level3.esc"; }, &hold3);
+    std::printf("  level3.esc loaded %d frames after the press; the run is %s\n", loaded,
+                Script::g_runDifficulty == Script::DIFFICULTY_HARD ? "Hard" : "Normal");
+    CHECK(loaded >= 180 && loaded <= 183);
+    CHECK_EQ(Script::g_runDifficulty, Script::DIFFICULTY_HARD);
+    // The options' switch is read once, when the run starts: put back now, the run stays Hard.
+    Script::g_difficulty.setCurrent(Script::DIFFICULTY_NORMAL);
+    CHECK_EQ(Script::g_runDifficulty, Script::DIFFICULTY_HARD);
+    const ETHEntity p = WaitForPlayerReady(g, 240, "level3 start (Hard)");
+    if (!Ready(p)) {
+        CHECK_MSG(false, "no wizard in level3");
+        return;
+    }
+
+    std::printf("-- event01: the king has twice the hp, the experience he gives is as ever\n");
+    // SHORTCUT: the wizard is teleported into event01's bucket (10920,1408), as scenario 6b+8 does.
+    std::printf("  SHORTCUT: wizard teleported into event01 882's bucket\n");
+    const ETHEntity ev = SeekEntity(882);
+    CHECK(ev != nullptr);
+    if (ev == nullptr) return;
+    const int since = GetLastID();
+    Teleport(p, vector2(10920.0f, 1440.0f));
+    const int fired = WaitFor(g, 60, [&] { return !ev->IsAlive(); });
+    CHECK(fired >= 0);
+    const ETHEntityArray kings = NewEntities("king.ent", since);
+    CHECK_EQ(kings.size(), 1u);
+    if (kings.size() != 1u) return;
+    const ETHEntity king = kings[0];
+    std::printf("  king id %d hp %d expGiven %d\n", king->GetID(), king->GetIntData("hp"), king->GetIntData("expGiven"));
+    CHECK_EQ(king->GetIntData("hp"), 7000);
+    CHECK_EQ(king->GetIntData("expGiven"), 3500);
+
+    std::printf("-- the king's first summoned warrior\n");
+    // SHORTCUT: the wizard's hp and maxHp set to 1000 so that he lives through the wait.
+    p->AddIntData("maxHp", 1000);
+    p->AddIntData("hp", 1000);
+    const int since2 = GetLastID();
+    Spotter spot(since2, {"warrior.ent"});
+    int seenAfter = -1;
+    for (int i = 0; i < 420 && seenAfter < 0; ++i) {
+        g.Step();
+        spot.Poll();
+        if (spot.Count("warrior.ent") > 0) seenAfter = i + 1;
+    }
+    const ETHEntity warrior = spot.First("warrior.ent");
+    std::printf("  a warrior after %d frames: hp %d expGiven %d\n", seenAfter,
+                warrior != nullptr ? warrior->GetIntData("hp") : -1,
+                warrior != nullptr ? warrior->GetIntData("expGiven") : -1);
+    CHECK(warrior != nullptr);
+    if (warrior != nullptr) {
+        CHECK_EQ(warrior->GetIntData("hp"), 150);        // data.enml's 75, twice
+        CHECK_EQ(warrior->GetIntData("expGiven"), 75);
+    }
+
+    std::printf("-- the king falls: the end screen names the difficulty, the time goes into Hard's list\n");
+    // SHORTCUT: the king's hp set to 0 (7000 hp is minutes of sword work).
+    std::printf("  SHORTCUT: king hp set to 0\n");
+    king->AddIntData("hp", 0);
+    CHECK(WaitFor(g, 5, [] { return Script::g_gameFinished; }) >= 0);
+    CHECK(WaitFor(g, 5, [] { return Script::g_newRecordTime != 0; }) >= 0);
+    const uint record = Script::g_newRecordTime;
+    std::printf("  g_newRecordTime %u ms (%s)\n", record, Script::getTimeString(record).c_str());
+    CHECK(record > 0u);
+    CHECK(WaitForHud(g, "Seu tempo total foi:", 3));
+    CHECK(WaitForHud(g, "Melhores tempos (Dif\xED" "cil):", 3));
+    CHECK(!HudHas(g.m, "Melhores tempos (Normal):"));
+    CHECK(HudHas(g.m, "1    " + Script::getTimeString(record)));
+    CHECK_EQ(Script::getGetBestTime(Script::DIFFICULTY_HARD), record);
+    CHECK(Script::getRecordTimeList(Script::DIFFICULTY_NORMAL) == normalBefore);
+    CHECK_EQ(Script::getGetBestTime(), std::min(normalBest, record));   // the arenas' lock: either difficulty opens it
+
+    std::printf("-- ESC, and the menu's best times list both\n");
+    CHECK(EnsureMenu(g));
+    g.base.cursor = kRecordsButton;
+    g.Steps(3);
+    CHECK(LastButton() == "melhores_tempos");
+    CHECK(WaitForHud(g, "Normal\n1    " + Script::getTimeString(normalBest), 3));
+    CHECK(HudHas(g.m, "\nDif\xED" "cil\n1    " + Script::getTimeString(record)));
+    // The script module's globals outlive a Machine: leave the next runtime a Normal run.
+    Script::g_runDifficulty = Script::DIFFICULTY_NORMAL;
+}                                                                                                  // E36
+
 // === 20. A lone gamepad, from boot (E12 under the shipped defaults) ===================================
 //
 // A fresh runtime booted with only what the layer reports for a player with
@@ -3266,6 +3394,7 @@ void ScenarioMobileOptions(Game& g) {
     CHECK(HudHas(g.m, "[\x95] Ativa pixel shaders"));
     CHECK(HudHas(g.m, "Teclado para o jogador 2"));
     CHECK(HudHas(g.m, "Pausa ao perder o foco"));
+    CHECK(HudHas(g.m, "[\x95] Dificuldade normal"));   // E36: x 600-900, y 564-614, clear of the zoom chooser (x 540-820, y 424-474)
 
     const auto click = [&g](const vector2& at) {
         g.base.cursor = at;
@@ -3906,6 +4035,7 @@ void ScenarioPhoneOptionsE31(Game& g) {   // E31
         {"pause on focus loss", &S::g_pauseOnFocusLoss, S::PC_PAUSE_FOCUS, "Pausa ao perder o foco", "Continua sem o foco"},   // E31
         {"touch controls", &S::g_touchControls, S::PC_TOUCH, "Ativa controles de toque", "Desativa controles de toque"},   // E31
         {"keyboard for player 2", &S::g_keyboardP2, S::PC_KEYBOARD_P2, "Teclado para o jogador 2", "Jogador 2 s\xF3 no joystick"},   // E31
+        {"difficulty", &S::g_difficulty, S::PC_DIFFICULTY, "Dificuldade normal", "Dificuldade dif\xED" "cil"},   // E36: the fifth row of toggles
     };   // E31
     const string title = "Op\xE7\xF5" "es de v\xED" "deo";   // E31
     const string hint = "Vale a partir da pr\xF3" "xima fase";   // E31
@@ -3937,8 +4067,8 @@ void ScenarioPhoneOptionsE31(Game& g) {   // E31
             for (const auto& t : expected) std::printf("    expected  %-40s alpha %u\n", Utf8(t.first).c_str(), t.second);   // E31
             for (const auto& t : shown) std::printf("    drawn     %-40s alpha %u\n", Utf8(t.first).c_str(), t.second);   // E31
         }   // E31
-        CHECK_EQ(expected.size(), std::size_t{18});   // title, 6 wordings, the hint, Adjust, 2 + 2 + 2 chooser and stepper texts, the language   // E31
-        CHECK(shown == expected);   // 17 at full alpha, the widescreen hint at 170   // E31
+        CHECK_EQ(expected.size(), std::size_t{19});   // title, 7 wordings, the hint, Adjust, 2 + 2 + 2 + 2 chooser and stepper texts, the language   // E31, E36: 18 before the difficulty's
+        CHECK(shown == expected);   // 18 at full alpha, the widescreen hint at 170   // E31, E36
         CHECK(!HudHas(g.m, "[\x95]") && !HudHas(g.m, "[ ]"));   // no row's "[x] ": the check boxes are art   // E31
         CHECK(!HudHas(g.m, "Janela") && !HudHas(g.m, "Idioma"));   // the window switch and the language's label: not on this layout   // E31
     }   // E31
@@ -3983,19 +4113,20 @@ void ScenarioPhoneOptionsE31(Game& g) {   // E31
         click(centre);   // back where it was   // E31
         CHECK_EQ(t.widget->getCurrent(), before);   // E31
     }   // E31
-    // The old layouts' places mean something else here: E20's touch row's second line, (300, 207), is the pixel shaders cell now;   // E31
-    // the column and row gaps and the old Back arrow's corner (906, 6) are nothing.   // E31
+    // The old layouts' places mean something else here: E20's touch row's first line, (300, 182), is the pixel shaders cell now (its   // E31, E36
+    // second line, (300, 207), is the 6 px gap under that cell since the difficulty's cell made the rows 78 tall); the column and row   // E36
+    // gaps and the old Back arrow's corner (906, 6) are nothing.   // E31
     {   // E31
         const uint shaders = S::g_enablePS.getCurrent();   // E31
         const uint touch = S::g_touchControls.getCurrent();   // E31
-        click(vector2(300.0f, 207.0f));   // E31
+        click(vector2(300.0f, 182.0f));   // E31, E36: (300, 207) before
         CHECK_EQ(S::g_enablePS.getCurrent(), 1u - shaders);   // E31
         CHECK_EQ(S::g_touchControls.getCurrent(), touch);   // E31
-        click(vector2(255.0f, 207.0f));   // E31
+        click(vector2(255.0f, 182.0f));   // E31, E36
         CHECK_EQ(S::g_enablePS.getCurrent(), shaders);   // E31
         const uint widescreen = S::g_widescreen.getCurrent();   // E31
         const uint smooth = S::g_smoothMotion.getCurrent();   // E31
-        for (const vector2& nothing : {vector2(512.0f, 170.0f), vector2(512.0f, 450.0f), vector2(265.0f, 217.0f), vector2(759.0f, 217.0f),   // E31
+        for (const vector2& nothing : {vector2(512.0f, 170.0f), vector2(512.0f, 450.0f), vector2(265.0f, 207.0f), vector2(759.0f, 207.0f),   // E31, E36: y 217 before, the gap under the first row
                                        vector2(906.0f, 6.0f), vector2(500.0f, 40.0f), vector2(540.0f, 80.0f), vector2(255.0f, 564.0f)}) {   // E31
             click(nothing);   // E31
             CHECK_MSG(inOptions(), "a tap at (" + std::to_string(nothing.x) + ", " + std::to_string(nothing.y) + ") left the screen");   // E31
@@ -4040,7 +4171,7 @@ void ScenarioPhoneOptionsE31(Game& g) {   // E31
         CHECK(frontText("Desativa controles de toque") != nullptr);   // E31
         CHECK(frontText("Ajustar controles") == nullptr);   // E31
         CHECK(spriteIn("arrow_right.png", l.cell[S::PC_ADJUST]) == nullptr);   // E31
-        CHECK_EQ(drawnTexts().size(), std::size_t{17});   // E31
+        CHECK_EQ(drawnTexts().size(), std::size_t{18});   // E31, E36: 17 before the difficulty's
         click(mid(l.cell[S::PC_ADJUST]));   // nothing is there to tap   // E31
         CHECK_MSG(!S::g_adjustTouchControls, "a tap where the Adjust cell was, with the touch controls off, raised the flag");   // E31
         CHECK_EQ(S::g_touchControls.getCurrent(), 1u);   // E31
@@ -4266,7 +4397,7 @@ void ScenarioPhoneOptionsE31(Game& g) {   // E31
         CHECK(frontText(S::g_refreshRate.getLabel()) == nullptr);   // E31
         const HudCmd* label = frontText(S::g_zoom.getLabel());   // E31
         CHECK(label != nullptr && label->pos.x == without.cell[S::PC_ZOOM].x + 14.0f && label->pos.x == withRow.cell[S::PC_REFRESH].x + 14.0f);   // E31
-        CHECK_EQ(drawnTexts().size(), std::size_t{16});   // the refresh rate's label and value are gone   // E31
+        CHECK_EQ(drawnTexts().size(), std::size_t{17});   // the refresh rate's label and value are gone   // E31, E36: 16 before
         click(mid(without.more[S::PC_ZOOM]));   // E31
         CHECK_EQ(S::g_zoom.getCurrent(), 1u);   // E31
         click(mid(withRow.more[S::PC_ZOOM]));   // where Zoom's [>] was: a dead place now   // E31
@@ -4286,10 +4417,10 @@ void ScenarioPhoneOptionsE31(Game& g) {   // E31
         const S::PhoneOptionsLayout l = lay();   // E31
         const HudCmd* arrow = backArrow();   // E31
         CHECK(arrow != nullptr && arrow->pos == vector2(-274.0f, 35.0f));   // E31
-        CHECK(l.panel.x == 12.0f && l.panel.y == 129.0f && l.panel.w == 1000.0f && l.hc == 88.0f);   // E31
+        CHECK(l.panel.x == 12.0f && l.panel.y == 129.0f && l.panel.w == 1000.0f && l.hc == 75.0f);   // E31, E36: 88 before (floor((768 - 210 - 27) / 7))
         CHECK(l.langLess.x == 957.0f && l.langMore.x == 1211.0f);   // E31
         CHECK_EQ(stretched(), 0);   // E31
-        CHECK_EQ(drawnTexts().size(), std::size_t{18});   // E31
+        CHECK_EQ(drawnTexts().size(), std::size_t{19});   // E31, E36: 18 before
         // The language chooser lies right of x 1024 and still answers (the cursor reaches past the screen's edge).   // E31
         click(mid(l.langMore));   // E31
         CHECK_EQ(S::g_language.getCurrent(), 3u);   // E31
@@ -4312,16 +4443,17 @@ void ScenarioPhoneOptionsE31(Game& g) {   // E31
         g.Steps(30);   // E31
         enterOptions();   // E31
     }   // E31
-    // Where a notch and a home indicator cut the frame in: the arrow is 87 px in, the rows 82 tall, the panel above the indicator.   // E31
+    // Where a notch and a home indicator cut the frame in: the arrow is 87 px in, the rows 70 tall (floor((768 - 210 - 41 - 27) / 7); 82 before   // E31, E36
+    // the difficulty's cell), the panel above the indicator.   // E31
     S::g_optionsArea = notch;   // E31
     g.Steps(2);   // E31
     {   // E31
         const S::PhoneOptionsLayout l = lay();   // E31
         const HudCmd* arrow = backArrow();   // E31
         CHECK(arrow != nullptr && arrow->pos == vector2(-225.0f, 35.0f));   // E31
-        CHECK(l.hc == 82.0f && l.panel.y + l.panel.h <= 768.0f - 41.0f);   // E31
+        CHECK(l.hc == 70.0f && l.panel.y + l.panel.h <= 768.0f - 41.0f);   // E31, E36: 82 before
         CHECK_EQ(stretched(), 0);   // E31
-        CHECK_EQ(drawnTexts().size(), std::size_t{18});   // E31
+        CHECK_EQ(drawnTexts().size(), std::size_t{19});   // E31, E36: 18 before
         const uint before = S::g_pauseOnFocusLoss.getCurrent();   // E31
         click(mid(l.cell[S::PC_PAUSE_FOCUS]));   // E31
         CHECK_EQ(S::g_pauseOnFocusLoss.getCurrent(), 1u - before);   // E31
@@ -4367,8 +4499,8 @@ void ScenarioPhoneOptionsE31(Game& g) {   // E31
             CHECK_MSG(std::fabs((c.fit.max.y - c.fit.min.y) - c.fontSize * 1.3f) < 0.01f, "a fit box of the wrong height: " + Utf8(c.text));   // E31
         }   // E31
         for (const auto& group : groups) CHECK_MSG(group.second == 2, "a fit group is a text and its shadow: " + std::to_string(group.second));   // E31
-        CHECK_EQ(groups.size(), std::size_t{17});   // every text of the body but the title   // E31
-        CHECK_EQ(fitted, 34);   // E31
+        CHECK_EQ(groups.size(), std::size_t{18});   // every text of the body but the title   // E31, E36: 17 before the difficulty's
+        CHECK_EQ(fitted, 36);   // E31, E36: 34 before
         CHECK_EQ(plain, 2);   // the title and its shadow   // E31
         // A cell's room: 398 wide, the text 66 in and 12 clear; a line and a third tall, which holds the text and the shadow a tenth of   // E31
         // its size lower (a box of exactly the text's size shrank every text to about 0.91).   // E31
@@ -4453,6 +4585,7 @@ int main() {
         RunScenario(g, "17. the paladin and the master knight", ScenarioPaladinAndMasterKnight);
         RunScenario(g, "18. the summon's price and its refusals", ScenarioSummonRules);
         RunScenario(g, "19. versus in arenas 2-6, arena 6 to 3 points", ScenarioArenas);
+        RunScenario(g, "27. Hard: the panels, the king, the end screen, the two lists (E36)", ScenarioHardE36);   // E36
         RunScenario(g, "13. the menu's Quit", [](Game& game) {
             CHECK(EnsureMenu(game));
             game.base.cursor = kQuitButton;

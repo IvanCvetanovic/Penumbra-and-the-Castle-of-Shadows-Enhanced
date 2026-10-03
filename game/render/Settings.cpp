@@ -570,6 +570,18 @@ Settings Settings::FromJson(const std::string& text, const Settings& defaults, s
     ReadBool(root, "smoothMotion", settings.smoothMotion, warning);
     ReadBool(root, "pauseOnFocusLoss", settings.pauseOnFocusLoss, warning);
 
+    // E36. "hard" in any case is Hard; "normal" and anything else (a number, another word) is Normal, with a
+    // warning for the latter: a mistyped difficulty must never leave a player in the harder game by accident.
+    // An absent key keeps the defaults', as every other field does.
+    if (root.Has("difficulty")) {   // E36
+        const Value& difficulty = root["difficulty"];   // E36
+        const std::string word = difficulty.IsString() ? difficulty.AsString() : std::string();   // E36
+        settings.difficulty = EqualsIgnoreCase(word, "hard") ? "hard" : "normal";   // E36
+        if (!EqualsIgnoreCase(word, "hard") && !EqualsIgnoreCase(word, "normal")) {   // E36
+            Warn(warning, "difficulty is not \"normal\" or \"hard\"; using normal");   // E36
+        }   // E36
+    }   // E36
+
     // E16. A hand-written true/false is taken as "on"/"off".
     if (root.Has("touchControls")) {
         const Value& touch = root["touchControls"];
@@ -652,6 +664,7 @@ std::string Settings::ToJson() const {
     out << "  \"pixelShaders\": " << FormatBool(pixelShaders) << ",\n";
     out << "  \"smoothMotion\": " << FormatBool(smoothMotion) << ",\n";
     out << "  \"pauseOnFocusLoss\": " << FormatBool(pauseOnFocusLoss) << ",\n";
+    out << "  \"difficulty\": \"" << (HardDifficulty() ? "hard" : "normal") << "\",\n";   // E36
     out << "  \"touchControls\": \"" << Supersonic::Json::Escape(touchControls) << "\",\n";   // E16
     out << "  \"zoom\": " << (zoom == 0 ? std::string("\"auto\"") : std::to_string(zoom)) << ",\n";   // E25
     out << "  \"edgeMargin\": " << (edgeMargin < 0.0f ? std::string("\"auto\"") : FormatFloat(edgeMargin))

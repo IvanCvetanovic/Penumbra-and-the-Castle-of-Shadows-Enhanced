@@ -126,6 +126,9 @@ public:
         // E13's pause on focus loss for this run (off under --fixed-step: a
         // capture's window often never has the focus); never saved.
         std::optional<bool> pauseOnFocusLossOverride;
+        // E36's difficulty for this run (--difficulty normal|hard: true is Hard), over the settings'; never
+        // saved, and a pick on the options screen's row replaces it, as a pick replaces --lang.
+        std::optional<bool> hardDifficultyOverride;
         // E16's touch controls for this run (--touch: on, the mouse as the
         // finger); never saved.
         std::optional<bool> touchOverride;
@@ -259,6 +262,7 @@ private:
     Render::Language CurrentLanguage() const;
     bool SmoothMotion() const;
     bool PauseOnFocusLoss() const;
+    bool HardDifficulty() const;   // E36
     // E13: a level or an arena being played, where the pause may open.
     bool InPlayScene() const;
     // The master volumes: the player's, the music ducked while paused (E13).
@@ -271,6 +275,8 @@ private:
     // E16: this tick's touches pressed into the frame, before the pause and
     // the game read it.
     void ApplyTouch(Eth::InputFrame& frame);
+    // E37: the "not yet" cue of a combo button that refused a tap (ApplyTouch's step says when).
+    void PlayComboDenied(const Render::TouchStep& step);   // E37
     // E28: this tick's TouchInput - ApplyTouch's, extracted so that opening and closing the editor can lay the   // E28
     // controls out again for the scene they are about to be in, with the same fingers and the same geometry.    // E28
     Render::TouchInput BuildTouchInput();                                                                       // E28

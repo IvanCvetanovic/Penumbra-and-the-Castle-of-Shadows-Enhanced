@@ -98,7 +98,11 @@
     "O clima em Penumbra é muito\nagradável. Quando acaba a neblina,\nvem a tempestade. Depois, anoitece.": "Das Wetter in Penumbra ist sehr\nangenehm. Lichtet sich der Nebel,\nfolgt der Sturm. Dann wird es Nacht.",
     "Penumbra e o Castelo das Sombras - Ethanon Engine": "Penumbra und die Burg der Schatten - Ethanon Engine",
     "Penumbra e o Castelo das Sombras": "Penumbra und die Burg der Schatten",
-    "Idioma": "Sprache"
+    "Idioma": "Sprache",
+    "Dificuldade normal": "Schwierigkeit: Normal",
+    "Dificuldade difícil": "Schwierigkeit: Schwer",
+    "Normal": "Normal",
+    "Difícil": "Schwer"
   },
   "patterns": [
     {
@@ -136,6 +140,18 @@
     {
       "pt": "Automática ({int} Hz)",
       "text": "Automatisch ({1} Hz)"
+    },
+    {
+      "pt": "Melhores tempos ({text}):\n{any}",
+      "text": "Bestzeiten ({1}):\n{2}"
+    },
+    {
+      "pt": "Normal\n{any}\n\nDifícil\n{any}",
+      "text": "Normal\n{1}\n\nSchwer\n{2}"
+    },
+    {
+      "pt": "{text}\n\nDificuldade: {text}\nMude em Configurações.",
+      "text": "{1}\n\nSchwierigkeit: {2}\nÄndere es in den Einstellungen."
     }
   ],
   "touch": {

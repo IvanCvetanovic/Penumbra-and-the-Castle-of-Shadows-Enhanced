@@ -61,7 +61,7 @@
         "_util.as:459 loadingMessage": "",
         "Carregando...": "Loading...",
 
-        "_setupScene.as:360-362 the campaign's end": "",
+        "_setupScene.as:360-362 the campaign's end (ENHANCEMENT E36: the list is headed with its difficulty now, the pattern 'Melhores tempos ({text}):' below; 'Melhores tempos:' on its own is no longer drawn by any script and stays only as a key the localization suites still translate)": "",
         "Seu tempo total foi:": "Your total time was:",
         "Melhores tempos:": "Best times:",
 
@@ -104,6 +104,13 @@
         "_videoModes.cpp ENHANCEMENT E28: the touch controls' editor (not in the original; the Portuguese is the port's own). The options screen's button under the touch switch, '[>] ' + label at (255, 222) in Arial Narrow 25 (the switch rows' room, to the refresh rate's column at x 540), and the editor's title (render/TouchEditor.cpp), Arial Narrow 40 at (125, 53) beside its back arrow": "",
         "Ajustar controles": "Adjust controls",
         "Ajustar controles de toque": "Adjust touch controls",
+
+        "_videoModes.cpp ENHANCEMENT E36: the campaign difficulty's row (the original had one difficulty): a Switch of two 25 px rows at (600, 564), each '[x] ' + the wording of the state it names, so both are drawn and the chosen one marked; the labels carry the word for difficulty because the row stands alone on the screen. The Portuguese is the port's own": "",
+        "Dificuldade normal": "Difficulty: Normal",
+        "Dificuldade difícil": "Difficulty: Hard",
+        "_scores.cpp ENHANCEMENT E36 difficultyName: the two difficulties' names, one spelling wherever a screen names one - the end screen's list heading and the New Game panel's line (both through a {text} slot of the patterns below). The words inside the best times panel's pattern are worded the same, and so are the options' rows": "",
+        "Normal": "Normal",
+        "Difícil": "Hard",
 
         "_render/PauseMenu.cpp ENHANCEMENT E13: the pause (not in the original, which had none; the Portuguese is the port's own, Arial Narrow 40 and 30 in a 316 px row)": "",
         "Pausado": "Paused",
@@ -206,9 +213,24 @@
             "en": "{1}\n\nIvan Cvetanović\n -Enhanced edition (Supersonic Engine)"
         },
         {
-            "_note": "setupScene.as:362 \"Melhores tempos:\\n\" + getRecordTimeList() + \"\\n\\n\"",
+            "_note": "setupScene.as:362 \"Melhores tempos:\\n\" + getRecordTimeList() + \"\\n\\n\". Since E36 no script draws it (the first pattern below is the end screen's heading now); it stays so that the suites that translate the original's text keep working",
             "pt": "Melhores tempos:\n{any}",
             "en": "Best times:\n{1}"
+        },
+        {
+            "_note": "ENHANCEMENT E36 setupScene.cpp: the campaign's end screen names the difficulty whose list it shows - \"Melhores tempos (\" + difficultyName + \"):\\n\" + that list (five '1    m:ss' lines) + \"\\n\\n\". The name is translated by its own entry in 'strings' (Normal, Difícil)",
+            "pt": "Melhores tempos ({text}):\n{any}",
+            "en": "Best times ({1}):\n{2}"
+        },
+        {
+            "_note": "ENHANCEMENT E36 menu.cpp recordsPanelText: the best times panel's body - Normal's list under its name, a blank line, Hard's list under its own. One pattern, so that a phone's two-column split can only fall between the two lists. The two names are the words of the 'strings' entries Normal and Difícil",
+            "pt": "Normal\n{any}\n\nDifícil\n{any}",
+            "en": "Normal\n{1}\n\nHard\n{2}"
+        },
+        {
+            "_note": "ENHANCEMENT E36 menu.cpp newGamePanelText: the New Game panel's body - the story (menu.as:186, translated whole by its own entry in 'strings'), a blank line, the difficulty the run will be played at (Normal or Difícil, translated by its entry), and where it is changed. 'Configurações' is the title of the Settings button",
+            "pt": "{text}\n\nDificuldade: {text}\nMude em Configurações.",
+            "en": "{1}\n\nDifficulty: {2}\nChange it in Settings."
         },
         {
             "_note": "switch.as:79-82 \"[\" + (current ? bullet : space) + \"] \" + label",

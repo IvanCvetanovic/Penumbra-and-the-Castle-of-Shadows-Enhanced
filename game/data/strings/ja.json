@@ -98,7 +98,11 @@
     "O clima em Penumbra é muito\nagradável. Quando acaba a neblina,\nvem a tempestade. Depois, anoitece.": "Penumbraの気候は実に快適だ。\n霧が晴れれば、嵐がやって来る。\nそして夜が訪れる。",
     "Penumbra e o Castelo das Sombras - Ethanon Engine": "Penumbraと影の城 - Ethanon Engine",
     "Penumbra e o Castelo das Sombras": "Penumbraと影の城",
-    "Idioma": "言語"
+    "Idioma": "言語",
+    "Dificuldade normal": "難易度：ノーマル",
+    "Dificuldade difícil": "難易度：ハード",
+    "Normal": "ノーマル",
+    "Difícil": "ハード"
   },
   "patterns": [
     {
@@ -136,6 +140,18 @@
     {
       "pt": "Automática ({int} Hz)",
       "text": "自動（{1} Hz）"
+    },
+    {
+      "pt": "Melhores tempos ({text}):\n{any}",
+      "text": "ベストタイム（{1}）：\n{2}"
+    },
+    {
+      "pt": "Normal\n{any}\n\nDifícil\n{any}",
+      "text": "ノーマル\n{1}\n\nハード\n{2}"
+    },
+    {
+      "pt": "{text}\n\nDificuldade: {text}\nMude em Configurações.",
+      "text": "{1}\n\n難易度：{2}\n設定メニューで変更できます。"
     }
   ],
   "touch": {

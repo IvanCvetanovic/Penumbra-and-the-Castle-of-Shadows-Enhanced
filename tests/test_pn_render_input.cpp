@@ -829,6 +829,8 @@ void testSettings() {
     CHECK_EQ(en.controls.Player2Pad(), 0);   // g_controls 0: player 2 reads joystick 0
     CHECK(en.pixelShaders);
     CHECK(en.pauseOnFocusLoss);              // E13
+    CHECK(en.difficulty == "normal" && !en.HardDifficulty());   // E36: the original's game unless the player picks Hard
+    CHECK(pt.difficulty == "normal" && Settings::Defaults("ja").difficulty == "normal");   // E36: whatever the language
     CHECK_EQ(en.fullscreenWidth, 0);         // Step 23: the desktop's mode
     CHECK_EQ(en.fullscreenHeight, 0);
     // E23: a first launch is fullscreen, automatic in all three.
@@ -866,6 +868,7 @@ void testSettings() {
     changed.effectsVolume = 0.8f;
     changed.pixelShaders = false;
     changed.pauseOnFocusLoss = false;        // E13
+    changed.difficulty = "hard";             // E36
     changed.controls.joystickLayout = 1;
     changed.controls.keyboardPlayer2 = false;
     changed.controls.firstPadIsPlayer1 = true;
@@ -911,6 +914,7 @@ void testSettings() {
     CHECK(partial.controls.player1[ControlAction::Sword] == std::vector<int>{GLFW_KEY_A});
     CHECK(partial.controls.player1[ControlAction::Fire] == en.controls.player1[ControlAction::Fire]);
     CHECK(partial.controls.player2 == en.controls.player2);
+    CHECK(partial.difficulty == "normal");   // E36: an older file without the key is the default
     CHECK(!warning.empty());   // "bogus"
     CHECK(Settings::FromJson("[1, 2]", en) == en);
 
@@ -2075,7 +2079,7 @@ bool Overlap(const PhoneRect& a, const PhoneRect& b) {   // E31
 std::vector<std::pair<std::string, PhoneRect>> HitBoxes(const Penumbra::Script::PhoneOptionsLayout& l) {   // E31
     using namespace Penumbra::Script;   // E31
     std::vector<std::pair<std::string, PhoneRect>> boxes;   // E31
-    for (const PhoneCell c : {PC_PIXEL_SHADERS, PC_SMOOTH_MOTION, PC_WIDESCREEN, PC_PAUSE_FOCUS, PC_TOUCH, PC_ADJUST, PC_KEYBOARD_P2, PC_JOYSTICK}) {   // E31
+    for (const PhoneCell c : {PC_PIXEL_SHADERS, PC_SMOOTH_MOTION, PC_WIDESCREEN, PC_PAUSE_FOCUS, PC_TOUCH, PC_ADJUST, PC_KEYBOARD_P2, PC_JOYSTICK, PC_DIFFICULTY}) {   // E31, E36: PC_DIFFICULTY
         if (l.present[c]) boxes.emplace_back("cell " + std::to_string(c), l.cell[c]);   // E31
     }   // E31
     for (const PhoneCell c : {PC_REFRESH, PC_ZOOM, PC_MUSIC, PC_EFFECTS}) {   // E31
@@ -2098,83 +2102,100 @@ void testPhoneOptionsLayout() {   // E31
     // shown area's corners, inside the frame.                                                                          // E31
     OptionsArea phone = OptionsAreaOf(ComputeFixedLayoutArea({2400u, 1080u}, open, Supersonic::SafeAreaInsets{}, 3.5f));   // E31
     PhoneOptionsLayout l = phoneOptionsLayout(phone, true, true);   // E31
-    CHECK_EQ(l.hc, 88.0f);   // E31
-    CHECK_MSG(SameRect(l.panel, 12, 129, 1000, 624), "panel " + RectText(l.panel));   // E31
+    // E36: seven rows share the height now (the difficulty cell made a fifth row of toggles): floor((768 - 210 - 27) / 7) = 75   // E36
+    // where six shared it, floor((768 - 204 - 27) / 6) = 89, clamped to 88; the panel is 3 px taller than it was.   // E36
+    CHECK_EQ(l.hc, 75.0f);   // E31, E36: 88 before
+    CHECK_MSG(SameRect(l.panel, 12, 129, 1000, 627), "panel " + RectText(l.panel));   // E31, E36: 624 before
     CHECK_MSG(SameRect(l.back, -274, 35, 123, 92), "back " + RectText(l.back));   // E31
     CHECK_MSG(SameRect(l.backHit, -343, -1, 212, 136), "back hit " + RectText(l.backHit));   // one px past the corner on the left and top edges   // E31
     CHECK(l.title.x == -135.0f && l.title.y == 61.0f);   // E31
     CHECK_MSG(SameRect(l.globe, 893, 53, 56, 56), "globe " + RectText(l.globe));   // E31
     CHECK(SameRect(l.langLess, 957, 39, 86, 84) && SameRect(l.langValue, 1043, 39, 168, 84) && SameRect(l.langMore, 1211, 39, 86, 84));   // E31
-    CHECK(SameRect(l.cell[PC_PIXEL_SHADERS], 28, 145, 474, 88) && SameRect(l.cell[PC_SMOOTH_MOTION], 522, 145, 474, 88));   // E31
-    CHECK(SameRect(l.cell[PC_WIDESCREEN], 28, 239, 474, 88) && SameRect(l.cell[PC_PAUSE_FOCUS], 522, 239, 474, 88));   // E31
-    CHECK(SameRect(l.cell[PC_TOUCH], 28, 333, 474, 88) && SameRect(l.cell[PC_ADJUST], 522, 333, 474, 88));   // E31
-    CHECK(SameRect(l.cell[PC_KEYBOARD_P2], 28, 427, 474, 88) && SameRect(l.cell[PC_JOYSTICK], 522, 427, 474, 88));   // E31
-    CHECK(SameRect(l.cell[PC_REFRESH], 28, 525, 474, 118) && SameRect(l.cell[PC_ZOOM], 522, 525, 474, 118));   // E31
-    CHECK(SameRect(l.less[PC_REFRESH], 32, 555, 86, 88) && SameRect(l.value[PC_REFRESH], 118, 555, 294, 88) &&   // E31
-          SameRect(l.more[PC_REFRESH], 412, 555, 86, 88));   // E31
-    CHECK(SameRect(l.less[PC_ZOOM], 526, 555, 86, 88) && SameRect(l.value[PC_ZOOM], 612, 555, 294, 88) &&   // E31
-          SameRect(l.more[PC_ZOOM], 906, 555, 86, 88));   // E31
-    CHECK(SameRect(l.cell[PC_MUSIC], 28, 649, 474, 88) && SameRect(l.cell[PC_EFFECTS], 522, 649, 474, 88));   // E31
-    CHECK(SameRect(l.less[PC_MUSIC], 258, 649, 86, 88) && SameRect(l.value[PC_MUSIC], 344, 649, 68, 88) &&   // E31
-          SameRect(l.more[PC_MUSIC], 412, 649, 86, 88));   // E31
-    CHECK(SameRect(l.less[PC_EFFECTS], 752, 649, 86, 88) && SameRect(l.value[PC_EFFECTS], 838, 649, 68, 88) &&   // E31
-          SameRect(l.more[PC_EFFECTS], 906, 649, 86, 88));   // E31
+    // E36: the rows at y 145, 226, 307, 388 and the difficulty's fifth at 469 (75 tall and 6 apart), the choosers at 554, the volumes at 665.   // E36
+    CHECK(SameRect(l.cell[PC_PIXEL_SHADERS], 28, 145, 474, 75) && SameRect(l.cell[PC_SMOOTH_MOTION], 522, 145, 474, 75));   // E31, E36
+    CHECK(SameRect(l.cell[PC_WIDESCREEN], 28, 226, 474, 75) && SameRect(l.cell[PC_PAUSE_FOCUS], 522, 226, 474, 75));   // E31, E36
+    CHECK(SameRect(l.cell[PC_TOUCH], 28, 307, 474, 75) && SameRect(l.cell[PC_ADJUST], 522, 307, 474, 75));   // E31, E36
+    CHECK(SameRect(l.cell[PC_KEYBOARD_P2], 28, 388, 474, 75) && SameRect(l.cell[PC_JOYSTICK], 522, 388, 474, 75));   // E31, E36
+    CHECK(SameRect(l.cell[PC_DIFFICULTY], 28, 469, 474, 75));   // E36: a row of its own, in the left column
+    CHECK(SameRect(l.cell[PC_REFRESH], 28, 554, 474, 105) && SameRect(l.cell[PC_ZOOM], 522, 554, 474, 105));   // E31, E36
+    CHECK(SameRect(l.less[PC_REFRESH], 32, 584, 86, 75) && SameRect(l.value[PC_REFRESH], 118, 584, 294, 75) &&   // E31, E36
+          SameRect(l.more[PC_REFRESH], 412, 584, 86, 75));   // E31, E36
+    CHECK(SameRect(l.less[PC_ZOOM], 526, 584, 86, 75) && SameRect(l.value[PC_ZOOM], 612, 584, 294, 75) &&   // E31, E36
+          SameRect(l.more[PC_ZOOM], 906, 584, 86, 75));   // E31, E36
+    CHECK(SameRect(l.cell[PC_MUSIC], 28, 665, 474, 75) && SameRect(l.cell[PC_EFFECTS], 522, 665, 474, 75));   // E31, E36
+    CHECK(SameRect(l.less[PC_MUSIC], 258, 665, 86, 75) && SameRect(l.value[PC_MUSIC], 344, 665, 68, 75) &&   // E31, E36
+          SameRect(l.more[PC_MUSIC], 412, 665, 86, 75));   // E31, E36
+    CHECK(SameRect(l.less[PC_EFFECTS], 752, 665, 86, 75) && SameRect(l.value[PC_EFFECTS], 838, 665, 68, 75) &&   // E31, E36
+          SameRect(l.more[PC_EFFECTS], 906, 665, 86, 75));   // E31, E36
     for (int c = 0; c < PC_COUNT; ++c) CHECK_MSG(l.present[c], "cell " + std::to_string(c));   // E31
+    // E36: the difficulty cell is a toggle like the others: as wide as they are, in the left column, under the joystick's row, and the   // E36
+    // bottom of the panel (665 + 75 + 16) is above the screen's bottom with room to spare (756 of 768) - no scrolling is needed.   // E36
+    CHECK(l.cell[PC_DIFFICULTY].w == l.cell[PC_PIXEL_SHADERS].w && l.cell[PC_DIFFICULTY].h == l.hc);   // E36
+    CHECK(l.cell[PC_DIFFICULTY].x == l.cell[PC_KEYBOARD_P2].x && l.cell[PC_DIFFICULTY].y == l.cell[PC_KEYBOARD_P2].y + l.hc + 6.0f);   // E36
+    CHECK(l.panel.y + l.panel.h == 756.0f);   // E36
 
-    // The 4:3 screen (area 0..1024, frame 10 / 8 / 10 / 0): the rows at y 126, 220, 314, 408, the choosers at 506, the volumes at 630.   // E31
+    // The 4:3 screen (area 0..1024, frame 10 / 8 / 10 / 0): the rows at y 126, 210, 294, 378, 462, the choosers at 550, the volumes at 664.   // E31, E36
     l = phoneOptionsLayout(OptionsAreaOf(ComputeFixedLayoutArea({1024u, 768u}, 0.0f, Supersonic::SafeAreaInsets{}, 1.0f)), true, true);   // E31
-    CHECK_EQ(l.hc, 88.0f);   // E31
-    CHECK(SameRect(l.back, 18, 16, 123, 92) && SameRect(l.panel, 12, 110, 1000, 624));   // E31
-    CHECK(SameRect(l.cell[PC_PIXEL_SHADERS], 28, 126, 474, 88) && SameRect(l.cell[PC_WIDESCREEN], 28, 220, 474, 88));   // E31
-    CHECK(SameRect(l.cell[PC_ADJUST], 522, 314, 474, 88) && SameRect(l.cell[PC_JOYSTICK], 522, 408, 474, 88));   // E31
-    CHECK(SameRect(l.cell[PC_REFRESH], 28, 506, 474, 118) && SameRect(l.cell[PC_EFFECTS], 522, 630, 474, 88));   // E31
+    CHECK_EQ(l.hc, 78.0f);   // E31, E36: floor((768 - 210 - 8) / 7) = 78; 88 before
+    CHECK(SameRect(l.back, 18, 16, 123, 92) && SameRect(l.panel, 12, 110, 1000, 648));   // E31, E36: 624 before
+    CHECK(SameRect(l.cell[PC_PIXEL_SHADERS], 28, 126, 474, 78) && SameRect(l.cell[PC_WIDESCREEN], 28, 210, 474, 78));   // E31, E36
+    CHECK(SameRect(l.cell[PC_ADJUST], 522, 294, 474, 78) && SameRect(l.cell[PC_JOYSTICK], 522, 378, 474, 78));   // E31, E36
+    CHECK(SameRect(l.cell[PC_DIFFICULTY], 28, 462, 474, 78));   // E36
+    CHECK(SameRect(l.cell[PC_REFRESH], 28, 550, 474, 108) && SameRect(l.cell[PC_EFFECTS], 522, 664, 474, 78));   // E31, E36
+    CHECK(l.panel.y + l.panel.h == 758.0f);   // E36: the panel's bottom, 10 px above the screen's, the 6 px of kBottom inside them
     CHECK(SameRect(l.langLess, 666, 20, 86, 84));   // E31
-    // The old single column's spots mean something else here: the touch row's second line (255, 207) is a pixel shaders cell,   // E31
-    // the old Back arrow's corner (906, 6) the language's [>] and the old language row (255, 564) the refresh cell.     // E31
+    // The old single column's spots mean something else here: the touch row's first line (255, 190) is a pixel shaders cell   // E31, E36
+    // (its second line, (255, 207), was before E36 and is now the 6 px gap under that cell), the old Back arrow's corner       // E36
+    // (906, 6) the language's [>] and the old language row (255, 564) the refresh cell.                                       // E31
     CHECK(l.cell[PC_PIXEL_SHADERS].x < 255.0f && 255.0f < l.cell[PC_PIXEL_SHADERS].x + l.cell[PC_PIXEL_SHADERS].w);   // E31
-    CHECK(l.cell[PC_PIXEL_SHADERS].y < 207.0f && 207.0f < l.cell[PC_PIXEL_SHADERS].y + l.cell[PC_PIXEL_SHADERS].h);   // E31
+    CHECK(l.cell[PC_PIXEL_SHADERS].y < 190.0f && 190.0f < l.cell[PC_PIXEL_SHADERS].y + l.cell[PC_PIXEL_SHADERS].h);   // E31, E36: 207 before
+    CHECK(207.0f > l.cell[PC_PIXEL_SHADERS].y + l.cell[PC_PIXEL_SHADERS].h && 207.0f < l.cell[PC_WIDESCREEN].y);   // E36: the gap between rows 0 and 1
     CHECK(l.langMore.x < 930.0f && 930.0f < l.langMore.x + l.langMore.w && l.langMore.y < 50.0f && 50.0f < l.langMore.y + l.langMore.h);   // E31
 
     // 16:9 and 16:10 windows: the body does not move; the header follows the area's corners.                              // E31
     l = phoneOptionsLayout(OptionsAreaOf(ComputeFixedLayoutArea({1920u, 1080u}, open, Supersonic::SafeAreaInsets{}, 1.0f)), true, true);   // E31
-    CHECK(SameRect(l.back, -149, 16, 123, 92) && SameRect(l.panel, 12, 110, 1000, 624) && SameRect(l.langLess, 832, 20, 86, 84));   // E31
+    CHECK(SameRect(l.back, -149, 16, 123, 92) && SameRect(l.panel, 12, 110, 1000, 648) && SameRect(l.langLess, 832, 20, 86, 84));   // E31, E36: 624 before
     l = phoneOptionsLayout(OptionsAreaOf(ComputeFixedLayoutArea({1280u, 800u}, open, Supersonic::SafeAreaInsets{}, 1.0f)), true, true);   // E31
-    CHECK(SameRect(l.back, -83, 16, 123, 92) && SameRect(l.panel, 12, 110, 1000, 624));   // E31
+    CHECK(SameRect(l.back, -83, 16, 123, 92) && SameRect(l.panel, 12, 110, 1000, 648));   // E31, E36: 624 before
 
-    // A notch and a home indicator: the frame is the safe area's (87 / 27 / 87 / 41), the rows 82 tall.                  // E31
+    // A notch and a home indicator: the frame is the safe area's (87 / 27 / 87 / 41.35), the rows 69 tall (E36: floor((768 - 210 - 41.35 - 27) / 7);   // E31, E36
+    // 82 before, with six rows).   // E36
     l = phoneOptionsLayout(OptionsAreaOf(ComputeFixedLayoutArea({2532u, 1170u}, open, Supersonic::SafeAreaInsets{132.0f, 0.0f, 132.0f, 63.0f}, 3.5f)), true, true);   // E31
-    CHECK_EQ(l.hc, 82.0f);   // E31
+    CHECK_EQ(l.hc, 69.0f);   // E31, E36: 82 before
     // The shown edge is -319.015 (486 px of bar / 1.5234375), so the arrow is at floor(-319.015 + 87 + 8) = -225   // E31
     // (a shown edge rounded to -319.0 would give -224).                                                           // E31
-    CHECK_MSG(SameRect(l.back, -225, 35, 123, 92) && SameRect(l.panel, 12, 129, 1000, 588), "notch " + RectText(l.back) + " " + RectText(l.panel));   // E31
-    CHECK(SameRect(l.cell[PC_PIXEL_SHADERS], 28, 145, 474, 82) && SameRect(l.cell[PC_PAUSE_FOCUS], 522, 233, 474, 82));   // E31
-    CHECK(SameRect(l.cell[PC_REFRESH], 28, 501, 474, 112) && SameRect(l.cell[PC_MUSIC], 28, 619, 474, 82));   // E31
+    CHECK_MSG(SameRect(l.back, -225, 35, 123, 92) && SameRect(l.panel, 12, 129, 1000, 585), "notch " + RectText(l.back) + " " + RectText(l.panel));   // E31, E36: 588 before
+    CHECK(SameRect(l.cell[PC_PIXEL_SHADERS], 28, 145, 474, 69) && SameRect(l.cell[PC_PAUSE_FOCUS], 522, 220, 474, 69));   // E31, E36
+    CHECK(SameRect(l.cell[PC_DIFFICULTY], 28, 445, 474, 69));   // E36
+    CHECK(SameRect(l.cell[PC_REFRESH], 28, 524, 474, 99) && SameRect(l.cell[PC_MUSIC], 28, 629, 474, 69));   // E31, E36
     CHECK(l.panel.y + l.panel.h <= 768.0f - 41.0f);   // the panel's bottom is above the home indicator   // E31
 
     // A bottom bar (a 150 px bar in a 1280x720 window is 160 logical px): the rows give way to 68, the panel's bottom runs   // E31
-    // 6 px under the bar's top (documented, not fixed: the rows cannot be shorter).                                       // E31
+    // 80 px under the bar's top (documented, not fixed: the rows cannot be shorter; it was 6 px with six rows, but seven   // E31, E36
+    // rows of 68 are 578 px of panel, and no real bar is that deep: a home indicator is 41, the case above).             // E36
     l = phoneOptionsLayout(OptionsAreaOf(ComputeFixedLayoutArea({1280u, 720u}, open, Supersonic::SafeAreaInsets{0.0f, 0.0f, 0.0f, 150.0f}, 1.0f)), true, true);   // E31
     CHECK_EQ(l.hc, 68.0f);   // E31
-    CHECK_MSG(SameRect(l.panel, 12, 110, 1000, 504), "bottom bar " + RectText(l.panel));   // E31
+    CHECK_MSG(SameRect(l.panel, 12, 110, 1000, 578), "bottom bar " + RectText(l.panel));   // E31, E36: 504 before
 
     // The narrow case: a 4:3 window whose frame reaches 88 px in (a cut-out at each side): the body is what is left of   // E31
     // it, 848 wide, and the cells are 398 wide.                                                                          // E31
     l = phoneOptionsLayout(OptionsAreaOf(ComputeFixedLayoutArea({1024u, 768u}, 0.0f, Supersonic::SafeAreaInsets{88.0f, 0.0f, 88.0f, 24.0f}, 1.0f)), true, true);   // E31
-    CHECK_MSG(SameRect(l.panel, 88, 110, 848, 624) && SameRect(l.back, 96, 16, 123, 92), "narrow " + RectText(l.panel));   // E31
-    CHECK(SameRect(l.cell[PC_PIXEL_SHADERS], 104, 126, 398, 88) && SameRect(l.cell[PC_ADJUST], 522, 314, 398, 88));   // E31
-    CHECK(SameRect(l.less[PC_REFRESH], 108, 536, 86, 88) && SameRect(l.value[PC_REFRESH], 194, 536, 218, 88));   // E31
-    CHECK(SameRect(l.less[PC_EFFECTS], 676, 630, 86, 88) && SameRect(l.more[PC_EFFECTS], 830, 630, 86, 88));   // E31
+    CHECK_MSG(SameRect(l.panel, 88, 110, 848, 627) && SameRect(l.back, 96, 16, 123, 92), "narrow " + RectText(l.panel));   // E31, E36: 624 before
+    CHECK(SameRect(l.cell[PC_PIXEL_SHADERS], 104, 126, 398, 75) && SameRect(l.cell[PC_ADJUST], 522, 288, 398, 75));   // E31, E36
+    CHECK(SameRect(l.cell[PC_DIFFICULTY], 104, 450, 398, 75));   // E36
+    CHECK(SameRect(l.less[PC_REFRESH], 108, 565, 86, 75) && SameRect(l.value[PC_REFRESH], 194, 565, 218, 75));   // E31, E36
+    CHECK(SameRect(l.less[PC_EFFECTS], 676, 646, 86, 75) && SameRect(l.more[PC_EFFECTS], 830, 646, 86, 75));   // E31, E36
 
     // No area published (the suites): the whole screen, no frame.                                                        // E31
     l = phoneOptionsLayout(OptionsArea{}, true, true);   // E31
-    CHECK_MSG(SameRect(l.back, 8, 8, 123, 92) && SameRect(l.panel, 12, 102, 1000, 624), "no area " + RectText(l.panel));   // E31
+    CHECK_MSG(SameRect(l.back, 8, 8, 123, 92) && SameRect(l.panel, 12, 102, 1000, 655), "no area " + RectText(l.panel));   // E31, E36: 624 before; the rows are 79 tall, the most seven can be
 
     // Touch off drops the Adjust cell; no refresh row puts Zoom in the left column.                                       // E31
     l = phoneOptionsLayout(phone, false, true);   // E31
     CHECK(!l.present[PC_ADJUST] && l.present[PC_TOUCH] && l.present[PC_REFRESH] && l.present[PC_ZOOM]);   // E31
     l = phoneOptionsLayout(phone, true, false);   // E31
     CHECK(!l.present[PC_REFRESH] && l.present[PC_ZOOM] && l.present[PC_ADJUST]);   // E31
-    CHECK(SameRect(l.cell[PC_ZOOM], 28, 525, 474, 118) && SameRect(l.less[PC_ZOOM], 32, 555, 86, 88));   // E31
+    CHECK(SameRect(l.cell[PC_ZOOM], 28, 554, 474, 105) && SameRect(l.less[PC_ZOOM], 32, 584, 86, 75));   // E31, E36
 
     // Every shape: the body is inside 12..1012 (a rectangle that crossed x 0 or 1024 would be stretched out to the shown edge),    // E31
     // every cell inside the panel, every hit box inside the shown area and the frame (Back's reaches the corner on purpose), and   // E31

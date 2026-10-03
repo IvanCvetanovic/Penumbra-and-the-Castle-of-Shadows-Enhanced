@@ -8,6 +8,7 @@
 // Enhancement E24 makes the language row a chooser of eleven; marked.            // E24
 // Enhancement E28 adds the button that opens the touch controls' editor; marked. // E28
 // Enhancement E31 hands the screen to optionsPhone.cpp's larger layout on a phone; marked.   // E31
+// Enhancement E36 adds the campaign's difficulty row (Normal or Hard); marked.               // E36
 
 #include "script/Script.hpp"
 
@@ -35,6 +36,9 @@ Stepper g_effectsVolume("Volume dos efeitos", 10, 10);                          
 Switch g_smoothMotion("Ativa movimento suave", "Desativa movimento suave");     // E10
 // E13's automatic pause (settings.pauseOnFocusLoss), beside E8's.             // E13
 Switch g_pauseOnFocusLoss("Pausa ao perder o foco", "Continua sem o foco");      // E13
+// E36's difficulty (settings.difficulty): row 0 = Normal, the original's game and the default, row 1 = Hard;   // E36
+// read by newGame when a campaign starts. Worded as the rows above are: the state it is in.                  // E36
+Switch g_difficulty("Dificuldade normal", "Dificuldade dif\xED" "cil");        // E36
 // E20 (Script.hpp): the phone's layout, and E16's touch controls on or off,    // E20
 // worded as the original's own on/off row (g_enablePS).                         // E20
 bool g_mobileLayout = false;                                                     // E20
@@ -345,6 +349,15 @@ void screenModesLoop()
     g_effectsVolume.put(vector2(255, origin.y+559), "Arial Narrow", fontSize, 180);   // E10: y 659-684
     g_smoothMotion.put(vector2(255, origin.y+594), "Arial Narrow", fontSize, 256);    // E10: y 694-744
     g_pauseOnFocusLoss.put(vector2(540, origin.y+594), "Arial Narrow", fontSize, 256);   // E13: x 540-796, y 694-744
+
+    // ENHANCEMENT E36: the difficulty, a Switch of two 25 px rows at (600, 564), to the right of the language's      // E36
+    // chooser (x 255-511) and, under the added art, of its globe (x 530-576, y 564-610); it spans y 564-614, between  // E36
+    // the rules at y 554 and 624, so no group's icon or rule crosses it. Nothing else is in x 590-909 at those y in   // E36
+    // any of the three layouts that run this function: the desktop's (the mode list ends at x 238), E27's frame      // E36
+    // (the music and speaker icons start at y 634) and E20's phone layout without the art (its zoom chooser is at    // E36
+    // x 540-820 but y 424-474, and the back arrow at x 500-623 ends at y 132). The hit box is 300 wide, x 600-900,   // E36
+    // inside the panel's inner edge (x 909); the label has the room to that edge, 309 px with the "[x] " in front.   // E36
+    g_difficulty.put(vector2(600, origin.y+464), "Arial Narrow", fontSize, 300);   // E36: x 600-900, y 564-614
 
     showToggleFullscreenMessage();                                    // videoModes.as:131
     waitForInputToMenu();

@@ -157,6 +157,12 @@ struct Settings {
     // loses focus during play. Off: only Esc/Back open it. The original had
     // no pause, and played on behind another window.
     bool pauseOnFocusLoss = true;
+    // E36: the campaign's difficulty, "normal" (the original's game, the default) or "hard" (every
+    // enemy with twice the hp), picked on the options screen. A campaign run latches it when New Game
+    // starts (Script::g_runDifficulty); the arenas never use it. Written as it is, in lower case;
+    // read in any case, and anything else (a number, another word) is normal. A string, as
+    // touchControls is, so the file stays readable and a third difficulty would need no new key.
+    std::string difficulty = "normal";
     // E16: the on-screen touch controls (render/TouchControls.hpp). "auto" is
     // on in a mobile build (PENUMBRA_MOBILE) and off on the desktop; "on" and
     // "off" force them. The original was played with a keyboard and pads.
@@ -182,6 +188,10 @@ struct Settings {
     ControlSettings controls;
 
     bool operator==(const Settings& other) const = default;
+
+    // E36: whether `difficulty` is Hard. Anything but "hard" is Normal, so a value set from code that
+    // is not one of the two cannot make the game harder by accident.
+    bool HardDifficulty() const { return difficulty == "hard"; }
 
     // Everything at its default, in `language` (a Languages.hpp id; anything
     // else is English), automatic (E27). main() passes SystemLanguage(): the

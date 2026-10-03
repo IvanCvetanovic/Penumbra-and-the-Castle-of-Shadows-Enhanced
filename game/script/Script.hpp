@@ -422,6 +422,22 @@ bool addNewRecordTime(uint elapsed);                  // scores.as:45
 string getRecordTimeList();                           // scores.as:92
 uint getGetBestTime();                                // scores.as:110
 
+// ENHANCEMENT E36 (not in the original): two difficulties. Normal is the original's game; Hard is  // E36
+// the same game with every enemy's hp doubled (spawn()). A campaign run is played in one of them  // E36
+// (g_runDifficulty, latched by newGame), and the five best times are kept per difficulty: the      // E36
+// original's list "hs" in hs.enml is Normal's, and Hard's is a second entity in the same file.     // E36
+inline constexpr uint DIFFICULTY_NORMAL = 0;          // E36
+inline constexpr uint DIFFICULTY_HARD = 1;            // E36
+inline constexpr uint HARD_HP_FACTOR = 2;             // E36: an enemy's hp is multiplied by this in Hard
+// A list's entries not in the file read as the shipped hs.enml's (59:59), never as 0.             // E36
+inline constexpr uint DEFAULT_RECORD_TIME = 3599000;  // E36
+bool addNewRecordTime(uint elapsed, uint difficulty); // E36: the original's function for Normal; Hard's list is read and written beside it
+string getRecordTimeList(uint difficulty);            // E36
+uint getGetBestTime(uint difficulty);                 // E36: that difficulty's best time
+// getGetBestTime() (above) is, from E36 on, the better of the two lists' best times: an arena's   // E36
+// lock (menu.as:318-326, :366) opens for a fast enough finish in either difficulty.              // E36
+string difficultyName(uint difficulty);               // E36: "Normal" / "Dif\xEDcil", the cp1252 words the screens name a difficulty by
+
 // === main.as (globals and functions defined in main.cpp) =========================
 
 extern dictionary<frameTimer> g_frameTimers;          // main.as:43, keyed "id"+GetID()
@@ -442,6 +458,7 @@ extern uint g_newRecordTime;                          // main.as:57  = 0
 extern array<bool> g_castingLight;                    // main.as:58  (2, false)
 extern array<int> g_pvpPoints;                        // main.as:59  (2, 0)
 extern array<Combo> g_comboManager;                   // main.as:60  (2)
+extern uint g_runDifficulty;                          // E36: DIFFICULTY_NORMAL / DIFFICULTY_HARD of the campaign run; newGame("CAMPAIGN") latches it from g_difficulty, resetData clears it
 
 void resetData();                                     // main.as:62
 void newGame(const string& sceneName);                // main.as:99
@@ -479,6 +496,7 @@ extern Stepper g_musicVolume;                         // E10: tenths of the musi
 extern Stepper g_effectsVolume;                       // E10: tenths of the effects' master volume
 extern Switch g_smoothMotion;                         // E10: 0 = smooth motion on (E8), 1 = off
 extern Switch g_pauseOnFocusLoss;                     // E13: 0 = pause on focus loss, 1 = play on
+extern Switch g_difficulty;                           // E36: 0 = Normal (the original's game), 1 = Hard (enemies with twice the hp); read when a campaign starts
 
 // ENHANCEMENT E20 (not in the original): the options screen on a phone. The    // E20
 // layer raises g_mobileLayout when it attaches (PENUMBRA_MOBILE builds); the     // E20
@@ -550,7 +568,7 @@ void screenModesLoop();                               // videoModes.as:85
 
 // ENHANCEMENT E31 (not in the original, optionsPhone.cpp): the options screen on a phone, larger. Where           // E31
 // g_mobileLayout is up and the options art is loaded, screenModesLoop hands its frame to phoneOptionsLoop():       // E31
-// two columns of 88 px cells (a two-way Switch is ONE cell: the ticked box and the wording of its current state,   // E31
+// two columns of cells 68-80 px tall (88 before E36's difficulty cell made it seven rows; a two-way Switch is ONE cell: the ticked box and the wording of its current state,   // E31
 // a tap anywhere in it flips it) in a stone panel, the Back arrow in the top-left corner of what the window       // E31
 // shows, the language chooser in the top-right one, and no hover. Without the art (the suites) and on the           // E31
 // desktop the screen is E20's and the original's as before.                                                         // E31
@@ -576,10 +594,12 @@ struct PhoneRect {                                    // E31
     float h = 0.0f;                                   // E31
 };                                                    // E31
 // The cells, in the order the loop updates and draws them (so the Adjust cell reads the touch switch's new state).   // E31
+// E36: PC_DIFFICULTY, the campaign difficulty's toggle, comes last in the enum so the others keep their numbers; it is drawn   // E36
+// after the joystick cell, in a fifth row of toggles of its own (seven rows share the height now, so hc is 68..80, 88 before).   // E36
 enum PhoneCell { PC_PIXEL_SHADERS, PC_SMOOTH_MOTION, PC_WIDESCREEN, PC_PAUSE_FOCUS, PC_TOUCH, PC_ADJUST, PC_KEYBOARD_P2,   // E31
-                 PC_JOYSTICK, PC_REFRESH, PC_ZOOM, PC_MUSIC, PC_EFFECTS, PC_COUNT };                                    // E31
+                 PC_JOYSTICK, PC_REFRESH, PC_ZOOM, PC_MUSIC, PC_EFFECTS, PC_DIFFICULTY, PC_COUNT };                     // E31, E36: PC_DIFFICULTY
 struct PhoneOptionsLayout {                           // E31
-    float hc = 0.0f;                                  // E31: the row height, 68..88 by the room the frame's bottom leaves
+    float hc = 0.0f;                                  // E31: the row height, 68..80 by the room the frame's bottom leaves (E36: seven rows share it, 88 before)
     PhoneRect panel, back, backHit, globe, langLess, langValue, langMore;   // E31: the buttons' rects are their hit boxes
     vector2 title{0.0f};                              // E31: the title's text position (size 40)
     PhoneRect cell[PC_COUNT];                         // E31: every cell's card (a chooser's is 30 + hc tall)
@@ -715,6 +735,11 @@ inline const string versus =
     "placar exceder " + std::to_string(MAX_PVP_POINTS) + " pontos";
 
 void showData(const string& title, const string& content);   // menu.as:217
+// ENHANCEMENT E36: the bodies the cursor callback hands showData for the best-times button (both difficulties'   // E36
+// lists, each under its name) and for New Game (menu.as:186's story, then the difficulty the next run is played   // E36
+// at and where it is changed). Functions, so that a suite draws exactly the text the menu does.                  // E36
+string recordsPanelText();                            // E36
+string newGamePanelText();                            // E36
 void ETHCallback_cursor(ETHEntity thisEntity);        // menu.as:232
 void ETHCallback_thumbnail(ETHEntity thisEntity);     // menu.as:362
 bool waitForInputToMenu();                            // menu.as:374

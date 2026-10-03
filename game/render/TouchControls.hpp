@@ -104,6 +104,29 @@
 // pause, a menu) or a scene load (TouchInput::sceneSerial) cancels it, and
 // its keys are simply not pressed any more.
 //
+// ENHANCEMENT E37: THE COMBO BUTTONS' COOLDOWN. The heavy attacks come too cheap
+// from a button that makes the whole combo in one tap, so each combo button rests
+// for kComboCooldownTicks (60 ticks, one second) from the tick its macro presses
+// its last key - the sword or the fire key, the attack itself. Each button has its
+// own: the sword combo cooling does not hold back the spell combo (but for the
+// rule above, that one macro runs at a time). A macro that is cancelled before its
+// last key starts none. A tap that starts nothing - the button is cooling, or a
+// combo runs - is refused, not queued: TouchStep::comboDenied says so for that
+// tick, the button flashes red and shakes for kComboDeniedFlashTicks, and
+// TouchStep::deniedSound asks the layer for a short sound, at most once in
+// kComboDeniedSoundGapTicks game ticks (TouchControls has no audio). Only a
+// finger's landing is a tap: one held down through the end of a cooldown does
+// not fire when it ends. While it cools a button is dimmed, with a dark shade over
+// the part not yet recharged (from the top, shrinking to nothing on the tick the
+// button takes a tap again), and glows for kComboReadyPulseTicks when it is ready.
+// The cooldown is the TOUCH BUTTONS' alone: a combo typed on the keyboard or a pad,
+// or made of the ordinary buttons, reaches the scripts as it always did - nothing
+// here is between those keys and the combo buffer. The clock is ObserveFrame's,
+// once for each tick the game runs, so the pause and the editor (in which the
+// game stands still) stop it and an extra Update never counts; a scene change
+// (TouchInput::sceneSerial) clears both cooldowns. The look is in play only: the
+// editor's preview shows the buttons at rest.
+//
 // THE CORNER BUTTON sends K_ESC; its picture says what that does. Which one a
 // screen gets is CornerFor's, one reason a screen:
 //   the pause               hidden: its rows are the way on
@@ -219,6 +242,10 @@ enum class TouchFacing { Unknown, Left, Right };
 // A combo button's macro.
 enum class TouchCombo { None, Sword, Spell };
 
+// E37: the two combo buttons, as the index of what is kept for each (the cooldown, the flash, the refusal).   // E37
+inline constexpr std::size_t kTouchComboCount = 2;                                                            // E37
+inline constexpr std::size_t TouchComboSlot(const TouchCombo combo) { return combo == TouchCombo::Spell ? 1u : 0u; }   // E37
+
 struct TouchInput {
     std::vector<TouchContact> contacts;
     glm::vec2 screen{1024.0f, 768.0f};   // the logical screen (GetScreenSize)
@@ -276,8 +303,15 @@ struct TouchStep {
     bool touching = false;
     // The combo that ran this tick (waiting or pressing), or None.
     TouchCombo combo = TouchCombo::None;
+    // E37: the combo buttons that refused a tap this tick: a finger landed on one that was still recharging, or while
+    // a combo ran. By TouchComboSlot (Denied() asks by button). A finger that stays down is not a new tap.
+    std::array<bool, kTouchComboCount> comboDenied{};   // E37
+    // E37: the layer should play the "not yet" cue now - a tap was refused, and the last cue was kComboDeniedSoundGapTicks
+    // game ticks ago or more (a mashed button is not a buzz).
+    bool deniedSound = false;   // E37
 
     bool Held(TouchAction action) const { return held[static_cast<std::size_t>(action)]; }
+    bool Denied(const TouchCombo button) const { return button != TouchCombo::None && comboDenied[TouchComboSlot(button)]; }   // E37
 };
 
 // What is drawn and touched; the manifest's ids, in drawing order. ExitDown is
@@ -381,6 +415,14 @@ public:
     // A combo that has waited this long for the quiet gives up: something else
     // keeps pressing.
     static constexpr unsigned kComboMaxWaitTicks = 30;
+    // E37: how many game ticks a combo button rests from the tick its macro presses its attack key: 1000 ms at the   // E37
+    // game's 60 Hz. A tap on the k-th tick after that key is refused for k = 1 .. 59 and takes at k = 60.            // E37
+    static constexpr unsigned kComboCooldownTicks = 60;   // E37
+    // E37: how long a refused button flashes red and shakes (a quarter of a second), how long a recharged one glows,   // E37
+    // and the fewest game ticks between two "not yet" cues.                                                           // E37
+    static constexpr unsigned kComboDeniedFlashTicks = 15;       // E37
+    static constexpr unsigned kComboReadyPulseTicks = 12;        // E37
+    static constexpr unsigned kComboDeniedSoundGapTicks = 10;    // E37
     // The key an action presses (the table at the top of this file).
     static Eth::KEY KeyFor(TouchAction action);
 
@@ -463,10 +505,21 @@ public:
     // was newly pressed - his six keys, and his pad (`player1Pad`,
     // getPlayerJoystick(0)): the stick past 0.8, JK_04, JK_02
     // (playerInput.as:55-239). Touch or not: a combo tapped later must know.
+    // E37: it is also the clock of the combo buttons' cooldowns, their red flash, their glow and the cue's spacing: each
+    // counts one down per call, so none runs while the pause or the editor stands the game still, and an extra Update
+    // in a tick (the editor's) cannot count a tick twice. In a tick the layer calls Update, then this.
     void ObserveFrame(const Eth::InputFrame& frame, int player1Pad);
     // Stops a running combo; its keys are not pressed from the next Update.
     void CancelCombo();
     TouchCombo RunningCombo() const { return m_combo.combo; }
+
+    // E37: game ticks until the button takes a tap again (0: it does), and that over kComboCooldownTicks - what the dark
+    // shade covers: kComboCooldownTicks ticks (1) as the macro presses the attack key, one fewer for each game tick that
+    // runs, 0 on the tick it takes a tap. None: 0.   // E37
+    unsigned CooldownTicksLeft(TouchCombo button) const;   // E37
+    float CooldownFraction(TouchCombo button) const;   // E37
+    // E37: game ticks left of the button's red flash after a refused tap (0: none).
+    unsigned DeniedFlashTicksLeft(TouchCombo button) const;   // E37
 
     // Presses the step's keys in `frame` (never releases one the keyboard
     // holds) and, for a pointer, moves the cursor and holds the left button.
@@ -502,6 +555,7 @@ private:
     };
 
     void startCombo(TouchCombo combo, TouchFacing facing);
+    void clearCooldowns();   // E37: both buttons ready, no flash, no glow (a new scene)
 
     // The visible control a new finger at `point` lands on, or Count.
     TouchControl hit(const glm::vec2& point) const;
@@ -543,6 +597,18 @@ private:
     // ticks in a row nothing of it was newly pressed. Quiet until told.
     unsigned m_observed = 0;
     unsigned m_quietTicks = kComboQuietTicks;
+    // E37, by TouchComboSlot: game ticks until each combo button takes a tap, the ticks left of its red flash and of its
+    // ready glow, and the ticks until the next "not yet" cue may sound. All counted down by ObserveFrame.
+    std::array<unsigned, kTouchComboCount> m_cooldownLeft{};   // E37
+    std::array<unsigned, kTouchComboCount> m_deniedLeft{};   // E37
+    std::array<unsigned, kTouchComboCount> m_readyLeft{};   // E37
+    // E37: a macro pressed its attack key this tick; the rest starts when ObserveFrame says the game ran the tick. A pause that
+    // opens on that very tick keeps the key from the game, and a move that was never made must not rest the button.
+    std::array<bool, kTouchComboCount> m_restPending{};   // E37
+    unsigned m_soundGap = 0;   // E37
+    // E37: the pixels of each combo button's art (SetImageRoot), for the dark shade that covers the top of it; (0,0) when
+    // the image is missing or unreadable, and the shade is then a plain rectangle.
+    std::array<glm::ivec2, kTouchComboCount> m_comboArtSize{};   // E37
 };
 
 } // namespace Penumbra::Render

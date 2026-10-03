@@ -40,7 +40,12 @@ void spawn(ETHEntity handle, const string& name)
     float fTemp = 0;
 
     g_gameData.getInt(name, "hp", iTemp);
-    handle->AddIntData("hp", iTemp);
+    // E36: in Hard every enemy has twice the hp. spawn() is where each one gets its stats - the markers (doLoop),   // E36
+    // the king (event01's trigger) and the warriors he summons (controlCharacters.as:637) - so this is the one     // E36
+    // place; the experience below is read again from data.enml and stays the base hp, so a kill gives the same    // E36
+    // in both. The players never come here (their markers are complete), nor do potions: no scene places an        // E36
+    // enemy with an hp of its own.                                                                                   // E36
+    handle->AddIntData("hp", g_runDifficulty == DIFFICULTY_HARD ? iTemp*static_cast<int>(HARD_HP_FACTOR) : iTemp);   // E36
 
     g_gameData.getInt(name, "damage", iTemp);
     handle->AddIntData("damage", iTemp);
@@ -369,11 +374,13 @@ void doLoop(const bool pvp)
                 g_newRecordTime = g_timer.getElapsedTime();
                 StopSample("soundfx/chefao.mp3");
                 PlaySample("soundfx/death_king.ogg");
-                addNewRecordTime(g_newRecordTime);
+                addNewRecordTime(g_newRecordTime, g_runDifficulty);   // E36: into the list of the difficulty it was played at
             }
             shadowText(vector2(100,100-15), "Seu tempo total foi:", "Arial Narrow", 30, 255, 203, 203, 228);
             shadowText(vector2(100,100), getTimeString(g_newRecordTime), "Arial Narrow", 256, 255, 203, 203, 228);
-            shadowText(vector2(110,356), "Melhores tempos:\n" + getRecordTimeList()
+            // E36: only the list of the difficulty played, named: both would run past the screen's bottom (768).   // E36
+            shadowText(vector2(110,356), "Melhores tempos (" + difficultyName(g_runDifficulty) + "):\n"   // E36
+                + getRecordTimeList(g_runDifficulty)   // E36
                 + "\n\n", "Arial Narrow", 30, 255, 203, 203, 228);
         }
         else

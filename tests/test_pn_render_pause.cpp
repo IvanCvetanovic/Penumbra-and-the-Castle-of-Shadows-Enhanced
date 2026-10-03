@@ -944,6 +944,61 @@ void testSetting() {
     CHECK(!warning.empty());
 }
 
+// E36: settings.difficulty - "normal" (the default) or "hard", written in lower case, read in any case, and anything else
+// (a number, a boolean, another word, an empty string) is normal with a warning; the file's version stays 2.
+void testDifficultySetting() {   // E36
+    const Settings defaults = Settings::Defaults("en");
+    CHECK(defaults.difficulty == "normal" && !defaults.HardDifficulty());
+
+    // Written as the word, and read back.
+    Settings hard = defaults;
+    hard.difficulty = "hard";
+    CHECK(hard.HardDifficulty());
+    const std::string json = hard.ToJson();
+    CHECK(json.find("\"difficulty\": \"hard\"") != std::string::npos);
+    CHECK(defaults.ToJson().find("\"difficulty\": \"normal\"") != std::string::npos);
+    CHECK(json.find("\"version\": 2") != std::string::npos);   // not bumped: nothing reads the number
+    std::string warning;
+    const Settings back = Settings::FromJson(json, defaults, &warning);
+    CHECK(back.HardDifficulty() && back.difficulty == "hard");
+    CHECK(back == hard);
+    CHECK(warning.empty());
+    CHECK(Settings::FromJson(defaults.ToJson(), hard) == defaults);   // a file that says normal wins over defaults that say hard
+
+    // Any case of the word.
+    for (const char* spelling : {"hard", "Hard", "HARD", "hArD"}) {
+        warning.clear();
+        const Settings read = Settings::FromJson(std::string("{\"difficulty\": \"") + spelling + "\"}", defaults, &warning);
+        CHECK_MSG(read.HardDifficulty() && read.difficulty == "hard", spelling);   // stored in its one form
+        CHECK_MSG(warning.empty(), spelling);
+    }
+    for (const char* spelling : {"normal", "Normal", "NORMAL"}) {
+        warning.clear();
+        const Settings read = Settings::FromJson(std::string("{\"difficulty\": \"") + spelling + "\"}", hard, &warning);
+        CHECK_MSG(!read.HardDifficulty() && read.difficulty == "normal", spelling);
+        CHECK_MSG(warning.empty(), spelling);
+    }
+
+    // A file without the key keeps what the defaults say - normal in every real run - and says nothing.
+    warning.clear();
+    CHECK(Settings::FromJson("{\"language\": \"en\"}", defaults, &warning).difficulty == "normal");
+    CHECK(Settings::FromJson("{\"language\": \"en\"}", hard, &warning).difficulty == "hard");
+    CHECK(warning.empty());
+
+    // Anything else is normal, whatever the defaults were, and worth a warning.
+    for (const char* wrong : {"3", "true", "1", "null", "[]", "{}", "\"extreme\"", "\"\"", "\"hardcore\"", "\"hard \""}) {
+        warning.clear();
+        const Settings read = Settings::FromJson(std::string("{\"difficulty\": ") + wrong + "}", hard, &warning);
+        CHECK_MSG(!read.HardDifficulty() && read.difficulty == "normal", wrong);
+        CHECK_MSG(!warning.empty(), wrong);
+    }
+    // A broken one leaves the other fields as they were.
+    warning.clear();
+    const Settings mixed = Settings::FromJson("{\"difficulty\": 7, \"pauseOnFocusLoss\": false}", defaults, &warning);
+    CHECK(mixed.difficulty == "normal" && !mixed.pauseOnFocusLoss);
+    CHECK(!warning.empty());
+}
+
 // E28 BEGIN pure editor tests (render/TouchEditor): no fonts, no original files, no art   // E28
 using Penumbra::Render::TouchAnchor;   // E28
 using Penumbra::Render::TouchContact;   // E28
@@ -2570,6 +2625,7 @@ void testSplashWanted() {   // E35
     // Every developer's flag turns it off, alone and among a normal start's.
     const Args developer = {"--start", "--tour", "--hold", "--cursor", "--pointer", "--spawn", "--princess", "--hp",
                             "--mobile-layout", "--modes", "--touch-tuning", "--touch-editor", "--finger",
+                            "--difficulty",   // E36: a capture's flag, so it removes the intro like the others
                             // The engine's.
                             "--frames", "--screenshot", "--screenshot-every", "--fixed-step", "--scene", "--record",
                             "--replay", "--import-assets",
@@ -2616,6 +2672,7 @@ void runTests() {
     testFilter();
     testEnglish();
     testSetting();
+    testDifficultySetting();   // E36
     testEditorLayout();   // E28
     testEditorOpen();   // E28
     testEditorDrag();   // E28

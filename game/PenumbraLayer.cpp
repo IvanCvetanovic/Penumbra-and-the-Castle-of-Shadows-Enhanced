@@ -194,6 +194,7 @@ void PenumbraLayer::OnAttach(entt::registry& registry) {
     Script::g_effectsVolume.setCurrent(Script::g_effectsVolume.stepFor(m_settings.effectsVolume));
     Script::g_smoothMotion.setCurrent(SmoothMotion() ? 0u : 1u);   // E8's row: as this run draws (--smooth, --fixed-step)
     Script::g_pauseOnFocusLoss.setCurrent(PauseOnFocusLoss() ? 0u : 1u);   // E13's, likewise
+    Script::g_difficulty.setCurrent(HardDifficulty() ? Script::DIFFICULTY_HARD : Script::DIFFICULTY_NORMAL);   // E36's: as this run has it (--difficulty); row 0 is Normal
     Script::g_touchControls.setCurrent(m_touchEnabled ? 0u : 1u);   // E20's: as this run has them (--touch)
     RefreshZoomChoices();   // E25's: as this run zooms (--zoom)
     m_input.SetControls(m_settings.controls);
@@ -342,6 +343,10 @@ bool PenumbraLayer::PauseOnFocusLoss() const {
     return m_options.pauseOnFocusLossOverride.value_or(m_settings.pauseOnFocusLoss);
 }
 
+bool PenumbraLayer::HardDifficulty() const {   // E36
+    return m_options.hardDifficultyOverride.value_or(m_settings.HardDifficulty());   // E36
+}
+
 // E13: the loops doLoop runs under (setupScene.as:226-240) - but not their end
 // screens (g_gameFinished), where Esc and Back already lead to the menu
 // (doLoop's waitForInputToMenu) and a pause would only stand in the way.
@@ -445,6 +450,8 @@ void PenumbraLayer::ApplyTouch(Eth::InputFrame& frame) {   // E28: BuildTouchInp
     // The cursor stays where the finger lifted, as the mouse's would: the
     // mapper keeps it until the scripts or the real mouse move it.
     if (step.pointer) m_input.WarpCursor(step.pointerPos, m_view);
+    // E37: a tap on a combo button that is recharging (or while a combo runs): TouchControls spaces the cue.
+    if (step.deniedSound) PlayComboDenied(step);   // E37
 
     // E28: the editor reads the fingers this Update used (TouchControls::Down) and says what changed. A change is   // E28
     // applied at once, so a drag shows this frame; a gesture's end is stored and saved, never every drag tick.      // E28
@@ -470,6 +477,22 @@ void PenumbraLayer::ApplyTouch(Eth::InputFrame& frame) {   // E28: BuildTouchInp
         }                                                                                                          // E28
     }                                                                                                              // E28
 }   // E28
+
+// E37: the cue of a combo button that refused a tap: soundfx/fail.ogg, the original's own "not yet" - its menu plays it for an
+// arena that is locked. The menu's preLoop loads it and every LoadScene releases the samples, so a level loads it here
+// (PlaySample never loads; the decoded clip outlives the load, so only the first call decodes). It runs 1.29 s and
+// PlaySample restarts a sample that is playing, so one that still sounds is left to finish: restarted every few ticks, a
+// mashed button would only ever replay the first tenth of a second of it.
+void PenumbraLayer::PlayComboDenied(const Render::TouchStep& step) {   // E37
+    constexpr const char* kSample = "soundfx/fail.ogg";   // E37
+    Eth::SampleBank& samples = m_machine->Samples();   // E37
+    if (!samples.LoadSoundEffect(kSample) || samples.IsSamplePlaying(kSample)) return;   // E37
+    samples.PlaySample(kSample);   // E37
+    const bool sword = step.Denied(Render::TouchCombo::Sword);   // E37
+    const bool spell = step.Denied(Render::TouchCombo::Spell);   // E37
+    SUPERSONIC_LOG_INFO("Penumbra") << "E37 combo refused a tap (" << (sword && spell ? "both buttons" : sword ? "sword" : "spell")   // E37
+                                    << "): the cue plays | tick " << m_ticks << std::endl;   // E37
+}   // E37
 
 // E28: opens the touch controls' editor; the Machine stands still from the next tick on, as under the pause.      // E28
 void PenumbraLayer::OpenTouchEditor(const bool startUnlocked, const bool closeHeld) {                              // E28
@@ -769,6 +792,13 @@ void PenumbraLayer::StartDevScene(const std::string& scene) {
     } else if (scene == "videoModes.esc") {
         Eth::LoadScene("scenes/videoModes.esc", "screenModesPreLoop", "screenModesLoop");   // menu.as
     } else {
+        // E36: a campaign level started from here is what New Game makes of it (main.as:99-122), so it is played
+        // at the difficulty the options row shows (--difficulty included); resetData put the run back to Normal,
+        // and an arena is never Hard.
+        if (!pvp) {   // E36
+            Script::g_runDifficulty = Script::g_difficulty.getCurrent() == Script::DIFFICULTY_HARD   // E36
+                                          ? Script::DIFFICULTY_HARD : Script::DIFFICULTY_NORMAL;   // E36
+        }   // E36
         Eth::LoadScene("scenes/" + scene, "setupScene", pvp ? "pvpLoop" : "levelLoop");
     }
     SUPERSONIC_LOG_INFO("Penumbra") << "dev start: scenes/" << scene << std::endl;
@@ -1082,11 +1112,12 @@ void PenumbraLayer::OnFixedUpdate(entt::registry& registry, float fixedDelta) {
     const bool widescreen = Script::g_widescreen.getCurrent() == 0;
     const bool smoothMotion = Script::g_smoothMotion.getCurrent() == 0;
     const bool pauseOnFocusLoss = Script::g_pauseOnFocusLoss.getCurrent() == 0;
+    const bool hardDifficulty = Script::g_difficulty.getCurrent() == Script::DIFFICULTY_HARD;   // E36
     const bool musicMoved = Script::g_musicVolume.getCurrent() != Script::g_musicVolume.stepFor(m_settings.musicVolume);
     const bool effectsMoved =
         Script::g_effectsVolume.getCurrent() != Script::g_effectsVolume.stepFor(m_settings.effectsVolume);
     if (languagePicked || widescreen != Widescreen() || smoothMotion != SmoothMotion() ||
-        pauseOnFocusLoss != PauseOnFocusLoss() || musicMoved || effectsMoved) {
+        pauseOnFocusLoss != PauseOnFocusLoss() || hardDifficulty != HardDifficulty() || musicMoved || effectsMoved) {   // E36: hardDifficulty
         if (languagePicked) {
             m_options.languageOverride.reset();
             m_languageChoiceSeeded = languageRow;
@@ -1115,6 +1146,12 @@ void PenumbraLayer::OnFixedUpdate(entt::registry& registry, float fixedDelta) {
             m_options.pauseOnFocusLossOverride.reset();
             m_settings.pauseOnFocusLoss = pauseOnFocusLoss;
         }
+        // E36: a pick replaces --difficulty and is saved at once; the campaign run in progress keeps the
+        // difficulty it started with (Script::g_runDifficulty), the next New Game takes this one.
+        if (hardDifficulty != HardDifficulty()) {   // E36
+            m_options.hardDifficultyOverride.reset();   // E36
+            m_settings.difficulty = hardDifficulty ? "hard" : "normal";   // E36
+        }   // E36
         if (musicMoved) m_settings.musicVolume = Script::g_musicVolume.getFraction();
         if (effectsMoved) m_settings.effectsVolume = Script::g_effectsVolume.getFraction();
         ApplyVolumes();

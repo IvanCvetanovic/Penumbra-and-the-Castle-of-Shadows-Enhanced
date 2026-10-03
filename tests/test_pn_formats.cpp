@@ -353,6 +353,28 @@ void TestParticleFiles() {
     CHECK(!ReadEntityFile(kApp + "/entities/no_such_entity.ent").has_value());
 }
 
+// ENHANCEMENT E36: Hard doubles an enemy's hp in spawn() alone, which is the whole of it while no enemy gets an hp any
+// other way: data.enml's sections are its only source, so no enemy's .ent and no placement in a scene holds an "hp" of
+// its own. What does: the players (bruxo, princess, vert_bruxo; Versus multiplies theirs) and the potions, whose hp is the
+// amount they heal.
+void TestHpOwners(const std::map<string, SceneFile>& scenes, const std::map<string, EntityDef>& entities) {
+    std::set<string> owners;
+    for (const auto& entry : entities) {
+        if (entry.second.customData.count("hp") != 0) owners.insert(entry.first);
+    }
+    CHECK(owners == (std::set<string>{"bruxo.ent", "potion_large.ent", "potion_small.ent", "princess.ent",
+                                       "vert_bruxo.ent"}));
+    std::size_t potions = 0;
+    for (const auto& scene : scenes) {
+        for (const ScenePlacement& placement : scene.second.entities) {
+            if (placement.def.customData.count("hp") == 0) continue;
+            CHECK_MSG(placement.entityName == "potion_small.ent", scene.first + ": " + placement.entityName);
+            ++potions;
+        }
+    }
+    CHECK_EQ(potions, std::size_t(54));   // level1's 13, level2's 15, level3's 26
+}
+
 // --- ENML -------------------------------------------------------------------------
 
 void TestEnmlData() {
@@ -622,6 +644,7 @@ int main() {
     std::map<string, EntityDef> entities;
     TestEntities(entities);
     TestParticleFiles();
+    TestHpOwners(scenes, entities);   // E36
 
     TestEnmlData();
     TestEnmlGrammar();

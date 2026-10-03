@@ -25,6 +25,9 @@
 // neighbours everywhere): every box on three screens, the columns' alignment, stagger and gaps, the order from the bottom,   // E33
 // the clearance of the pause button, the gaps no finger lands in, and the size ceilings that follow from it. E34: the   // E33
 // layout the saved moves belong to (the value pinned in testTuningIdentity).   // E34
+// E37: the combo buttons' cooldown: its length and clock, the refused taps and their flash and cue, a finger that stays down,
+// the buttons resting apart, what cancels a macro or a load clears, the look in play and not in the editor, and the combos
+// typed by hand, which have no limit.   // E37
 // No window. Only the combo checks run a Machine.
 
 #include "script/Script.hpp"
@@ -2334,7 +2337,10 @@ void testComboBuffer() {
     machine.Boot([] { LoadScene("", "", ""); });
     machine.Frame(InputFrame{});
     ComboRig rig(machine);
-    rig.Idle(20);
+    // E37: below, a button is often tapped again soon after its last combo. Every wait is therefore as long as a button
+    // rests (the buffer needs 14 quiet ticks, the button kComboCooldownTicks); what each combo then does is as it was.
+    const int rest = static_cast<int>(TouchControls::kComboCooldownTicks);   // E37
+    rig.Idle(rest);
 
     const glm::vec2 swordButton = Centre(TouchControl::SwordCombo);
     const glm::vec2 spellButton = Centre(TouchControl::SpellCombo);
@@ -2349,20 +2355,20 @@ void testComboBuffer() {
     // fifth tick, the spell combo on its fourth, toward the way he faces.
     int from = tapAndRun(swordButton, TouchFacing::Right, 8);
     CHECK_MSG(rig.FiredSince(from) == "sword right@4", rig.FiredSince(from));
-    rig.Idle(20);
+    rig.Idle(rest);
     from = tapAndRun(swordButton, TouchFacing::Left, 8);
     CHECK_MSG(rig.FiredSince(from) == "sword left@4", rig.FiredSince(from));
-    rig.Idle(20);
+    rig.Idle(rest);
     from = tapAndRun(spellButton, TouchFacing::Right, 8);
     CHECK_MSG(rig.FiredSince(from) == "spell right@3", rig.FiredSince(from));
-    rig.Idle(20);
+    rig.Idle(rest);
     from = tapAndRun(spellButton, TouchFacing::Left, 8);
     CHECK_MSG(rig.FiredSince(from) == "spell left@3", rig.FiredSince(from));
 
     // Back to back: the combo's own presses were presses, so the next one
     // waits out the buffer's 13 ticks: the sword combo's last press is on
     // tick 4, the spell combo's first on tick 4 + 14, its fire on 20.
-    rig.Idle(20);
+    rig.Idle(rest);
     from = rig.tick;
     rig.Tap(Facing({Finger(1, swordButton)}, TouchFacing::Right));
     for (int i = 0; i < 4; ++i) rig.Tap(Facing({}, TouchFacing::Right));
@@ -2373,7 +2379,7 @@ void testComboBuffer() {
     // RIGHT AFTER A STEP: the disc pressed right, the combo tapped on the next
     // tick with the thumb still down. The buffer holds CMD_RIGHT: the first
     // press waits 14 ticks from the step, and the combo fires.
-    rig.Idle(20);
+    rig.Idle(rest);
     const glm::vec2 right = Dpad({100.0f, 0.0f});
     const int step = rig.tick;
     rig.Tap(Facing({Finger(1, right)}, TouchFacing::Right));
@@ -2388,7 +2394,7 @@ void testComboBuffer() {
 
     // Why it waits - the same presses by hand, pressed at once after the step,
     // fire nothing: the buffer reads RIGHT, RIGHT, RIGHT, SWORD.
-    rig.Idle(20);
+    rig.Idle(rest);
     const auto keys = [](std::initializer_list<KEY> down) {
         InputFrame frame;
         for (const KEY key : down) frame.keys[static_cast<std::size_t>(key)] = true;
@@ -2403,13 +2409,13 @@ void testComboBuffer() {
 
     // Any device counts: the keyboard's Up and player 1's pad's sword button
     // (JK_04) a tick before the tap put it off 14 ticks from them too.
-    rig.Idle(20);
+    rig.Idle(rest);
     from = rig.tick;
     rig.Tap(Play(), keys({K_UP}));
     rig.Tap(Facing({Finger(1, spellButton)}, TouchFacing::Left));
     for (int i = 0; i < 20; ++i) rig.Tap(Facing({}, TouchFacing::Left));
     CHECK_MSG(rig.FiredSince(from) == "spell left@16", rig.FiredSince(from));
-    rig.Idle(20);
+    rig.Idle(rest);
     InputFrame pad;
     pad.pads[1].connected = true;
     pad.pads[1].buttons[JK_04] = true;
@@ -2421,7 +2427,7 @@ void testComboBuffer() {
     for (int i = 0; i < 20; ++i) rig.Tap(Facing({}, TouchFacing::Right), padIdle);
     CHECK_MSG(rig.FiredSince(from) == "sword right@17", rig.FiredSince(from));
     // Player 2's pad does not (under the default g_controls it is pad 0).
-    rig.Idle(20);
+    rig.Idle(rest);
     InputFrame other;
     other.pads[0].connected = true;
     other.pads[0].buttons[JK_04] = true;
@@ -2435,7 +2441,7 @@ void testComboBuffer() {
     // tick on, every other tick: the combo gives up after its longest wait,
     // having pressed nothing, and nothing fires. (Pressing that starts only
     // after a combo's first press lands in the buffer as any device's would.)
-    rig.Idle(20);
+    rig.Idle(rest);
     from = rig.tick;
     rig.Tap(Facing({Finger(1, swordButton)}, TouchFacing::Right), keys({K_UP}));
     int pressed = 0;
@@ -2446,6 +2452,576 @@ void testComboBuffer() {
     CHECK_EQ(pressed, 0);
     CHECK(rig.touch.RunningCombo() == TouchCombo::None);
     CHECK_MSG(rig.FiredSince(from).empty(), rig.FiredSince(from));
+}
+
+// --- E37: the combo buttons' cooldown -------------------------------------------------------------------------
+
+// One game tick as the layer runs it for the touch controls: Update with this tick's fingers, then ObserveFrame with the frame
+// the step made. The pause's and the editor's ticks run Update alone, and the tests that mean them call it by hand.
+class CooldownRig {
+public:
+    TouchStep Tick(TouchInput input) {
+        input.sceneSerial = serial;
+        const TouchStep step = touch.Update(input);
+        touch.ObserveFrame(FrameOf(step), 1);   // getPlayerJoystick(0) under the default g_controls
+        ++tick;
+        return step;
+    }
+    TouchStep Idle() { return Tick(Facing({}, TouchFacing::Right)); }
+    TouchStep Tap(TouchControl button, int finger) {
+        return Tick(Facing({Finger(finger, Centre(button))}, TouchFacing::Right));
+    }
+    // A tap on the sword combo button, then the four ticks of its macro that follow: the last of them presses the attack key.
+    void SwordToItsAttackKey() {
+        Tap(TouchControl::SwordCombo, 1);
+        for (int i = 0; i < 4; ++i) Idle();
+    }
+    TouchControls touch;
+    unsigned serial = 0;
+    int tick = 0;
+};
+
+// The whole life of one button's cooldown: ready at the start; none while its macro runs; 60 ticks from the attack key, in
+// which every tap is refused (not started, not queued) with the flash and, spaced out, the cue; then ready again.
+void testComboCooldownGate() {
+    constexpr unsigned kRest = TouchControls::kComboCooldownTicks;
+    CHECK_EQ(kRest, 60u);   // 1000 ms at the game's 60 ticks a second
+
+    CooldownRig rig;
+    CHECK_EQ(rig.touch.CooldownTicksLeft(TouchCombo::Sword), 0u);
+    CHECK_EQ(rig.touch.CooldownTicksLeft(TouchCombo::Spell), 0u);
+    CHECK_NEAR(rig.touch.CooldownFraction(TouchCombo::Sword), 0.0f);
+    CHECK_EQ(rig.touch.CooldownTicksLeft(TouchCombo::None), 0u);
+
+    // Ready: the tap is taken, and nothing is refused.
+    TouchStep step = rig.Tap(TouchControl::SwordCombo, 1);
+    CHECK(!step.Denied(TouchCombo::Sword) && !step.Denied(TouchCombo::Spell) && !step.deniedSound);
+    CHECK(rig.touch.RunningCombo() == TouchCombo::Sword);
+    // The macro's ticks 1 to 3 rest nothing: the rest begins with the attack key, tick 4.
+    for (std::size_t t = 1; t <= 3; ++t) {
+        rig.Idle();
+        CHECK_MSG(rig.touch.CooldownTicksLeft(TouchCombo::Sword) == 0u, TickName("before the attack key", t));
+    }
+    step = rig.Idle();
+    CHECK(step.Held(TouchAction::Sword));
+    CHECK(rig.touch.RunningCombo() == TouchCombo::None);
+    // Set to 60 as the key was pressed, 59 once the game has run that tick.
+    CHECK_EQ(rig.touch.CooldownTicksLeft(TouchCombo::Sword), kRest - 1u);
+    CHECK_EQ(rig.touch.CooldownTicksLeft(TouchCombo::Spell), 0u);
+
+    // The ticks 1 to 59 after the attack key: a new finger lands on the button every tick (the one before has lifted).
+    float shade = rig.touch.CooldownFraction(TouchCombo::Sword);
+    CHECK_NEAR(shade, 59.0f / 60.0f);
+    int cues = 0;
+    for (unsigned k = 1; k < kRest; ++k) {
+        step = rig.Tap(TouchControl::SwordCombo, 100 + static_cast<int>(k));
+        const std::string where = TickName("a tap after the attack key", k);
+        CHECK_MSG(step.Denied(TouchCombo::Sword), where);
+        CHECK_MSG(!step.Denied(TouchCombo::Spell), where);
+        CHECK_MSG(rig.touch.RunningCombo() == TouchCombo::None && step.combo == TouchCombo::None, where);   // started nothing
+        CHECK_MSG(Only(step, {}), where);
+        // The cue: on the first refusal, then not again until kComboDeniedSoundGapTicks game ticks have run.
+        CHECK_MSG(step.deniedSound == ((k - 1u) % TouchControls::kComboDeniedSoundGapTicks == 0u), where);
+        if (step.deniedSound) ++cues;
+        // The flash is counted from the refusal: it is on for the rest of its length.
+        CHECK_MSG(rig.touch.DeniedFlashTicksLeft(TouchCombo::Sword) == TouchControls::kComboDeniedFlashTicks - 1u, where);
+        // And the shade shrinks, a tick's worth a tick, to nothing.
+        CHECK_MSG(rig.touch.CooldownTicksLeft(TouchCombo::Sword) == kRest - 1u - k, where);
+        CHECK_MSG(rig.touch.CooldownFraction(TouchCombo::Sword) < shade, where);
+        shade = rig.touch.CooldownFraction(TouchCombo::Sword);
+    }
+    CHECK_EQ(cues, 6);   // ticks 1, 11, 21, 31, 41, 51
+    CHECK_EQ(rig.touch.CooldownTicksLeft(TouchCombo::Sword), 0u);
+    CHECK_NEAR(rig.touch.CooldownFraction(TouchCombo::Sword), 0.0f);
+
+    // The 60th tick: taken. Its macro's attack key is 4 ticks on, so two attacks are 64 ticks apart at the closest.
+    step = rig.Tap(TouchControl::SwordCombo, 200);
+    CHECK(!step.Denied(TouchCombo::Sword) && !step.deniedSound);
+    CHECK(rig.touch.RunningCombo() == TouchCombo::Sword && step.combo == TouchCombo::Sword);
+    for (int i = 0; i < 4; ++i) rig.Idle();
+    CHECK_EQ(rig.touch.CooldownTicksLeft(TouchCombo::Sword), kRest - 1u);
+
+    // The spell combo has its own, with its own attack key: the 4th tick of its macro.
+    CooldownRig cast;
+    step = cast.Tap(TouchControl::SpellCombo, 1);
+    CHECK(cast.touch.RunningCombo() == TouchCombo::Spell);
+    for (std::size_t t = 1; t <= 2; ++t) {
+        cast.Idle();
+        CHECK_MSG(cast.touch.CooldownTicksLeft(TouchCombo::Spell) == 0u, TickName("before the fire key", t));
+    }
+    step = cast.Idle();
+    CHECK(step.Held(TouchAction::Fire));
+    CHECK_EQ(cast.touch.CooldownTicksLeft(TouchCombo::Spell), kRest - 1u);
+    CHECK_EQ(cast.touch.CooldownTicksLeft(TouchCombo::Sword), 0u);
+    for (unsigned k = 1; k < kRest; ++k) {
+        step = cast.Tap(TouchControl::SpellCombo, 100 + static_cast<int>(k));
+        CHECK_MSG(step.Denied(TouchCombo::Spell) && !step.Denied(TouchCombo::Sword), TickName("a spell tap", k));
+        CHECK_MSG(cast.touch.RunningCombo() == TouchCombo::None, TickName("a spell tap", k));
+    }
+    step = cast.Tap(TouchControl::SpellCombo, 200);
+    CHECK(!step.Denied(TouchCombo::Spell) && cast.touch.RunningCombo() == TouchCombo::Spell);
+}
+
+// What a finger does: only its landing is a tap; a refusal is not queued; the buttons rest on their own.
+void testComboCooldownFingers() {
+    const glm::vec2 sword = Centre(TouchControl::SwordCombo);
+
+    // A finger that lands while the button rests and stays down fires nothing when the rest ends, nor does it refuse again.
+    CooldownRig rig;
+    rig.SwordToItsAttackKey();
+    TouchStep step = rig.Tick(Facing({Finger(2, sword)}, TouchFacing::Right));
+    CHECK(step.Denied(TouchCombo::Sword));
+    int refusals = 0;
+    bool pressed = false;
+    for (int t = 0; t < 100; ++t) {
+        step = rig.Tick(Facing({Finger(2, sword)}, TouchFacing::Right));
+        if (step.Denied(TouchCombo::Sword)) ++refusals;
+        if (!Only(step, {})) pressed = true;
+    }
+    CHECK_EQ(refusals, 0);
+    CHECK(!pressed);
+    CHECK(rig.touch.RunningCombo() == TouchCombo::None);
+    CHECK_EQ(rig.touch.CooldownTicksLeft(TouchCombo::Sword), 0u);   // it ended long ago
+    // Lifted and put down again: a new tap, taken.
+    rig.Idle();
+    step = rig.Tap(TouchControl::SwordCombo, 3);
+    CHECK(!step.Denied(TouchCombo::Sword) && rig.touch.RunningCombo() == TouchCombo::Sword);
+
+    // Two fingers landing on a ready button in one tick are one press: the second is not a refusal. On a resting button
+    // they are one refusal.
+    CooldownRig pair;
+    step = pair.Tick(Facing({Finger(1, sword), Finger(2, sword)}, TouchFacing::Right));
+    CHECK(!step.Denied(TouchCombo::Sword) && !step.deniedSound);
+    CHECK(pair.touch.RunningCombo() == TouchCombo::Sword);
+    for (int i = 0; i < 4; ++i) pair.Idle();
+    step = pair.Tick(Facing({Finger(3, sword), Finger(4, sword)}, TouchFacing::Right));
+    CHECK(step.Denied(TouchCombo::Sword) && step.deniedSound);
+    CHECK(pair.touch.RunningCombo() == TouchCombo::None);
+
+    // Refused while the OTHER button's macro runs, and not queued: nothing of it starts when that one ends.
+    CooldownRig busy;
+    busy.Tap(TouchControl::SwordCombo, 1);
+    step = busy.Tap(TouchControl::SpellCombo, 2);
+    CHECK(step.Denied(TouchCombo::Spell) && !step.Denied(TouchCombo::Sword) && step.deniedSound);
+    CHECK(busy.touch.RunningCombo() == TouchCombo::Sword);
+    for (int i = 0; i < 3; ++i) busy.Idle();   // ticks 2 to 4: the sword macro's last
+    CHECK(busy.touch.RunningCombo() == TouchCombo::None);
+    CHECK_EQ(busy.touch.CooldownTicksLeft(TouchCombo::Spell), 0u);
+    for (int i = 0; i < 20; ++i) {
+        step = busy.Idle();
+        CHECK_MSG(Only(step, {}) && step.combo == TouchCombo::None, TickName("after the refused spell tap", static_cast<std::size_t>(i)));
+    }
+
+    // The two rest apart: the spell combo is tapped while the sword button rests and runs; the sword button takes its tap
+    // when its own rest is over, with the spell button still resting - and the spell button, then, is refused.
+    CooldownRig both;
+    both.SwordToItsAttackKey();
+    step = both.Tap(TouchControl::SpellCombo, 2);
+    CHECK(!step.Denied(TouchCombo::Spell) && both.touch.RunningCombo() == TouchCombo::Spell);
+    for (int i = 0; i < 60 && both.touch.RunningCombo() != TouchCombo::None; ++i) both.Idle();
+    CHECK(both.touch.RunningCombo() == TouchCombo::None);
+    CHECK(both.touch.CooldownTicksLeft(TouchCombo::Sword) > 0u);
+    CHECK(both.touch.CooldownTicksLeft(TouchCombo::Spell) > 0u);
+    CHECK(both.touch.CooldownTicksLeft(TouchCombo::Sword) < both.touch.CooldownTicksLeft(TouchCombo::Spell));
+    for (int i = 0; i < 100 && both.touch.CooldownTicksLeft(TouchCombo::Sword) > 0u; ++i) both.Idle();
+    CHECK_EQ(both.touch.CooldownTicksLeft(TouchCombo::Sword), 0u);
+    CHECK(both.touch.CooldownTicksLeft(TouchCombo::Spell) > 0u);
+    step = both.Tap(TouchControl::SwordCombo, 3);
+    CHECK(!step.Denied(TouchCombo::Sword) && both.touch.RunningCombo() == TouchCombo::Sword);
+    step = both.Tap(TouchControl::SpellCombo, 4);
+    CHECK(step.Denied(TouchCombo::Spell) && !step.Denied(TouchCombo::Sword));
+}
+
+// What starts no rest and what ends it: a macro stopped before its attack key; a new scene; and the ticks the game does not run.
+void testComboCooldownReset() {
+    const glm::vec2 sword = Centre(TouchControl::SwordCombo);
+
+    // The layer's CancelCombo (the controls switched off) before the attack key: no rest.
+    {
+        CooldownRig rig;
+        rig.Tap(TouchControl::SwordCombo, 1);
+        rig.Idle();
+        rig.touch.CancelCombo();
+        CHECK_EQ(rig.touch.CooldownTicksLeft(TouchCombo::Sword), 0u);
+        rig.Idle();
+        const TouchStep step = rig.Tap(TouchControl::SwordCombo, 2);
+        CHECK(!step.Denied(TouchCombo::Sword) && rig.touch.RunningCombo() == TouchCombo::Sword);
+    }
+    // The pause or a menu (Update with a scene that is not play) before it.
+    {
+        CooldownRig rig;
+        rig.Tap(TouchControl::SwordCombo, 1);
+        rig.Idle();
+        rig.touch.Update(Menu({}, TouchCorner::Back));
+        CHECK(rig.touch.RunningCombo() == TouchCombo::None);
+        CHECK_EQ(rig.touch.CooldownTicksLeft(TouchCombo::Sword), 0u);
+        const TouchStep step = rig.Tap(TouchControl::SwordCombo, 2);
+        CHECK(!step.Denied(TouchCombo::Sword) && rig.touch.RunningCombo() == TouchCombo::Sword);
+    }
+    // The pause opening on the very tick the attack key is pressed: Update has made the key, but the game does not play that
+    // tick (ObserveFrame is not called), so the key never reaches it; the pause's own Update follows. No rest, no refusal.
+    {
+        CooldownRig rig;
+        rig.Tap(TouchControl::SwordCombo, 1);
+        for (int i = 0; i < 3; ++i) rig.Idle();
+        TouchInput last = Facing({}, TouchFacing::Right);
+        last.sceneSerial = rig.serial;
+        const TouchStep key = rig.touch.Update(last);   // the attack key's tick, as the pause takes it
+        CHECK(key.Held(TouchAction::Sword));
+        CHECK_EQ(rig.touch.CooldownTicksLeft(TouchCombo::Sword), 0u);
+        rig.touch.Update(Menu({}, TouchCorner::Back));
+        rig.touch.Update(Menu({}, TouchCorner::Back));
+        CHECK_EQ(rig.touch.CooldownTicksLeft(TouchCombo::Sword), 0u);
+        // Resumed: ticks run again and the button was never rested; the next tap starts a macro.
+        rig.Idle();
+        rig.Idle();
+        CHECK_EQ(rig.touch.CooldownTicksLeft(TouchCombo::Sword), 0u);
+        const TouchStep step = rig.Tap(TouchControl::SwordCombo, 2);
+        CHECK(!step.Denied(TouchCombo::Sword) && rig.touch.RunningCombo() == TouchCombo::Sword);
+    }
+    // A load before it.
+    {
+        CooldownRig rig;
+        rig.serial = 7;
+        rig.Tap(TouchControl::SwordCombo, 1);
+        rig.Idle();
+        rig.serial = 8;
+        rig.Idle();
+        CHECK(rig.touch.RunningCombo() == TouchCombo::None);
+        CHECK_EQ(rig.touch.CooldownTicksLeft(TouchCombo::Sword), 0u);
+    }
+    // The wait for the combo buffer that gives up (something else keeps pressing the keys it reads): nothing was pressed.
+    {
+        CooldownRig rig;
+        const auto tickWithUp = [&](const TouchInput& input, bool up) {
+            const TouchStep step = rig.touch.Update(input);
+            InputFrame frame = FrameOf(step);
+            if (up) frame.keys[K_UP] = true;
+            rig.touch.ObserveFrame(frame, 1);
+            return step;
+        };
+        tickWithUp(Facing({Finger(1, sword)}, TouchFacing::Right), true);
+        int pressedKeys = 0;
+        for (int i = 0; i < 40; ++i) {
+            const TouchStep step = tickWithUp(Facing({}, TouchFacing::Right), i % 2 == 1);
+            for (int a = 0; a < kTouchActionCount; ++a) pressedKeys += step.held[static_cast<std::size_t>(a)] ? 1 : 0;
+        }
+        CHECK_EQ(pressedKeys, 0);
+        CHECK(rig.touch.RunningCombo() == TouchCombo::None);
+        CHECK_EQ(rig.touch.CooldownTicksLeft(TouchCombo::Sword), 0u);
+    }
+
+    // A new scene (a load, a death's reload) clears both rests - and its first tap is taken, the clearing coming first.
+    {
+        CooldownRig rig;
+        rig.serial = 3;
+        rig.SwordToItsAttackKey();
+        TouchStep step = rig.Tap(TouchControl::SpellCombo, 2);
+        for (int i = 0; i < 60 && rig.touch.RunningCombo() != TouchCombo::None; ++i) rig.Idle();
+        CHECK(rig.touch.CooldownTicksLeft(TouchCombo::Sword) > 0u && rig.touch.CooldownTicksLeft(TouchCombo::Spell) > 0u);
+        // A refused tap: its flash is on, and goes with the load too.
+        step = rig.Tap(TouchControl::SwordCombo, 3);
+        CHECK(step.Denied(TouchCombo::Sword));
+        CHECK(rig.touch.DeniedFlashTicksLeft(TouchCombo::Sword) > 0u);
+        rig.serial = 4;
+        step = rig.Tap(TouchControl::SwordCombo, 4);
+        CHECK(!step.Denied(TouchCombo::Sword));
+        CHECK(rig.touch.RunningCombo() == TouchCombo::Sword);
+        CHECK_EQ(rig.touch.CooldownTicksLeft(TouchCombo::Spell), 0u);
+        CHECK_EQ(rig.touch.DeniedFlashTicksLeft(TouchCombo::Sword), 0u);
+    }
+
+    // The ticks the game does not run never count: the pause's Update in a menu scene, the editor's in the edit scene, and
+    // a play Update beyond the tick's one (the editor's paths call it again) - only ObserveFrame is the clock.
+    {
+        CooldownRig rig;
+        rig.SwordToItsAttackKey();
+        CHECK_EQ(rig.touch.CooldownTicksLeft(TouchCombo::Sword), 59u);
+        for (int i = 0; i < 40; ++i) rig.touch.Update(Menu({}, TouchCorner::Hidden));
+        for (int i = 0; i < 40; ++i) {
+            TouchInput edit = Facing({}, TouchFacing::Right);
+            edit.scene = TouchScene::Edit;
+            edit.corner = TouchCorner::Hidden;
+            rig.touch.Update(edit);
+        }
+        for (int i = 0; i < 40; ++i) rig.touch.Update(Facing({}, TouchFacing::Right));
+        CHECK_EQ(rig.touch.CooldownTicksLeft(TouchCombo::Sword), 59u);
+        // The game runs again: one tick, one count.
+        rig.Idle();
+        CHECK_EQ(rig.touch.CooldownTicksLeft(TouchCombo::Sword), 58u);
+    }
+}
+
+// What the player sees: the commands the overlay appends for a resting, a recharging, a refused and a ready combo button,
+// with the data folder's art and without; and that the editor's preview is the buttons at rest.
+void testComboCooldownLook() {
+    const TouchManifest manifest = TouchControls::DefaultManifest();
+    const std::uint8_t idle = static_cast<std::uint8_t>(std::lround(manifest.idleAlpha * 255.0f));
+    const std::uint8_t pressed = static_cast<std::uint8_t>(std::lround(manifest.pressedAlpha * 255.0f));
+    const TouchLayout::Box box = Default()[TouchControl::SwordCombo];
+    const glm::ivec2 art = Penumbra::Render::ProbeImageSize(
+        (fs::path(PENUMBRA_DATA_DIR) / "images" / "touch" / "combo_sword.png").generic_string());
+    CHECK(art.x > 0 && art.y > 0);
+
+    const auto black = [](const HudCmd& cmd) { return (cmd.color & 0x00FFFFFFu) == 0u && Alpha(cmd.color) > 0; };
+    const auto swordArt = [&](const HudCmd& cmd) {
+        return cmd.sprite.find("combo_sword.png") != std::string::npos && !black(cmd);
+    };
+    const auto overlay = [](const TouchControls& touch) {
+        std::vector<HudCmd> out;
+        touch.AppendOverlay(out);
+        return out;
+    };
+    const auto countBlack = [&](const std::vector<HudCmd>& out) {
+        return static_cast<int>(std::count_if(out.begin(), out.end(), black));
+    };
+    const auto findOne = [](const std::vector<HudCmd>& out, const auto& wanted) {
+        const HudCmd* found = nullptr;
+        for (const HudCmd& cmd : out) {
+            if (wanted(cmd)) found = &cmd;
+        }
+        return found;
+    };
+
+    CooldownRig rig;
+    rig.touch.SetImageRoot(PENUMBRA_DATA_DIR);
+    rig.Idle();
+    // At rest: the ten commands of the rest look, the sword combo's art white at the idle alpha, no shade.
+    std::vector<HudCmd> out = overlay(rig.touch);
+    CHECK_EQ(out.size(), std::size_t{10});
+    CHECK_EQ(countBlack(out), 0);
+    const HudCmd* base = findOne(out, swordArt);
+    CHECK(base != nullptr);
+    if (base != nullptr) {
+        CHECK_EQ(static_cast<int>(Alpha(base->color)), static_cast<int>(idle));
+        CHECK_EQ(base->color & 0x00FFFFFFu, 0x00FFFFFFu);
+        CHECK_NEAR(base->pos.x, box.min.x);
+        CHECK_NEAR(base->pos.y, box.min.y);
+    }
+
+    // Recharging: the art grey at the idle alpha, and one more command, a black copy of the art cut to the top share of
+    // it that has not recharged yet - the same box and image fraction - which gets smaller every tick.
+    rig.SwordToItsAttackKey();
+    float shadeHeight = box.Size().y;
+    for (int t = 0; t < 59; ++t) {
+        out = overlay(rig.touch);
+        const std::string where = TickName("recharging", static_cast<std::size_t>(t));
+        CHECK_MSG(out.size() == std::size_t{11}, where);
+        CHECK_MSG(countBlack(out) == 1, where);
+        const HudCmd* shade = findOne(out, black);
+        const HudCmd* grey = findOne(out, swordArt);
+        const float fraction = rig.touch.CooldownFraction(TouchCombo::Sword);
+        CHECK_MSG(shade != nullptr && grey != nullptr, where);
+        if (shade != nullptr && grey != nullptr) {
+            // A tick after the attack key it is still lit (it ran then); from the next it is grey.
+            if (t > 0) {
+                CHECK_MSG(Alpha(grey->color) == idle && (grey->color & 0x00FFFFFFu) == 0x00969696u, where);
+            }
+            CHECK_MSG(shade->kind == HudCmd::Kind::ShapedSprite && shade->sprite == grey->sprite, where);
+            CHECK_MSG(Alpha(shade->color) > idle, where);   // darker than the art it covers
+            CHECK_MSG(std::fabs(shade->pos.x - box.min.x) < 0.01f && std::fabs(shade->pos.y - box.min.y) < 0.01f, where);
+            CHECK_MSG(std::fabs(shade->size.x - box.Size().x) < 0.01f, where);
+            CHECK_MSG(std::fabs(shade->size.y - box.Size().y * fraction) < 0.01f, where);
+            CHECK_MSG(shade->spriteRectMin == glm::vec2(0.0f), where);
+            CHECK_MSG(std::fabs(shade->spriteRectMax.x - static_cast<float>(art.x)) < 0.01f &&
+                          std::fabs(shade->spriteRectMax.y - static_cast<float>(art.y) * fraction) < 0.01f,
+                      where);
+            CHECK_MSG(shade->size.y < shadeHeight, where);
+            shadeHeight = shade->size.y;
+        }
+        rig.Idle();
+    }
+    // Ready (the 60th tick): no shade, the rest look's ten commands, and a glow - brighter than idle, back to idle in 12 ticks.
+    CHECK_EQ(rig.touch.CooldownTicksLeft(TouchCombo::Sword), 0u);
+    for (unsigned n = 0; n <= TouchControls::kComboReadyPulseTicks; ++n) {
+        out = overlay(rig.touch);
+        const std::string where = TickName("ready", n);
+        CHECK_MSG(out.size() == std::size_t{10} && countBlack(out) == 0, where);
+        base = findOne(out, swordArt);
+        CHECK_MSG(base != nullptr, where);
+        if (base != nullptr) {
+            const bool glowing = n < TouchControls::kComboReadyPulseTicks;
+            CHECK_MSG((Alpha(base->color) > idle) == glowing, where);
+            CHECK_MSG(Alpha(base->color) <= pressed, where);
+            CHECK_MSG((base->color & 0x00FFFFFFu) == 0x00FFFFFFu, where);
+        }
+        if (n == 0 && base != nullptr) CHECK_EQ(static_cast<int>(Alpha(base->color)), static_cast<int>(pressed));
+        rig.Idle();
+    }
+
+    // Refused: the art red (full red, the others down), brighter, and shaken off its place - but the layout, which the
+    // fingers are held to, does not move; the spell combo button is as it was. Then it fades back over 15 ticks.
+    CooldownRig denied;
+    denied.touch.SetImageRoot(PENUMBRA_DATA_DIR);
+    denied.SwordToItsAttackKey();
+    denied.Idle();
+    const TouchLayout::Box spellBox = Default()[TouchControl::SpellCombo];
+    denied.Tap(TouchControl::SwordCombo, 2);
+    for (unsigned t = 0; t < TouchControls::kComboDeniedFlashTicks; ++t) {
+        out = overlay(denied.touch);
+        const std::string where = TickName("refused", t);
+        base = findOne(out, swordArt);
+        CHECK_MSG(base != nullptr, where);
+        if (t < TouchControls::kComboDeniedFlashTicks - 1u && base != nullptr) {
+            const std::uint32_t red = (base->color >> 16) & 0xFFu;
+            const std::uint32_t green = (base->color >> 8) & 0xFFu;
+            const std::uint32_t blue = base->color & 0xFFu;
+            CHECK_MSG(red == 255u && green < 255u && green == blue, where);
+            CHECK_MSG(Alpha(base->color) > idle, where);
+            CHECK_MSG(std::fabs(base->pos.x - box.min.x) > 0.01f && std::fabs(base->pos.y - box.min.y) < 0.01f, where);
+            CHECK_MSG(std::fabs(base->pos.x - box.min.x) <= 5.0f, where);   // by a few pixels, not off the button
+        }
+        const HudCmd* spell = findOne(out, [](const HudCmd& cmd) {
+            return cmd.sprite.find("combo_spell.png") != std::string::npos;
+        });
+        CHECK_MSG(spell != nullptr && Alpha(spell->color) == idle && (spell->color & 0x00FFFFFFu) == 0x00FFFFFFu &&
+                      std::fabs(spell->pos.x - spellBox.min.x) < 0.01f,
+                  where);
+        CHECK_MSG(denied.touch.Layout()[TouchControl::SwordCombo].min == box.min, where);
+        denied.Idle();
+    }
+    // Over: the grey of a button that still rests, on its own place.
+    out = overlay(denied.touch);
+    base = findOne(out, swordArt);
+    CHECK(base != nullptr);
+    if (base != nullptr) {
+        CHECK_EQ(base->color & 0x00FFFFFFu, 0x00969696u);
+        CHECK_NEAR(base->pos.x, box.min.x);
+    }
+
+    // The editor's preview shows the buttons at rest, whatever they were doing: the same commands, bit for bit, as a
+    // fresh set of controls in the same scene. In a menu (the pause) neither is there at all.
+    CooldownRig resting;
+    resting.touch.SetImageRoot(PENUMBRA_DATA_DIR);
+    resting.SwordToItsAttackKey();
+    resting.Tap(TouchControl::SpellCombo, 2);
+    resting.Tap(TouchControl::SwordCombo, 3);   // refused, flashing
+    CHECK(resting.touch.CooldownTicksLeft(TouchCombo::Sword) > 0u && resting.touch.DeniedFlashTicksLeft(TouchCombo::Sword) > 0u);
+    TouchInput edit = Facing({}, TouchFacing::Right);
+    edit.scene = TouchScene::Edit;
+    edit.corner = TouchCorner::Hidden;
+    resting.touch.Update(edit);
+    TouchControls fresh;
+    fresh.SetImageRoot(PENUMBRA_DATA_DIR);
+    fresh.Update(edit);
+    const std::vector<HudCmd> previewed = overlay(resting.touch);
+    const std::vector<HudCmd> atRest = overlay(fresh);
+    CHECK(!atRest.empty());
+    CHECK_EQ(previewed.size(), atRest.size());
+    for (std::size_t i = 0; i < previewed.size() && i < atRest.size(); ++i) {
+        CHECK_MSG(previewed[i].kind == atRest[i].kind && previewed[i].sprite == atRest[i].sprite &&
+                      previewed[i].pos == atRest[i].pos && previewed[i].size == atRest[i].size &&
+                      previewed[i].color == atRest[i].color && previewed[i].spriteRectMax == atRest[i].spriteRectMax,
+                  TickName("the editor's preview, command", i));
+    }
+    resting.touch.Update(Menu());
+    CHECK(overlay(resting.touch).empty());
+
+    // Without the art in the data folder: plain squares, and the shade a black rectangle of the same share of the box.
+    CooldownRig bare;
+    bare.SwordToItsAttackKey();
+    for (int i = 0; i < 10; ++i) bare.Idle();
+    out = overlay(bare.touch);
+    CHECK_EQ(out.size(), std::size_t{9});   // the disc, six buttons, pause - and the shade
+    const HudCmd* plainShade = findOne(out, black);
+    CHECK(plainShade != nullptr);
+    if (plainShade != nullptr) {
+        CHECK(plainShade->kind == HudCmd::Kind::Rectangle && !plainShade->stretchToSides);
+        CHECK(std::fabs(plainShade->size.y - box.Size().y * bare.touch.CooldownFraction(TouchCombo::Sword)) < 0.01f);
+        CHECK(std::fabs(plainShade->size.x - box.Size().x) < 0.01f);
+    }
+
+    // Faint controls (opacity 0.2, an idle alpha of 0.09): the shade follows them. The pressed alpha has a floor of the
+    // manifest's 0.9, so a shade taken from it alone would be about seven times more opaque than the button it covers.
+    {
+        CooldownRig faint;
+        TouchTuning tuning;
+        tuning.opacity = 0.2f;
+        faint.touch.SetTuning(tuning);
+        faint.touch.SetImageRoot(PENUMBRA_DATA_DIR);
+        faint.SwordToItsAttackKey();
+        faint.Idle();
+        const std::vector<HudCmd> faintOut = overlay(faint.touch);
+        const HudCmd* faintShade = findOne(faintOut, black);
+        const HudCmd* faintArt = findOne(faintOut, swordArt);
+        CHECK(faintShade != nullptr && faintArt != nullptr);
+        if (faintShade != nullptr && faintArt != nullptr) {
+            const int restAlpha = static_cast<int>(Alpha(faintArt->color));
+            CHECK(restAlpha > 0 && restAlpha < 40);
+            CHECK(static_cast<int>(Alpha(faintShade->color)) > restAlpha);
+            CHECK(static_cast<int>(Alpha(faintShade->color)) <= static_cast<int>(std::lround(static_cast<float>(restAlpha) * 1.5f)) + 1);
+        }
+    }
+}
+
+// The cooldown is the touch buttons' alone. Combos typed on a keyboard (here: the frames their macros make, with
+// TouchControls::Update never called - the controls off) fire as often as the combo buffer lets them, a button resting
+// beside them changes nothing of it, and the typed combos do not wait for the button.
+void testComboTypedUnlimited() {
+    MachineConfig config;
+    config.userRoot.clear();   // nothing is written
+    Machine machine(config);
+    Machine::Scope scope(machine);
+    machine.Boot([] { LoadScene("", "", ""); });
+    machine.Frame(InputFrame{});
+    ComboRig rig(machine);
+    rig.Idle(20);
+
+    const auto hand = [](std::initializer_list<KEY> down) {
+        InputFrame frame;
+        for (const KEY key : down) frame.keys[static_cast<std::size_t>(key)] = true;
+        return frame;
+    };
+    // CMD side, side, SWORD (playerInput.as:361-362) and CMD DOWN, side, SPELL (:380-381), as a keyboard types them.
+    const auto typeSword = [&](KEY side) {
+        for (const InputFrame& frame : {hand({}), hand({side}), hand({}), hand({side}), hand({K_S})}) rig.Run(frame);
+    };
+    const auto typeSpell = [&](KEY side) {
+        for (const InputFrame& frame : {hand({}), hand({K_DOWN}), hand({side}), hand({K_D})}) rig.Run(frame);
+    };
+    const auto quiet = [&](int ticks) {
+        for (int i = 0; i < ticks; ++i) rig.Run(hand({}));
+    };
+
+    // Twice in well under a second each, with the buffer's quiet between: all four go off, the touch cooldown's clock
+    // never started (nothing here is the button's macro).
+    int from = rig.tick;
+    typeSword(K_LEFT);
+    CHECK_MSG(rig.FiredSince(from) == "sword left@4", rig.FiredSince(from));
+    quiet(20);
+    from = rig.tick;
+    typeSword(K_LEFT);
+    CHECK_MSG(rig.FiredSince(from) == "sword left@4", rig.FiredSince(from));
+    CHECK_EQ(rig.fired.size(), std::size_t{2});
+    if (rig.fired.size() == 2) CHECK(rig.fired[1].tick - rig.fired[0].tick < static_cast<int>(TouchControls::kComboCooldownTicks));
+    quiet(20);
+    from = rig.tick;
+    typeSpell(K_RIGHT);
+    CHECK_MSG(rig.FiredSince(from) == "spell right@3", rig.FiredSince(from));
+    quiet(20);
+    from = rig.tick;
+    typeSpell(K_RIGHT);
+    CHECK_MSG(rig.FiredSince(from) == "spell right@3", rig.FiredSince(from));
+    CHECK_EQ(rig.fired.size(), std::size_t{4});
+    if (rig.fired.size() == 4) CHECK(rig.fired[3].tick - rig.fired[2].tick < static_cast<int>(TouchControls::kComboCooldownTicks));
+    CHECK_EQ(rig.touch.CooldownTicksLeft(TouchCombo::Sword), 0u);
+    CHECK_EQ(rig.touch.CooldownTicksLeft(TouchCombo::Spell), 0u);
+
+    // The sword button's own combo, then, a typed one while it rests: it goes off at once, and the button goes on resting.
+    rig.Idle(20);
+    from = rig.tick;
+    rig.Tap(Facing({Finger(1, Centre(TouchControl::SwordCombo))}, TouchFacing::Left));
+    for (int i = 1; i < 8; ++i) rig.Tap(Facing({}, TouchFacing::Left));
+    CHECK_MSG(rig.FiredSince(from) == "sword left@4", rig.FiredSince(from));
+    CHECK(rig.touch.CooldownTicksLeft(TouchCombo::Sword) > 0u);
+    quiet(20);
+    from = rig.tick;
+    typeSword(K_LEFT);
+    CHECK_MSG(rig.FiredSince(from) == "sword left@4", rig.FiredSince(from));
+    CHECK(rig.touch.CooldownTicksLeft(TouchCombo::Sword) > 0u);   // still resting: the typed combo did not wait for it
+    CHECK(rig.touch.CooldownTicksLeft(TouchCombo::Sword) < TouchControls::kComboCooldownTicks - 20u);
+    const TouchStep refused = rig.Tap(Facing({Finger(2, Centre(TouchControl::SwordCombo))}, TouchFacing::Left));
+    CHECK(refused.Denied(TouchCombo::Sword) && Only(refused, {}));
 }
 
 TouchFacing FacingOf(const ETHEntity& wizard) {
@@ -4581,6 +5157,11 @@ void runTests() {
     testComboCancel();
     testComboManifest();
     testComboBuffer();
+    testComboCooldownGate();   // E37
+    testComboCooldownFingers();   // E37
+    testComboCooldownReset();   // E37
+    testComboCooldownLook();   // E37
+    testComboTypedUnlimited();   // E37
     // E28: the player's own layout, all pure: before the ones that boot the real game.
     testTuningIdentity();   // E28
     testTuningSize();   // E28
