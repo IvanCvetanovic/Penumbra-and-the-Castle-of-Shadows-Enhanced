@@ -157,6 +157,28 @@ with any other option; a start with an option that is not a player's own (`--sta
 `--hold`...) has none, so scripted captures are as they were. A copy of the game without its `data\images\splash\` folder starts
 without it and says so in `penumbra.log`.
 
+### A start that takes long, or stalls (E38)
+
+This is in the builds after 1.0.5; 1.0.5 itself starts as it did before (its log has no times, and it opens fullscreen after a start that froze).
+
+The window is on the screen from the moment it is made, and the start behind it (the graphics device, every shader the driver compiles
+on a first run, the game's own load) can take seconds on a slow PC. Windows calls a window that reads no messages for about five
+seconds "Not responding", so the game now reads the window's messages between the engine's stages of that start and around the
+game's own load: a long start is a blank window that can be moved and closed, and Windows does not offer to end it unless one single
+stage takes that long (a display switch, say). A window minimised during the start is waited out before the swapchain is made, and a
+close asked for during it is heard: the game's own load is skipped and the window closes when the engine's stages are through.
+
+A first start is fullscreen, and asks the monitor for its highest refresh rate; with the intro on, that switch is asked for once the
+first frame has been handed to the GPU instead of being the first thing the game does. A start that did not get as far as the end of
+that (the player ended a window that did not answer, or the PC lost power) leaves the file `start-unfinished` in the user folder
+(`%APPDATA%\Penumbra` on Windows). The file goes on the third frame, after the display switch has been applied. The next start sees
+it, opens in a window this once (the fullscreen setting is not changed, and the log says so), and keeps the log of the start that
+did not finish as `penumbra-unfinished.log` beside the new `penumbra.log`. A start with `--fullscreen`, `--windowed` or `--window`
+keeps the mode it was given, and a capture or a test run (`--frames`, `--screenshot`, `--fixed-step`) keeps no such file, nor does a phone.
+
+`penumbra.log` carries the seconds since its first line (`INFO +1.234s [Window] ...`) and names the stages that can stall ("Entering
+fullscreen", "Switching ... to ... Hz", "Looking for gamepads", "First DrawFrame returned"), so a log that stops says where.
+
 ## Where the files are found
 
 At startup the game looks for two folders, and logs where it found each one:

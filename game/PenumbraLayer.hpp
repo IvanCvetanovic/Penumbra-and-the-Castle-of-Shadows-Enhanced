@@ -195,6 +195,11 @@ public:
         // E35: play the Supersonic Engine's intro before the menu. Off here, so a layer built by a test or a tool
         // runs from its first tick as before; main.cpp turns it on for a normal start (Render::SplashWanted).
         bool splash = false;
+        // E38: the file main.cpp wrote when this start began, taken away on the third frame, once the first has been
+        // drawn and the display switch the launch asked for has been applied (FinishLaunch): while it exists a start
+        // has not got that far, and the next one opens in a window instead of covering the monitor. Empty for a layer
+        // built by a test or a tool, which then touches no file.
+        std::filesystem::path startMarker;
     };
 
     explicit PenumbraLayer(Options options);
@@ -314,6 +319,7 @@ private:
 
     // E35: begins the intro if the options ask for it and the logo can be read; one tick of it; its end; its frame.
     void StartSplash();
+    void FinishLaunch(entt::registry& registry);   // E38
     void StepSplash();
     void EndSplash();
     void DrawSplash(entt::registry& registry);
@@ -347,6 +353,10 @@ private:
     bool m_devEditorOpened = false;                                                                            // E28
     bool m_noSaveLogged = false;                                                                               // E28
     unsigned m_ticksThisFrame = 0;   // the latch of a tap no tick saw
+    // E38: what the first frames finish (FinishLaunch): the display switch the launch asked for, held back until a
+    // frame has been drawn, and then the start marker. m_updates counts the frames up to the third.
+    bool m_launchFullscreenPending = false;
+    unsigned m_updates = 0;
     // The layer's own HUD commands for the HUD pass, in drawing order: the
     // touch controls (E16), then the pause (E13).
     std::vector<Eth::HudCmd> m_overlay;

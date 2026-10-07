@@ -45,6 +45,7 @@
 #include "eth/Machine.hpp"
 #include "eth/Random.hpp"   // E35
 #include "eth/Snapshot.hpp"
+#include "eth/StartupErrors.hpp"   // E38
 #include "eth/Text.hpp"
 #include "render/ArabicShaping.hpp"
 #include "render/CameraRig.hpp"
@@ -4084,8 +4085,10 @@ struct SplashRig {
     unsigned tick = 0;   // the ticks run
     bool attached = false;
 
-    explicit SplashRig(PenumbraLayer::Options options) : layer(std::move(options)) {
+    explicit SplashRig(PenumbraLayer::Options options, Supersonic::WindowControl* window = nullptr)   // E38: a window
+        : layer(std::move(options)) {
         registry.ctx().emplace<Supersonic::ScreenOverlay*>(overlayPointer);
+        if (window != nullptr) registry.ctx().emplace<Supersonic::WindowControl*>(window);
         layer.OnAttach(registry);
         attached = true;
     }
@@ -4532,6 +4535,150 @@ void TestDifficultyInLayer() {   // E36
 
 } // namespace   // E35
 
+// ENHANCEMENT E38: A START THAT CANNOT LOOK LIKE A CRASH. The layer's two parts, driven on a bare registry with a
+// stand-in window (the engine's pump is exercised by the game's real start; the log's times and the marker file's
+// functions are checked in test_pn_paths; main.cpp's few lines of glue are the only part no suite drives):
+//  - with the intro, the display switch the launch asks for (the monitor's highest rate) is not asked at attach or
+//    during the first frame, and is asked once the first frame has been drawn: on the second update;
+//  - without the intro (a start with a development flag, a layer built by a tool) it is asked at attach, as before;
+//  - the start marker the layer is given stays through that request and the frame that applies it, and goes on the
+//    third update: a hang in the display switch, which is applied between the second and third, leaves it;
+//  - frames count as updates, not as ticks: three ticks in the first frame, and frames that run none, change nothing;
+//  - a window the player has left by then is not put back into fullscreen;
+//  - a layer given no marker leaves another's alone, wherever it is, and asks for nothing without a launch fullscreen.
+namespace {   // E38
+
+class StandInWindow final : public Supersonic::WindowControl {
+public:
+    bool IsFullscreen() const override { return fullscreen; }
+    glm::uvec2 WindowSize() const override { return glm::uvec2(1920u, 1080u); }
+    std::vector<Supersonic::DisplayMode> DisplayModes() const override { return modes; }
+    Supersonic::DisplayMode DesktopMode() const override { return Supersonic::DisplayMode{1920u, 1080u, 60u}; }
+
+    bool fullscreen = true;
+    // A 60 Hz desktop on a monitor that also offers 144 Hz: the case that switches the display.
+    std::vector<Supersonic::DisplayMode> modes{Supersonic::DisplayMode{1920u, 1080u, 60u},
+                                               Supersonic::DisplayMode{1920u, 1080u, 144u}};
+};
+
+bool AskedForTheHighestRate(const Supersonic::WindowControl& window) {
+    const Supersonic::WindowControl::Requests& asked = window.Pending();
+    return asked.setFullscreen && asked.fullscreen && asked.fullscreenMode == glm::uvec2(1920u, 1080u) &&
+           asked.fullscreenRate == Supersonic::WindowControl::kHighestRefreshRate;
+}
+
+void TestLaunchAfterTheFirstFrame() {   // E38
+    namespace fs = std::filesystem;
+    const std::string savedArtDir = Script::g_artDir;
+    const bool savedMobile = Script::g_mobileLayout;
+    std::error_code ignored;
+    // Names of their own, and distinct from the real marker's: two runs at once must not share a file, and a test
+    // can never touch a player's.
+    std::random_device entropy;
+    const fs::path folder = fs::temp_directory_path(ignored) / ("penumbra_test_launch_" + std::to_string(entropy()));
+    fs::create_directories(folder, ignored);
+    const fs::path marker = folder / "marker-under-test";
+    const auto makeMarker = [&](const fs::path& at) { std::ofstream(at) << "x"; };
+    try {
+        // ---- With the intro: nothing before the first frame is drawn, one request after it, the marker a frame later. ----
+        {
+            makeMarker(marker);
+            StandInWindow window;
+            PenumbraLayer::Options options = SplashOptions(true);
+            options.startFullscreen = true;
+            options.startMarker = marker;
+            SplashRig rig(options, &window);
+            CHECK_MSG(!window.Pending().Any(), "no display switch is asked for at attach");
+            CHECK(fs::exists(marker));
+            rig.step();   // the first frame's update: nothing is drawn yet
+            CHECK_MSG(!window.Pending().Any(), "nor in the first frame");
+            CHECK_MSG(fs::exists(marker), "the marker stays until the first frame is drawn");
+            rig.step();   // the second: the engine has drawn the first between the two
+            CHECK_MSG(AskedForTheHighestRate(window), "after the first frame: the desktop's size at the highest rate");
+            CHECK_MSG(fs::exists(marker), "the marker stays through the request: the switch is applied after it");
+            window.TakeRequests();   // the engine applies it at the top of the third frame
+            rig.step();   // the third: the switch has returned
+            CHECK_MSG(!fs::exists(marker), "and goes once the switch is through");
+            rig.runTo(rig.tick + 5);
+            CHECK_MSG(!window.Pending().Any(), "asked once");
+        }
+        // ---- Frames count, not ticks: three ticks in the first frame, then frames that run none. ----
+        {
+            makeMarker(marker);
+            StandInWindow window;
+            PenumbraLayer::Options options = SplashOptions(true);
+            options.startFullscreen = true;
+            options.startMarker = marker;
+            SplashRig rig(options, &window);
+            for (int tick = 0; tick < 3; ++tick) rig.layer.OnFixedUpdate(rig.registry, PenumbraLayer::kTick);
+            rig.layer.OnUpdate(rig.registry, PenumbraLayer::kTick);   // frame 1, three ticks
+            CHECK_MSG(!window.Pending().Any() && fs::exists(marker), "three ticks are still the first frame");
+            rig.frameWithoutTick();   // frame 2, no tick
+            CHECK_MSG(AskedForTheHighestRate(window), "the second frame asks, tick or none");
+            CHECK(fs::exists(marker));
+            window.TakeRequests();
+            rig.frameWithoutTick();   // frame 3
+            CHECK_MSG(!fs::exists(marker), "and the third takes the marker");
+        }
+        // ---- A window the player has left in the first frame is not put back into fullscreen. ----
+        {
+            makeMarker(marker);
+            StandInWindow window;
+            PenumbraLayer::Options options = SplashOptions(true);
+            options.startFullscreen = true;
+            options.startMarker = marker;
+            SplashRig rig(options, &window);
+            rig.step();
+            window.fullscreen = false;
+            rig.step();
+            CHECK_MSG(!window.Pending().Any(), "a player's window is left as it is");
+            rig.step();
+            CHECK(!fs::exists(marker));
+        }
+        // ---- Without the intro: asked at attach, as before; the marker still waits for the third update. ----
+        {
+            makeMarker(marker);
+            StandInWindow window;
+            PenumbraLayer::Options options = SplashOptions(false);
+            options.startFullscreen = true;
+            options.startMarker = marker;
+            SplashRig rig(options, &window);
+            CHECK_MSG(AskedForTheHighestRate(window), "no intro: the request is made at attach");
+            CHECK(fs::exists(marker));
+            window.TakeRequests();
+            rig.step();
+            rig.step();
+            CHECK_MSG(!window.Pending().Any(), "and it is not asked again");
+            CHECK(fs::exists(marker));
+            rig.step();
+            CHECK(!fs::exists(marker));
+        }
+        // ---- A layer with no marker of its own: another's, in the user folder, is left alone, and with no launch
+        // fullscreen (startFullscreen off) nothing is asked of the window even though the stand-in is fullscreen. ----
+        {
+            const fs::path others = folder / fs::path(Eth::kStartMarkerFile);
+            makeMarker(others);
+            StandInWindow window;
+            PenumbraLayer::Options options = SplashOptions(true);
+            options.userDir = folder;
+            SplashRig rig(options, &window);
+            rig.runTo(4);
+            CHECK_MSG(fs::exists(others), "a layer given no marker leaves the user folder's alone");
+            CHECK_MSG(!window.Pending().Any(), "and without a launch fullscreen nothing is asked of the window");
+        }
+    } catch (...) {
+        fs::remove_all(folder, ignored);
+        Script::g_mobileLayout = savedMobile;
+        Script::g_artDir = savedArtDir;
+        throw;
+    }
+    fs::remove_all(folder, ignored);
+    Script::g_mobileLayout = savedMobile;
+    Script::g_artDir = savedArtDir;
+}
+
+} // namespace   // E38
+
 int main() {
     if (!std::filesystem::exists(PENUMBRA_ORIGINAL_DIR "/main.as")) {
         std::printf("SKIP: the original is not at %s\n", PENUMBRA_ORIGINAL_DIR);
@@ -4565,5 +4712,6 @@ int main() {
     TestTouchEditorInLayer();   // E28: the layer itself, driven on a bare registry (its globals die with the process)
     TestSplashInLayer();   // E35: the layer again, after it: the intro, the machine standing still, the presses
     TestDifficultyInLayer();   // E36: the layer once more: the difficulty row seeded from the settings or the flag, and kept
+    TestLaunchAfterTheFirstFrame();   // E38: the layer's launch: the display switch and the start marker wait for a frame
     return test::summary("test_pn_render_hud", 150);
 }

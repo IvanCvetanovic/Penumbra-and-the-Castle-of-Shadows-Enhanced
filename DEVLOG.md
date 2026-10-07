@@ -1059,3 +1059,41 @@ Smart App Control on the development machine and were never launched; no real ph
   the phone's); touch-controls.jpg is unchanged, since a combo button at rest looks as it did.
 - A combo button rests after its attack key even when the script then refuses the move for lack of mana (the sword combo needs 5, the spell combo 25): the cooldown is the touch layer's and does not know the mana. A retry
   within the second is refused with the flash and the cue.
+
+## 2026-10-07 — E38: a start that cannot look like a crash
+
+**Why.** A tester on Windows opened `Penumbra.exe` (downloaded from GitHub) and got a black or white window that did not answer ("Wait" or "Close the program"); no log, version or hardware came with
+the report. The code, read at 1.0.5, shows how any slow start looks exactly like that: the window is shown the moment it is made and nothing reads its messages until the first frame, after the Vulkan
+device, the swapchain, every shader the driver compiles (the release ships no cache), the game's load and, on a first launch, a fullscreen start that asks the monitor for its highest refresh rate (a
+real display switch, never run by any machine the game had been on: a laptop panel offers one rate). What was slow on the tester's PC is not known; nothing in the code deadlocks or loops. The
+investigation (seven read-only readers, one per area) and a four-lens review of the change are summarised in docs/planning/2026-10-07-e38-a-start-that-cannot-look-like-a-crash.md.
+
+**Built.**
+- *Engine (additive, opt-in).* `GameManifest::pumpEventsDuringStartup`: the window's events are read between the constructor's stages, around the layer's attach and after each pipeline built
+  (`VulkanRenderer::SetStartupPump`), until `Run` begins; a minimised window is waited out before the swapchain is made (the new pumps would otherwise have let an alt-tab during a slow start end it);
+  a close asked for during the start skips the attach. `Log::SetElapsedTimestamps`: `INFO +1.234s [Window] ...` in the file sink. New lines for the stages that can stall (the display switch before it
+  happens, the first gamepad scan timed, the first `DrawFrame`, the layer ready). No existing line changed.
+- *Game.* `main.cpp` turns both on. With the intro, the launch's fullscreen request waits for the second frame (`FinishLaunch`). An unfinished-start record (`eth/StartupErrors`): `start-unfinished` is
+  written before the engine starts and removed on the third frame, after the display switch; a start that finds it opens in a window this once (unless `--fullscreen`, `--windowed` or `--window` was
+  given; the setting is unchanged) and keeps the unfinished start's log as `penumbra-unfinished.log`. Captures, tests and phones keep no marker.
+- *Guides.* A bullet for it in the Windows "It didn't start?" lists of both install guides, a paragraph in both languages of the Windows HOW TO PLAY, a section in playing.md, the E38 row in
+  enhancements.md, the planning record, and clauses in testing.md and the engine README's suite rows.
+- *Tests.* `test_gameruntime` (engine): the flag's default and its absence from the manifest's text; the log's time form, that it is the clock's and rises, off is the old form, the buffer unstamped.
+  `test_pn_paths`: the record and the log's times as the game relies on them. `test_pn_render_hud`: `TestLaunchAfterTheFirstFrame` on a stand-in `WindowControl`.
+
+**Found on the way.** The first log test failed against my own change (one scripted edit of `Log::Submit` had silently not applied; the compile check could not notice): the new checks earned their keep.
+The review found the minimise-before-swapchain regression, the marker going one frame before the switch it guards, and the recovery start overwriting the log it exists to keep; all three fixed. The Build
+Tools update moved the compiler (14.50.35717 to 14.51.36231), so `build/` could not build until its `CMakeCache.txt` was removed and the tree reconfigured (with the engine's suites made available for the run,
+`-DSUPERSONIC_BUILD_TESTS=ON`, and put back to OFF afterwards). `git -C engine pull --ff-only` brought nine commits of the other project (`--hidden` and `ResolveStartWindow` among them); the game builds and passes against them.
+
+**Numbers.**
+- Linux (WSL, GCC): `test_pn_all` 17 suites, 48,011 checks, 0 failures, from the working tree (which also held the unreleased E36 rework). Windows: `test_gameruntime` 296 checks, 0 failures; the first build's `test_pn_all` passed 16 of 17 suites (only
+  the 18 known E25 glyph-fit failures of `test_pn_render_hud` with the real Arial Narrow); the final build's `test_pn_all.exe` was refused by Smart App Control (exit 126) and is not run. Zero warnings (MSVC /W4).
+- Real runs on the development machine (one-mode 60 Hz panel, warm driver cache): a flagless fullscreen start has its first frame at +1.0 s (the window at +0.29 s, the fullscreen request after the
+  frame); a start with the marker planted opens in a window, keeps the planted log and removes the marker; `settings.json` byte-identical. Cold shader cache: the pipelines in 21 ms on this driver.
+
+**Open.**
+- The tester's cause is unknown; the next report should carry `penumbra-unfinished.log` (or `penumbra.log`) and the answers listed in the planning record.
+- The display switch on a monitor that offers a second refresh rate, and the wait for a minimised window, have not run on real hardware. A single stage of five seconds still ghosts the window.
+- The engine changes are one commit in the engine repository, with this repository's pin to it as a commit of its own; the game's E38 hunks are a third. The tree they were built and tested in also
+  held the unreleased rework of E36 (the difficulty chosen at New Game), which is not in these commits, so CI's Linux job is the first full build of exactly what was committed.

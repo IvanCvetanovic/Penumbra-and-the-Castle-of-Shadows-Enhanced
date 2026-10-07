@@ -29,6 +29,7 @@
 // links, so test_pn_paths checks the texts and the rule without opening a
 // window. ShowStartupDialog is the one function a suite must never call.
 
+#include <filesystem>
 #include <string>
 
 namespace Penumbra::Eth {
@@ -75,5 +76,44 @@ bool VulkanLoaderAvailable();
 // A modal message box with `utf8Text`, the caption above and an error icon, on
 // Windows; nothing elsewhere. Returns when the player closes it.
 void ShowStartupDialog(const std::string& utf8Text);
+
+// ---- A start that did not finish (E38) -------------------------------------------------------------------------
+//
+// A window that stops answering is ended by the player, a PC loses power, the game crashes before it draws: the
+// next start should not do again what the last one did not survive. A normal desktop start writes a marker in the
+// user folder before the engine starts (BeginStartRecord), and the layer takes it away once the first frame is
+// drawn and the display switch the launch asked for has been applied (PenumbraLayer::FinishLaunch). A start that
+// finds it was ended before that, so it opens in a window this once (the fullscreen setting is not changed), and
+// the log of the start that did not finish is kept beside the new one (KeepUnfinishedLog): that log, with its
+// times, is the evidence of where the time went.
+//
+// Pure file operations with no engine behind them, so test_pn_paths drives them in a folder of its own. A
+// headless run (a capture, a test), a phone and a start with no user folder keep no marker at all.
+inline constexpr const char* kStartMarkerFile = "start-unfinished";
+inline constexpr const char* kUnfinishedLogFile = "penumbra-unfinished.log";
+
+struct StartRecord {
+    // Where this start's marker goes: empty when this start keeps none.
+    std::filesystem::path marker;
+    // The marker was there when this start began: the last start did not finish.
+    bool lastUnfinished = false;
+};
+
+// Reads the folder; writes nothing. `userDir` empty, `headless` or `mobile`: no marker, and the last start is not
+// judged (a capture must neither inherit nor leave a player's state).
+StartRecord ReadStartRecord(const std::filesystem::path& userDir, bool headless, bool mobile);
+
+// Whether this start opens in a window instead of covering the monitor: the last one did not finish, and the
+// player named no mode of their own (--fullscreen, --windowed, --window).
+bool OpenWindowedAfterUnfinishedStart(const StartRecord& record, bool playerNamedAMode);
+
+// penumbra.log of the start that did not finish becomes penumbra-unfinished.log (an older one is replaced); the
+// new start's log would otherwise replace it. Before the log file is opened. False when there was no log to keep.
+bool KeepUnfinishedLog(const std::filesystem::path& userDir);
+
+// Writes the marker; true when it exists afterwards. EndStartRecord takes it away (a start that failed and told
+// the player is not an unfinished one).
+bool BeginStartRecord(const StartRecord& record);
+void EndStartRecord(const StartRecord& record);
 
 } // namespace Penumbra::Eth

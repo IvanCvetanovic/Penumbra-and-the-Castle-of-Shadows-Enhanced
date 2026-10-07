@@ -14,10 +14,15 @@
 #include <filesystem>
 #include <fstream>
 #include <iterator>
+#include <regex>
+#include <sstream>
 #include <string>
+#include <thread>
 #include <system_error>
+#include <vector>
 
 #include "TestHarness.hpp"
+#include "core/Log.hpp"   // E38
 #include "eth/Audio.hpp"
 #include "eth/Machine.hpp"
 #include "eth/Paths.hpp"
@@ -502,6 +507,97 @@ void TestRepository() {
     }
 }
 
+// ENHANCEMENT E38: A START THAT DID NOT FINISH (eth/StartupErrors.hpp). The marker, what reads it, and the log kept
+// beside the next one, asked of folders made in the temp directory. main.cpp only calls these; the layer's side (when
+// the marker goes) is checked in test_pn_render_hud.
+void TestStartRecord(const Layout& layout) {   // E38
+    using namespace Penumbra::Eth;
+    const fs::path user = layout.root / "start_record_user";
+    fs::create_directories(user);
+    const fs::path marker = user / kStartMarkerFile;
+
+    // A first start: a marker to write, nothing found, and reading wrote nothing.
+    const StartRecord first = ReadStartRecord(user, false, false);
+    CHECK_MSG(first.marker == marker, "the marker is in the user folder");
+    CHECK(!first.lastUnfinished);
+    CHECK_MSG(!fs::exists(marker), "reading the record writes nothing");
+    CHECK(!OpenWindowedAfterUnfinishedStart(first, false));
+    CHECK(BeginStartRecord(first));
+    CHECK(fs::exists(marker));
+
+    // The next start finds it: a window this once, unless the player named a mode.
+    const StartRecord second = ReadStartRecord(user, false, false);
+    CHECK(second.lastUnfinished);
+    CHECK(OpenWindowedAfterUnfinishedStart(second, false));
+    CHECK_MSG(!OpenWindowedAfterUnfinishedStart(second, true), "--fullscreen, --windowed and --window are kept");
+
+    // A capture or a test run (headless), a phone and a start with no user folder keep no marker and do not judge
+    // the last start, though the file is there; and they cannot take it away.
+    for (const StartRecord& other : {ReadStartRecord(user, true, false), ReadStartRecord(user, false, true),
+                                     ReadStartRecord(fs::path{}, false, false)}) {
+        CHECK(other.marker.empty());
+        CHECK(!other.lastUnfinished);
+        CHECK(!OpenWindowedAfterUnfinishedStart(other, false));
+        CHECK(!BeginStartRecord(other));
+        EndStartRecord(other);
+        CHECK_MSG(fs::exists(marker), "a run that keeps no marker leaves a player's alone");
+    }
+
+    // A folder that cannot be written to gives no marker (the start goes on without one).
+    CHECK(!BeginStartRecord(ReadStartRecord(user / "nowhere", false, false)));
+
+    // A failure the player was told of takes it away.
+    EndStartRecord(second);
+    CHECK(!fs::exists(marker));
+    EndStartRecord(second);   // and again: nothing to take
+
+    // The log of the start that did not finish is kept, replacing an older one; there is nothing to keep twice.
+    std::ofstream(user / "penumbra.log", std::ios::binary) << "the start that froze";
+    std::ofstream(user / kUnfinishedLogFile, std::ios::binary) << "an older one";
+    CHECK(KeepUnfinishedLog(user));
+    CHECK(!fs::exists(user / "penumbra.log"));
+    CHECK_MSG(ReadText(user / kUnfinishedLogFile) == "the start that froze", "the older kept log is replaced");
+    CHECK(!KeepUnfinishedLog(user));
+    CHECK(!KeepUnfinishedLog(fs::path{}));
+    CHECK_MSG(ReadText(user / kUnfinishedLogFile) == "the start that froze", "and a second call changes nothing");
+}
+
+// ENHANCEMENT E38: THE LOG'S TIMES. main.cpp turns them on and docs/playing.md promises the form; the engine's own
+// suite checks the clock, this one the contract the game relies on (this suite is in the game's gate, which builds
+// no engine suite): "INFO +1.234s [Category] message", the time rising, and nothing stamped when it is off.
+void TestLogTimes(const Layout& layout) {   // E38
+    const fs::path file = layout.root / "log_times.txt";
+    CHECK(Supersonic::Log::SetFileSink(file.string()));
+    Supersonic::Log::SetElapsedTimestamps(true);
+    Supersonic::Log::Submit(Supersonic::Log::Level::Info, "PnProbe", "one");
+    std::this_thread::sleep_for(std::chrono::milliseconds(70));
+    Supersonic::Log::Submit(Supersonic::Log::Level::Info, "PnProbe", "two");
+    Supersonic::Log::SetElapsedTimestamps(false);
+    Supersonic::Log::Submit(Supersonic::Log::Level::Info, "PnProbe", "three");
+    Supersonic::Log::CloseFileSink();
+
+    std::vector<std::string> lines;
+    {
+        std::istringstream in(ReadText(file));
+        std::string line;
+        while (std::getline(in, line)) {
+            if (!line.empty() && line.back() == '\r') line.pop_back();
+            if (line.find("[PnProbe]") != std::string::npos) lines.push_back(line);
+        }
+    }
+    CHECK_MSG(lines.size() == 3, "three lines were logged, got " + std::to_string(lines.size()));
+    if (lines.size() != 3) return;
+    const std::regex stamped(R"(INFO \+([0-9]+\.[0-9]{3})s \[PnProbe\] (one|two))");
+    std::smatch a;
+    std::smatch b;
+    CHECK_MSG(std::regex_match(lines[0], a, stamped), "stamped: " + lines[0]);
+    CHECK_MSG(std::regex_match(lines[1], b, stamped), "stamped: " + lines[1]);
+    CHECK_MSG(lines[2] == "INFO [PnProbe] three", "off again is the old form: " + lines[2]);
+    if (a.size() == 3 && b.size() == 3) {
+        CHECK_MSG(std::stod(b[1]) - std::stod(a[1]) >= 0.04, "the second line is later by about the 70 ms slept");
+    }
+}
+
 } // namespace
 
 int main() {
@@ -511,6 +607,8 @@ int main() {
     TestData(layout);
     TestRunFromInsideTheZip(layout);
     TestStartupErrors();
+    TestStartRecord(layout);   // E38
+    TestLogTimes(layout);   // E38
     TestWorkingDirectory(layout);
     TestDescriptions();
     TestAssetResolver(layout);

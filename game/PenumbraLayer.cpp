@@ -126,7 +126,16 @@ void PenumbraLayer::OnAttach(entt::registry& registry) {
             // when the desktop runs that already), so the first scene is as
             // wide as that mode is.
             const Render::FullscreenChoice choice = FullscreenChoiceFor(*window);
-            RequestFullscreen(*window, "launch");
+            if (m_options.splash) {
+                // E38: not before the first frame. The switch blanks the display and the engine's thread is held in
+                // the driver's call until it is done - seconds, on some monitors and TVs - so asked for here it ran
+                // at the top of the first frame, before a single frame had been drawn, and a player saw a black
+                // screen that did not answer. After the first frame the window is on screen and read (FinishLaunch).
+                // Only with the intro: a start with a development flag (no intro) asks at once, as before.
+                m_launchFullscreenPending = true;
+            } else {
+                RequestFullscreen(*window, "launch");
+            }
             if (choice.size.x > 0 && choice.size.y > 0) m_options.windowPixels = choice.size;
         }
     }
@@ -1231,8 +1240,42 @@ void PenumbraLayer::OnFixedUpdate(entt::registry& registry, float fixedDelta) {
     if (m_machine->QuitRequested()) Supersonic::Application::RequestQuit();
 }
 
+// E38: what waits for a first drawn frame, in two steps. The engine draws between two OnUpdates and applies a window
+// request at the top of the next frame, before the update:
+//  - the second OnUpdate: the first DrawFrame has returned, so the window has been drawn into; the display switch the
+//    launch asked for is requested now (the engine applies it at the top of the third frame);
+//  - the third: that switch, which blocks in the driver and is the stall this exists for, has returned, so the start
+//    is finished and its marker goes. Taken away earlier, a hang in the switch would leave no mark of an unfinished
+//    start.
+void PenumbraLayer::FinishLaunch(entt::registry& registry) {
+    if (m_updates == 2) {
+        if (m_launchFullscreenPending) {
+            m_launchFullscreenPending = false;
+            Supersonic::WindowControl* window = WindowControlOf(registry);
+            // Still fullscreen: a window the player left in the first moments is not put back.
+            if (window != nullptr && window->IsFullscreen()) {
+                RequestFullscreen(*window, "launch, after the first frame");
+            }
+        }
+        return;
+    }
+    if (!m_options.startMarker.empty()) {
+        std::error_code ec;
+        std::filesystem::remove(m_options.startMarker, ec);
+        if (ec) {
+            SUPERSONIC_LOG_WARN("Penumbra") << "the start marker " << m_options.startMarker.string()
+                                            << " could not be removed (" << ec.message()
+                                            << "): the next start opens in a window" << std::endl;
+        }
+    }
+}
+
 void PenumbraLayer::OnUpdate(entt::registry& registry, float deltaTime) {
     (void)deltaTime;
+    if (m_updates < 3) {   // E38
+        ++m_updates;
+        if (m_updates >= 2) FinishLaunch(registry);
+    }
     const Eth::RenderSnapshot& snapshot = m_machine->Snapshot();
     const bool paused = m_pause.Paused();   // E13
 

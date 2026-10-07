@@ -593,21 +593,34 @@ int PenumbraMain(int argc, char** argv) {
     manifest.isGame = true;
     manifest.title = "Penumbra";
     manifest.startupScene.clear();     // the layer builds the world
+    // E38: the window is shown the moment it exists and the start that follows (the device, every shader the driver
+    // compiles, the game's own load) can take longer than the five seconds after which Windows calls a window that
+    // reads no messages "Not responding" and offers to close it. Read them between the stages instead.
+    manifest.pumpEventsDuringStartup = true;
 
     // WHERE THIS GAME MAY WRITE, resolved once here: settings, high scores and
     // the checkpoint scene. Empty when the platform will not say; then nothing
     // is kept, and the game says so rather than writing somewhere unexpected.
     layerOptions.userDir = Supersonic::UserDataDirectory(manifest.title);
+    // E38: whether the last start finished, read before the log file below replaces the last start's log.
+    Penumbra::Eth::StartRecord startRecord;
     if (layerOptions.userDir.empty()) {
         std::cerr << "[Penumbra] no writable user directory; settings and scores will not be kept.\n";
     } else {
         // Penumbra.exe has no console (a game started from Explorer should not
         // open one), so the log also goes to a file a player can send along.
-        // Overwritten each run: the last run is the one worth reading.
+        // Overwritten each run: the last run is the one worth reading - except
+        // that the log of a start that did not finish is kept (E38), as the
+        // evidence of where its time went.
         std::error_code ignored;
         std::filesystem::create_directories(layerOptions.userDir, ignored);
+        startRecord = Penumbra::Eth::ReadStartRecord(layerOptions.userDir, headless, Penumbra::Render::kMobileBuild);
+        if (startRecord.lastUnfinished) Penumbra::Eth::KeepUnfinishedLog(layerOptions.userDir);
         Supersonic::Log::SetFileSink((layerOptions.userDir / "penumbra.log").string());
         logFile = layerOptions.userDir / "penumbra.log";
+        // E38: each line with the seconds since the first, so a log sent by a player whose start stalled says
+        // where the time went (and whether it stopped or only took long) instead of naming a last line.
+        Supersonic::Log::SetElapsedTimestamps(true);
     }
 
     std::string warning;
@@ -638,6 +651,22 @@ int PenumbraMain(int argc, char** argv) {
     if (smoothOverride == "on") layerOptions.smoothMotionOverride = true;
     if (smoothOverride == "off") layerOptions.smoothMotionOverride = false;
     layerOptions.settings = settings;
+
+    // E38: a start that did not finish - a window that did not answer and was ended, or a PC that lost power -
+    // left the marker (eth/StartupErrors.hpp). This one opens in a window instead of covering the monitor, this
+    // run only (the setting is unchanged): a window has a title bar and a close button when the first start froze,
+    // and the log of the start that did not finish is kept as penumbra-unfinished.log. A mode the player named
+    // (--fullscreen, --windowed, --window) is kept, and so is every run that is not a player's: a capture or a
+    // test run keeps no marker.
+    const bool playerNamedAMode = options.fullscreen || options.windowed || options.windowWidth > 0;
+    if (Penumbra::Eth::OpenWindowedAfterUnfinishedStart(startRecord, playerNamedAMode)) {
+        options.windowed = true;
+        if (settings.fullscreen) {
+            SUPERSONIC_LOG_INFO("Penumbra")
+                << "The last start did not finish: opening in a window this time (the fullscreen setting is "
+                   "unchanged); that start's log is " << Penumbra::Eth::kUnfinishedLogFile << "." << std::endl;
+        }
+    }
 
     // --window names a window: without --fullscreen it is a windowed run
     // whatever the settings say, so a player's saved fullscreen never turns a
@@ -682,6 +711,11 @@ int PenumbraMain(int argc, char** argv) {
                                     Supersonic::HoldsEngineAssets)
             .source != Supersonic::AssetRootSource::Unresolved;
 
+    // E38: from here until the layer has seen the first frame and the display switch through (FinishLaunch), this
+    // start is an unfinished one. Written last, after every check above that ends a start the player is told
+    // about; a start that fails below, and tells them, takes it away again.
+    if (Penumbra::Eth::BeginStartRecord(startRecord)) layerOptions.startMarker = startRecord.marker;
+
     bool started = false;   // the window and the Vulkan device exist
     try {
         Supersonic::SupersonicApp app(options, &manifest);
@@ -704,6 +738,7 @@ int PenumbraMain(int argc, char** argv) {
                    : engineFilesFound ? Penumbra::Eth::StartupProblem::NoGraphics
                                       : Penumbra::Eth::StartupProblem::GameFilesMissing,
                    e.what());
+        Penumbra::Eth::EndStartRecord(startRecord);   // E38: a failure the player was told of is not an unfinished start
         Supersonic::Log::CloseFileSink();
         return EXIT_FAILURE;
     }

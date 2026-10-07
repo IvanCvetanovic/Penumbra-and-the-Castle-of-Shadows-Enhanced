@@ -31,6 +31,17 @@ HOW TO PLAY
 If Windows says "VCRUNTIME140.dll was not found" or "MSVCP140.dll was not
 found", the game was started from inside the zip: extract it first (step 2).
 
+If the game opens a black or white window that does not answer, and Windows
+offers "Wait" or "Close the program", click Wait and give it a minute: the
+first start prepares the graphics, and a slower PC can take a while. If it
+never comes alive, close it and start the game again: after a start that did
+not get as far as its first picture, the game opens in a window instead of
+covering the screen. If it still does not start, send the file
+penumbra-unfinished.log from %APPDATA%\Penumbra (the log of the start that did
+not finish: the game keeps it when it starts again; if it is not there, copy
+penumbra.log before starting the game again, because every start replaces it)
+with a note about your PC to the project's page, below.
+
 If Windows says "MFPlat.DLL was not found", the PC has an "N" edition of
 Windows, which comes without Windows' media features. Install Microsoft's
 free Media Feature Pack (Settings, Apps, Optional features, Add a feature),
@@ -92,6 +103,17 @@ COMO JOGAR
 Se o Windows disser que "VCRUNTIME140.dll não foi encontrado" ou que
 "MSVCP140.dll não foi encontrado", o jogo foi aberto de dentro do zip:
 extraia primeiro (passo 2).
+
+Se o jogo abrir uma janela preta ou branca que não responde, e o Windows
+oferecer "Aguardar" ou "Fechar o programa", clique em Aguardar e dê um minuto
+a ele: na primeira vez o jogo prepara os gráficos, e um computador mais lento
+pode demorar. Se ele nunca ganhar vida, feche e abra o jogo de novo: depois de
+uma abertura que não chegou à primeira imagem, o jogo abre numa janela em vez
+de cobrir a tela toda. Se ainda assim não abrir, envie o arquivo
+penumbra-unfinished.log de %APPDATA%\Penumbra (o registro da abertura que não
+terminou: o jogo o guarda quando abre de novo; se ele não estiver lá, copie o
+penumbra.log antes de abrir o jogo outra vez, porque cada abertura o substitui)
+com uma nota sobre o seu computador, para a página do projeto, abaixo.
 
 Se o Windows disser que "MFPlat.DLL não foi encontrado", o computador tem uma
 edição "N" do Windows, que vem sem os recursos de mídia do Windows. Instale o

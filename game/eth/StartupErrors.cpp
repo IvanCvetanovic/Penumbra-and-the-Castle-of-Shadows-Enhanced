@@ -1,5 +1,8 @@
 #include "eth/StartupErrors.hpp"
 
+#include <fstream>
+#include <system_error>
+
 #ifdef _WIN32
 #ifndef NOMINMAX
 #define NOMINMAX
@@ -146,5 +149,44 @@ bool VulkanLoaderAvailable() { return true; }
 void ShowStartupDialog([[maybe_unused]] const std::string& utf8Text) {}
 
 #endif
+
+// ---- A start that did not finish (E38) -------------------------------------------------------------------------
+
+StartRecord ReadStartRecord(const std::filesystem::path& userDir, bool headless, bool mobile) {
+    StartRecord record;
+    if (userDir.empty() || headless || mobile) return record;
+    record.marker = userDir / kStartMarkerFile;
+    std::error_code ignored;
+    record.lastUnfinished = std::filesystem::exists(record.marker, ignored);
+    return record;
+}
+
+bool OpenWindowedAfterUnfinishedStart(const StartRecord& record, bool playerNamedAMode) {
+    return record.lastUnfinished && !playerNamedAMode;
+}
+
+bool KeepUnfinishedLog(const std::filesystem::path& userDir) {
+    if (userDir.empty()) return false;
+    std::error_code ec;
+    const std::filesystem::path log = userDir / "penumbra.log";
+    if (!std::filesystem::is_regular_file(log, ec)) return false;
+    const std::filesystem::path kept = userDir / kUnfinishedLogFile;
+    std::filesystem::remove(kept, ec);   // rename onto an existing file fails on some systems
+    ec.clear();
+    std::filesystem::rename(log, kept, ec);
+    return !ec;
+}
+
+bool BeginStartRecord(const StartRecord& record) {
+    if (record.marker.empty()) return false;
+    std::ofstream file(record.marker);
+    return static_cast<bool>(file);
+}
+
+void EndStartRecord(const StartRecord& record) {
+    if (record.marker.empty()) return;
+    std::error_code ignored;
+    std::filesystem::remove(record.marker, ignored);
+}
 
 } // namespace Penumbra::Eth
