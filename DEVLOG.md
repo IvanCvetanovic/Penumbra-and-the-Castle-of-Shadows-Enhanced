@@ -1124,3 +1124,23 @@ the engine suite's exe were refused by Smart App Control (exit 126) and are not 
   changed to Vulkan 1.1, and nobody has said to release.
 - The scene's fragment stage uses 8 of the PowerVR GE8320's 8 combined fragment resources: allowed, no headroom.
 - The engine changes are in the engine repository only once pushed; the game's are not committed at the time of writing.
+
+## 2026-10-08 — Release 1.0.6: starts that looked like crashes (E38) and phones with Vulkan 1.1 (E39)
+
+**Why.** Three reports of a start that failed without a word: a Windows PC that showed a blank window and "Not responding", and an Oppo A54 (Android 11) and an Oppo A74 5G (Android 12) whose phones went black and back to the
+home screen. The phones' drivers report Vulkan 1.1, which the game refused (E39); the Windows cause is not known, and E38 makes a slow start answer and a lost one recoverable. The files of a published release are never
+replaced, so it is a new release. 1.0.5 and 1.0.4 stay published (nobody asked to remove them).
+
+**Released.** 1.0.6 (build 7), Latest, tag v1.0.6 = c5a6435 (CI green on it: Linux, Windows and Apple; release.yml run 37757767647, four jobs green). The Windows zip (612 files) and the APK (signed with the release key,
+certificate AC:1D:43:BD, schemes v2 and v3, versionCode 7, minSdk 26, not debuggable, a Vulkan 1.1 feature) were built from a clean clone at C:\pn, a short neutral path (0 occurrences of the user folder name in about 1,400
+files scanned); the Linux, Mac and iPhone/iPad files by release.yml, which rewrote SHA256SUMS.txt. The six files downloaded from the draft were verified by a script (4,165 checks, 0 failures: the checksums, versions, the
+APK's signature and its release key, no installer or original scripts, the new HOW TO PLAY paragraph in both languages, the dialog's methods in classes.dex, the plists' versions, the user folder name in every binary).
+The notes are English then Portuguese, in 1.0.5's shape. All six releases/latest/download links answer 200 and the APK fetched through its link hashes to its published checksum. Copies and release.json are in
+out/release/published/v1.0.6 (gitignored). The owner's unfinished rework of the difficulty choice is not in it: the release is what was committed.
+Not done: the downloaded Windows exe was not launched (Smart App Control refused some of this machine's own test executables during the work, and nothing was launched twice); no real phone has run it, and nobody with the PC that froze has tried the
+start fix.
+
+**Open.**
+- Whether a phone with Vulkan 1.1 gets past the start on its own driver (PowerVR GE8320, Adreno 619): the dialog says what happens if not; the next report should carry a screenshot of it.
+- Whether the Windows start fix is the cause of that PC's freeze; the next report from it should carry `penumbra-unfinished.log`.
+- The unfinished rework of E36 and its records are still uncommitted in the owner's working tree.

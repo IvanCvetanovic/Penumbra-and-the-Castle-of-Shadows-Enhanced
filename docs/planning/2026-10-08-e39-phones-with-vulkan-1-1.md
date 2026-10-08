@@ -81,9 +81,7 @@ Game:
 - **No real phone has run it.** The two testers' drivers and what happens after the gate on a PowerVR GE8320 or an Adreno 619 (the first pipeline compile on those
   drivers, the allocator on a 1.1 device, 4x multisampling, the shadow maps' formats) are unmeasured; the dialog will say what happens if it fails there. Where a
   limit is tight it is recorded: the scene's fragment stage uses 7 storage buffers and one colour output, 8 of the GE8320's 8 combined resources.
-- **The release.** The published 1.0.5 still needs 1.2, and the install guide says so (and how to check a phone's version). When a build with this change is
-  released: bump `versionName`/`versionCode` (an update with the same code is refused, and a tester cannot tell the builds apart), the CMake `VERSION`, and
-  change the Android lines of `docs/install.md` and `docs/install.pt.md` (the requirement and the "It didn't work?" line) to Vulkan 1.1; a debug-signed build
-  (`out/android/Penumbra-debug.apk`) cannot be installed over a release-signed one: uninstall first.
+- **The release.** Released as 1.0.6 (build 7) on 2026-10-08 with E38: the guides' Android lines now say Vulkan 1.1, the version is bumped everywhere `tools/make_release.py check` looks, and a build
+  signed with the release key is the one phones update to (same package name and key as 1.0.5). Versions up to 1.0.5 stay published and still close on a 1.1 phone.
 - A computer still needs Vulkan 1.2; `--vulkan 1.1` lets one try a 1.1 GPU. Nothing has run a 1.1 GPU on a computer.
 - Android-only code that no suite reaches (the JNI call, the Java dialog) is checked by hand on the emulator, as above; the Windows engine suite ran on Linux.
