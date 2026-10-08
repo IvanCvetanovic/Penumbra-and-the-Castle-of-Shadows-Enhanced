@@ -504,6 +504,23 @@ void TestRepository() {
         const std::string androidManifest = ReadText(built / ".." / ".." / "game" / "android" / "AndroidManifest.xml");
         CHECK_MSG(Has(windowsManifest, "version=\"" + version + ".0\""), "Penumbra.manifest's assemblyIdentity version must be " + version + ".0");
         CHECK_MSG(Has(androidManifest, "android:versionName=\"" + version + "\""), "AndroidManifest.xml's versionName must be " + version);
+
+        // E40: the report of a last run that ended unexpectedly (engine/.../PostMortem.java) reads the game's log by
+        // the path the manifest names; the game writes it to the user directory ("Penumbra", main.cpp's manifest
+        // title) as penumbra.log, which on Android is files/Penumbra/. A renamed log or title would make the report
+        // say "no game log" on a phone nobody can look inside.
+        CHECK_MSG(Has(androidManifest, "android:name=\"supersonic.reportUnexpectedExit\" android:value=\"true\""),
+                  "AndroidManifest.xml must opt in to the report of an unexpected end (E40)");
+        CHECK_MSG(Has(androidManifest, "android:name=\"supersonic.reportLog\" android:value=\"Penumbra/penumbra.log\""),
+                  "AndroidManifest.xml's reportLog must be the user directory's log: Penumbra/penumbra.log (E40)");
+        CHECK_MSG(Has(androidManifest, "android:name=\"supersonic.reportSkipWhenFile\" android:value=\"penumbra_args.txt\""),
+                  "AndroidManifest.xml's reportSkipWhenFile must be the development-flags file AndroidMain.cpp reads (E40)");
+        const std::string main = ReadText(built / ".." / ".." / "game" / "main.cpp");
+        CHECK_MSG(Has(main, "manifest.title = \"Penumbra\"") && Has(main, "\"penumbra.log\""),
+                  "main.cpp must keep the manifest title Penumbra and the log name penumbra.log that the Android report reads (E40)");
+        const std::string androidMain = ReadText(built / ".." / ".." / "game" / "android" / "AndroidMain.cpp");
+        CHECK_MSG(Has(androidMain, "kArgsFile = \"penumbra_args.txt\""),
+                  "AndroidMain.cpp's development-flags file must stay penumbra_args.txt, which the manifest's reportSkipWhenFile names (E40)");
     }
 }
 

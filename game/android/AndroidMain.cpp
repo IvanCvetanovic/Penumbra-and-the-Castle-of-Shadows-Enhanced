@@ -29,6 +29,7 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <exception>
 #include <filesystem>
 #include <fstream>
 #include <sstream>
@@ -233,5 +234,26 @@ int SupersonicMain(int argc, char** argv) {
     std::vector<char*> pointers;
     for (std::string& arg : args) pointers.push_back(arg.data());
     pointers.push_back(nullptr);
-    return PenumbraMain(static_cast<int>(args.size()), pointers.data());
+    // PenumbraMain tells the player about a std::exception of its own start; this is for whatever it does
+    // not catch (an exception outside its try blocks, or one that is not a std::exception): thrown out of
+    // the game's thread it would be std::terminate, a black screen and the launcher with nothing said.
+    // Not for a scripted run (development flags beyond the two paths above): automation never meets a
+    // dialog nobody closes.
+    constexpr std::size_t kBuiltInArguments = 5;   // argv[0], --original <dir>, --data <dir>, as pushed above
+    const bool scripted = args.size() > kBuiltInArguments;
+    const auto fail = [scripted](const std::string& what) {
+        SUPERSONIC_LOG_ERROR("Penumbra") << "fatal: " << what;
+        if (scripted) return;
+        Penumbra::Eth::ShowStartupDialog(Penumbra::Eth::StartupMessage(
+            Penumbra::Eth::StartupProblem::StoppedByError, Penumbra::Render::Settings::SystemLanguageIsPortuguese(),
+            what, "", true));
+    };
+    try {
+        return PenumbraMain(static_cast<int>(args.size()), pointers.data());
+    } catch (const std::exception& e) {
+        fail(e.what());
+    } catch (...) {
+        fail("an exception that is not a std::exception");
+    }
+    return EXIT_FAILURE;
 }

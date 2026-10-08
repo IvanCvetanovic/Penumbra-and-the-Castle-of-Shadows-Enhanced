@@ -112,7 +112,7 @@ engine's `android_main` (`engine/src/platform/android`) runs the game, and `game
 APK into the app's private storage on the first launch (and again only when they change), and
 passes them with `--original`/`--data`.
 
-- Landscape only; minimum Android 8.0 (API 26, for AAudio); a Vulkan 1.1 GPU is the least the phone build takes (main.cpp sets `GameManifest::minimumVulkanMinor` to 1 there; a computer, and the engine's own default, keep 1.2). A start that fails shows the player a dialog with the reason (E39).
+- Landscape only; minimum Android 8.0 (API 26, for AAudio); a Vulkan 1.1 GPU is the least the phone build takes (main.cpp sets `GameManifest::minimumVulkanMinor` to 1 there; a computer, and the engine's own default, keep 1.2). A start that fails shows the player a dialog with the reason (E39). A run that ended unexpectedly (a native crash, a stop by the system while it was on the screen, a start that ended itself with an error) is reported at the next start, on Android 11 and later, by a dialog with the system's record of how it ended and the end of the game's log, once per end, with a Share button; the game's start waits behind it, and a scripted run (a `penumbra_args.txt` left for it) never meets it (E40).
 - The touch controls (E16) are on by default and play player 1. Keyboard player 2 is off (a phone
   has no keyboard), so a Bluetooth gamepad plays player 2 (E22): in Versus, which asks for one
   until it is connected, and as the campaign's princess.

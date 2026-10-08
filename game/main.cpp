@@ -78,6 +78,9 @@
 #include "core/SupersonicApp.hpp"
 #include "platform/ExecutablePath.hpp"
 #include "renderer/VulkanContext.hpp"
+#if defined(__ANDROID__)
+#include "platform/android/AndroidApp.hpp"
+#endif
 
 namespace {
 
@@ -642,6 +645,14 @@ int PenumbraMain(int argc, char** argv) {
         // E38: each line with the seconds since the first, so a log sent by a player whose start stalled says
         // where the time went (and whether it stopped or only took long) instead of naming a last line.
         Supersonic::Log::SetElapsedTimestamps(true);
+        // What a log sent by a player is a log OF, in its first lines: the build and, on a phone, the phone.
+        // (A log from a start that died is all anyone has; the Android report of the last run, shown by the
+        // activity at the next start, prints the end of this file.)
+        SUPERSONIC_LOG_INFO("Penumbra") << "Penumbra " << PENUMBRA_VERSION
+                                        << (Penumbra::Render::kMobileBuild ? " (mobile build)" : "") << std::endl;
+#if defined(__ANDROID__)
+        SUPERSONIC_LOG_INFO("Penumbra") << "Device: " << Supersonic::Android::DeviceSummary() << std::endl;
+#endif
     }
 
     std::string warning;
@@ -754,12 +765,26 @@ int PenumbraMain(int argc, char** argv) {
         // for ever destroying the pool's condition variable while they wait on
         // it, and the player's failed start never ends. Shutdown is idempotent.
         Supersonic::JobSystem::Shutdown();
-        std::cerr << "[Penumbra] fatal: " << e.what() << std::endl;
+        // Through the log, so that the file (which a phone's report prints the end of) holds the cause too;
+        // stderr gets the same line.
+        SUPERSONIC_LOG_ERROR("Penumbra") << "fatal: " << e.what();
         tellPlayer(started            ? Penumbra::Eth::StartupProblem::StoppedByError
                    : engineFilesFound ? Penumbra::Eth::StartupProblem::NoGraphics
                                       : Penumbra::Eth::StartupProblem::GameFilesMissing,
                    e.what());
         Penumbra::Eth::EndStartRecord(startRecord);   // E38: a failure the player was told of is not an unfinished start
+        Supersonic::Log::CloseFileSink();
+        return EXIT_FAILURE;
+    } catch (...) {
+        // Something thrown that is not a std::exception (a library's own type): without this it ended the
+        // process through std::terminate with the player told nothing.
+        Supersonic::JobSystem::Shutdown();
+        SUPERSONIC_LOG_ERROR("Penumbra") << "fatal: an exception that is not a std::exception";
+        tellPlayer(started            ? Penumbra::Eth::StartupProblem::StoppedByError
+                   : engineFilesFound ? Penumbra::Eth::StartupProblem::NoGraphics
+                                      : Penumbra::Eth::StartupProblem::GameFilesMissing,
+                   "an exception that is not a std::exception");
+        Penumbra::Eth::EndStartRecord(startRecord);
         Supersonic::Log::CloseFileSink();
         return EXIT_FAILURE;
     }

@@ -19,8 +19,9 @@ set INC=/I"%REPO%\game" /I"%E%\src" /I"%E%\tests" /I"%E%\third_party\glm" /I"%E%
 REM The directories as the build bakes them (game/eth, game/CMakeLists.txt and, for the suites'
 REM own data, tests/CMakeLists.txt: tests/data), from wherever this clone is; each define quoted whole
 REM so a path with spaces stays one argument. E28: PENUMBRA_TESTS_DATA_DIR added, for the two suites
-REM that read tests/data (test_pn_render_hud's rooms, test_pn_scenarios).
-set DEF=/DGLFW_INCLUDE_NONE /DGLM_ENABLE_EXPERIMENTAL /DGLM_FORCE_DEPTH_ZERO_TO_ONE /DGLM_FORCE_RADIANS /DSUPERSONIC_ENABLE_VALIDATION=1 /DSUPERSONIC_PLATFORM_WINDOWS=1 /DTIXML_USE_STL "/DPENUMBRA_ORIGINAL_DIR=\"%REPO_FWD%/extracted/app\"" "/DPENUMBRA_DATA_DIR=\"%REPO_FWD%/game/data\"" "/DPENUMBRA_TESTS_DATA_DIR=\"%REPO_FWD%/tests/data\""
+REM that read tests/data (test_pn_render_hud's rooms, test_pn_scenarios). PENUMBRA_VERSION is
+REM game/CMakeLists.txt's (the release's): a stand-in here, as nothing is linked.
+set DEF=/DGLFW_INCLUDE_NONE /DGLM_ENABLE_EXPERIMENTAL /DGLM_FORCE_DEPTH_ZERO_TO_ONE /DGLM_FORCE_RADIANS /DSUPERSONIC_ENABLE_VALIDATION=1 /DSUPERSONIC_PLATFORM_WINDOWS=1 /DTIXML_USE_STL "/DPENUMBRA_VERSION=\"check\"" "/DPENUMBRA_ORIGINAL_DIR=\"%REPO_FWD%/extracted/app\"" "/DPENUMBRA_DATA_DIR=\"%REPO_FWD%/game/data\"" "/DPENUMBRA_TESTS_DATA_DIR=\"%REPO_FWD%/tests/data\""
 set FAIL=0
 for %%F in (%*) do (
     cl /nologo /c /DWIN32 /D_WINDOWS /EHsc /Od /MD -std:c++20 /W4 /fp:precise %DEF% %INC% /Fo"%OUT%\\" "%%~fF" || set FAIL=1

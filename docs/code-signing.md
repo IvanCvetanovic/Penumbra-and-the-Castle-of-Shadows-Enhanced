@@ -111,7 +111,7 @@ This program will not transfer any information to other networked systems unless
 requested by the user or the person installing or operating it.
 
 In detail: the game has no network code. It opens no connections, sends nothing and downloads
-nothing; it has no ads, purchases, accounts, analytics or crash reporting. The Windows executable
+nothing; it has no ads, purchases, accounts or analytics, and no crash-reporting service. On Android 11 and later, after a run that ended unexpectedly, the next start shows in a window what the phone recorded about it (the device, the Android version, how the process ended, and the end of the game's own log); the player may send that text with the phone's Share button, and nothing is sent unless they do. The Windows executable
 imports no networking library (no Winsock, WinHTTP or WinINet), and the Android app does not ask
 for the internet permission, so Android would not let it connect even if it tried. What it keeps,
 it keeps on the player's own computer or phone: settings, high scores, the last checkpoint and a

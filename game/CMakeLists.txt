@@ -28,6 +28,8 @@ target_include_directories(PenumbraGame PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 set(PENUMBRA_DATA_DIR "${CMAKE_CURRENT_SOURCE_DIR}/data"
     CACHE PATH "The port's own JSON data (game/data)")
 target_compile_definitions(PenumbraGame PUBLIC PENUMBRA_DATA_DIR="${PENUMBRA_DATA_DIR}")
+# The release's version (the top-level project's), for the first line of the log.
+target_compile_definitions(PenumbraGame PUBLIC PENUMBRA_VERSION="${PROJECT_VERSION}")
 
 # A phone or tablet: a touchscreen and, usually, no keyboard, so touchControls
 # "auto" turns the on-screen controls on (render/TouchControls.hpp). Not a Mac.

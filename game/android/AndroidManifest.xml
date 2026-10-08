@@ -62,6 +62,14 @@
 
             <meta-data android:name="android.app.lib_name" android:value="Penumbra" />
 
+            <!-- The report of a last run that ended unexpectedly, shown at the next start
+                 (SupersonicActivity.showReport, PostMortem.java): the system's exit record and the end
+                 of the game's log, which main.cpp writes to files/Penumbra/penumbra.log. -->
+            <meta-data android:name="supersonic.reportUnexpectedExit" android:value="true" />
+            <meta-data android:name="supersonic.reportLog" android:value="Penumbra/penumbra.log" />
+            <!-- A scripted run (the build script's run option leaves this file) never meets the report. -->
+            <meta-data android:name="supersonic.reportSkipWhenFile" android:value="penumbra_args.txt" />
+
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
