@@ -20,6 +20,10 @@
 //                          a capture or a scripted run can start in Hard; a campaign level started with
 //                          --start plays at it too. Removes the intro, as every flag a player would not type
 //   --refresh auto|<Hz>    this run's fullscreen refresh rate (E23), over the settings
+//   --vulkan 1.1|1.2       this run's lowest accepted GPU Vulkan version (E39), over the build's: a phone
+//                          takes 1.1 and a computer 1.2 by default. Removes the intro, as every flag a
+//                          player would not type (a computer with a 1.1 GPU, a capture under a layer that
+//                          caps the version a driver reports)
 //   --modes <WxH@R,...>    the display modes the options screen lists, instead of the monitor's
 //                          (captures); a '*' after one makes it the desktop's
 //   --touch-tuning <list>  this run's touch controls' size, opacity and places (E28), over the settings:
@@ -54,6 +58,7 @@
 #include <iostream>
 #include <map>
 #include <memory>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -102,6 +107,7 @@ constexpr const char* kGameUsage =
     "  --princess             player 2's princess beside the wizard in a campaign level (captures of co-op)\n"
     "  --hp <n>               the wizard's hp once he appears (captures)\n"
     "  --refresh auto|<Hz>    this run's fullscreen refresh rate (not saved)\n"
+    "  --vulkan 1.1|1.2       this run's lowest accepted GPU Vulkan version (a phone takes 1.1, a computer 1.2)\n"   // E39
     "  --modes <WxH@R,...>    the display modes the options screen lists (captures; not saved);\n"
     "                         a '*' after one makes it the desktop's mode, else the largest is\n"   // E28
     "  --touch-tuning <list>  this run's touch controls' size, opacity and places (not saved; nothing is\n"   // E28
@@ -284,6 +290,7 @@ int PenumbraMain(int argc, char** argv) {
     std::string languageOverride;
     std::string widescreenOverride;
     std::string smoothOverride;
+    std::optional<uint32_t> vulkanMinorOverride;   // E39
     std::filesystem::path originalFlag;
     std::filesystem::path dataFlag;
     std::vector<char*> engineArgs{argv[0]};
@@ -446,6 +453,13 @@ int PenumbraMain(int argc, char** argv) {
                 std::cerr << "[Penumbra] --spawn wants x,y in the scene's pixels, got " << value << std::endl;
                 return EXIT_FAILURE;
             }
+        } else if (arg == "--vulkan" && hasValue) {   // E39
+            const std::string value = argv[++i];   // E39
+            if (value != "1.1" && value != "1.2") {   // E39
+                std::cerr << "[Penumbra] --vulkan wants 1.1 or 1.2, got " << value << std::endl;   // E39
+                return EXIT_FAILURE;   // E39
+            }   // E39
+            vulkanMinorOverride = value == "1.1" ? 1u : 2u;   // E39
         } else if (arg == "--refresh" && hasValue) {
             // E23: "auto" or a whole number of Hz, as window.fullscreenRefresh.
             const std::string value = argv[++i];
@@ -546,8 +560,10 @@ int PenumbraMain(int argc, char** argv) {
     std::filesystem::path logFile;   // once the log has one
     const auto tellPlayer = [&](Penumbra::Eth::StartupProblem problem, const std::string& detail) {
         if (!showDialogs) return;
+        // E39: a phone's log is in the app's private storage, where no player can open it: no path to offer.
         Penumbra::Eth::ShowStartupDialog(Penumbra::Eth::StartupMessage(
-            problem, Penumbra::Render::Settings::SystemLanguageIsPortuguese(), detail, Utf8(logFile)));
+            problem, Penumbra::Render::Settings::SystemLanguageIsPortuguese(), detail,
+            Penumbra::Render::kMobileBuild ? std::string() : Utf8(logFile), Penumbra::Render::kMobileBuild));
     };
 
     // WHERE THE GAME'S FILES ARE, before SupersonicApp moves the working
@@ -597,6 +613,11 @@ int PenumbraMain(int argc, char** argv) {
     // compiles, the game's own load) can take longer than the five seconds after which Windows calls a window that
     // reads no messages "Not responding" and offers to close it. Read them between the stages instead.
     manifest.pumpEventsDuringStartup = true;
+    // E39: on a phone a GPU that reports Vulkan 1.1 is enough. The renderer and the shaders use nothing newer, and
+    // the stock drivers of many phones on Android 11 and 12 (an Oppo A54 and an A74 5G among them) report 1.1: with
+    // the engine's default of 1.2 they had no GPU to use, and the game closed before its first frame, saying
+    // nothing. A computer keeps 1.2: nothing has run a 1.1 GPU there, and its guides say 1.2.
+    manifest.minimumVulkanMinor = vulkanMinorOverride.value_or(Penumbra::Render::kMobileBuild ? 1u : 2u);
 
     // WHERE THIS GAME MAY WRITE, resolved once here: settings, high scores and
     // the checkpoint scene. Empty when the platform will not say; then nothing

@@ -67,7 +67,7 @@ Divirta-se!
 
 ## Celular ou tablet Android
 
-**Você precisa de:** Android 8 ou mais recente, com gráficos Vulkan 1.2 – a maioria dos celulares de 2020 para cá.
+**Você precisa de:** Android 8 ou mais recente, e gráficos compatíveis com Vulkan 1.2. Muitos celulares Android, inclusive muitos que vieram com Android 11 ou 12, só têm Vulkan 1.1; neles, a versão 1.0.5 do jogo fecha assim que abre.
 
 > **Testado:** uma versão anterior do jogo para Android foi jogada do começo ao fim num celular de verdade por quem a criou, inclusive a tela que ajusta os botões. O layout mais novo dos botões só foi testado num emulador de Android, onde o jogo também foi testado automaticamente. Outros celulares podem se comportar de outro jeito.
 
@@ -95,7 +95,7 @@ Divirta-se!
 <details>
 <summary>Não funcionou?</summary>
 
-- **O jogo fecha assim que abre:** provavelmente os gráficos do aparelho não são compatíveis com Vulkan 1.2, que o jogo exige.
+- **O jogo fecha assim que abre:** provavelmente os gráficos do aparelho não são compatíveis com Vulkan 1.2, que a versão 1.0.5 exige, e muitos celulares que vieram com Android 11 ou 12 só têm 1.1. Para ver o que o seu tem, instale o app gratuito *Hardware CapsViewer for Vulkan* (também chamado *Vulkan Hardware Capability Viewer*, de Sascha Willems), abra a aba *Properties* e leia a linha *apiVersion* (não a da tela Sobre): 1.1.x quer dizer que esta versão não roda nele.
 - **Um celular Samsung bloqueou a instalação:** veja o aviso para adultos no passo 2 (Bloqueador automático).
 - **Baixou no computador?** Abra esta página no celular e baixe por lá.
 - **iPhone ou iPad?** Para eles só existe uma [versão experimental](#iphone-e-ipad-experimental), mais abaixo nesta página.

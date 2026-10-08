@@ -284,6 +284,7 @@ The game's own options:
 | `--finger <id>:<x>,<y>@<from>-<to>[/<x2>,<y2>]` | A synthetic finger at a point of the screen's logical pixels (the menus' 1024x768), down from tick *from* to tick *to* (counted from the first tick, as `--hold`'s are) and moving in a straight line to (*x2*, *y2*) over that span; `@<tick>` alone is a one-tick tap. It can be given more than once. For captures. |
 | `--princess` | Puts player 2's princess beside the wizard in a campaign level, as a pad's Start would, for captures of co-op. |
 | `--hp <n>` | Sets the wizard's hp once he appears, for captures. |
+| `--vulkan 1.1\|1.2` | The lowest Vulkan version a GPU may report to be used, this run (E39). A phone takes 1.1 and a computer 1.2 by default; `--vulkan 1.1` lets a computer try a 1.1 GPU. Like every option a player would not type, it removes the intro. |
 | `--refresh auto\|<Hz>` | This run's fullscreen refresh rate (E23). It is not saved; a pick on the options screen replaces it. A rate the monitor does not offer at the fullscreen resolution runs at the highest. |
 | `--modes <W>x<H>@<Hz>,...` | List these display modes on the options screen instead of the monitor's, a `*` after one marking the desktop's (captures). A pick still goes to the real monitor. |
 

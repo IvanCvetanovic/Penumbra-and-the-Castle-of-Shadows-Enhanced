@@ -37,6 +37,7 @@
 #include <vector>
 
 #include "core/Log.hpp"
+#include "eth/StartupErrors.hpp"   // E39
 #include "platform/android/AndroidApp.hpp"
 #include "render/Settings.hpp"
 
@@ -181,25 +182,43 @@ std::vector<std::string> takeDevelopmentFlags(const std::vector<fs::path>& folde
 } // namespace
 
 int SupersonicMain(int argc, char** argv) {
+    // E19: the device's language, which an activity's environment does not
+    // carry (no LANG), for the first launch's default before settings.json, and (E39) for the
+    // language of a dialog about a failed unpack, which comes before anything else.
+    if (android_app* app = Supersonic::Android::App(); app != nullptr && app->config != nullptr) {
+        char language[2] = {0, 0};
+        AConfiguration_getLanguage(app->config, language);
+        if (language[0] != 0) Penumbra::Render::Settings::SetSystemLocale(std::string(language, 2));
+    }
+
     const fs::path files = Supersonic::Android::InternalDataPath();
     if (files.empty() || !unpackAssets(files)) {
         SUPERSONIC_LOG_ERROR("Penumbra") << "The game's files are not available; stopping.";
+        // E39: said to the player; before, the activity closed with nothing on the screen. The usual cause is a
+        // full phone (about 25 MB are unpacked). Not for a scripted run (a file of development flags is left for
+        // it): automation must never meet a dialog nobody closes.
+        std::error_code ignored;
+        const bool scripted = (!files.empty() && fs::is_regular_file(files / kArgsFile, ignored)) ||
+                              fs::is_regular_file(fs::path(Supersonic::Android::ExternalDataPath()) / kArgsFile, ignored);
+        if (!scripted) {
+            Penumbra::Eth::ShowStartupDialog(Penumbra::Eth::StartupMessage(
+                Penumbra::Eth::StartupProblem::GameFilesMissing,
+                Penumbra::Render::Settings::SystemLanguageIsPortuguese(), "", "", true));
+        }
         return EXIT_FAILURE;
     }
+
+    // The window may have gone while the files were unpacked (the player pressed Home on the black screen of a
+    // first run): wait for it to come back, or end quietly if the app was closed. Without it the engine's
+    // window would throw "no window to draw on" and the player would be told their graphics are at fault.
+    Supersonic::Android::WaitUntilDrawable();
+    if (Supersonic::Android::DestroyRequested()) return EXIT_SUCCESS;
 
     // Where the engine finds assets/shaders (ChooseAssetRoot's working
     // directory), and where relative writes land: the app's own storage.
     std::error_code ec;
     fs::current_path(files / "engine", ec);
     if (ec) SUPERSONIC_LOG_ERROR("Penumbra") << "Cannot enter " << (files / "engine").string() << ": " << ec.message();
-
-    // E19: the device's language, which an activity's environment does not
-    // carry (no LANG), for the first launch's default before settings.json.
-    if (android_app* app = Supersonic::Android::App(); app != nullptr && app->config != nullptr) {
-        char language[2] = {0, 0};
-        AConfiguration_getLanguage(app->config, language);
-        if (language[0] != 0) Penumbra::Render::Settings::SetSystemLocale(std::string(language, 2));
-    }
 
     std::vector<std::string> args;
     args.emplace_back(argc > 0 ? argv[0] : "Penumbra");

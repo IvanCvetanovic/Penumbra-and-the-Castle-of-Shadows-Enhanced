@@ -7,8 +7,11 @@
     libPenumbra.so (android.app.lib_name), whose android_main is the engine's
     (engine/src/platform/android/AndroidApp.cpp).
 
-    minSdk 26 is where AAudio begins; the engine also needs a Vulkan 1.2 device,
-    which it checks at start (VulkanDevice::isDeviceSuitable). Landscape only,
+    minSdk 26 is where AAudio begins; the game also needs a Vulkan 1.1 device,
+    which the engine checks at start (VulkanDevice::isDeviceSuitable;
+    GameManifest::minimumVulkanMinor, which main.cpp sets to 1: E39). A sideloaded
+    APK is not held to the uses-feature below - only Google Play filters on it -
+    so a phone that reports less starts the game and is told so. Landscape only,
     and every configuration change handled in place, because a NativeActivity
     that is recreated starts its native thread again over a running game.
 
@@ -34,7 +37,7 @@
     android:versionName="1.0.5">
 
     <uses-feature android:name="android.hardware.vulkan.level" android:version="0" android:required="true" />
-    <uses-feature android:name="android.hardware.vulkan.version" android:version="0x402000" android:required="true" />
+    <uses-feature android:name="android.hardware.vulkan.version" android:version="0x401000" android:required="true" />
     <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
     <uses-feature android:name="android.hardware.gamepad" android:required="false" />
 

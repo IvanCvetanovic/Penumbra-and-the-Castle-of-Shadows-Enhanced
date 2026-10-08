@@ -60,9 +60,13 @@ bool ShouldShowStartupDialog(bool headless, ErrorStream stderrStream);
 
 // The box's text, UTF-8: the system's language first, a rule, then the other.
 // `detail` (an exception's what(), a folder; may be empty) and `logPath` (may
-// be empty) follow once, untranslated, for whoever is asked to help.
+// be empty) follow once, untranslated, for whoever is asked to help. `phone`
+// words it for an Android phone (E39): no zip to extract, no Windows Update;
+// the graphics line says what the game needs of the phone, and the details
+// carry the GPU and the Vulkan version it reported. A phone's log is in the
+// app's private storage, which no player can open: pass no logPath for one.
 std::string StartupMessage(StartupProblem problem, bool portugueseFirst, const std::string& detail,
-                           const std::string& logPath);
+                           const std::string& logPath, bool phone = false);
 
 // The box's caption.
 inline constexpr const char* kStartupDialogTitle = "Penumbra";
@@ -74,7 +78,10 @@ inline constexpr const char* kStartupDialogTitle = "Penumbra";
 bool VulkanLoaderAvailable();
 
 // A modal message box with `utf8Text`, the caption above and an error icon, on
-// Windows; nothing elsewhere. Returns when the player closes it.
+// Windows; on Android a dialog of the activity (Supersonic::Android::ShowMessage,
+// E39: before, a phone that could not start the game showed a black screen and
+// the launcher, and said nothing); nothing elsewhere. Returns when the player
+// closes it.
 void ShowStartupDialog(const std::string& utf8Text);
 
 // ---- A start that did not finish (E38) -------------------------------------------------------------------------

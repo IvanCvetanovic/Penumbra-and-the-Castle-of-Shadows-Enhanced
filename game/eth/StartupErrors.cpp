@@ -11,6 +11,8 @@
 #define WIN32_LEAN_AND_MEAN
 #endif
 #include <windows.h>
+#elif defined(__ANDROID__)
+#include "platform/android/AndroidApp.hpp"
 #endif
 
 namespace Penumbra::Eth {
@@ -24,6 +26,7 @@ namespace {
 #define PT_A_ACUTE "\xC3\xA1"
 #define PT_A_TILDE "\xC3\xA3"
 #define PT_C_CEDIL "\xC3\xA7"
+#define PT_E_CIRC "\xC3\xAA"
 #define PT_I_ACUTE "\xC3\xAD"
 #define PT_O_TILDE "\xC3\xB5"
 #define PT_U_ACUTE "\xC3\xBA"
@@ -35,7 +38,45 @@ struct Texts {
     const char* portuguese;
 };
 
-Texts TextsFor(StartupProblem problem) {
+// E39: what a phone is told. The game needs graphics that support Vulkan 1.1; a
+// phone whose driver reports 1.0 (an old one) cannot run it, and the line below
+// the text (StartupMessage's details) names the GPU and the version it reported.
+Texts PhoneTextsFor(StartupProblem problem, bool& found) {
+    found = true;
+    switch (problem) {
+    case StartupProblem::GameFilesMissing:
+        return {"Penumbra could not unpack its game files.\n\n"
+                "Please free some storage space on the phone and open the game again.",
+                "O Penumbra n" PT_A_TILDE "o conseguiu descompactar os arquivos do jogo.\n\n"
+                "Libere espa" PT_C_CEDIL "o de armazenamento no celular e abra o jogo de novo."};
+    case StartupProblem::NoGraphics:
+        // Hedged on purpose: this is shown for any failure while the graphics start, and only the
+        // Details line knows which (a GPU that reports Vulkan 1.0, or something else going wrong).
+        return {"Penumbra could not start its graphics.\n\n"
+                "The game needs a phone whose graphics support Vulkan 1.1 or newer. The line \"Details\" says "
+                "what went wrong: if it says the phone reports Vulkan 1.0, its graphics are too old for the game; "
+                "if it says something else, the game failed while starting the graphics on this phone. Either way, "
+                "please tell us the phone's model, and send a screenshot of this message, at ",
+                "O Penumbra n" PT_A_TILDE "o conseguiu iniciar os gr" PT_A_ACUTE "ficos.\n\n"
+                "O jogo precisa de um celular com gr" PT_A_ACUTE "ficos compat" PT_I_ACUTE "veis com Vulkan 1.1 ou "
+                "mais recente. A linha \"Details\" diz o que deu errado: se disser que o celular informa Vulkan 1.0, "
+                "os gr" PT_A_ACUTE "ficos dele s" PT_A_TILDE "o antigos demais para o jogo; se disser outra coisa, o "
+                "jogo falhou ao iniciar os gr" PT_A_ACUTE "ficos neste celular. Nos dois casos, avise o modelo do "
+                "celular e envie uma captura desta mensagem em "};
+    case StartupProblem::FolderNameUnusable:
+    case StartupProblem::StoppedByError:
+        break;
+    }
+    found = false;
+    return {};
+}
+
+Texts TextsFor(StartupProblem problem, bool phone) {
+    if (phone) {
+        bool found = false;
+        const Texts texts = PhoneTextsFor(problem, found);
+        if (found) return texts;
+    }
     switch (problem) {
     case StartupProblem::GameFilesMissing:
         return {"Penumbra could not find its game files.\n\n"
@@ -78,6 +119,7 @@ Texts TextsFor(StartupProblem problem) {
 #undef PT_A_ACUTE
 #undef PT_A_TILDE
 #undef PT_C_CEDIL
+#undef PT_E_CIRC
 #undef PT_I_ACUTE
 #undef PT_O_TILDE
 #undef PT_U_ACUTE
@@ -92,19 +134,24 @@ bool ShouldShowStartupDialog(bool headless, ErrorStream stderrStream) {
 }
 
 std::string StartupMessage(StartupProblem problem, bool portugueseFirst, const std::string& detail,
-                           const std::string& logPath) {
-    const Texts texts = TextsFor(problem);
+                           const std::string& logPath, bool phone) {
+    const Texts texts = TextsFor(problem, phone);
     std::string english = texts.english;
     std::string portuguese = texts.portuguese;
-    if (problem == StartupProblem::StoppedByError) {
+    // Where to write: after an unexpected error, and after a phone is found
+    // wanting (it may be one the game should run on).
+    if (problem == StartupProblem::StoppedByError || (phone && problem == StartupProblem::NoGraphics)) {
         english += std::string(kIssuesUrl) + ".";
         portuguese += std::string(kIssuesUrl) + ".";
     }
     std::string text = portugueseFirst ? portuguese : english;
+    // On a phone the details come right after the first language: the dialog is small and scrolls, and a
+    // screenshot of it is how they reach whoever is asked to help; below two languages they would be off it.
+    if (phone && !detail.empty()) text += "\n\nDetails: " + detail;
     text += "\n\n----------------------------------------\n\n";
     text += portugueseFirst ? english : portuguese;
-    if (!detail.empty()) text += "\n\nDetails: " + detail;
-    if (!logPath.empty()) text += std::string(detail.empty() ? "\n\n" : "\n") + "Log: " + logPath;
+    if (!phone && !detail.empty()) text += "\n\nDetails: " + detail;
+    if (!logPath.empty()) text += std::string(detail.empty() || phone ? "\n\n" : "\n") + "Log: " + logPath;
     return text;
 }
 
@@ -139,9 +186,21 @@ void ShowStartupDialog(const std::string& utf8Text) {
     MessageBoxW(nullptr, wide.c_str(), caption.c_str(), MB_OK | MB_ICONERROR | MB_SETFOREGROUND);
 }
 
+#elif defined(__ANDROID__)
+
+// A phone's stderr goes to logcat, which no player reads (E39): a failed start
+// must be told, so the stream counts as nowhere, as a GUI program's on Windows.
+ErrorStream CurrentErrorStream() { return ErrorStream::Nowhere; }
+
+bool VulkanLoaderAvailable() { return true; }
+
+void ShowStartupDialog(const std::string& utf8Text) {
+    Supersonic::Android::ShowMessage(kStartupDialogTitle, utf8Text);
+}
+
 #else
 
-// No dialog exists off Windows, so no stream there asks for one.
+// No dialog exists off Windows and Android, so no stream there asks for one.
 ErrorStream CurrentErrorStream() { return ErrorStream::Pipe; }
 
 bool VulkanLoaderAvailable() { return true; }

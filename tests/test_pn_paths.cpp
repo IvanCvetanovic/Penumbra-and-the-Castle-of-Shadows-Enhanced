@@ -507,6 +507,41 @@ void TestRepository() {
     }
 }
 
+// ENHANCEMENT E39: WHAT A PHONE IS TOLD when the game cannot start. Before, an Android start that failed (the Oppo A54
+// and A74 5G, whose drivers report Vulkan 1.1) showed a black screen and the launcher. Here the text, in both languages:
+// it names what the game needs of the phone, carries the GPU and version the engine reported, says where to write, and
+// has none of the desktop's steps (a zip, Explorer, Windows Update). The dialog itself is the activity's.
+void TestPhoneStartupMessages() {   // E39
+    using namespace Penumbra::Eth;
+    const std::string reported = "Failed to find a suitable Vulkan physical GPU! Adreno (TM) 619: reports Vulkan 1.0, the game needs 1.1 or newer. ";
+    for (const bool portugueseFirst : {false, true}) {
+        const std::string graphics = StartupMessage(StartupProblem::NoGraphics, portugueseFirst, reported, "", true);
+        CHECK(ValidUtf8(graphics));
+        CHECK(Has(graphics, "Vulkan 1.1"));
+        CHECK_MSG(Has(graphics, "phone") && Has(graphics, "celular"), "worded for a phone, in both languages");
+        CHECK_MSG(Has(graphics, "\n\nDetails: " + reported), "the GPU and the version it reported are shown: " + graphics);
+        // The details come right after the first language, before the rule and the second: a small dialog
+        // scrolls, and the line must be on the first screen of a screenshot.
+        CHECK_MSG(graphics.find("Details: ") < graphics.find("----------------"), "details before the rule: " + graphics);
+        // The words of the Portuguese: "voc\xC3\xAA" is e with a circumflex, never "voc\xC3\xA9".
+        CHECK(!Has(graphics, "voc\xC3\xA9"));
+        CHECK_MSG(Has(graphics, "send a screenshot") && Has(graphics, "envie uma captura"), "asks for a screenshot, in both languages");
+        // Hedged: it must not claim the phone lacks Vulkan 1.1 for every failure.
+        CHECK(!Has(graphics, "does not offer"));
+        CHECK(Has(graphics, "github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/issues"));
+        CHECK_MSG(!Has(graphics, "Windows") && !Has(graphics, "NVIDIA") && !Has(graphics, "Explorer"), "none of the desktop's steps");
+        CHECK_MSG(!Has(graphics, "Log:"), "a phone's log cannot be opened by a player: none is offered");
+        // The same problem on a desktop is the desktop's text, unchanged.
+        const std::string desktop = StartupMessage(StartupProblem::NoGraphics, portugueseFirst, "", "", false);
+        CHECK_MSG(Has(desktop, "NVIDIA") && Has(desktop, "Vulkan 1.2"), "a desktop keeps its own wording");
+    }
+    const std::string files = StartupMessage(StartupProblem::GameFilesMissing, false, "", "", true);
+    CHECK(Has(files, "storage") && Has(files, "armazenamento"));
+    CHECK_MSG(!Has(files, "zip") && !Has(files, "Penumbra.exe") && !Has(files, "Extract"), "no desktop steps for a phone");
+    // What has no phone wording reads as the desktop's: an unexpected error is the same on any device.
+    CHECK(Has(StartupMessage(StartupProblem::StoppedByError, false, "", "", true), "unexpected error"));
+}
+
 // ENHANCEMENT E38: A START THAT DID NOT FINISH (eth/StartupErrors.hpp). The marker, what reads it, and the log kept
 // beside the next one, asked of folders made in the temp directory. main.cpp only calls these; the layer's side (when
 // the marker goes) is checked in test_pn_render_hud.
@@ -607,6 +642,7 @@ int main() {
     TestData(layout);
     TestRunFromInsideTheZip(layout);
     TestStartupErrors();
+    TestPhoneStartupMessages();   // E39
     TestStartRecord(layout);   // E38
     TestLogTimes(layout);   // E38
     TestWorkingDirectory(layout);

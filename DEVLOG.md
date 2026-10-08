@@ -1097,3 +1097,30 @@ Tools update moved the compiler (14.50.35717 to 14.51.36231), so `build/` could 
 - The display switch on a monitor that offers a second refresh rate, and the wait for a minimised window, have not run on real hardware. A single stage of five seconds still ghosts the window.
 - The engine changes are one commit in the engine repository, with this repository's pin to it as a commit of its own; the game's E38 hunks are a third. The tree they were built and tested in also
   held the unreleased rework of E36 (the difficulty chosen at New Game), which is not in these commits, so CI's Linux job is the first full build of exactly what was committed.
+
+## 2026-10-08 — E39: phones whose graphics report Vulkan 1.1; a start that fails on a phone says why
+
+**Why.** Two testers, on an Oppo A54 (Android 11) and an Oppo A74 5G (Android 12), reported the same thing: the game opens, goes black and the phone returns to its home screen. The engine refused any GPU below
+Vulkan 1.2; the hardware database has a report for each model, at Vulkan 1.1.131 (PowerVR GE8320) and 1.1.128 (Adreno 619); so no GPU was acceptable, the start threw, `ShowStartupDialog` was empty off Windows and the
+activity finished with nothing said. The author's Pixel and the emulator's software GPU pass the gate, so it was never seen. Five readers of the code (one per area) agreed, and the two database reports were fetched
+first-hand. What is not known: that the testers' own drivers report what other units of those models do, and what happens after the gate on those two drivers.
+
+**Built (details in docs/planning/2026-10-08-e39-phones-with-vulkan-1-1.md).**
+- *Engine, opt-in.* `GameManifest::minimumVulkanMinor` (default 2); `VulkanDevice` uses it, and VMA is told the GPU's own version capped at 1.2 (`GameRuntime::AllocatorVulkanMinor`); the thrown message names each GPU
+  and why it was passed over; a log line with the version the GPU reports; the surface no longer leaks when the device constructor throws. Android: `Android::ShowMessage` and `SupersonicActivity.showMessage` (an
+  `AlertDialog` that closes only with OK, selectable, with a tappable address; the engine's thread keeps reading its looper meanwhile).
+- *Game.* A phone asks for 1.1 and a computer for 1.2 (`--vulkan 1.1|1.2` for one run); on Android a failed start shows the dialog (worded for a phone, hedged: only its Details line knows whether the phone reports
+  1.0 or something else failed), and so does a failed first-run unpack; the device's language is read before the unpack; the window is waited for after it if Home was pressed; the manifest asks for 1.1 (`0x401000`).
+- *Guides.* The Android lines of install.md and install.pt.md say the truth for the published 1.0.5 (it needs 1.2; many phones only have 1.1) and how to read a phone's version; they change again when a build with this is released.
+
+**Tested.** Android emulator (x86_64, API 33), the debug APK: a normal start reaches its first frame; with the shaders deleted the start fails inside the engine and the dialog appears, survives a tap outside it and Back
+(the screen is byte-identical), and OK ends the game and shows the launcher. Linux, under a test-only Vulkan layer that caps the version a GPU reports (Mesa's software driver ignores `MESA_VK_VERSION_OVERRIDE`): capped at
+1.1 with `--vulkan 1.1` the game starts with the allocator told 1.1 and its capture is byte-identical to the uncapped one; a computer's default refuses it with a message naming the GPU and its version; capped at 1.0 it is
+refused saying so. Linux `test_pn_all` 17 suites, 48,038 checks, 0 failures (`test_pn_paths` 230); the engine's `test_gameruntime` 308 checks, 0 failures. Windows: built with zero warnings; the final `test_pn_all.exe` and
+the engine suite's exe were refused by Smart App Control (exit 126) and are not run there. Three readers reviewed the change before the last fixes (see the planning record for what they found).
+
+**Open.**
+- No real phone has run it. A build that fixes the two reports is `out/android/Penumbra-debug.apk` (debug-signed: uninstall a release-signed 1.0.5 first); a release needs a version bump and the guides' Android lines
+  changed to Vulkan 1.1, and nobody has said to release.
+- The scene's fragment stage uses 8 of the PowerVR GE8320's 8 combined fragment resources: allowed, no headroom.
+- The engine changes are in the engine repository only once pushed; the game's are not committed at the time of writing.
