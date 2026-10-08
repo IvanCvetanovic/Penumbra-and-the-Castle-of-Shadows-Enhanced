@@ -60,7 +60,12 @@ Game:
   to the dialog; a force-stop and a kill of a cached background process (importance 400) show nothing; a launch with development flags after a crash shows nothing and does
   not hold, and the next crash is reported again. `kill -9` of the foreground game wedged the emulator itself (its host-side graphics, not this code), so that case is not
   run.
-- Linux (GCC) build and `test_pn_all`, MSVC `/W4` checks of every changed C++ file: see the DEVLOG entry.
+- Linux (GCC, WSL): `test_pn_all`, 17 suites, 17 passed, 0 failed (`test_pn_paths` 235 checks, five of them the manifest's report meta-data against what `main.cpp` and
+  `AndroidMain.cpp` write and read); the build's 21 warnings are all in third-party code (entt, stb). Windows: `tools/check.bat` (MSVC `/W4`) is clean for `game/main.cpp`,
+  `tests/test_pn_paths.cpp` and every changed engine C++ file; `test_pn_all.exe` was not built or launched there. Apple builds run only in CI.
+- The file that goes to a tester is a repack of that build with another version label (`1.0.6-diag1`, build 8, debug-signed and debuggable, so it cannot be installed over a
+  release-signed 1.0.6: the tester uninstalls first). Its arm64 library has exactly the released 1.0.6's 374 undefined symbols and the same needed libraries, so the phone
+  loads nothing new; `apksigner verify` passes (v2 and v3); installed on the API 30 emulator and crashed, its report's first line reads `1.0.6-diag1 (build 8)`.
 - Reviewed by four independent readers and a skeptic per finding before the build was used (the Java, the native hold, the renderer's edits, the game's); the real findings
   (a log line cut short, a dialog too long for one screen, an end marked seen too early, a scripted run meeting the report, a shared-engine shutdown path that changed
   behaviour, a missing `PENUMBRA_VERSION` for `check.bat`) are fixed.
