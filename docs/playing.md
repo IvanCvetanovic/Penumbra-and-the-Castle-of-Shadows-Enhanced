@@ -159,7 +159,7 @@ without it and says so in `penumbra.log`.
 
 ### A start that takes long, or stalls (E38)
 
-This is in the builds after 1.0.5; 1.0.5 itself starts as it did before (its log has no times, and it opens fullscreen after a start that froze).
+This is in 1.0.6 and later; 1.0.5 and earlier start as they did before (their log has no times, and they open fullscreen after a start that froze).
 
 The window is on the screen from the moment it is made, and the start behind it (the graphics device, every shader the driver compiles
 on a first run, the game's own load) can take seconds on a slow PC. Windows calls a window that reads no messages for about five

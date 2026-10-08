@@ -67,7 +67,7 @@ Divirta-se!
 
 ## Celular ou tablet Android
 
-**Você precisa de:** Android 8 ou mais recente, e gráficos compatíveis com Vulkan 1.2. Muitos celulares Android, inclusive muitos que vieram com Android 11 ou 12, só têm Vulkan 1.1; neles, a versão 1.0.5 do jogo fecha assim que abre.
+**Você precisa de:** Android 8 ou mais recente, e gráficos compatíveis com Vulkan 1.1 (a maioria dos celulares que vieram com Android 10 ou mais recente tem). As versões até a 1.0.5 exigiam Vulkan 1.2 e fechavam assim que abriam nos muitos celulares que só têm 1.1: se isso aconteceu com você, baixe esta versão.
 
 > **Testado:** uma versão anterior do jogo para Android foi jogada do começo ao fim num celular de verdade por quem a criou, inclusive a tela que ajusta os botões. O layout mais novo dos botões só foi testado num emulador de Android, onde o jogo também foi testado automaticamente. Outros celulares podem se comportar de outro jeito.
 
@@ -95,7 +95,7 @@ Divirta-se!
 <details>
 <summary>Não funcionou?</summary>
 
-- **O jogo fecha assim que abre:** provavelmente os gráficos do aparelho não são compatíveis com Vulkan 1.2, que a versão 1.0.5 exige, e muitos celulares que vieram com Android 11 ou 12 só têm 1.1. Para ver o que o seu tem, instale o app gratuito *Hardware CapsViewer for Vulkan* (também chamado *Vulkan Hardware Capability Viewer*, de Sascha Willems), abra a aba *Properties* e leia a linha *apiVersion* (não a da tela Sobre): 1.1.x quer dizer que esta versão não roda nele.
+- **Aparece uma mensagem e o jogo fecha:** leia-a. Ela diz o que os gráficos do celular informam: o jogo precisa de Vulkan 1.1 ou mais recente, e um celular muito antigo (Vulkan 1.0) não consegue rodá-lo. Seja o que ela disser, avise o modelo do celular e envie uma captura da mensagem (veja o link no fim deste guia). Se o jogo fechar sem mensagem, avise isso também. Para ver o que um celular tem, instale o app gratuito *Hardware CapsViewer for Vulkan* (também chamado *Vulkan Hardware Capability Viewer*, de Sascha Willems), abra a aba *Properties* e leia a linha *apiVersion* (não a da tela Sobre).
 - **Um celular Samsung bloqueou a instalação:** veja o aviso para adultos no passo 2 (Bloqueador automático).
 - **Baixou no computador?** Abra esta página no celular e baixe por lá.
 - **iPhone ou iPad?** Para eles só existe uma [versão experimental](#iphone-e-ipad-experimental), mais abaixo nesta página.

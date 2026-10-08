@@ -67,7 +67,7 @@ Have fun!
 
 ## Android phone or tablet
 
-**You need:** Android 8 or newer, and graphics that support Vulkan 1.2. Many Android phones, including many that came with Android 11 or 12, only have Vulkan 1.1; on those, version 1.0.5 of the game closes as soon as it opens.
+**You need:** Android 8 or newer, and graphics that support Vulkan 1.1 (most phones that came with Android 10 or newer have it). Versions up to 1.0.5 needed Vulkan 1.2 and closed as soon as they opened on the many phones that only have 1.1: if that happened to you, download this version.
 
 > **Tested:** an earlier version of the Android game was played through on a real phone by the person who made it, including the screen that adjusts the buttons. The newest button layout was only tried on an Android emulator, where the game was also tested automatically. Other phones may behave differently.
 
@@ -95,7 +95,7 @@ Have fun!
 <details>
 <summary>It didn't work?</summary>
 
-- **The game closes as soon as it opens:** the phone's graphics probably don't support Vulkan 1.2, which version 1.0.5 needs, and many phones that came with Android 11 or 12 only have 1.1. To see what yours has, install the free app *Hardware CapsViewer for Vulkan* (also called *Vulkan Hardware Capability Viewer*, by Sascha Willems), open the *Properties* tab and read the *apiVersion* row (not the one in its About box): 1.1.x means this version cannot run on it.
+- **A message appears and the game closes:** read it. It says what the phone's graphics report: the game needs Vulkan 1.1 or newer, and a very old phone (Vulkan 1.0) cannot run it. Whatever it says, please tell us the phone's model and send a screenshot of the message (see the link at the end of this guide). If the game closes with no message, report that too. To see what a phone has yourself, install the free app *Hardware CapsViewer for Vulkan* (also called *Vulkan Hardware Capability Viewer*, by Sascha Willems), open the *Properties* tab and read the *apiVersion* row (not the one in its About box).
 - **A Samsung phone blocked the install:** see the note for grown-ups in step 2 (Auto Blocker).
 - **Downloaded it on a computer?** Open this page on the phone and download it there.
 - **iPhone or iPad?** There's only an [experimental version](#iphone-and-ipad-experimental) for them, further down this page.
