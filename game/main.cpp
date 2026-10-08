@@ -24,6 +24,11 @@
 //                          takes 1.1 and a computer 1.2 by default. Removes the intro, as every flag a
 //                          player would not type (a computer with a 1.1 GPU, a capture under a layer that
 //                          caps the version a driver reports)
+//   --render-scale <0.1-1>  this run's scene target as a fraction of the window's (E41), fixed: no controller.
+//                          Removes the intro, as every flag a player would not type
+//   --dynamic-res on|off   the scene target's size chosen by how fast the GPU draws it (E41), over the build's:
+//                          on for a phone or tablet, off for a computer
+//   --sprites-only on|off  the scene pipelines specialised to the sprite path (E41), over the build's (on)
 //   --modes <WxH@R,...>    the display modes the options screen lists, instead of the monitor's
 //                          (captures); a '*' after one makes it the desktop's
 //   --touch-tuning <list>  this run's touch controls' size, opacity and places (E28), over the settings:
@@ -111,6 +116,9 @@ constexpr const char* kGameUsage =
     "  --hp <n>               the wizard's hp once he appears (captures)\n"
     "  --refresh auto|<Hz>    this run's fullscreen refresh rate (not saved)\n"
     "  --vulkan 1.1|1.2       this run's lowest accepted GPU Vulkan version (a phone takes 1.1, a computer 1.2)\n"   // E39
+    "  --render-scale <0.1-1> this run's scene target as a fraction of the window (fixed; developer flag)\n"   // E41
+    "  --dynamic-res on|off   the scene target's size chosen by the GPU's speed (a phone or tablet: on)\n"   // E41
+    "  --sprites-only on|off  the scene pipelines specialised to the sprite path (on)\n"   // E41
     "  --modes <WxH@R,...>    the display modes the options screen lists (captures; not saved);\n"
     "                         a '*' after one makes it the desktop's mode, else the largest is\n"   // E28
     "  --touch-tuning <list>  this run's touch controls' size, opacity and places (not saved; nothing is\n"   // E28
@@ -294,6 +302,9 @@ int PenumbraMain(int argc, char** argv) {
     std::string widescreenOverride;
     std::string smoothOverride;
     std::optional<uint32_t> vulkanMinorOverride;   // E39
+    std::optional<bool> dynamicResolutionOverride;   // E41
+    std::optional<bool> spritesOnlyOverride;   // E41
+    std::optional<float> renderScaleOverride;   // E41
     std::filesystem::path originalFlag;
     std::filesystem::path dataFlag;
     std::vector<char*> engineArgs{argv[0]};
@@ -463,6 +474,23 @@ int PenumbraMain(int argc, char** argv) {
                 return EXIT_FAILURE;   // E39
             }   // E39
             vulkanMinorOverride = value == "1.1" ? 1u : 2u;   // E39
+        } else if ((arg == "--dynamic-res" || arg == "--sprites-only") && hasValue) {   // E41
+            const std::string value = argv[++i];
+            if (value != "on" && value != "off") {
+                std::cerr << "[Penumbra] " << arg << " wants on or off, got " << value << std::endl;
+                return EXIT_FAILURE;
+            }
+            (arg == "--dynamic-res" ? dynamicResolutionOverride : spritesOnlyOverride) = value == "on";
+        } else if (arg == "--render-scale" && hasValue) {   // E41
+            const std::string value = argv[++i];
+            try {
+                const float scale = std::stof(value);
+                if (!(scale >= 0.1f && scale <= 1.0f)) throw std::out_of_range("scale");
+                renderScaleOverride = scale;
+            } catch (const std::exception&) {
+                std::cerr << "[Penumbra] --render-scale wants a number from 0.1 to 1, got " << value << std::endl;
+                return EXIT_FAILURE;
+            }
         } else if (arg == "--refresh" && hasValue) {
             // E23: "auto" or a whole number of Hz, as window.fullscreenRefresh.
             const std::string value = argv[++i];
@@ -621,6 +649,28 @@ int PenumbraMain(int argc, char** argv) {
     // the engine's default of 1.2 they had no GPU to use, and the game closed before its first frame, saying
     // nothing. A computer keeps 1.2: nothing has run a 1.1 GPU there, and its guides say 1.2.
     manifest.minimumVulkanMinor = vulkanMinorOverride.value_or(Penumbra::Render::kMobileBuild ? 1u : 2u);
+    // E41: every draw the scene pipelines get from this game is a 2D sprite, so the scene fragment shader is
+    // specialised to its sprite path: the same pixels from a far smaller shader (an Adreno 640 drew the lit menu in
+    // 75 ms instead of 117, a level in 25 instead of 33).
+    manifest.spritesOnlyScenePipelines = spritesOnlyOverride.value_or(true);
+    // E41: on a phone or tablet the scene target's size follows the GPU's speed (DynamicResolution.hpp). It starts at
+    // the largest size of about 2.2 megapixels - a 2010 game's art has nothing more to show on a 4-megapixel tablet - and
+    // the controller refines it: it falls, by what the shortfall asks, on a GPU that cannot keep 58 frames a second (a
+    // PowerVR GE8320 needs a far smaller picture than an Adreno 640), unless a smaller picture does not speed the frame up,
+    // and it rises only on proof of room (frames far above the target for a while), which a display-paced loop cannot give:
+    // there 2.2 megapixels is the most it has. A computer keeps the window's size, as ever.
+    manifest.dynamicResolution.enabled = dynamicResolutionOverride.value_or(Penumbra::Render::kMobileBuild);
+    manifest.dynamicResolution.startMaxPixels = 2200000;
+    manifest.dynamicResolution.minScale = 0.3f;
+    manifest.dynamicResolution.targetFps = 58.0f;
+    if (renderScaleOverride) {
+        // A fixed scale: the floor is the ceiling, so there is no controller, only a size.
+        manifest.dynamicResolution.enabled = true;
+        manifest.dynamicResolution.startMaxPixels = 0;
+        manifest.dynamicResolution.startScale = *renderScaleOverride;
+        manifest.dynamicResolution.minScale = *renderScaleOverride;
+        manifest.dynamicResolution.maxScale = *renderScaleOverride;
+    }
 
     // WHERE THIS GAME MAY WRITE, resolved once here: settings, high scores and
     // the checkpoint scene. Empty when the platform will not say; then nothing
