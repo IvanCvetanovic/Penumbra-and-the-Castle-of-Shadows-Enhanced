@@ -1199,3 +1199,26 @@ with real newlines (the Linux suites and the MSVC check never compile Java).
 - Whether the first-level decode, the focus latch or something else is the A74's freeze is not known; the overlay's touch line is there to tell them apart if it happens again.
 - Combo assist has no options row, and the level-1 sign's "+" (eleven languages) still reads as keys together: both wait for the E36 rework to be committed (the options screens and the strings are its files).
 - No release has been made from this work; a 1.0.8 needs the testers' answers, a version bump and the owner's word.
+
+## 2026-10-09 — Release 1.0.8: the work of E42 to E44 for phones that had trouble, and combo assist
+
+**Why.** The owner asked for the work after 1.0.7 to be released. It carries the fixes for the weak-phone reports (an Oppo A54 4G that found 1.0.7 too laggy to play, an Oppo A74 5G whose touch screen
+"sometimes stops working") and for the Windows combo report. 1.0.7, 1.0.6, 1.0.5 and 1.0.4 stay published. Nothing in it has been run on a real weak phone.
+
+**What it carries.** From E42: the size controller no longer hunts between two sizes and keeps a step that bought a real gain, an empty shadow pass stays cached, the pipeline cache reaches the bloom chain
+and the UI, the file watcher is off on a phone. From E43: the first level's sounds are decoded in the background while the menu is up, a finger landing on a window the game believes unfocused restores the
+focus, phones take 16x16 shadow maps and one sample per pixel (about 210 MiB less at a 1080x2400 phone's start size). From E44: combo assist (on by default) and the combo rules in the how-to-play and the
+guides. The performance panel, its log lines and the developer flags are in the code and OFF in this release (they are on in the test builds only).
+
+**Released.** 1.0.8 (build 9), Latest, tag v1.0.8 = 62f302e (CI green on it: Linux, Windows and Apple; release.yml run 37971764019, four jobs green). The Windows zip (612 files, 19,756,937 bytes) and the APK
+(22,993,506 bytes, signed with the release key on the owner's word, certificate AC:1D:43:BD, schemes v2 and v3, versionCode 9, minSdk 26, not debuggable, a Vulkan 1.1 feature) were built from a clean clone at
+C:\pn; the Linux, Mac and iPhone/iPad files by release.yml, which rewrote SHA256SUMS.txt. The six files downloaded from the draft were verified by a script (9,016 checks, 0 failures: the checksums, the versions
+in the exe and the plists, the APK's signature and its release key, no installer, the original's 25 AngelScript sources only in the APK as in 1.0.6 and 1.0.7, and 0 occurrences of the user folder name in 3,002
+files scanned). The notes are English then Portuguese, in 1.0.7's shape, and say what was only tried on an emulator. All six releases/latest/download links answer. Copies and release.json are in
+out/release/published/v1.0.8 (gitignored). Not done: the downloaded Windows exe was not launched (Smart App Control), combo assist was not tried with a real keyboard, and no real phone has run it.
+
+**Open.**
+- Whether 1.0.8 makes the A54 playable, and whether it fixes the A74's occasional touch freeze, are unknown: the testers have the test builds `Penumbra-1.0.8-test1` and `-test2` (debug-signed, in the owner's
+  out/android) or will install 1.0.8, and their answers (the panel's numbers on a test build, a screenshot of its touch line during a freeze) decide the next step.
+- Reports not yet answered: a Redmi Note 13 on a pre-1.0.6 build (the 4G's Adreno 610 reports Vulkan 1.1, which those builds refused: its model and version are not known); the Redmi 10A's smoothness.
+- Combo assist has no options row, and the level-1 sign's "+" still reads as keys together: both wait for the owner's E36 rework to be committed.
