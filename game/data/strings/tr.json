@@ -99,10 +99,11 @@
     "Penumbra e o Castelo das Sombras - Ethanon Engine": "Penumbra ve Gölgeler Kalesi - Ethanon Engine",
     "Penumbra e o Castelo das Sombras": "Penumbra ve Gölgeler Kalesi",
     "Idioma": "Dil",
-    "Dificuldade normal": "Zorluk: Normal",
-    "Dificuldade difícil": "Zorluk: Zor",
     "Normal": "Normal",
-    "Difícil": "Zor"
+    "Difícil": "Zor",
+    "Escolha a dificuldade": "Zorluk seçin",
+    "Os inimigos como no jogo original.": "Düşmanlar orijinal oyundaki gibi.",
+    "Os inimigos têm o dobro de vida.": "Düşmanların canı iki katıdır."
   },
   "patterns": [
     {
@@ -148,10 +149,6 @@
     {
       "pt": "Normal\n{any}\n\nDifícil\n{any}",
       "text": "Normal\n{1}\n\nZor\n{2}"
-    },
-    {
-      "pt": "{text}\n\nDificuldade: {text}\nMude em Configurações.",
-      "text": "{1}\n\nZorluk: {2}\nAyarlar'dan değiştirin."
     }
   ],
   "touch": {

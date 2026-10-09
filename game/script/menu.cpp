@@ -219,16 +219,231 @@ string recordsPanelText()                                       // E36
         + "\n" + difficultyName(DIFFICULTY_HARD) + "\n" + getRecordTimeList(DIFFICULTY_HARD);   // E36
 }
 
-// ENHANCEMENT E36: the New Game panel's body, menu.as:186's story and, below it, the difficulty the run will be    // E36
-// played at (the options' choice, latched by newGame when the fade ends) and where it is changed. Built as E21's  // E36
-// credit is: novo_jogo ends in the lone CR AngelScript left, and CR LF is one break, so "\n\r\n" makes exactly one // E36
-// blank line; no CR at the end (FontAtlas counts one as a line). 20 lines + 1 + 2 = 23 of the panel's 27.        // E36
-string newGamePanelText()                                       // E36
-{
-    return novo_jogo + "\n\r\n"                                                                   // E36
-        + "Dificuldade: " + difficultyName(g_difficulty.getCurrent() == DIFFICULTY_HARD ? DIFFICULTY_HARD : DIFFICULTY_NORMAL) + "\r\n"   // E36
-        + "Mude em Configura\xE7\xF5" "es.";                                                      // E36
-}
+// ENHANCEMENT E36: New Game asks for the difficulty before it starts. Confirming "Novo jogo" no longer starts the     // E36
+// campaign: it opens a prompt over the menu - the cursor entity's custom data "pickDifficulty" (when it opened),        // E36
+// "pickRow" (the row lit: 0 Normal, 1 Hard) and "pickX" / "pickY" (where the pointer was last seen) - and choosing a   // E36
+// row starts the campaign at once, as the confirm did (the 3 s fade-out, then newGame, which latches g_difficulty).    // E36
+// Esc, a pad's Back or a click outside the panel (once it is 350 ms old) closes it with nothing started. While it is     // E36
+// open the system pointer is shown (cursor.ent, which is drawn under the panel, cannot be seen). g_difficulty is only    // E36
+// a holder, the state the layer seeds from the settings and saves when it changes; it is written by a chosen row alone   // E36
+// (never by hover or a cancel), so what the prompt opens on is the last choice, Normal the first time.                   // E36
+namespace {                                                                                                          // E36
+// The panel's parts in the menu's logical px at scale 1: 560 x 330 centred, a 24 px inset to the title (Arial Narrow    // E36
+// 40, one line) and to the two rows (512 x 100, 10 px apart), each with its name (34) and its description (22) in a     // E36
+// text box 480 wide that starts 22 px in, after the lit row's 6 px bar. The rows' texts stay 10 px short of the         // E36
+// row's right edge and the title has the whole inner width, 512 px.                                                    // E36
+constexpr float kPromptWidth = 560.0f;                                                                               // E36
+constexpr float kPromptHeight = 330.0f;                                                                              // E36
+constexpr float kPromptInset = 24.0f;                                                                                // E36
+constexpr float kPromptTitleY = 20.0f;                                                                               // E36
+constexpr float kPromptRowTop = 90.0f;                                                                               // E36: 30 px under the title's line
+constexpr float kPromptRowHeight = 100.0f;                                                                           // E36
+constexpr float kPromptRowStep = 110.0f;                                                                             // E36: the second row 10 px under the first
+constexpr float kPromptBar = 6.0f;                                                                                   // E36
+constexpr float kPromptTextX = 22.0f;                                                                                // E36
+constexpr float kPromptTextWidth = 480.0f;                                                                           // E36
+constexpr float kPromptLabelY = 14.0f;                                                                               // E36: the name's top, in the row
+constexpr float kPromptDescY = 60.0f;                                                                                // E36: the description's top: 18 px to the row's foot
+constexpr float kPromptTitleSize = 40.0f;                                                                            // E36: showData's title size
+constexpr float kPromptLabelSize = 34.0f;                                                                            // E36
+constexpr float kPromptDescSize = 22.0f;                                                                             // E36
+// On a phone the panel keeps this share of the shown rectangle free at each side (8 percent).                       // E36
+constexpr float kPromptPhoneMargin = 0.08f;                                                                          // E36
+// ...and, slid sideways when it would not, this far inside the logical screen's left and right edges (x 0 and 1024): // E36
+// HudRenderer::addRectangle stretches a rectangle with an edge within half a pixel of either one out to the window's // E36
+// side, as the backdrop and a fade need, which on the panel would be a dark band; 2 px clears it for every rectangle // E36
+// the panel is made of.                                                                                             // E36
+constexpr float kPromptScreenMargin = 2.0f;                                                                          // E36
+
+// A row's second line: what the difficulty does.                                                                    // E36
+string promptDescription(const uint row)                                                                            // E36
+{                                                                                                                    // E36
+    return row == DIFFICULTY_HARD ? string("Os inimigos t\xEAm o dobro de vida.") : string("Os inimigos como no jogo original.");   // E36
+}                                                                                                                    // E36
+
+// Strictly inside, as putBackButton and Switch::put hit their boxes.                                                // E36
+bool promptInside(const vector2& p, const vector2& lo, const vector2& hi)                                            // E36
+{                                                                                                                    // E36
+    return p.x > lo.x && p.y > lo.y && p.x < hi.x && p.y < hi.y;                                                     // E36
+}                                                                                                                    // E36
+} // namespace                                                                                                       // E36
+
+// E36. Where the prompt's parts are: one function for the drawing and the hit tests, so that they cannot disagree. // E36
+// A window: scale 1, centred on the menu's logical screen (GetScreenSize: 1024 x 768, the widescreen sides are art    // E36
+// only). A phone's larger menu (g_phonePanel.on) shows only shownMin..shownMax of that screen, scaled up from the     // E36
+// left; its panel text box ends 10 px short of the window's right edge less the safe area's inset (PhoneUi.cpp,        // E36
+// ComputeMenuPanel), so max.x + 10 is the shown rectangle's safe right edge. The panel is scaled, panel and texts   // E36
+// together, by one factor: the largest at which it leaves 8 percent of the rectangle free at every side, and no larger // E36
+// than g_phonePanel.maxScale (1.6 times the size E1's view draws text,                                              // E36
+// in this scene's units: a logical px is frame.scale image px there, minScale = baseScale / frame.scale of them), and // E36
+// centred in the rectangle. A wide window shows more than the screen across (shownMax.x past 1024, where only the   // E36
+// art's sides are): a panel that would then come within kPromptScreenMargin of the screen's right edge is slid left // E36
+// by the overshoot (and one past the left edge right by the shortfall), so that it stays centred in what the window // E36
+// shows wherever it can. It always fits between the margins: frame.scale is at least 1.1 times baseScale (PhoneUi.cpp, // E36
+// kMenuMinGain), so maxScale is at most 1.6 / 1.1 = 1.46 and the panel at most 815 px of the 1020 between them.     // E36
+// A rectangle too small for even minScale keeps the fit: a panel that overflows the window is worse than a small one. // E36
+DifficultyPromptBox difficultyPromptBox()                                                                            // E36
+{                                                                                                                    // E36
+    DifficultyPromptBox box;                                                                                         // E36
+    vector2 areaMin(0.0f, 0.0f);                                                                                     // E36
+    vector2 areaMax = GetScreenSize();                                                                               // E36
+    float s = 1.0f;                                                                                                  // E36
+    if (g_phonePanel.on)                                                                                             // E36
+    {                                                                                                                // E36
+        areaMin = g_phonePanel.shownMin;                                                                             // E36
+        areaMax = vector2(min(g_phonePanel.shownMax.x, g_phonePanel.max.x+10.0f), g_phonePanel.shownMax.y);          // E36
+        const float keep = 1.0f-2.0f*kPromptPhoneMargin;                                                             // E36
+        s = min(min((areaMax.x-areaMin.x)*keep/kPromptWidth, (areaMax.y-areaMin.y)*keep/kPromptHeight),             // E36
+                g_phonePanel.maxScale);                                                                              // E36
+        if (!(s > 0.0f))                                                                                             // E36
+            s = g_phonePanel.minScale > 0.0f ? g_phonePanel.minScale : 1.0f;                                         // E36: a degenerate rectangle
+    }                                                                                                                // E36
+    box.scale = s;                                                                                                   // E36
+    const vector2 size = vector2(kPromptWidth, kPromptHeight)*s;                                                     // E36
+    box.panelMin = (areaMin+areaMax)*0.5f-size*0.5f;                                                                 // E36
+    if (g_phonePanel.on)                                                                                             // E36
+    {                                                                                                                // E36
+        // Slid along x, not shrunk, and before anything is placed from panelMin: the title, rows and texts move too. // E36
+        const float overshoot = box.panelMin.x+size.x-(GetScreenSize().x-kPromptScreenMargin);                       // E36
+        if (overshoot > 0.0f)                                                                                        // E36
+            box.panelMin.x -= overshoot;                                                                             // E36
+        if (box.panelMin.x < kPromptScreenMargin)                                                                    // E36
+            box.panelMin.x = kPromptScreenMargin;                                                                    // E36
+    }                                                                                                                // E36
+    box.panelMax = box.panelMin+size;                                                                                // E36
+    box.titlePos = box.panelMin+vector2(kPromptInset, kPromptTitleY)*s;                                              // E36
+    box.titleRight = box.panelMin.x+(kPromptWidth-kPromptInset)*s;                                                   // E36
+    for (uint t = 0; t < 2; t++)                                                                                     // E36
+    {                                                                                                                // E36
+        box.rowMin[t] = box.panelMin+vector2(kPromptInset, kPromptRowTop+kPromptRowStep*static_cast<float>(t))*s;    // E36
+        box.rowMax[t] = box.rowMin[t]+vector2(kPromptWidth-2.0f*kPromptInset, kPromptRowHeight)*s;                   // E36
+        box.labelPos[t] = box.rowMin[t]+vector2(kPromptTextX, kPromptLabelY)*s;                                      // E36
+        box.descPos[t] = box.rowMin[t]+vector2(kPromptTextX, kPromptDescY)*s;                                        // E36
+        box.textRight[t] = box.rowMin[t].x+(kPromptTextX+kPromptTextWidth)*s;                                        // E36
+    }                                                                                                                // E36
+    return box;                                                                                                      // E36
+}                                                                                                                    // E36
+
+namespace {                                                                                                          // E36
+// The prompt over a dimmed menu, last in the callback so that it is on top (the HUD draws in call order). The     // E36
+// backdrop is the whole logical screen, which HudRenderer carries on to a widescreen window's sides as it does a      // E36
+// fade's; the panel is the menu's dark violet-black, the lit row a bar at its left edge with full-alpha text, the     // E36
+// other row at the 100 the options screen gives its idle rows. A right-to-left language sets every text against the   // E36
+// right edge of its box (the rtlRight overload), the bar stays at the left.                                         // E36
+void drawDifficultyPrompt(const DifficultyPromptBox& box, const uint lit)                                           // E36
+{                                                                                                                    // E36
+    const float s = box.scale;                                                                                       // E36
+    drawRect(ARGB(150,0,0,0));                                                                                       // E36
+    const vector2 size = box.panelMax-box.panelMin;                                                                  // E36
+    const uint top = ARGB(244,26,18,44);                                                                             // E36
+    const uint foot = ARGB(244,8,5,16);                                                                              // E36
+    DrawRectangle(box.panelMin, size, top, top, foot, foot);                                                         // E36
+    const uint edge = ARGB(210,203,203,228);                                                                         // E36
+    const float line = 2.0f*s;                                                                                       // E36
+    DrawRectangle(box.panelMin, vector2(size.x, line), edge, edge, edge, edge);                                      // E36
+    DrawRectangle(box.panelMin+vector2(0.0f, size.y-line), vector2(size.x, line), edge, edge, edge, edge);           // E36
+    DrawRectangle(box.panelMin+vector2(0.0f, line), vector2(line, size.y-2.0f*line), edge, edge, edge, edge);        // E36
+    DrawRectangle(box.panelMin+vector2(size.x-line, line), vector2(line, size.y-2.0f*line), edge, edge, edge, edge);   // E36
+    for (uint t = 0; t < 2; t++)                                                                                     // E36
+    {                                                                                                                // E36
+        const bool on = t == lit;                                                                                    // E36
+        const vector2 rowSize = box.rowMax[t]-box.rowMin[t];                                                         // E36
+        const uint fill = on ? ARGB(64,203,203,228) : ARGB(14,203,203,228);                                          // E36
+        DrawRectangle(box.rowMin[t], rowSize, fill, fill, fill, fill);                                               // E36
+        if (on)                                                                                                      // E36
+        {                                                                                                            // E36
+            const uint bar = ARGB(255,203,203,228);                                                                  // E36
+            DrawRectangle(box.rowMin[t], vector2(kPromptBar*s, rowSize.y), bar, bar, bar, bar);                      // E36
+        }                                                                                                            // E36
+        shadowText(box.labelPos[t], difficultyName(t), "Arial Narrow", kPromptLabelSize*s,                           // E36
+                   static_cast<uint8>(on ? 255 : 100), 203,203,228, box.textRight[t]);                               // E36
+        shadowText(box.descPos[t], promptDescription(t), "Arial Narrow", kPromptDescSize*s,                          // E36
+                   static_cast<uint8>(on ? 200 : 75), 203,203,228, box.textRight[t]);                                // E36
+    }                                                                                                                // E36
+    shadowText(box.titlePos, "Escolha a dificuldade", "Arial Narrow", kPromptTitleSize*s, 255,203,203,228, box.titleRight);   // E36
+}                                                                                                                    // E36
+
+void closeDifficultyPrompt(ETHEntity cursor)                                                                         // E36
+{                                                                                                                    // E36
+    cursor->EraseData("pickDifficulty");                                                                             // E36
+    cursor->EraseData("pickRow");                                                                                    // E36
+    cursor->EraseData("pickX");                                                                                      // E36
+    cursor->EraseData("pickY");                                                                                      // E36
+}                                                                                                                    // E36
+
+// One frame of the open prompt. `interactive` is false on the frame that opened it: that frame's confirm is the one   // E36
+// that opened it and must not also choose, so it only draws. The pointer is read as the other screens read it; a      // E36
+// "click" is the left or right button's fresh press (a finger's tap is the left button held for the tick the cursor    // E36
+// jumps to it, TouchControls' menu mode), so a tap and a click are one thing. getConfirmButtonStatus is not used to   // E36
+// tell them apart because the first held key wins there: Enter held would hide a click. A click counts only once the  // E36
+// prompt is kPromptSettleTime old (a double-click on New Game opens it with the first click and puts the second on the  // E36
+// button, or on a row that a phone's panel has under it); before that it neither closes nor chooses, and is not taken   // E36
+// for the confirm either. Esc, a pad's Back and Enter or a pad's confirm are never delayed. The subtraction is          // E36
+// unsigned, as the other scripts' timers are.                                                                          // E36
+void difficultyPrompt(ETHEntity cursor, const vector2& pointer, const bool interactive)                              // E36
+{                                                                                                                    // E36
+    InputState& input = GetInputHandle();                                                                            // E36
+    const DifficultyPromptBox box = difficultyPromptBox();                                                           // E36
+    uint row = min(cursor->GetUIntData("pickRow"), 1u);                                                              // E36
+    if (interactive)                                                                                                 // E36
+    {                                                                                                                // E36
+        const bool pointerClick = input.GetKeyState(K_LMOUSE) == KS_HIT || input.GetKeyState(K_RMOUSE) == KS_HIT;    // E36
+        const bool click = pointerClick && GetTime()-cursor->GetUIntData("pickDifficulty") >= kPromptSettleTime;     // E36
+        // The highlight follows the pointer only when it moved, so a pointer at rest does not fight the keys.       // E36
+        const bool moved = pointer.x != cursor->GetFloatData("pickX") || pointer.y != cursor->GetFloatData("pickY");   // E36
+        cursor->AddFloatData("pickX", pointer.x);                                                                    // E36
+        cursor->AddFloatData("pickY", pointer.y);                                                                    // E36
+        int over = -1;                                                                                               // E36
+        for (uint t = 0; t < 2; t++)                                                                                 // E36
+        {                                                                                                            // E36
+            if (promptInside(pointer, box.rowMin[t], box.rowMax[t]))                                                 // E36
+                over = static_cast<int>(t);                                                                          // E36
+        }                                                                                                            // E36
+
+        // Cancel, or a click outside the panel (a phone's main menu has no Back button). A click inside the panel    // E36
+        // on no row does nothing. Only a click closes by position: Enter with the pointer anywhere never does.      // E36
+        if (getCancelButtonStatus(0) == KS_HIT                                                                       // E36
+            || (click && over < 0 && !promptInside(pointer, box.panelMin, box.panelMax)))                            // E36
+        {                                                                                                            // E36
+            closeDifficultyPrompt(cursor);                                                                           // E36
+            return;                                                                                                  // E36
+        }                                                                                                            // E36
+
+        const uint before = row;                                                                                     // E36
+        if (getUpButtonStatus(0) == KS_HIT && row > 0)                                                               // E36
+            row--;                                                                                                   // E36
+        if (getDownButtonStatus(0) == KS_HIT && row < 1)                                                             // E36
+            row++;                                                                                                   // E36
+        if (moved && over >= 0)                                                                                      // E36
+            row = static_cast<uint>(over);                                                                           // E36
+
+        // A click chooses the row it is on; any other confirm (Enter, a pad's) the lit one, wherever the pointer is. // E36
+        // A click that is still settling is the confirm too (the mouse buttons are in getConfirmButtonStatus): it    // E36
+        // must not choose the lit row by that road.                                                                   // E36
+        int chosen = -1;                                                                                             // E36
+        if (click)                                                                                                   // E36
+            chosen = over;                                                                                           // E36
+        else if (!pointerClick && getConfirmButtonStatus(0) == KS_HIT)                                               // E36
+            chosen = static_cast<int>(row);                                                                          // E36
+        if (chosen >= 0)                                                                                             // E36
+        {                                                                                                            // E36
+            // The old start (menu.as:293-295): the 3 s fade-out, and newGame() runs when it ends. Nothing writes    // E36
+            // g_difficulty again before then.                                                                       // E36
+            g_difficulty.setCurrent(static_cast<uint>(chosen));                                                      // E36
+            cursor->AddUIntData("newGame", GetTime());                                                               // E36
+            cursor->AddStringData("scene", "CAMPAIGN");                                                              // E36
+            PlaySample("soundfx/newgame.mp3");                                                                       // E36
+            closeDifficultyPrompt(cursor);                                                                           // E36
+            return;                                                                                                  // E36
+        }                                                                                                            // E36
+
+        if (row != before)                                                                                           // E36
+            PlaySample("soundfx/help.mp3");                                                                          // E36: the menu's hover sound, once a change
+        cursor->AddUIntData("pickRow", row);                                                                         // E36
+    }                                                                                                                // E36
+    drawDifficultyPrompt(box, row);                                                                                  // E36
+}                                                                                                                    // E36
+} // namespace                                                                                                       // E36
 
 // menu.as:232. The whole menu and arena-select logic, run every frame (the
 // cursor is dynamic).
@@ -241,14 +456,19 @@ void ETHCallback_cursor(ETHEntity thisEntity)
     // Read BEFORE the move below, so the entity lags the OS cursor by a frame
     // (menu.as:238-240).
     const vector2 cursorPos = input.GetCursorPos();
-    input.SetCursorPos(input.GetCursorAbsolutePos()+getPlayerXYAxis(0)*5.0f);
+    // E36: while New Game's difficulty prompt is open the direction keys and the stick move its highlight and not   // E36
+    // the OS cursor (the prompt reads the pointer as it is); the entity still follows the pointer.                  // E36
+    const bool picking = thisEntity->CheckCustomData("pickDifficulty") != DT_NODATA;   // E36
+    if (!picking)                                                     // E36
+        input.SetCursorPos(input.GetCursorAbsolutePos()+getPlayerXYAxis(0)*5.0f);
     thisEntity->SetPositionXY(cursorPos);
 
     ETHEntity handle;                                                 // menu.as:242
 
     if (thisEntity->CheckCustomData("newGame") == DT_NODATA)          // menu.as:244
     {
-        if (CollideDynamic(thisEntity, handle))
+        // E36: nothing behind the prompt answers the pointer: no panels, no hover sounds, no buttons.            // E36
+        if (!picking && CollideDynamic(thisEntity, handle))             // E36: !picking &&
         {
             const string entityName = handle->GetEntityName();
             const bool confirmed = getConfirmButtonStatus(0) == KS_HIT;
@@ -294,14 +514,17 @@ void ETHCallback_cursor(ETHEntity thisEntity)
             } else
             if (entityName == "novo_jogo")                             // menu.as:288
             {
-                showData("Novo jogo", newGamePanelText());   // E36: menu.as:288 drew novo_jogo alone
+                showData("Novo jogo", novo_jogo);
                 if (confirmed)
                 {
-                    // Starts the 3 s fade-out; newGame() runs when it ends
-                    // (the else branch below).
-                    thisEntity->AddUIntData("newGame", GetTime());
-                    thisEntity->AddStringData("scene", "CAMPAIGN");
-                    PlaySample("soundfx/newgame.mp3");
+                    // E36: opens the difficulty prompt (below the panels, in this callback) instead of starting; a   // E36
+                    // row chosen there starts the 3 s fade-out (menu.as:293-295), and newGame() runs when it ends   // E36
+                    // (the else branch below). The lit row is the last choice; the pointer is noted so that a     // E36
+                    // pointer at rest does not move it.                                                           // E36
+                    thisEntity->AddUIntData("pickDifficulty", GetTime());   // E36
+                    thisEntity->AddUIntData("pickRow", g_difficulty.getCurrent() == DIFFICULTY_HARD ? 1u : 0u);   // E36
+                    thisEntity->AddFloatData("pickX", cursorPos.x);   // E36
+                    thisEntity->AddFloatData("pickY", cursorPos.y);   // E36
                 }
             } else
             if (entityName == "sair")                                  // menu.as:298
@@ -375,6 +598,16 @@ void ETHCallback_cursor(ETHEntity thisEntity)
         loadingMessage();
     }
     fadeIn(thisEntity->GetUIntData("menuStartTime"));                 // menu.as:359
+    // E36: last of all, so that it is drawn over the panels, the Alt+Enter line AND the fade-in's black rectangle (it was     // E36
+    // drawn before that rectangle, so a prompt opened in the menu's first three seconds was veiled by it while it already   // E36
+    // took input). The frame that opened it only draws it (`picking` was false at the frame's start): its confirm must not  // E36
+    // also choose. Only ever open while newGame is unset: choosing erases it in the same step that sets newGame.            // E36
+    if (thisEntity->CheckCustomData("pickDifficulty") != DT_NODATA)   // E36
+        difficultyPrompt(thisEntity, cursorPos, picking);             // E36
+    // E36: the pointer the player sees is cursor.ent, drawn under every HUD command, so the prompt's panel covers it;   // E36
+    // while the prompt is open the layer shows the system pointer instead (it reads this flag), and hides it again      // E36
+    // as soon as the prompt is closed or a row is chosen. At the end, so that the frame that closes it already hides.   // E36
+    HideCursor(thisEntity->CheckCustomData("pickDifficulty") == DT_NODATA);   // E36
 }
 
 // menu.as:362. Darkens a locked arena every frame.

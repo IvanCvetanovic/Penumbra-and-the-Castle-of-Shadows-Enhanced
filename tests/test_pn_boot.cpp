@@ -311,7 +311,7 @@ string ReadUserHs(const std::filesystem::path& userRoot) {
 // spawn(): data.enml's hp in Normal, twice it in Hard; the experience a kill gives is the base hp in both.
 void TestDifficultyStats(Run& run, const ETHEntity& player) {
     std::printf("-- E36: spawn() gives an enemy data.enml's hp in Normal and twice it in Hard\n");
-    CHECK_EQ(Script::g_runDifficulty, Script::DIFFICULTY_NORMAL);   // newGame("CAMPAIGN") under the options' Normal
+    CHECK_EQ(Script::g_runDifficulty, Script::DIFFICULTY_NORMAL);   // newGame("CAMPAIGN") with g_difficulty at Normal
     CHECK_EQ(Script::g_difficulty.getCurrent(), Script::DIFFICULTY_NORMAL);
     const auto stats = [&player](const string& name, const uint difficulty) {
         Script::g_runDifficulty = difficulty;
@@ -351,9 +351,9 @@ void TestDifficultyStats(Run& run, const ETHEntity& player) {
 }
 
 // A Hard campaign run from New Game on: the latch, a marker's enemy, what a death and a checkpoint reload do to
-// it, then Versus under the same options, which stays Normal.
+// it, then Versus under the same g_difficulty, which stays Normal.
 void TestHardRun(Run& run) {
-    std::printf("-- E36: a Hard run (newGame latches the options' choice), a death, a checkpoint, then Versus\n");
+    std::printf("-- E36: a Hard run (newGame latches g_difficulty, which New Game's prompt sets), a death, a checkpoint, then Versus\n");
     Script::g_difficulty.setCurrent(Script::DIFFICULTY_HARD);
     Script::newGame("CAMPAIGN");
     CHECK_EQ(Script::g_runDifficulty, Script::DIFFICULTY_HARD);
@@ -361,7 +361,7 @@ void TestHardRun(Run& run) {
     CHECK(WaitForGround(run, 240, "hard level1"));
     ETHEntity player = Player();
     CHECK(player != nullptr);
-    // The options' switch is read once, when the run starts: changing it later leaves the run as it is.
+    // g_difficulty is read once, when the run starts: changing it later leaves the run as it is.
     Script::g_difficulty.setCurrent(Script::DIFFICULTY_NORMAL);
     CHECK_EQ(Script::g_runDifficulty, Script::DIFFICULTY_HARD);
     if (player == nullptr) return;
@@ -417,7 +417,7 @@ void TestHardRun(Run& run) {
         for (const ETHEntity& each : warriors) CHECK(!each->IsAlive() || each->GetIntData("hp") <= 150);
     }
 
-    // Versus is never Hard, whatever the options say: the arena select (resetData) and an arena (newGame).
+    // Versus is never Hard, whatever g_difficulty says: the arena select (resetData) and an arena (newGame).
     Script::g_difficulty.setCurrent(Script::DIFFICULTY_HARD);
     Script::goToPvp();
     CHECK_EQ(Script::g_runDifficulty, Script::DIFFICULTY_NORMAL);
@@ -482,16 +482,6 @@ void TestRecords(const std::filesystem::path& userRoot) {
     CHECK_EQ(LineCount(Script::recordsPanelText()), 14u);   // 13 lines (2 names, 10 times, a blank one) and the break that ends it
     CHECK(Script::difficultyName(normal) == "Normal");
     CHECK(Script::difficultyName(hard) == "Dif\xED" "cil");
-
-    // The New Game panel: the story, a blank line, the difficulty the next run is played at, where it is changed.
-    Script::g_difficulty.setCurrent(normal);
-    CHECK(Script::newGamePanelText() ==
-          Script::novo_jogo + "\n\r\nDificuldade: Normal\r\nMude em Configura\xE7\xF5" "es.");
-    Script::g_difficulty.setCurrent(hard);
-    CHECK(Script::newGamePanelText() ==
-          Script::novo_jogo + "\n\r\nDificuldade: Dif\xED" "cil\r\nMude em Configura\xE7\xF5" "es.");
-    CHECK_EQ(LineCount(Script::newGamePanelText()), 23u);   // the story's 20, a blank one, two more
-    Script::g_difficulty.setCurrent(normal);
 
     // A time that does not make the top five changes no time: the first write only creates the file, with BOTH entities.
     CHECK(!Script::addNewRecordTime(5000000u, normal));

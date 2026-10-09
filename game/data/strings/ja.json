@@ -99,10 +99,11 @@
     "Penumbra e o Castelo das Sombras - Ethanon Engine": "Penumbraと影の城 - Ethanon Engine",
     "Penumbra e o Castelo das Sombras": "Penumbraと影の城",
     "Idioma": "言語",
-    "Dificuldade normal": "難易度：ノーマル",
-    "Dificuldade difícil": "難易度：ハード",
     "Normal": "ノーマル",
-    "Difícil": "ハード"
+    "Difícil": "ハード",
+    "Escolha a dificuldade": "難易度を選択",
+    "Os inimigos como no jogo original.": "敵はオリジナル版と同じです。",
+    "Os inimigos têm o dobro de vida.": "敵の体力が2倍になります。"
   },
   "patterns": [
     {
@@ -148,10 +149,6 @@
     {
       "pt": "Normal\n{any}\n\nDifícil\n{any}",
       "text": "ノーマル\n{1}\n\nハード\n{2}"
-    },
-    {
-      "pt": "{text}\n\nDificuldade: {text}\nMude em Configurações.",
-      "text": "{1}\n\n難易度：{2}\n設定メニューで変更できます。"
     }
   ],
   "touch": {

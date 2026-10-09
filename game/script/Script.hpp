@@ -496,7 +496,7 @@ extern Stepper g_musicVolume;                         // E10: tenths of the musi
 extern Stepper g_effectsVolume;                       // E10: tenths of the effects' master volume
 extern Switch g_smoothMotion;                         // E10: 0 = smooth motion on (E8), 1 = off
 extern Switch g_pauseOnFocusLoss;                     // E13: 0 = pause on focus loss, 1 = play on
-extern Switch g_difficulty;                           // E36: 0 = Normal (the original's game), 1 = Hard (enemies with twice the hp); read when a campaign starts
+extern Switch g_difficulty;                           // E36: 0 = Normal (the original's game), 1 = Hard (enemies with twice the hp); written only by New Game's prompt when a row is chosen (the layer seeds it and saves a change), read by newGame when the campaign starts
 
 // ENHANCEMENT E20 (not in the original): the options screen on a phone. The    // E20
 // layer raises g_mobileLayout when it attaches (PENUMBRA_MOBILE builds); the     // E20
@@ -568,7 +568,7 @@ void screenModesLoop();                               // videoModes.as:85
 
 // ENHANCEMENT E31 (not in the original, optionsPhone.cpp): the options screen on a phone, larger. Where           // E31
 // g_mobileLayout is up and the options art is loaded, screenModesLoop hands its frame to phoneOptionsLoop():       // E31
-// two columns of cells 68-80 px tall (88 before E36's difficulty cell made it seven rows; a two-way Switch is ONE cell: the ticked box and the wording of its current state,   // E31
+// two columns of 88 px cells (a two-way Switch is ONE cell: the ticked box and the wording of its current state,   // E31
 // a tap anywhere in it flips it) in a stone panel, the Back arrow in the top-left corner of what the window       // E31
 // shows, the language chooser in the top-right one, and no hover. Without the art (the suites) and on the           // E31
 // desktop the screen is E20's and the original's as before.                                                         // E31
@@ -594,12 +594,10 @@ struct PhoneRect {                                    // E31
     float h = 0.0f;                                   // E31
 };                                                    // E31
 // The cells, in the order the loop updates and draws them (so the Adjust cell reads the touch switch's new state).   // E31
-// E36: PC_DIFFICULTY, the campaign difficulty's toggle, comes last in the enum so the others keep their numbers; it is drawn   // E36
-// after the joystick cell, in a fifth row of toggles of its own (seven rows share the height now, so hc is 68..80, 88 before).   // E36
 enum PhoneCell { PC_PIXEL_SHADERS, PC_SMOOTH_MOTION, PC_WIDESCREEN, PC_PAUSE_FOCUS, PC_TOUCH, PC_ADJUST, PC_KEYBOARD_P2,   // E31
-                 PC_JOYSTICK, PC_REFRESH, PC_ZOOM, PC_MUSIC, PC_EFFECTS, PC_DIFFICULTY, PC_COUNT };                     // E31, E36: PC_DIFFICULTY
+                 PC_JOYSTICK, PC_REFRESH, PC_ZOOM, PC_MUSIC, PC_EFFECTS, PC_COUNT };                                    // E31
 struct PhoneOptionsLayout {                           // E31
-    float hc = 0.0f;                                  // E31: the row height, 68..80 by the room the frame's bottom leaves (E36: seven rows share it, 88 before)
+    float hc = 0.0f;                                  // E31: the row height, 68..88 by the room the frame's bottom leaves
     PhoneRect panel, back, backHit, globe, langLess, langValue, langMore;   // E31: the buttons' rects are their hit boxes
     vector2 title{0.0f};                              // E31: the title's text position (size 40)
     PhoneRect cell[PC_COUNT];                         // E31: every cell's card (a chooser's is 30 + hc tall)
@@ -735,11 +733,31 @@ inline const string versus =
     "placar exceder " + std::to_string(MAX_PVP_POINTS) + " pontos";
 
 void showData(const string& title, const string& content);   // menu.as:217
-// ENHANCEMENT E36: the bodies the cursor callback hands showData for the best-times button (both difficulties'   // E36
-// lists, each under its name) and for New Game (menu.as:186's story, then the difficulty the next run is played   // E36
-// at and where it is changed). Functions, so that a suite draws exactly the text the menu does.                  // E36
+// ENHANCEMENT E36: the body the cursor callback hands showData for the best-times button (both difficulties'      // E36
+// lists, each under its name). A function, so that a suite draws exactly the text the menu does.                  // E36
 string recordsPanelText();                            // E36
-string newGamePanelText();                            // E36
+// ENHANCEMENT E36: New Game asks for the difficulty before it starts (menu.cpp). The prompt is a panel over a      // E36
+// dimmed menu with two rows, Normal and Hard; this is where its parts are, in the menu's logical px, for the        // E36
+// drawing, the hit tests and the suites alike. scale is 1 on a window, and on a phone's larger menu (g_phonePanel)   // E36
+// the one factor the whole panel and its texts are drawn at. titleRight and textRight are the right edges of the     // E36
+// boxes a right-to-left language sets its texts against (HudCmd::rtlRight).                                          // E36
+struct DifficultyPromptBox {                          // E36
+    float scale = 1.0f;                               // E36
+    vector2 panelMin{0.0f};                           // E36
+    vector2 panelMax{0.0f};                           // E36
+    vector2 rowMin[2] = {};                           // E36: the rows' boxes, 0 = Normal, 1 = Hard
+    vector2 rowMax[2] = {};                           // E36
+    vector2 titlePos{0.0f};                           // E36
+    float titleRight = 0.0f;                          // E36
+    vector2 labelPos[2] = {};                         // E36: a row's name, and under it its one-line description
+    vector2 descPos[2] = {};                          // E36
+    float textRight[2] = {};                          // E36: the right edge of a row's text box
+};                                                    // E36
+DifficultyPromptBox difficultyPromptBox();            // E36
+// A pointer click (a mouse button's press, a finger's tap) is ignored for this long (ms) after the prompt opens: the     // E36
+// second click of a double-click on New Game lands on the button, or on a row a phone's panel puts under it. Esc, a    // E36
+// pad's Back and the keyboard's or the pad's confirm are never delayed. Here so that the suites wait by the same number. // E36
+inline constexpr uint kPromptSettleTime = 350;        // E36
 void ETHCallback_cursor(ETHEntity thisEntity);        // menu.as:232
 void ETHCallback_thumbnail(ETHEntity thisEntity);     // menu.as:362
 bool waitForInputToMenu();                            // menu.as:374

@@ -62,9 +62,9 @@ Written by `tools/l10n/make_fonts.py` (rerun it whenever `game/data/strings/ja.j
 
 | File | Source | Made | Licence |
 |---|---|---|---|
-| `NotoSansJP-Bold.ttf` | google/fonts `ofl/notosansjp/NotoSansJP[wght].ttf` at commit `66a36c8c94b1a5d992ee4e7f392fccfe4945767c` (sha256 `c2f3b4d463500a2ddcd3849cded1fceeb9fd6d1c32e6cbecd568453ba50fc68f`) | subset + instance (wght 700): 937 characters, 935 glyphs, 162,584 bytes, sha256 `657e8007b9bd21abf4db5beccce91b0dd4a6a16d036e21ff1232a61c0b92b8ab` | SIL Open Font License 1.1 (`LICENSE-NotoSansJP.txt`) |
+| `NotoSansJP-Bold.ttf` | google/fonts `ofl/notosansjp/NotoSansJP[wght].ttf` at commit `66a36c8c94b1a5d992ee4e7f392fccfe4945767c` (sha256 `c2f3b4d463500a2ddcd3849cded1fceeb9fd6d1c32e6cbecd568453ba50fc68f`) | subset + instance (wght 700): 939 characters, 937 glyphs, 163,040 bytes, sha256 `773be17b1579d12c87c48f2424bd2133afe2fd7d4c4e280bdaa93f4a5ec556be` | SIL Open Font License 1.1 (`LICENSE-NotoSansJP.txt`) |
 | `NotoSansArabic-Bold.ttf` | google/fonts `ofl/notosansarabic/NotoSansArabic[wdth,wght].ttf` at commit `66a36c8c94b1a5d992ee4e7f392fccfe4945767c` (sha256 `63111b5b2e074dd48cc67692e0a2726d86ee94c1c37fe8598257b7b4e87e869e`) | subset + instance (wght 700, wdth 100): 1171 characters, 1161 glyphs, 96,724 bytes, sha256 `f53dc0274d87962a931c21d995970a74b68c5958930c11bf85c143bffe598e7e` | SIL Open Font License 1.1 (`LICENSE-NotoSansArabic.txt`) |
 
-Japanese characters from the language files (ar.json, de.json, es.json, fr.json, it.json, ja.json, ru.json, tr.json, uk.json) and the language names: 374, of them 253 kanji.
+Japanese characters from the language files (ar.json, de.json, es.json, fr.json, it.json, ja.json, ru.json, tr.json, uk.json) and the language names: 376, of them 255 kanji.
 Made with fontTools 4.63.0.
 <!-- make_fonts.py: end -->

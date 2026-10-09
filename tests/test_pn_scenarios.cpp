@@ -479,6 +479,20 @@ string LastButton() {
     return cursor != nullptr ? cursor->GetStringData("lastButton") : string("(no cursor)");
 }
 
+// E36: New Game asks for the difficulty before it starts. The first confirm opens the prompt (checked here) and
+// chooses nothing; a frame at rest lets the key go (a held key reads KS_DOWN, not a fresh KS_HIT); the second
+// confirm, with `held` still down (the K_2 and K_3 cheats newGame reads when the fade ends, main.as:110-113),
+// chooses the row the prompt opened on - the last choice, Normal on a fresh run - and the fade starts with that frame.
+void StartNewGame(Game& g, std::initializer_list<KEY> held = {}) {   // E36
+    g.Step(g.With({K_RETURN}));
+    const ETHEntity cursor = SeekEntity("cursor.ent");
+    CHECK(cursor != nullptr && cursor->CheckCustomData("pickDifficulty") != DT_NODATA);
+    g.Step(g.With(held));
+    InputFrame choose = g.With(held);
+    choose.keys[static_cast<std::size_t>(K_RETURN)] = true;
+    g.Step(choose);
+}
+
 // Frames from now until the scene's setupScene runs again (a reload of the same
 // scene or another level), or -1.
 int WaitForSetup(Game& g, const uint limit, const InputFrame* input = nullptr) {
@@ -636,7 +650,7 @@ void ScenarioMenu(Game& g) {
     const int backAfter = WaitFor(g, 3, [] { return GetSceneFileName() == "scenes/menu.esc"; });
     std::printf("  ESC: menu.esc loaded %d frames later\n", backAfter);
     CHECK(backAfter >= 0);
-    g.Steps(10);
+    g.Steps(8);   // E36: 10 before; StartNewGame's two extra frames come out of this, so the start lands on the frame it always did
 
     std::printf("-- New game: the cursor on novo_jogo and Enter\n");
     g.base.cursor = kNewGameButton;
@@ -644,7 +658,7 @@ void ScenarioMenu(Game& g) {
     std::printf("  cursor over '%s'\n", LastButton().c_str());
     CHECK(LastButton() == "novo_jogo");
     const uint press = g.Frame() + 1;
-    g.Step(g.With({K_RETURN}));
+    StartNewGame(g);   // E36: Enter opens the difficulty prompt, a second Enter starts at Normal
     const ETHEntity cursor2 = SeekEntity("cursor.ent");
     CHECK(cursor2 != nullptr);
     if (cursor2 != nullptr) {
@@ -1376,7 +1390,7 @@ void ScenarioGameOver(Game& g) {
     const int menu = WaitFor(g, 3, [] { return GetSceneFileName() == "scenes/menu.esc"; });
     std::printf("  ESC: menu.esc %d frames later\n", menu);
     CHECK(menu >= 0);
-    g.Steps(5);
+    g.Steps(3);   // E36: 5 before; the next scenario's start now takes StartNewGame's two extra frames, which come out of this
     CHECK(SeekEntity("cursor.ent") != nullptr);
 }
 
@@ -1388,8 +1402,8 @@ void ScenarioBridgeAndBoss(Game& g) {
     g.base.cursor = kNewGameButton;
     g.Steps(3);
     CHECK(LastButton() == "novo_jogo");
-    const uint gameStart = g.Frame() + 1;
-    g.Step(g.With({K_RETURN, K_3}));
+    const uint gameStart = g.Frame() + 3;   // E36: the third frame of StartNewGame, the Enter that chooses and starts
+    StartNewGame(g, {K_3});   // E36: Enter opens the difficulty prompt, a second Enter starts at Normal
     const InputFrame hold3 = g.With({K_3});
     const int loaded = WaitFor(g, 200, [] { return GetSceneFileName() == "scenes/level3.esc"; }, &hold3);
     std::printf("  level3.esc loaded %d frames after the press\n", loaded);
@@ -2053,17 +2067,16 @@ void ScenarioOptionsE10(Game& g) {
     CHECK(HudHas(g.m, "[ ] Desativa movimento suave"));
     CHECK(HudHas(g.m, "[\x95] Pausa ao perder o foco"));   // E13's, beside it
     CHECK(HudHas(g.m, "[ ] Continua sem o foco"));
-    CHECK(HudHas(g.m, "[\x95] Dificuldade normal"));   // E36's, beside the language chooser
-    CHECK(HudHas(g.m, "[ ] Dificuldade dif\xED" "cil"));   // E36
     CHECK(HudHas(g.m, "[<]"));
     CHECK(HudHas(g.m, "[>]"));
     CHECK(HudHas(g.m, "100%"));
     // The original's rows are still drawn where they were.
     CHECK(HudHas(g.m, "[\x95] Ativa pixel shaders"));
     CHECK(HudHas(g.m, "[\x95] Janela"));
+    CHECK(!HudHas(g.m, "Dificuldade"));   // E36: the difficulty is chosen at New Game; this screen has no row for it
 
-    // Four switches, each two 25 px rows 256 wide from x 255 (E36's 300 wide from x 600): a click on
-    // the second row selects it, one on the first selects it back.
+    // Three switches, each two 25 px rows 256 wide from x 255: a click on the
+    // second row selects it, one on the first selects it back.
     struct E10Switch {
         Script::Switch* widget;
         float x;
@@ -2076,8 +2089,6 @@ void ScenarioOptionsE10(Game& g) {
         {&Script::g_widescreen, 255.0f, 494.0f, "Tela larga (widescreen)", "Tela 4:3 (original)"},
         // E13's, in the second column (x 540-796) beside E8's.
         {&Script::g_pauseOnFocusLoss, 540.0f, 694.0f, "Pausa ao perder o foco", "Continua sem o foco"},
-        // E36's, to the right of the language chooser (x 600-900, y 564-614).
-        {&Script::g_difficulty, 600.0f, 564.0f, "Dificuldade normal", "Dificuldade dif\xED" "cil"},
     };
     const auto switchRow = [&](const E10Switch& row) {
         CHECK_EQ(row.widget->getCurrent(), 0u);
@@ -2105,13 +2116,11 @@ void ScenarioOptionsE10(Game& g) {
     CHECK_EQ(Script::g_language.getCurrent(), 6u);
     CHECK(WaitForHud(g, "{language:pt}", 3));
     switchRow(e10Switches[2]);
-    switchRow(e10Switches[3]);   // E36
     // None of them moved the original's switches, nor E8's beside E13's.
     CHECK_EQ(Script::g_smoothMotion.getCurrent(), 0u);
     CHECK_EQ(Script::g_enablePS.getCurrent(), 0u);
     CHECK_EQ(Script::g_windowed.getCurrent(), 0u);
     CHECK_EQ(Script::g_controls.getCurrent(), 0u);
-    CHECK_EQ(Script::g_difficulty.getCurrent(), Script::DIFFICULTY_NORMAL);   // E36: switchRow put it back, and the other rows left it alone
 
     // Two steppers, one 25 px row each from x 255: the label column is 180 px,
     // then "[<]" in x 435-475, the value, "[>]" in x 535-575. They stop at 0
@@ -2164,7 +2173,7 @@ void ScenarioOptionsE10(Game& g) {
     const int backAfter = WaitFor(g, 3, [] { return GetSceneFileName() == "scenes/menu.esc"; });
     std::printf("  ESC: menu.esc loaded %d frames later\n", backAfter);
     CHECK(backAfter >= 0);
-    g.Steps(10);
+    g.Steps(8);   // E36: 10 before; the next scenario's start now takes StartNewGame's two extra frames, which come out of this
 }
 
 // === 15. level2 by the K_2 cheat, and the play_sound markers =================================
@@ -2186,7 +2195,7 @@ void ScenarioPlaySound(Game& g) {
     g.base.cursor = kNewGameButton;
     g.Steps(3);
     CHECK(LastButton() == "novo_jogo");
-    g.Step(g.With({K_RETURN, K_2}));
+    StartNewGame(g, {K_2});   // E36: Enter opens the difficulty prompt, a second Enter starts at Normal
     const InputFrame hold2 = g.With({K_2});
     const int loaded = WaitFor(g, 200, [] { return GetSceneFileName() == "scenes/level2.esc"; }, &hold2);
     const uint loadFrame = g.Frame();
@@ -3010,9 +3019,10 @@ void ScenarioArenas(Game& g) {
 
 // === 27. Hard (E36): the panels, the king, the end screen and the two lists ======================   // E36
 //
-// The options' choice is read when New Game's fade ends (newGame): level3 by the K_3 cheat, as scenario 6b+8 gets
-// there, then the king and the warriors he summons with twice the hp and the experience they always gave, the end
-// screen naming the difficulty and the time going into Hard's list alone, beside the Normal record scenario 6b+8 set.
+// New Game's prompt chooses Hard (Down, Enter) and the choice is read when its fade ends (newGame): level3 by the K_3
+// cheat, as scenario 6b+8 gets there, then the king and the warriors he summons with twice the hp and the experience they
+// always gave, the end screen naming the difficulty and the time going into Hard's list alone, beside the Normal record
+// scenario 6b+8 set. Scenario 28 pins the prompt itself.
 
 void ScenarioHardE36(Game& g) {                                                                    // E36
     CHECK(EnsureMenu(g));
@@ -3021,8 +3031,8 @@ void ScenarioHardE36(Game& g) {                                                 
     CHECK(normalBest < Script::DEFAULT_RECORD_TIME);   // scenario 6b+8's record
     CHECK_EQ(Script::getGetBestTime(Script::DIFFICULTY_HARD), Script::DEFAULT_RECORD_TIME);
 
-    std::printf("-- the panels name the difficulty and show both lists\n");
-    Script::g_difficulty.setCurrent(Script::DIFFICULTY_HARD);
+    std::printf("-- the best times panel shows both lists; New Game's panel is the story alone\n");
+    Script::g_difficulty.setCurrent(Script::DIFFICULTY_NORMAL);
     g.base.cursor = kRecordsButton;
     g.Steps(3);
     CHECK(LastButton() == "melhores_tempos");
@@ -3031,23 +3041,27 @@ void ScenarioHardE36(Game& g) {                                                 
     g.base.cursor = kNewGameButton;
     g.Steps(3);
     CHECK(LastButton() == "novo_jogo");
-    CHECK(WaitForHud(g, "Dificuldade: Dif\xED" "cil", 3));
-    CHECK(HudHas(g.m, "Mude em Configura\xE7\xF5" "es."));
-    Script::g_difficulty.setCurrent(Script::DIFFICULTY_NORMAL);
-    g.Steps(2);
-    CHECK(WaitForHud(g, "Dificuldade: Normal", 3));
-    Script::g_difficulty.setCurrent(Script::DIFFICULTY_HARD);
-    g.Steps(2);
+    CHECK(WaitForHud(g, Script::novo_jogo, 3));
+    CHECK(!HudHas(g.m, "Dificuldade"));
 
-    std::printf("-- New game with 3 held (main.as:112-113): level3, in Hard\n");
+    std::printf("-- New game with 3 held (main.as:112-113): the prompt, Down to Hard, Enter: level3, in Hard\n");
     g.Step(g.With({K_RETURN, K_3}));
+    const ETHEntity promptCursor = SeekEntity("cursor.ent");
+    CHECK(promptCursor != nullptr && promptCursor->CheckCustomData("pickDifficulty") != DT_NODATA);
+    g.Step(g.With({K_3}));
+    g.Step(g.With({K_DOWN, K_3}));
+    CHECK(promptCursor != nullptr && promptCursor->GetUIntData("pickRow") == Script::DIFFICULTY_HARD);
+    CHECK_EQ(Script::g_difficulty.getCurrent(), Script::DIFFICULTY_NORMAL);   // lit, not chosen
+    g.Step(g.With({K_3}));
+    g.Step(g.With({K_RETURN, K_3}));
+    CHECK_EQ(Script::g_difficulty.getCurrent(), Script::DIFFICULTY_HARD);
     const InputFrame hold3 = g.With({K_3});
     const int loaded = WaitFor(g, 200, [] { return GetSceneFileName() == "scenes/level3.esc"; }, &hold3);
     std::printf("  level3.esc loaded %d frames after the press; the run is %s\n", loaded,
                 Script::g_runDifficulty == Script::DIFFICULTY_HARD ? "Hard" : "Normal");
     CHECK(loaded >= 180 && loaded <= 183);
     CHECK_EQ(Script::g_runDifficulty, Script::DIFFICULTY_HARD);
-    // The options' switch is read once, when the run starts: put back now, the run stays Hard.
+    // The holder is read once, when the run starts: put back now, the run stays Hard.
     Script::g_difficulty.setCurrent(Script::DIFFICULTY_NORMAL);
     CHECK_EQ(Script::g_runDifficulty, Script::DIFFICULTY_HARD);
     const ETHEntity p = WaitForPlayerReady(g, 240, "level3 start (Hard)");
@@ -3122,6 +3136,562 @@ void ScenarioHardE36(Game& g) {                                                 
     CHECK(HudHas(g.m, "\nDif\xED" "cil\n1    " + Script::getTimeString(record)));
     // The script module's globals outlive a Machine: leave the next runtime a Normal run.
     Script::g_runDifficulty = Script::DIFFICULTY_NORMAL;
+}                                                                                                  // E36
+
+// === 28. New Game's difficulty prompt (E36) =====================================================   // E36
+//
+// Confirming New Game no longer starts the campaign: it opens a prompt for the difficulty over the dimmed menu, and
+// choosing a row starts at once (menu.cpp). Driven as a player drives it, on the menu's own frames: it opens on the
+// remembered choice (Normal on a fresh state) and starts nothing; Up and Down light the other row, clamped, each change
+// sounding once, and the OS cursor does not drift under them; a pointer that MOVES onto a row lights it, one at rest
+// leaves the keys alone; Enter chooses the lit row wherever the pointer is, a click or a tap (the pointer and the button
+// in one frame) the row under it; Esc and a click outside the panel close it with nothing started, a click inside it on
+// no row does nothing; a pointer click or tap is ignored whole for the first 350 ms after the prompt opens (the second
+// click of a double-click on New Game lands on the button, outside the panel, or on a row a phone's panel has under
+// it), while Esc and Enter are never delayed - so every click below waits for kSettleTicks first, except those that
+// test the wait itself; Alt+Enter still switches the window and is no confirm; the system pointer is shown exactly while
+// the prompt is open (HideCursor, read by the layer from the snapshot); on a phone's larger menu (g_phonePanel) the
+// panel is centred in what the window shows of the screen, scaled as one, slid clear of the screen's left and right
+// edges when it would meet them (a rectangle that meets them is stretched out to the window's side), and its rows
+// answer where they are drawn. The holder g_difficulty is written by a chosen row alone, and newGame latches it when
+// the fade ends. Four starts, so four fades: Enter on Hard, a click on Normal, a tap on Hard, and a phone's double-tap
+// on Normal. HUD text lags a frame behind the callback that queued it (the snapshot is built before the callbacks run),
+// so the drawing is looked at a couple of frames later.   // E36
+
+// The front copy (the text's own colour, not its shadow's black) of a text the HUD holds.   // E36
+bool HudFrontText(const Machine& m, const string& text, HudCmd& out) {   // E36
+    for (const HudCmd& c : m.Snapshot().hud) {
+        if (c.kind == HudCmd::Kind::Text && c.text == text && (c.color & 0x00FFFFFFu) == 0x00CBCBE4u) {
+            out = c;
+            return true;
+        }
+    }
+    return false;
+}
+
+// Its alpha, or -1.   // E36
+int HudTextAlpha(const Machine& m, const string& text) {   // E36
+    HudCmd c;
+    return HudFrontText(m, text, c) ? static_cast<int>(c.color >> 24) : -1;
+}
+
+// A rectangle the HUD holds at `pos` of `size` (alpha -1: any).   // E36
+bool HudHasRect(const Machine& m, const vector2& pos, const vector2& size, const int alpha) {   // E36
+    for (const HudCmd& c : m.Snapshot().hud) {
+        if (c.kind != HudCmd::Kind::Rectangle) continue;
+        if (!test::nearly(c.pos.x, pos.x, 0.01f) || !test::nearly(c.pos.y, pos.y, 0.01f)) continue;
+        if (!test::nearly(c.size.x, size.x, 0.01f) || !test::nearly(c.size.y, size.y, 0.01f)) continue;
+        if (alpha < 0 || static_cast<int>(c.color >> 24) == alpha) return true;
+    }
+    return false;
+}
+
+bool PromptOpen() {   // E36
+    const ETHEntity cursor = SeekEntity("cursor.ent");
+    return cursor != nullptr && cursor->CheckCustomData("pickDifficulty") != DT_NODATA;
+}
+
+uint PromptRow() {   // E36
+    const ETHEntity cursor = SeekEntity("cursor.ent");
+    return cursor != nullptr ? cursor->GetUIntData("pickRow") : 99u;
+}
+
+bool GameStarting() {   // E36
+    const ETHEntity cursor = SeekEntity("cursor.ent");
+    return cursor != nullptr && cursor->CheckCustomData("newGame") != DT_NODATA;
+}
+
+// The pointer at `at` for the frames that follow, the OS cursor with it.   // E36
+void PlacePointer(Game& g, const vector2& at) {   // E36
+    g.base.cursor = at;
+    g.base.cursorAbsolute = at;
+}
+
+// The frame of a click: the pointer is put at `at` and the button goes down in the same frame, which is also what a
+// finger's tap is in a menu (TouchControls: the cursor and the held left button in one tick).   // E36
+InputFrame ClickFrame(Game& g, const vector2& at, const KEY button = K_LMOUSE) {   // E36
+    PlacePointer(g, at);
+    return g.With({button});
+}
+
+// Ticks that carry a pointer click past the prompt's settle time (Script::kPromptSettleTime, the number menu.cpp counts
+// with) whatever frame the prompt opened on: GetTime() is simulated ms, floor(frame * 1000 / 60), so n ticks are n * 16.67 ms
+// give or take one, and one tick more than the ceiling of 350 * 60 / 1000 (21) is past it with a millisecond to spare. A
+// click is made after OpenPrompt (a frame after the opening) and this many ticks of waiting.   // E36
+constexpr uint kSettleTicks = (Script::kPromptSettleTime * 60u + 999u) / 1000u + 1u;   // E36: 22
+
+// The menu with the pointer on New Game and the prompt open (checked), the Enter that opened it let go.   // E36
+void OpenPrompt(Game& g) {   // E36
+    PlacePointer(g, kNewGameButton);
+    g.Steps(3);
+    CHECK(LastButton() == "novo_jogo");
+    g.Step(g.With({K_RETURN}));
+    CHECK(PromptOpen());
+    CHECK(!GameStarting());
+    g.Step();
+}
+
+// After the frame that chose `difficulty`: the choice is the holder's, the prompt is gone and not drawn again, the 3 s
+// fade says "Carregando...", level 1 loads 180-183 frames after the pick and newGame latched the choice, which nothing
+// wrote again meanwhile.   // E36
+void FinishPick(Game& g, const uint difficulty, const char* what) {   // E36
+    CHECK(GameStarting());
+    CHECK(!PromptOpen());
+    CHECK(g.m.CursorHidden());   // the pick's own frame hid the system pointer again
+    CHECK_EQ(Script::g_difficulty.getCurrent(), difficulty);
+    int evaluations = 0;
+    bool prompted = false;
+    bool loading = false;
+    const int loaded = WaitFor(g, 240, [&] {
+        if (++evaluations > 2) {   // the first looks at what the frame before the pick drew
+            prompted = prompted || HudHas(g.m, "Escolha a dificuldade");
+            loading = loading || HudHas(g.m, "Carregando...");
+        }
+        return GetSceneFileName() == "scenes/level1.esc";
+    });
+    std::printf("  %s: level1.esc loaded %d frames after the pick; the run is %s\n", what, loaded,
+                Script::g_runDifficulty == Script::DIFFICULTY_HARD ? "Hard" : "Normal");
+    CHECK(loaded >= 180 && loaded <= 183);
+    CHECK(!prompted);
+    CHECK(loading);
+    CHECK(g.m.Snapshot().cursorHidden);   // and the level, where the menu's callback no longer runs, is entered with it hidden
+    CHECK_EQ(Script::g_runDifficulty, difficulty);
+    CHECK_EQ(Script::g_difficulty.getCurrent(), difficulty);
+}
+
+// Every text of the prompt is where `box` says, at its scale, with its box's right edge for a right-to-left language.   // E36
+void CheckPromptTexts(const Machine& m, const Script::DifficultyPromptBox& box) {   // E36
+    struct Want {
+        string text;
+        vector2 pos;
+        float size;
+        float right;
+    };
+    const Want wants[] = {
+        {"Escolha a dificuldade", box.titlePos, 40.0f * box.scale, box.titleRight},
+        {"Normal", box.labelPos[0], 34.0f * box.scale, box.textRight[0]},
+        {"Os inimigos como no jogo original.", box.descPos[0], 22.0f * box.scale, box.textRight[0]},
+        {("Dif\xED" "cil"), box.labelPos[1], 34.0f * box.scale, box.textRight[1]},   // (parentheses: -Wstring-concatenation)
+        {"Os inimigos t\xEAm o dobro de vida.", box.descPos[1], 22.0f * box.scale, box.textRight[1]},
+    };
+    for (const Want& w : wants) {
+        HudCmd c;
+        const bool found = HudFrontText(m, w.text, c);
+        CHECK_MSG(found, Utf8(w.text));
+        if (!found) continue;
+        CHECK_MSG(test::nearly(c.pos.x, w.pos.x, 0.01f) && test::nearly(c.pos.y, w.pos.y, 0.01f), Utf8(w.text));
+        CHECK_MSG(test::nearly(c.fontSize, w.size, 0.01f), Utf8(w.text));
+        CHECK_MSG(test::nearly(c.rtlRight, w.right, 0.01f), Utf8(w.text));
+        CHECK_MSG(c.font == "Arial Narrow", Utf8(w.text));
+    }
+}
+
+// The prompt's rectangles - the panel's gradient, its four edge lines, the rows' fills and the lit row's bar - are not
+// the screen's whole width: none has an edge within half a pixel of x 0 or x 1024, where HudRenderer::addRectangle
+// (kEdge) would take it for a fade and stretch it out to the window's side as a dark band. The backdrop is the whole
+// screen and is meant to be.   // E36
+void CheckNoStretchedRectangle(const Machine& m) {   // E36
+    const vector2 screen = GetScreenSize();
+    int panel = 0;
+    for (const HudCmd& c : m.Snapshot().hud) {
+        if (c.kind != HudCmd::Kind::Rectangle) continue;
+        if (test::nearly(c.pos.x, 0.0f, 0.01f) && test::nearly(c.pos.y, 0.0f, 0.01f) &&
+            test::nearly(c.size.x, screen.x, 0.01f) && test::nearly(c.size.y, screen.y, 0.01f)) {
+            continue;
+        }
+        ++panel;
+        const float left = std::min(c.pos.x, c.pos.x + c.size.x);
+        const float right = std::max(c.pos.x, c.pos.x + c.size.x);
+        CHECK_MSG(left > 0.5f && right < screen.x - 0.5f,
+                  "a rectangle at x " + std::to_string(left) + " to " + std::to_string(right));
+    }
+    CHECK_EQ(panel, 8);
+}
+
+void ScenarioNewGamePromptE36(Game& g) {   // E36
+    namespace S = Script;
+    CHECK(EnsureMenu(g));
+
+    std::printf("-- opened in the menu's first seconds, the prompt is drawn over the fade-in, not under it\n");
+    LoadScene("scenes/menu.esc", "menuPreLoop", "menuLoop", vector2(1024.0f, 256.0f));   // a fresh menu: its fade-in starts now
+    WaitFor(g, 3, [] { return GetSceneFileName() == "scenes/menu.esc"; });
+    g.Steps(10);
+    PlacePointer(g, kNewGameButton);
+    g.Steps(3);
+    g.Step(g.With({K_RETURN}));
+    g.Steps(2);
+    CHECK(PromptOpen());
+    {
+        const auto& hud = g.m.Snapshot().hud;
+        int title = -1;
+        for (std::size_t i = 0; i < hud.size(); ++i) {
+            if (hud[i].kind == HudCmd::Kind::Text && hud[i].text == "Escolha a dificuldade") title = static_cast<int>(i);
+        }
+        CHECK_MSG(title >= 0, "the prompt's title is drawn");
+        int veils = 0;   // a rectangle over the whole screen, drawn after the title, that is not clear
+        for (std::size_t i = static_cast<std::size_t>(title < 0 ? 0 : title); i < hud.size(); ++i) {
+            if (hud[i].kind == HudCmd::Kind::Rectangle && hud[i].size == GetScreenSize() && (hud[i].color >> 24) > 0u) ++veils;
+        }
+        CHECK_MSG(veils == 0, "no full-screen rectangle (the menu's fade-in) is drawn after the prompt");
+    }
+    g.Step(g.With({K_ESC}));
+    g.Steps(3);
+    CHECK(!PromptOpen());
+
+    g.Steps(200);   // past the menu's 3 s fade-in, whose black rectangle covers the screen as the prompt's backdrop does
+    const S::PhonePanel savedPanel = S::g_phonePanel;
+    const bool savedWarp = g.warpCursor;
+    const WindowRequest savedWindow = g.m.Window();
+    S::g_phonePanel = S::PhonePanel{};              // a window: the desktop's layout
+    S::g_difficulty.setCurrent(S::DIFFICULTY_NORMAL);   // a fresh state: the very first time the prompt opens on Normal
+    const vector2 normalCentre(512.0f, 359.0f);     // the rows' centres in the desktop's layout
+    const vector2 hardCentre(512.0f, 469.0f);
+
+    std::printf("-- hovering New Game shows the story alone\n");
+    PlacePointer(g, kNewGameButton);
+    g.Steps(3);
+    CHECK(LastButton() == "novo_jogo");
+    CHECK(WaitForHud(g, S::novo_jogo, 3));
+    CHECK(!HudHas(g.m, "ificuldade"));
+    CHECK(!HudHas(g.m, "Mude em Configura"));
+    CHECK(!PromptOpen());
+    CHECK(g.m.CursorHidden());                // the menu draws its own pointer (cursor.ent) and the system's is hidden
+    CHECK(g.m.Snapshot().cursorHidden);
+
+    std::printf("-- Enter on New Game opens the prompt and starts nothing; it opens on Normal\n");
+    const uint pressed = g.Frame() + 1;
+    g.Step(g.With({K_RETURN}));
+    CHECK(PromptOpen());
+    CHECK(!GameStarting());
+    CHECK(!g.m.CursorHidden());               // the opening frame already asks for the system pointer
+    CHECK_EQ(PromptRow(), S::DIFFICULTY_NORMAL);
+    g.Steps(10);
+    CHECK(PromptOpen());
+    CHECK(!GameStarting());
+    CHECK(!g.m.CursorHidden());               // the layer shows the system pointer over the panel, which covers cursor.ent
+    CHECK(!g.m.Snapshot().cursorHidden);      // (the snapshot is built before the callbacks: a frame behind the call)
+    CHECK(GetSceneFileName() == "scenes/menu.esc");
+    CHECK(!HudHas(g.m, "Carregando..."));
+    CHECK(!g.sound.PlayedSince("newgame.mp3", pressed));
+    CHECK_EQ(S::g_difficulty.getCurrent(), S::DIFFICULTY_NORMAL);
+    CHECK(!HudHas(g.m, S::novo_jogo));   // no panel behind it
+    CHECK(HudHas(g.m, "Escolha a dificuldade"));
+    CHECK_EQ(HudTextAlpha(g.m, "Normal"), 255);
+    CHECK_EQ(HudTextAlpha(g.m, "Dif\xED" "cil"), 100);
+
+    std::printf("-- the panel: 560 x 330 centred on the 1024 x 768 screen, over a dimmed menu\n");
+    const S::DifficultyPromptBox desk = S::difficultyPromptBox();
+    CHECK_NEAR(desk.scale, 1.0f);
+    CHECK(desk.panelMin == vector2(232.0f, 219.0f));
+    CHECK(desk.panelMax == vector2(792.0f, 549.0f));
+    CHECK(desk.rowMin[0] == vector2(256.0f, 309.0f) && desk.rowMax[0] == vector2(768.0f, 409.0f));
+    CHECK(desk.rowMin[1] == vector2(256.0f, 419.0f) && desk.rowMax[1] == vector2(768.0f, 519.0f));
+    CHECK_NEAR(desk.titleRight, 768.0f);       // the title's box: the panel's 512 px inner width
+    CHECK_NEAR(desk.textRight[0], 758.0f);     // a row's text box: 480 px from 22 px in
+    CHECK_NEAR(desk.textRight[1], 758.0f);
+    CHECK(HudHasRect(g.m, vector2(0.0f, 0.0f), vector2(1024.0f, 768.0f), 150));   // the backdrop: the whole screen
+    CHECK(HudHasRect(g.m, desk.panelMin, desk.panelMax - desk.panelMin, -1));
+    CheckPromptTexts(g.m, desk);
+
+    std::printf("-- Up and Down light the other row, clamped, each change sounding once; the cursor does not drift\n");
+    g.warpCursor = true;   // the harness then carries a SetCursorPos of the scripts into the next frame's cursor
+    const vector2 resting = g.base.cursor;
+    const uint keysFrom = g.Frame() + 1;
+    g.Step(g.With({K_DOWN}));
+    CHECK_EQ(PromptRow(), S::DIFFICULTY_HARD);
+    g.Steps(5, g.With({K_DOWN}));   // held: no new edge, and no 5 px a frame
+    CHECK_EQ(PromptRow(), S::DIFFICULTY_HARD);
+    g.Step();
+    g.Step(g.With({K_DOWN}));       // already on the last row: no wrap
+    CHECK_EQ(PromptRow(), S::DIFFICULTY_HARD);
+    g.Step();
+    g.Step(g.With({K_UP}));
+    CHECK_EQ(PromptRow(), S::DIFFICULTY_NORMAL);
+    g.Step();
+    g.Step(g.With({K_UP}));         // already on the first
+    CHECK_EQ(PromptRow(), S::DIFFICULTY_NORMAL);
+    g.Step();
+    g.warpCursor = savedWarp;
+    CHECK_NEAR(g.base.cursor.x, resting.x);
+    CHECK_NEAR(g.base.cursor.y, resting.y);
+    CHECK_EQ(g.sound.PlayCount("help.mp3", keysFrom), 2u);   // Down once, Up once
+    CHECK(PromptOpen());
+    CHECK(!GameStarting());
+    CHECK_EQ(S::g_difficulty.getCurrent(), S::DIFFICULTY_NORMAL);
+
+    std::printf("-- a pointer that moves onto a row lights it; one at rest leaves the keys alone\n");
+    PlacePointer(g, hardCentre);
+    g.Steps(2);
+    CHECK_EQ(PromptRow(), S::DIFFICULTY_HARD);
+    CHECK_EQ(S::g_difficulty.getCurrent(), S::DIFFICULTY_NORMAL);   // lit by hovering, not chosen
+    g.Step(g.With({K_UP}));
+    g.Steps(5);
+    CHECK_EQ(PromptRow(), S::DIFFICULTY_NORMAL);   // the pointer rests on Hard's row and stays out of it
+    PlacePointer(g, hardCentre + vector2(1.0f, 0.0f));
+    g.Steps(2);
+    CHECK_EQ(PromptRow(), S::DIFFICULTY_HARD);     // it moved again
+    PlacePointer(g, vector2(512.0f, 414.0f));      // the 10 px between the rows: on neither
+    g.Steps(2);
+    CHECK_EQ(PromptRow(), S::DIFFICULTY_HARD);
+    PlacePointer(g, normalCentre);
+    g.Steps(2);
+    CHECK_EQ(PromptRow(), S::DIFFICULTY_NORMAL);
+    CHECK_EQ(HudTextAlpha(g.m, "Normal"), 255);
+    CHECK_EQ(HudTextAlpha(g.m, "Dif\xED" "cil"), 100);
+    CHECK(PromptOpen());
+    CHECK(!GameStarting());
+    CHECK_EQ(S::g_difficulty.getCurrent(), S::DIFFICULTY_NORMAL);
+
+    std::printf("-- Esc closes the prompt; a click outside the panel closes it, and the system pointer is hidden again\n");
+    g.Step(g.With({K_ESC}));
+    CHECK(!PromptOpen());
+    CHECK(!GameStarting());
+    CHECK(g.m.CursorHidden());                // the frame that closed it hid the system pointer again
+    CHECK_EQ(S::g_difficulty.getCurrent(), S::DIFFICULTY_NORMAL);
+    CHECK(GetSceneFileName() == "scenes/menu.esc");
+    g.Steps(3);
+    CHECK(!HudHas(g.m, "Escolha a dificuldade"));
+    CHECK(g.m.Snapshot().cursorHidden);
+    OpenPrompt(g);   // opening, cancelling and reopening
+    CHECK_EQ(PromptRow(), S::DIFFICULTY_NORMAL);
+    g.Steps(kSettleTicks);   // a pointer click is ignored for the first 350 ms (Script::kPromptSettleTime)
+    g.Step(ClickFrame(g, vector2(100.0f, 700.0f)));   // a tap far outside the panel
+    CHECK(!PromptOpen());
+    CHECK(!GameStarting());
+    CHECK(g.m.CursorHidden());
+    CHECK_EQ(S::g_difficulty.getCurrent(), S::DIFFICULTY_NORMAL);
+    g.Step();
+    CHECK(g.m.Snapshot().cursorHidden);
+
+    std::printf("-- the second click of a double-click is ignored whole at first - on the New Game button, outside the panel, "
+                "or on a row - and Esc is never delayed\n");
+    CHECK(kNewGameButton.y < desk.panelMin.y);   // the button's line (y 213) is 6 px above the panel's top (219)
+    OpenPrompt(g);                    // frame N opened it, N+1 let the key go
+    g.Step(g.With({K_ESC}));          // N+2
+    CHECK(!PromptOpen());
+    CHECK(!GameStarting());
+    CHECK(g.m.CursorHidden());
+    g.Step();
+    OpenPrompt(g);
+    g.Steps(3);
+    g.Step(ClickFrame(g, kNewGameButton));   // N+5, 83 ms after the first click opened it
+    CHECK(PromptOpen());
+    CHECK(!GameStarting());
+    CHECK_EQ(PromptRow(), S::DIFFICULTY_NORMAL);
+    CHECK(!g.m.CursorHidden());
+    g.Step();
+    g.Step(g.With({K_ESC}));
+    CHECK(!PromptOpen());
+    g.Step();
+    OpenPrompt(g);
+    g.Steps(38);
+    g.Step(ClickFrame(g, kNewGameButton));   // N+40, 666 ms after: the same click now closes it
+    CHECK(!PromptOpen());
+    CHECK(!GameStarting());
+    CHECK(g.m.CursorHidden());
+    CHECK_EQ(S::g_difficulty.getCurrent(), S::DIFFICULTY_NORMAL);
+    g.Step();
+    // A click on Hard's row 5 frames after the prompt opened: it starts nothing and the prompt stays. The pointer arriving on the row
+    // still lights it (the highlight follows a pointer that moved); the choice is the holder's, and that is still Normal.
+    OpenPrompt(g);
+    g.Steps(3);
+    const uint earlyTap = g.Frame() + 1;
+    g.Step(ClickFrame(g, hardCentre));       // N+5
+    CHECK(PromptOpen());
+    CHECK(!GameStarting());
+    CHECK(!g.sound.PlayedSince("newgame.mp3", earlyTap));
+    CHECK_EQ(S::g_difficulty.getCurrent(), S::DIFFICULTY_NORMAL);
+    CHECK_EQ(PromptRow(), S::DIFFICULTY_HARD);
+    g.Step();
+    CHECK(PromptOpen());
+    CHECK(!GameStarting());
+    g.Step(g.With({K_ESC}));                 // Esc is not delayed: N+7
+    CHECK(!PromptOpen());
+    g.Step();
+
+    std::printf("-- a click inside the panel on no row does nothing\n");
+    OpenPrompt(g);
+    g.Steps(kSettleTicks);
+    g.Step(ClickFrame(g, vector2(512.0f, 245.0f)));   // inside the panel, above the rows
+    CHECK(PromptOpen());
+    CHECK(!GameStarting());
+    CHECK_EQ(PromptRow(), S::DIFFICULTY_NORMAL);
+    g.Step();
+    g.Step(ClickFrame(g, vector2(512.0f, 414.0f), K_RMOUSE));   // the gap between the rows, the right button
+    CHECK(PromptOpen());
+    CHECK(!GameStarting());
+    CHECK_EQ(PromptRow(), S::DIFFICULTY_NORMAL);
+    CHECK_EQ(S::g_difficulty.getCurrent(), S::DIFFICULTY_NORMAL);
+    g.Step();
+
+    std::printf("-- Alt+Enter still switches the window over the prompt, and is no confirm\n");
+    const bool windowed = g.m.Window().windowed;
+    g.Step(g.With({K_ALT}));
+    g.Step(g.With({K_ALT, K_RETURN}));
+    CHECK(g.m.Window().windowed != windowed);
+    CHECK(PromptOpen());
+    CHECK(!GameStarting());
+    g.Step(g.With({K_ALT}));
+    g.Step(g.With({K_ALT, K_RETURN}));
+    CHECK(g.m.Window().windowed == windowed);
+    CHECK(PromptOpen());
+    CHECK(!GameStarting());
+    g.Step();
+    g.m.Window() = savedWindow;   // the toggle set the size as well
+
+    std::printf("-- on a phone's larger menu the panel is centred in what the window shows, scaled as one, and slid clear of "
+                "the screen's edges\n");
+    // What PhoneUi's ComputeMenuFrame / ComputeMenuPanel give a 2992 x 1344 phone with a 199 px cutout at its left
+    // (frame.scale 2.317, baseScale 1.75): the window shows x 30 to 1235.4 and y 20 to 600 of the screen, the panel's
+    // text box ends 10 px short of x 1235.4, and text scales from 0.755 (E1's size) to 1.208 (1.6 times it). Centred, the
+    // panel (560 x 1.208 = 676.5 wide) stands at x 294.5 to 970.9: inside the screen's 1024 less its 2 px margin, so it is
+    // not slid.
+    const S::PhonePanel bigPhone{true, vector2(642.8f, 40.0f), vector2(1225.4f, 590.0f), 0.755f, 1.208f,
+                                 vector2(30.0f, 20.0f), vector2(1235.4f, 600.0f), false};
+    S::g_phonePanel = bigPhone;
+    const S::DifficultyPromptBox big = S::difficultyPromptBox();
+    // The fit would allow min(1205.4 x 0.84 / 560, 580 x 0.84 / 330) = 1.476: maxScale holds it at 1.208.
+    CHECK(test::nearly(big.scale, 1.208f, 1e-4f));
+    CHECK(test::nearly(0.5f * (big.panelMin.x + big.panelMax.x), 0.5f * (30.0f + 1235.4f), 0.01f));   // 632.7
+    CHECK(test::nearly(big.panelMax.x, 632.7f + 0.5f * 560.0f * 1.208f, 0.01f));                       // 970.94
+    CHECK(test::nearly(0.5f * (big.panelMin.y + big.panelMax.y), 0.5f * (20.0f + 600.0f), 0.01f));
+    CHECK(test::nearly(big.panelMax.x - big.panelMin.x, 560.0f * 1.208f, 0.01f));
+    CHECK(test::nearly(big.panelMax.y - big.panelMin.y, 330.0f * 1.208f, 0.01f));
+    CHECK(test::nearly(big.rowMax[1].x - big.rowMin[1].x, 512.0f * 1.208f, 0.01f));
+    CHECK(test::nearly(big.rowMax[1].y - big.rowMin[1].y, 100.0f * 1.208f, 0.01f));
+    CHECK(test::nearly(big.rowMin[1].y - big.rowMin[0].y, 110.0f * 1.208f, 0.01f));
+    CHECK(big.panelMin.x >= 30.0f && big.panelMax.x <= 1022.0f && big.panelMin.y >= 20.0f && big.panelMax.y <= 600.0f);    g.Steps(3);
+    CHECK(HudHasRect(g.m, big.panelMin, big.panelMax - big.panelMin, -1));
+    CheckPromptTexts(g.m, big);
+    CheckNoStretchedRectangle(g.m);
+    // The rows answer where they are drawn: these two points are on no row in the desktop's layout.
+    PlacePointer(g, (big.rowMin[1] + big.rowMax[1]) * 0.5f);
+    g.Steps(2);
+    CHECK_EQ(PromptRow(), S::DIFFICULTY_HARD);
+    PlacePointer(g, (big.rowMin[0] + big.rowMax[0]) * 0.5f);
+    g.Steps(2);
+    CHECK_EQ(PromptRow(), S::DIFFICULTY_NORMAL);
+    CHECK(PromptOpen());
+    // A 21:9 phone, 2640 x 1080 and no cutout (frame.scale 1.862, baseScale 1.406), shows x 30.07 to 1447.85, far past
+    // the screen's 1024: centred in all of that (at x 738.96) the panel, 676.65 wide, would stand at x 400.6 to 1077.3,
+    // and each of its rectangles would be taken for a fade at the right edge and stretched out to the window's side. It
+    // is slid left by the 55.28 it overshoots x 1022 by, to 345.35 to 1022 (centre 683.68).
+    S::g_phonePanel = S::PhonePanel{true, vector2(642.8f, 39.87f), vector2(1437.85f, 589.87f), 0.7552f, 1.2083f,
+                                    vector2(30.07f, 19.87f), vector2(1447.85f, 599.87f), false};
+    const S::DifficultyPromptBox wide = S::difficultyPromptBox();
+    CHECK(test::nearly(wide.scale, 1.2083f, 1e-4f));
+    CHECK(test::nearly(wide.panelMax.x, 1022.0f, 0.01f));
+    CHECK(test::nearly(wide.panelMin.x, 1022.0f - 560.0f * 1.2083f, 0.01f));                           // 345.35
+    CHECK(test::nearly(0.5f * (wide.panelMin.x + wide.panelMax.x), 0.5f * (30.07f + 1447.85f) - 55.284f, 0.01f));
+    CHECK(wide.panelMin.x > 1.0f && wide.panelMax.x < 1023.0f);
+    CHECK(test::nearly(wide.titlePos.x, wide.panelMin.x + 24.0f * 1.2083f, 0.01f));                    // moved with it
+    CHECK(test::nearly(wide.rowMin[1].x, wide.panelMin.x + 24.0f * 1.2083f, 0.01f));
+    g.Steps(3);
+    CHECK(HudHasRect(g.m, wide.panelMin, wide.panelMax - wide.panelMin, -1));
+    CheckPromptTexts(g.m, wide);
+    CheckNoStretchedRectangle(g.m);
+    // A smaller window: the fit decides. It shows x 30 to 700 and y 20 to 420, so 8 percent of each (53.6 and 32 px)
+    // stay free at the sides: min(670 x 0.84 / 560, 400 x 0.84 / 330) = 1.005, under maxScale 1.2.
+    S::g_phonePanel = S::PhonePanel{true, vector2(80.0f, 30.0f), vector2(690.0f, 410.0f), 0.8f, 1.2f,
+                                    vector2(30.0f, 20.0f), vector2(700.0f, 420.0f), false};
+    const S::DifficultyPromptBox small = S::difficultyPromptBox();
+    CHECK(test::nearly(small.scale, 670.0f * 0.84f / 560.0f, 1e-3f));
+    CHECK(small.scale < 1.2f);
+    CHECK(small.panelMin.x >= 30.0f + 53.6f - 0.01f && small.panelMax.x <= 700.0f - 53.6f + 0.01f);
+    CHECK(small.panelMin.y >= 20.0f + 32.0f - 0.01f && small.panelMax.y <= 420.0f - 32.0f + 0.01f);
+    // (700, 500) is inside Hard's row in the desktop's layout and outside this panel: a click there closes the prompt
+    // (it opened before the settle wait of the click inside the panel, long ago).
+    g.Step(ClickFrame(g, vector2(700.0f, 500.0f)));
+    CHECK(!PromptOpen());
+    CHECK(!GameStarting());
+    g.Step();
+    S::g_phonePanel = savedPanel;
+    CHECK_EQ(S::g_difficulty.getCurrent(), S::DIFFICULTY_NORMAL);
+
+    std::printf("-- a phone's double-tap on New Game: the second tap lands on row 0 and is ignored until the prompt has settled\n");
+    // New Game is hovered while the cursor's 31 x 31 box (cursor.ent) meets its 369 x 25 one (menu.esc: the entity at (434, 209),
+    // the box centred 18 left and 4 down of it, so on (416, 213)): pointer x 216 to 616 and y 185 to 241 (213 + 12.5 + 15.5).
+    // On the 2992 x 1344 phone above, row 0 starts at y 219.3, so a pointer at y 219.3 to 241 is both on New Game's button
+    // and on that row: the first tap opens the prompt, and the second, a few ticks later in the same place, is on a row.
+    S::g_phonePanel = bigPhone;
+    const float hoverBottom = 209.0f + 4.0f + 25.0f * 0.5f + 31.0f * 0.5f;
+    CHECK(big.rowMin[0].y < hoverBottom - 10.0f);        // a strip at least 10 px deep
+    const vector2 strip(416.0f, 0.5f * (big.rowMin[0].y + hoverBottom));
+    CHECK(strip.x > big.rowMin[0].x && strip.x < big.rowMax[0].x);
+    CHECK(strip.y > big.rowMin[0].y && strip.y < big.rowMax[0].y);
+    PlacePointer(g, strip);
+    g.Steps(3);
+    CHECK(WaitForHud(g, S::novo_jogo, 3));              // the point is on New Game: hovering it shows its story
+    CHECK(!PromptOpen());
+    const uint firstTap = g.Frame() + 1;
+    g.Step(g.With({K_LMOUSE}));                         // the first tap, N: opens the prompt, which opens on Normal
+    CHECK(PromptOpen());
+    CHECK(!GameStarting());
+    g.Step();                                           // N+1
+    g.Steps(3);
+    g.Step(ClickFrame(g, strip));                       // N+5: the second tap, on row 0
+    CHECK(PromptOpen());
+    CHECK(!GameStarting());
+    CHECK(!g.sound.PlayedSince("newgame.mp3", firstTap));
+    CHECK_EQ(S::g_difficulty.getCurrent(), S::DIFFICULTY_NORMAL);
+    g.Step();
+    g.Steps(kSettleTicks);
+    g.Step(ClickFrame(g, strip));                       // the same tap once the prompt has settled: row 0, Normal
+    CHECK(g.sound.PlayedSince("newgame.mp3", firstTap));
+    S::g_phonePanel = savedPanel;
+    FinishPick(g, S::DIFFICULTY_NORMAL, "phone double-tap");
+    g.Steps(30);
+    CHECK(EnsureMenu(g));
+
+    std::printf("-- Down, then Enter with the pointer parked outside the panel: starts at Hard\n");
+    OpenPrompt(g);
+    PlacePointer(g, vector2(100.0f, 700.0f));
+    g.Steps(2);
+    CHECK(PromptOpen());   // a pointer outside the panel closes nothing: only a click does
+    g.Step(g.With({K_DOWN}));
+    g.Step();
+    CHECK_EQ(PromptRow(), S::DIFFICULTY_HARD);
+    const uint hardPress = g.Frame() + 1;
+    g.Step(g.With({K_RETURN}));
+    CHECK(g.sound.PlayedSince("newgame.mp3", hardPress));
+    const ETHEntity starting = SeekEntity("cursor.ent");
+    CHECK(starting != nullptr && starting->GetStringData("scene") == "CAMPAIGN");
+    FinishPick(g, S::DIFFICULTY_HARD, "Enter");
+    g.Steps(30);
+    CHECK(EnsureMenu(g));
+
+    std::printf("-- the choice is remembered; a click on the Normal row starts Normal\n");
+    OpenPrompt(g);
+    CHECK_EQ(PromptRow(), S::DIFFICULTY_HARD);
+    g.Steps(2);
+    CHECK_EQ(HudTextAlpha(g.m, "Dif\xED" "cil"), 255);
+    CHECK_EQ(HudTextAlpha(g.m, "Normal"), 100);
+    PlacePointer(g, normalCentre);
+    g.Steps(2);
+    CHECK_EQ(PromptRow(), S::DIFFICULTY_NORMAL);
+    CHECK_EQ(S::g_difficulty.getCurrent(), S::DIFFICULTY_HARD);   // lit, not chosen: the last choice stands
+    g.Steps(kSettleTicks);   // a click chooses nothing in the prompt's first 350 ms
+    g.Step(ClickFrame(g, normalCentre));
+    FinishPick(g, S::DIFFICULTY_NORMAL, "click");
+    g.Steps(30);
+    CHECK(EnsureMenu(g));
+
+    std::printf("-- a tap, the pointer and the button in one frame, on the Hard row starts Hard\n");
+    OpenPrompt(g);
+    CHECK_EQ(PromptRow(), S::DIFFICULTY_NORMAL);
+    g.Steps(kSettleTicks);   // a tap chooses nothing in the prompt's first 350 ms
+    const uint tapFrame = g.Frame() + 1;
+    g.Step(ClickFrame(g, hardCentre));
+    CHECK(!g.sound.PlayedSince("help.mp3", tapFrame));   // chosen at once, not lit first
+    FinishPick(g, S::DIFFICULTY_HARD, "tap");
+    g.Steps(30);
+    CHECK(EnsureMenu(g));
+
+    // The script module's globals outlive a scenario and a Machine: leave the next ones a Normal run.
+    S::g_difficulty.setCurrent(S::DIFFICULTY_NORMAL);
+    S::g_runDifficulty = S::DIFFICULTY_NORMAL;
+    S::g_phonePanel = savedPanel;
+    g.warpCursor = savedWarp;
 }                                                                                                  // E36
 
 // === 20. A lone gamepad, from boot (E12 under the shipped defaults) ===================================
@@ -3271,7 +3841,11 @@ void ScenarioGamepadOnly(Game& g) {
     std::printf("  on '%s' after %d frames\n", LastButton().c_str(), toNew);
     CHECK(LastButton() == "novo_jogo");
     const uint press = g.Frame() + 1;
-    PadPress(g, JK_10);
+    PadPress(g, JK_10);   // E36: Start opens the difficulty prompt, which chooses nothing yet
+    const ETHEntity promptCursor = SeekEntity("cursor.ent");
+    CHECK(promptCursor != nullptr && promptCursor->CheckCustomData("pickDifficulty") != DT_NODATA);
+    CHECK(promptCursor != nullptr && promptCursor->CheckCustomData("newGame") == DT_NODATA);
+    PadPress(g, JK_10);   // E36: a second Start starts at the lit row, Normal
     CHECK(g.sound.PlayedSince("newgame.mp3", press));
     const int loaded = WaitFor(g, 240, [] { return GetSceneFileName() == "scenes/level1.esc"; });
     std::printf("  level1.esc %d frames after the release\n", loaded);
@@ -3394,7 +3968,7 @@ void ScenarioMobileOptions(Game& g) {
     CHECK(HudHas(g.m, "[\x95] Ativa pixel shaders"));
     CHECK(HudHas(g.m, "Teclado para o jogador 2"));
     CHECK(HudHas(g.m, "Pausa ao perder o foco"));
-    CHECK(HudHas(g.m, "[\x95] Dificuldade normal"));   // E36: x 600-900, y 564-614, clear of the zoom chooser (x 540-820, y 424-474)
+    CHECK(!HudHas(g.m, "Dificuldade"));   // E36: the difficulty is chosen at New Game; no layout of this screen has a row for it
 
     const auto click = [&g](const vector2& at) {
         g.base.cursor = at;
@@ -3833,7 +4407,7 @@ void ScenarioMenuSongE30(Game& g) {                                             
     g.base.cursor = kNewGameButton;                                                                 // E30
     g.Steps(3);                                                                                     // E30
     CHECK(LastButton() == "novo_jogo");                                                             // E30
-    g.Step(g.With({K_RETURN}));                                                                     // E30
+    StartNewGame(g);   // E36: Enter opens the difficulty prompt, a second Enter starts at Normal      // E30
     float lowest = 1.0f;                                                                            // E30
     const int loaded = WaitFor(g, 240, [&] {                                                        // E30
         lowest = std::min(lowest, g.sound.voices.at(song).volume);                                  // E30
@@ -4035,7 +4609,6 @@ void ScenarioPhoneOptionsE31(Game& g) {   // E31
         {"pause on focus loss", &S::g_pauseOnFocusLoss, S::PC_PAUSE_FOCUS, "Pausa ao perder o foco", "Continua sem o foco"},   // E31
         {"touch controls", &S::g_touchControls, S::PC_TOUCH, "Ativa controles de toque", "Desativa controles de toque"},   // E31
         {"keyboard for player 2", &S::g_keyboardP2, S::PC_KEYBOARD_P2, "Teclado para o jogador 2", "Jogador 2 s\xF3 no joystick"},   // E31
-        {"difficulty", &S::g_difficulty, S::PC_DIFFICULTY, "Dificuldade normal", "Dificuldade dif\xED" "cil"},   // E36: the fifth row of toggles
     };   // E31
     const string title = "Op\xE7\xF5" "es de v\xED" "deo";   // E31
     const string hint = "Vale a partir da pr\xF3" "xima fase";   // E31
@@ -4067,8 +4640,8 @@ void ScenarioPhoneOptionsE31(Game& g) {   // E31
             for (const auto& t : expected) std::printf("    expected  %-40s alpha %u\n", Utf8(t.first).c_str(), t.second);   // E31
             for (const auto& t : shown) std::printf("    drawn     %-40s alpha %u\n", Utf8(t.first).c_str(), t.second);   // E31
         }   // E31
-        CHECK_EQ(expected.size(), std::size_t{19});   // title, 7 wordings, the hint, Adjust, 2 + 2 + 2 + 2 chooser and stepper texts, the language   // E31, E36: 18 before the difficulty's
-        CHECK(shown == expected);   // 18 at full alpha, the widescreen hint at 170   // E31, E36
+        CHECK_EQ(expected.size(), std::size_t{18});   // title, 6 wordings, the hint, Adjust, 2 + 2 + 2 chooser and stepper texts, the language   // E31
+        CHECK(shown == expected);   // 17 at full alpha, the widescreen hint at 170   // E31
         CHECK(!HudHas(g.m, "[\x95]") && !HudHas(g.m, "[ ]"));   // no row's "[x] ": the check boxes are art   // E31
         CHECK(!HudHas(g.m, "Janela") && !HudHas(g.m, "Idioma"));   // the window switch and the language's label: not on this layout   // E31
     }   // E31
@@ -4113,20 +4686,19 @@ void ScenarioPhoneOptionsE31(Game& g) {   // E31
         click(centre);   // back where it was   // E31
         CHECK_EQ(t.widget->getCurrent(), before);   // E31
     }   // E31
-    // The old layouts' places mean something else here: E20's touch row's first line, (300, 182), is the pixel shaders cell now (its   // E31, E36
-    // second line, (300, 207), is the 6 px gap under that cell since the difficulty's cell made the rows 78 tall); the column and row   // E36
-    // gaps and the old Back arrow's corner (906, 6) are nothing.   // E31
+    // The old layouts' places mean something else here: E20's touch row's second line, (300, 207), is the pixel shaders cell now;   // E31
+    // the column and row gaps and the old Back arrow's corner (906, 6) are nothing.   // E31
     {   // E31
         const uint shaders = S::g_enablePS.getCurrent();   // E31
         const uint touch = S::g_touchControls.getCurrent();   // E31
-        click(vector2(300.0f, 182.0f));   // E31, E36: (300, 207) before
+        click(vector2(300.0f, 207.0f));   // E31
         CHECK_EQ(S::g_enablePS.getCurrent(), 1u - shaders);   // E31
         CHECK_EQ(S::g_touchControls.getCurrent(), touch);   // E31
-        click(vector2(255.0f, 182.0f));   // E31, E36
+        click(vector2(255.0f, 207.0f));   // E31
         CHECK_EQ(S::g_enablePS.getCurrent(), shaders);   // E31
         const uint widescreen = S::g_widescreen.getCurrent();   // E31
         const uint smooth = S::g_smoothMotion.getCurrent();   // E31
-        for (const vector2& nothing : {vector2(512.0f, 170.0f), vector2(512.0f, 450.0f), vector2(265.0f, 207.0f), vector2(759.0f, 207.0f),   // E31, E36: y 217 before, the gap under the first row
+        for (const vector2& nothing : {vector2(512.0f, 170.0f), vector2(512.0f, 450.0f), vector2(265.0f, 217.0f), vector2(759.0f, 217.0f),   // E31
                                        vector2(906.0f, 6.0f), vector2(500.0f, 40.0f), vector2(540.0f, 80.0f), vector2(255.0f, 564.0f)}) {   // E31
             click(nothing);   // E31
             CHECK_MSG(inOptions(), "a tap at (" + std::to_string(nothing.x) + ", " + std::to_string(nothing.y) + ") left the screen");   // E31
@@ -4171,7 +4743,7 @@ void ScenarioPhoneOptionsE31(Game& g) {   // E31
         CHECK(frontText("Desativa controles de toque") != nullptr);   // E31
         CHECK(frontText("Ajustar controles") == nullptr);   // E31
         CHECK(spriteIn("arrow_right.png", l.cell[S::PC_ADJUST]) == nullptr);   // E31
-        CHECK_EQ(drawnTexts().size(), std::size_t{18});   // E31, E36: 17 before the difficulty's
+        CHECK_EQ(drawnTexts().size(), std::size_t{17});   // E31
         click(mid(l.cell[S::PC_ADJUST]));   // nothing is there to tap   // E31
         CHECK_MSG(!S::g_adjustTouchControls, "a tap where the Adjust cell was, with the touch controls off, raised the flag");   // E31
         CHECK_EQ(S::g_touchControls.getCurrent(), 1u);   // E31
@@ -4397,7 +4969,7 @@ void ScenarioPhoneOptionsE31(Game& g) {   // E31
         CHECK(frontText(S::g_refreshRate.getLabel()) == nullptr);   // E31
         const HudCmd* label = frontText(S::g_zoom.getLabel());   // E31
         CHECK(label != nullptr && label->pos.x == without.cell[S::PC_ZOOM].x + 14.0f && label->pos.x == withRow.cell[S::PC_REFRESH].x + 14.0f);   // E31
-        CHECK_EQ(drawnTexts().size(), std::size_t{17});   // the refresh rate's label and value are gone   // E31, E36: 16 before
+        CHECK_EQ(drawnTexts().size(), std::size_t{16});   // the refresh rate's label and value are gone   // E31
         click(mid(without.more[S::PC_ZOOM]));   // E31
         CHECK_EQ(S::g_zoom.getCurrent(), 1u);   // E31
         click(mid(withRow.more[S::PC_ZOOM]));   // where Zoom's [>] was: a dead place now   // E31
@@ -4417,10 +4989,10 @@ void ScenarioPhoneOptionsE31(Game& g) {   // E31
         const S::PhoneOptionsLayout l = lay();   // E31
         const HudCmd* arrow = backArrow();   // E31
         CHECK(arrow != nullptr && arrow->pos == vector2(-274.0f, 35.0f));   // E31
-        CHECK(l.panel.x == 12.0f && l.panel.y == 129.0f && l.panel.w == 1000.0f && l.hc == 75.0f);   // E31, E36: 88 before (floor((768 - 210 - 27) / 7))
+        CHECK(l.panel.x == 12.0f && l.panel.y == 129.0f && l.panel.w == 1000.0f && l.hc == 88.0f);   // E31
         CHECK(l.langLess.x == 957.0f && l.langMore.x == 1211.0f);   // E31
         CHECK_EQ(stretched(), 0);   // E31
-        CHECK_EQ(drawnTexts().size(), std::size_t{19});   // E31, E36: 18 before
+        CHECK_EQ(drawnTexts().size(), std::size_t{18});   // E31
         // The language chooser lies right of x 1024 and still answers (the cursor reaches past the screen's edge).   // E31
         click(mid(l.langMore));   // E31
         CHECK_EQ(S::g_language.getCurrent(), 3u);   // E31
@@ -4443,17 +5015,16 @@ void ScenarioPhoneOptionsE31(Game& g) {   // E31
         g.Steps(30);   // E31
         enterOptions();   // E31
     }   // E31
-    // Where a notch and a home indicator cut the frame in: the arrow is 87 px in, the rows 70 tall (floor((768 - 210 - 41 - 27) / 7); 82 before   // E31, E36
-    // the difficulty's cell), the panel above the indicator.   // E31
+    // Where a notch and a home indicator cut the frame in: the arrow is 87 px in, the rows 82 tall, the panel above the indicator.   // E31
     S::g_optionsArea = notch;   // E31
     g.Steps(2);   // E31
     {   // E31
         const S::PhoneOptionsLayout l = lay();   // E31
         const HudCmd* arrow = backArrow();   // E31
         CHECK(arrow != nullptr && arrow->pos == vector2(-225.0f, 35.0f));   // E31
-        CHECK(l.hc == 70.0f && l.panel.y + l.panel.h <= 768.0f - 41.0f);   // E31, E36: 82 before
+        CHECK(l.hc == 82.0f && l.panel.y + l.panel.h <= 768.0f - 41.0f);   // E31
         CHECK_EQ(stretched(), 0);   // E31
-        CHECK_EQ(drawnTexts().size(), std::size_t{19});   // E31, E36: 18 before
+        CHECK_EQ(drawnTexts().size(), std::size_t{18});   // E31
         const uint before = S::g_pauseOnFocusLoss.getCurrent();   // E31
         click(mid(l.cell[S::PC_PAUSE_FOCUS]));   // E31
         CHECK_EQ(S::g_pauseOnFocusLoss.getCurrent(), 1u - before);   // E31
@@ -4499,8 +5070,8 @@ void ScenarioPhoneOptionsE31(Game& g) {   // E31
             CHECK_MSG(std::fabs((c.fit.max.y - c.fit.min.y) - c.fontSize * 1.3f) < 0.01f, "a fit box of the wrong height: " + Utf8(c.text));   // E31
         }   // E31
         for (const auto& group : groups) CHECK_MSG(group.second == 2, "a fit group is a text and its shadow: " + std::to_string(group.second));   // E31
-        CHECK_EQ(groups.size(), std::size_t{18});   // every text of the body but the title   // E31, E36: 17 before the difficulty's
-        CHECK_EQ(fitted, 36);   // E31, E36: 34 before
+        CHECK_EQ(groups.size(), std::size_t{17});   // every text of the body but the title   // E31
+        CHECK_EQ(fitted, 34);   // E31
         CHECK_EQ(plain, 2);   // the title and its shadow   // E31
         // A cell's room: 398 wide, the text 66 in and 12 clear; a line and a third tall, which holds the text and the shadow a tenth of   // E31
         // its size lower (a box of exactly the text's size shrank every text to about 0.91).   // E31
@@ -4586,6 +5157,7 @@ int main() {
         RunScenario(g, "18. the summon's price and its refusals", ScenarioSummonRules);
         RunScenario(g, "19. versus in arenas 2-6, arena 6 to 3 points", ScenarioArenas);
         RunScenario(g, "27. Hard: the panels, the king, the end screen, the two lists (E36)", ScenarioHardE36);   // E36
+        RunScenario(g, "28. New Game's difficulty prompt (E36)", ScenarioNewGamePromptE36);   // E36
         RunScenario(g, "13. the menu's Quit", [](Game& game) {
             CHECK(EnsureMenu(game));
             game.base.cursor = kQuitButton;

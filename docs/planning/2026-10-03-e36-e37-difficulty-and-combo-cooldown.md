@@ -6,7 +6,12 @@ Built 2026-10-03, for release 1.0.5. The player's view is in [`../enhancements.m
 ## What and why
 
 **E36.** The campaign had one difficulty, the original's. It now has two: Normal is that game, unchanged, and Hard doubles every enemy's hp. The five best times are kept for each, so a
-Hard time is not measured against a Normal one. Hard is one factor, `HARD_HP_FACTOR`, applied in one place, `spawn()`.
+Hard time is not measured against a Normal one. Hard is one factor, `HARD_HP_FACTOR`, applied in one place, `spawn()`. The choice is asked for where a game starts: confirming New Game
+opens a prompt with the two difficulties, and the Settings screens have no row for it.
+
+An earlier build of this release put the choice on the Settings screens (a desktop row beside the language chooser and a fifth phone row with 78 and 75 px cells); it moved to New Game
+before that build was released. Releases 1.0.5 to 1.0.7 shipped the first design (the Settings row) and this one was committed on 2026-10-09 and went out in the rebuilt files of release 1.0.8 (build 10); the
+Settings screens are as they were in 1.0.4.
 
 **E37.** A combo button makes a whole combo in one tap: the sword combo (left, left, S: the stronger sword and the beam, 5 mana) and the spell combo (down, side, D: the blast, a fireball of
 225 damage, 25 mana). The heavy attacks came too cheap from a button that fires them in one tap, so each combo button now rests after it. A combo typed on a keyboard or a pad is as it was.
@@ -18,15 +23,17 @@ Hard time is not measured against a Normal one. Hard is one factor, `HARD_HP_FAC
 | Enemy hp, Normal / Hard | warrior 75 / 150, minion 45 / 90, knight 150 / 300, impy 75 / 150, paladin 400 / 800, master knight 1700 / 3400, king 3500 / 7000 (`data.enml`'s `hp`, times `HARD_HP_FACTOR` = 2). The warriors the king summons are `warrior` and so 150 |
 | Experience a kill gives | the base hp in both (`expGiven` is read again from `data.enml` and is not doubled) |
 | Not touched | the players (bruxo, princess and vert_bruxo never pass through `spawn()`), the potions' hp (what they heal), Versus (an arena's warrior is 75) |
-| Setting | `difficulty` in `settings.json`, `"normal"` (default) or `"hard"`, written after `pauseOnFocusLoss`. Read in any case; anything else is Normal with the warning `difficulty is not "normal" or "hard"; using normal`; a missing key keeps the default. The file's `version` stays 2 (nothing reads it) |
-| Flag | `--difficulty normal\|hard`, this run only, over the setting, never saved; a pick on the options row replaces it, as a pick replaces `--lang`. Any other value prints an error and exits. It removes the intro like every flag outside a player's own (E35) |
-| Desktop row | A `Switch` of two 25 px rows, "Difficulty: Normal" and "Difficulty: Hard" (Portuguese "Dificuldade normal", "Dificuldade difícil"), at (600, 564), hit box x 600 to 900, y 564 to 614 |
-| Phone row | `PC_DIFFICULTY`, a cell of its own in the left column under Keyboard player 2 (a fifth row of toggles); seven rows share the height where six did |
-| Phone cell height | `floor((768 - 210 - frame) / 7)`, held to 68 to 80: **78** on a 4:3 window (frame 10 / 8 / 10 / 0), **75** on a 20:9 phone, 69 on a notched 2532x1170 phone with a home indicator; it was 88 (the six-row sum, held to 68 to 88). The most seven rows can get is 79, on a screen with no frame |
+| Setting | `difficulty` in `settings.json`, `"normal"` (default) or `"hard"`, written after `pauseOnFocusLoss`. It is the last difficulty chosen at New Game's prompt: not an option on any screen, only the remembered answer and the prompt's starting highlight. It is written when a row is chosen (the layer saves when the choice differs from the one it holds, so choosing the remembered row writes nothing). Read in any case; anything else is Normal with the warning `difficulty is not "normal" or "hard"; using normal`; a missing key keeps the default. The file's `version` stays 2 (nothing reads it) |
+| Flag | `--difficulty normal\|hard`: this run's starting highlight for the prompt and the difficulty a `--start` campaign level plays at, over the setting; never saved, and a different row chosen at the prompt replaces it, as a pick replaces `--lang`. Any other value prints an error and exits. It removes the intro like every flag outside a player's own (E35) |
+| The prompt | Opened by the confirm on New Game on the main menu (Enter, a click, a tap, a gamepad's Start or A), which starts nothing. A panel centred over the menu, dimmed by a black rectangle of alpha 150 over the whole logical screen, titled "Choose difficulty" (Portuguese "Escolha a dificuldade"), with two rows, Normal ("Enemies as in the original game.") and Hard ("Enemies have twice the health."), each a name and a one-line description. The lit row is the last difficulty chosen, Normal the first time |
+| Prompt input | Up and Down (the arrow keys, a gamepad's D-pad or stick) move the lit row, stopping at the ends; a pointer that moves onto a row lights it, and one at rest leaves the keys alone. Enter or the gamepad's confirm starts at the lit row, wherever the pointer is. A click or a tap on a row chooses that row and starts at once (a fresh left or right press: a tap is the left button held for the tick the cursor jumps to it). Esc, a gamepad's Back, or a click or tap outside the panel closes it and starts nothing; only a click closes by position, and a click inside the panel on no row does nothing. Pointer clicks (a left or right press, a tap) are ignored for the first 350 ms after the prompt opens (`kPromptSettleTime`): the second click of a double-click on New Game lands on its box (the cursor entity's collision box is 31 px square, so New Game answers for pointer y 185 to 241), which is outside the desktop panel and overlaps the first row on a phone; Esc and Enter are not delayed. While it is open the menu behind it does not react (the hover test is skipped: no panels, sounds or buttons), the direction keys move the highlight, not the pointer, and the system pointer is shown (`HideCursor(false)`), because the pointer the menu draws is a world particle under every HUD command. The frame that opens it only draws it, so its confirm cannot also choose. A change of row plays `soundfx/help.mp3`, the menu's hover sound, once; a start plays `soundfx/newgame.mp3` and the 3-second fade-out, as the old confirm did |
+| Prompt geometry | 560 x 330 logical px, centred on the 1024x768 screen (the widescreen sides are art only), so its top is at y 219. Inside it a 24 px inset: the title (Arial Narrow 40, one 512 px line, 20 px down) and two rows of 512 x 100, 10 px apart, at 90 and 200 from the panel's top (centres (512, 359) and (512, 469) on the desktop), each with a name (34) and a description (22) in a text box of 480 px that starts 22 px in, after the lit row's 6 px bar. The lit row has the brighter fill, its name at alpha 255 and its description at 200; the other row's texts are at 100 and 75. One function, `difficultyPromptBox()`, gives every part, for the drawing, the hit tests and the suites, so that they cannot disagree. A right-to-left language sets each text against the right edge of its box |
+| Prompt on a phone | A phone's larger menu (`g_phonePanel`) shows only part of the screen. The panel is centred in the rectangle it shows (its right edge is the menu panel's text box's plus 10, which is the safe area's), then slid left where that would put its right edge past x 1022 or right where its left edge would be under x 2 (the HUD carries a rectangle that meets the logical screen's edge out to the window's side, so a panel touching x 1024 would grow a dark band across a 21:9 phone; 2520x1080 and 2640x1080 slide by 23 and 55 logical px, 2400x1080 and the 2992x1344 phone not at all), and panel, rows and texts are scaled together by one factor: the largest that leaves 8 percent of the rectangle free at every side, at most `g_phonePanel.maxScale`, which is 1.6 times the size E1's view draws the menu's text. A rectangle too small for even `minScale` keeps the fit: a panel that overflows the window is worse than a small one. A phone's main menu has no Back button, so a tap outside the panel is the way out |
+| Settings screens | As in 1.0.4: no Difficulty row on the desktop screen and none in E31's phone layout, whose cells are 88 px tall again (held to 68 to 88). `PC_DIFFICULTY` and the row's `Switch` labels are gone; the `Switch` that stays, `g_difficulty`, is drawn nowhere |
 | Best Times panel | Normal's five under "Normal", a blank line, Hard's five under "Hard": 13 lines (14 with the break that ends them) of the 27 the panel's body holds. One pattern, so that a phone's two-column split can only fall between the lists |
-| New Game panel | the story (20 lines), a blank line, "Difficulty: Normal" or "Difficulty: Hard", "Change it in Settings.": 23 lines of 27 |
+| New Game panel | the original's story alone (`menu.as:186`), as before: hovering New Game shows it and nothing else |
 | End screen | "Best times (Normal):" or "Best times (Hard):" and the played difficulty's list only: both lists would run off the 768 px screen |
-| Texts | four new strings (the two row labels, the names Normal and Hard) and three new patterns (the end screen's heading, the Best Times body, the New Game body) in all eleven languages (the Portuguese is the port's own, English in `strings.json`, the other nine in `strings/<id>.json`), each with a room in `tests/data/l10n_rooms.json`. The Japanese face was regenerated by `tools/l10n/make_fonts.py`: two new kanji (933 to 935 glyphs, 161,968 to 162,584 bytes) |
+| Texts | three new strings (the prompt's title and the two descriptions), the rows' names, Normal and Hard (the best-times headings and the end screen's heading use the same two), and two new patterns (the end screen's heading and the Best Times body) in all eleven languages (the Portuguese is the port's own, English in `strings.json`, the other nine in `strings/<id>.json`), each with a room in `tests/data/l10n_rooms.json`: the title one line of 512 px at size 40, the names 480 px at 34 and the descriptions 480 px at 22, which hold at every scale because the prompt is scaled as a whole. `strings.json` has 103 strings and 19 patterns (11 translatable). The Japanese face was regenerated by `tools/l10n/make_fonts.py`: four new kanji against 1.0.4 (933 to 937 glyphs, 161,968 to 163,040 bytes), two of them, 倍 and 択, for the prompt's texts |
 
 `hs.enml` once a record has been written (the shipped file holds only the first block, with five times of 3599000):
 
@@ -52,11 +59,17 @@ byte for byte as it was, and the reverse (the file is read whole, both lists are
 
 ## E36: how it runs
 
-- `Script::g_difficulty` (a `Switch` in `videoModes.cpp`, row 0 Normal) is the options row. The layer sets it when it attaches, from the setting or from `--difficulty` over it, and every tick keeps the
-  settings in step with a pick (the override is dropped and the setting saved at once, as the other rows do).
-- `newGame("CAMPAIGN")` (`main.as:99`) latches `g_runDifficulty` from the row when the menu's fade ends; `resetData()` puts it back to Normal, which is what keeps Versus Normal
-  (the arena select and an arena's `newGame` both pass through it). A death and a checkpoint reload a scene without `resetData`, so the run keeps its difficulty. The layer's developer start
-  (`--start level1`) latches it the same way, for a campaign level.
+- `Script::g_difficulty` (a `Switch` in `videoModes.cpp`, row 0 Normal, labels "Normal" and "Difícil", drawn nowhere) is a plain holder of the last choice. The layer sets it when it attaches, from the
+  setting or from `--difficulty` over it, and every tick keeps the settings in step with a change (the override is dropped and the setting saved at once, as the other rows do). The only thing that
+  writes it afterwards is a row chosen at the prompt, never a hover or a cancel, so a change seen by the layer is always a choice.
+- The prompt is in `menu.cpp`. The cursor entity carries its state as custom data: `pickDifficulty` (the tick it opened; its presence means it is open), `pickRow` (the lit row), and `pickX` and `pickY`
+  (where the pointer was last seen, so that a pointer at rest does not fight the keys). The confirm on `novo_jogo` (`menu.as:288`) sets them where it used to start the game; `difficultyPrompt` runs
+  last in the cursor callback, so that it draws over the panels. A chosen row sets `g_difficulty` and does what the confirm did (`newGame` data, `"CAMPAIGN"`, the sample; `menu.as:293-295`) and
+  erases the four data. `difficultyPromptBox`, `drawDifficultyPrompt` and `difficultyPrompt` are the three parts.
+- `newGame("CAMPAIGN")` (`main.as:99`) latches `g_runDifficulty` from the holder when the menu's fade ends, 3 seconds after the row was chosen; nothing writes the holder in between.
+  `resetData()` puts it back to Normal, which is what keeps Versus Normal (the arena select and an arena's `newGame` both pass through it). A death and a checkpoint reload a scene without `resetData`,
+  and a `next_level` door loads the next scene the same way, so the run keeps its difficulty. The layer's developer start (`--start level1`) latches it the same way, for a campaign level, from what
+  the prompt would open on.
 - `spawn()` (`setupScene.cpp`) gives each enemy its stats: the spawn markers (`doLoop`), the king (`event01`) and the warriors he summons (`controlCharacters.as:637`) all pass through it, so
   the doubling is in that one place. A checkpoint file holds an enemy at the hp it had (150 for a Hard warrior) and spawns nothing, so a reload from a checkpoint is not doubled again.
   The `TestHpOwners` check makes the premise a test: only bruxo, princess, vert_bruxo and the two potions define an `hp`, and every scene placement that carries one is a potion (54 of them).
@@ -88,34 +101,32 @@ The look and the sound are in play only: the editor's preview draws the buttons 
 
 ## Files
 
-E36: `game/render/Settings.{hpp,cpp}`, `game/PenumbraLayer.{hpp,cpp}`, `game/main.cpp`, `game/script/{Script.hpp,main.cpp,setupScene.cpp,scores.cpp,menu.cpp,videoModes.cpp,optionsPhone.cpp}`,
-`game/data/strings.json` and `game/data/strings/*.json`, `game/data/fonts/NotoSansJP-Bold.ttf` with its README, `tests/data/l10n_rooms.json`.
+E36: `game/render/Settings.{hpp,cpp}`, `game/PenumbraLayer.{hpp,cpp}`, `game/main.cpp`, `game/script/{Script.hpp,main.cpp,setupScene.cpp,scores.cpp,menu.cpp,videoModes.cpp}`
+(`optionsPhone.cpp` is as it was in 1.0.4), `game/data/strings.json` and `game/data/strings/*.json`, `game/data/fonts/NotoSansJP-Bold.ttf` with its README, `tests/data/l10n_rooms.json`.
 E37: `game/render/TouchControls.{hpp,cpp}`, `game/PenumbraLayer.{hpp,cpp}`.
-Tests: `test_pn_boot` (`TestDifficultyStats`, `TestHardRun`, `TestRecords`), `test_pn_scenarios` (scenario 27, and scenario 8's end screen), `test_pn_formats` (`TestHpOwners`),
-`test_pn_render_pause` (the setting, the flag), `test_pn_render_input` (the setting's default and round trip, the phone layout pinned for seven rows), `test_pn_render_hud` (the layer's row, the
-texts and their rooms), `test_pn_render_touch` (`testComboCooldownGate`, `...Fingers`, `...Reset`, `...Look`, `testComboTypedUnlimited`).
+Tests: `test_pn_boot` (`TestDifficultyStats`, `TestHardRun`, `TestRecords`), `test_pn_scenarios` (scenario 27, Hard played through the prompt; scenario 28, the prompt: it opens and starts nothing, the
+remembered highlight, Up, Down and Enter, a click and a tap on each row, Esc, a click outside the panel, a click inside it on no row, Alt+Enter, a phone's geometry, the pointer not drifting under the keys,
+the fade, and `g_runDifficulty` latched when it ends; the other scenarios that start the campaign from the menu go through the prompt; scenario 8's end screen), `test_pn_formats` (`TestHpOwners`),
+`test_pn_render_pause` (the setting, the flag), `test_pn_render_input` (the setting's default and round trip; the phone layout pinned at E31's 88 px cells), `test_pn_render_hud` (the layer's seeding of
+the difficulty, the texts and their rooms), `test_pn_render_touch` (`testComboCooldownGate`, `...Fingers`, `...Reset`, `...Look`, `testComboTypedUnlimited`).
 
 ## Checked
 
-- Linux: `test_pn_all` runs 17 suites and 48,327 checks, 0 failures. On Windows, with the real Arial Narrow installed, the first full run passed 15 of the 17 suites (the two others: one Versus check of the new boot test, fixed afterwards, and the 18 failures below); the final build's `test_pn_all.exe` was refused by Windows Smart App Control (exit 126) and was not run. E25's panels check in `test_pn_render_hud` has 18 known failures there, older than this release and described under E28 in `DEVLOG.md`; they
+- Linux: `test_pn_all` runs 17 suites and 47,580 checks, 0 failures. On Windows, with the real Arial Narrow installed, the first full run of the previous build passed 15 of the 17 suites (the two others: one Versus check of a new test, fixed afterwards, and the 18 failures below); this build's Windows executables were built with zero warnings and are covered by GitHub's Windows CI job, and Windows Smart App Control refused two earlier launches on the development machine, so no Windows launch is claimed. E25's panels check in `test_pn_render_hud` has 18 known failures there, older than this release and described under E28 in `DEVLOG.md`; they
   pass on Linux with the stand-in fonts.
 - Headless captures on Linux (lavapipe) at 1280x720 and 1024x768: a combo button idle, pressed, dark right after it fired, recharging, flashing red on a refused tap at ticks 90
-  and 150 and not on the accepted tap at tick 135, and glowing when ready; the desktop and the phone options rows; the New Game and Best Times panels.
+  and 150 and not on the accepted tap at tick 135, and glowing when ready; the Best Times panel.
 
 ## Open
 
-- **No real phone.** Nothing of 1.0.5 has run on one, so the length of the rest, the flash and the cue are untried under a thumb, and so are the phone options screen's smaller cells.
-- **The Windows `Penumbra.exe` was not launched on the machine it was built on**: Windows Smart App Control refused the new binary, as it can for any unsigned build. The Windows build is covered
-  by the suites that ran there and by the Linux captures. The Mac, iPhone and iPad builds are made by CI only.
+- **No real phone.** Nothing of 1.0.5 has run on one, so the length of the rest, the flash and the cue are untried under a thumb, and so is a tap's exact landing on a row of the difficulty prompt.
+- **The Windows `Penumbra.exe` was not launched on the machine it was built on**: Windows Smart App Control refused two earlier launches on the development machine, as it can for any unsigned build. The Windows build is covered
+  by the suites that ran there, by GitHub's Windows CI job and by the Linux captures. The Mac, iPhone and iPad builds are made by CI only.
+- **Every New Game asks.** Starting takes two presses (Enter and Enter, or two taps), even for a player who always plays the same difficulty; the prompt opens on the last choice.
 - **A tap on the other combo button while a macro runs is refused too**, with the flash and the cue, not ignored: the tap lands on a button that cannot act on it, and the button says so. The macro is a few ticks long, so this is seen only for a tap within those ticks.
 - **A Hard kill gives the Normal experience** (the base hp), so a Hard run levels up more slowly per hit. It is left as `data.enml` states it.
 - **A Hard finish opens an arena at the Normal thresholds.** The better of the two best times is compared with each arena's score.
 - **An older build that writes a record drops Hard's list**: it clears the file and writes `hs` alone. The newer build reads that file as Normal's with Hard's at 59:59.
-- **The phone's rows are shorter**: 78 px on a 4:3 window and 75 on a 20:9 phone, from 88; scaled from E31's figure for the 88 px cell (about 47 dp on a 2400x1080 phone at density 2.625), the
-  75 px one is about 40 dp. The 30 px text is unchanged.
-- **The desktop row sits beside the language chooser** (x 600 to 900, y 564 to 614). Nothing else is in x 590 to 909 at those y in any of the three layouts that run the screen: the desktop's (the mode list ends at x 238), E27's framed
-  one (the music and speaker icons start at y 634) and E20's phone layout without the art (its zoom chooser is at x 540 to 820 but y 424 to 474).
-- **`docs/images/options.jpg` and `docs/images/options-phone.jpg` were regenerated for E36** (headless captures of the Linux build, 1600x900 and 1600x720); `touch-controls.jpg` is unchanged, since a combo
-  button at rest looks as it did.
+- **A phone's main menu has no Back button**, so a tap outside the prompt's panel is the only way out of it besides choosing a row; the menu's buttons are not tested while the prompt is open, including on the frame that closes it.
 - **A combo button rests after its attack key even when the script refuses the move for lack of mana** (the sword combo needs 5 mana, the spell combo 25): the cooldown belongs to the touch layer, which does not
   know the mana, and a retry within the second is refused with the flash and the cue.

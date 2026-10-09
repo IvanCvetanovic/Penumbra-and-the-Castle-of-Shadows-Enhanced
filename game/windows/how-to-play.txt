@@ -62,8 +62,10 @@ Y light). Combos are three taps, one after another, each within a
 fifth of a second of the last: Left Left S (5 mana) and Down Left D
 (25 mana). If one fails, wait a moment and try again.
 
-Difficulty: the settings have a Difficulty row. Normal is the original
-game; in Hard every enemy has twice the health.
+Difficulty: New Game asks which difficulty to play. Normal is the original
+game; in Hard every enemy has twice the health. Choose with the arrow keys
+and Enter, or click or tap one; Esc, or a click or tap outside the box, goes
+back.
 
 For parents:
 - The game is free. It works offline. It has no ads, no purchases and no
@@ -140,8 +142,10 @@ toques, um depois do outro, cada um até um quinto de segundo depois do
 anterior: Esquerda Esquerda S (5 de mana) e Baixo Esquerda D (25 de
 mana). Se falhar, espere um instante e tente de novo.
 
-Dificuldade: as configurações têm uma linha de Dificuldade. Normal é o
-jogo original; no modo Difícil, todo inimigo tem o dobro de vida.
+Dificuldade: Novo jogo pergunta qual dificuldade jogar. Normal é o jogo
+original; no modo Difícil, todo inimigo tem o dobro de vida. Escolha com as
+setas e Enter, ou clique ou toque numa das duas; Esc, ou um clique ou toque
+fora da caixa, volta.
 
 Para os pais:
 - O jogo é grátis. Ele funciona offline. Não tem anúncios, compras nem

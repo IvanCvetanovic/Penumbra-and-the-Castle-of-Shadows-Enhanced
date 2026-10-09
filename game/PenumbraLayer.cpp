@@ -203,7 +203,7 @@ void PenumbraLayer::OnAttach(entt::registry& registry) {
     Script::g_effectsVolume.setCurrent(Script::g_effectsVolume.stepFor(m_settings.effectsVolume));
     Script::g_smoothMotion.setCurrent(SmoothMotion() ? 0u : 1u);   // E8's row: as this run draws (--smooth, --fixed-step)
     Script::g_pauseOnFocusLoss.setCurrent(PauseOnFocusLoss() ? 0u : 1u);   // E13's, likewise
-    Script::g_difficulty.setCurrent(HardDifficulty() ? Script::DIFFICULTY_HARD : Script::DIFFICULTY_NORMAL);   // E36's: as this run has it (--difficulty); row 0 is Normal
+    Script::g_difficulty.setCurrent(HardDifficulty() ? Script::DIFFICULTY_HARD : Script::DIFFICULTY_NORMAL);   // E36's: the New Game prompt opens on what this run has (the setting, or --difficulty); row 0 is Normal
     Script::g_touchControls.setCurrent(m_touchEnabled ? 0u : 1u);   // E20's: as this run has them (--touch)
     RefreshZoomChoices();   // E25's: as this run zooms (--zoom)
     m_input.SetControls(m_settings.controls);
@@ -802,8 +802,8 @@ void PenumbraLayer::StartDevScene(const std::string& scene) {
         Eth::LoadScene("scenes/videoModes.esc", "screenModesPreLoop", "screenModesLoop");   // menu.as
     } else {
         // E36: a campaign level started from here is what New Game makes of it (main.as:99-122), so it is played
-        // at the difficulty the options row shows (--difficulty included); resetData put the run back to Normal,
-        // and an arena is never Hard.
+        // at the difficulty New Game's prompt would open on (the setting, or --difficulty); resetData put the run
+        // back to Normal, and an arena is never Hard.
         if (!pvp) {   // E36
             Script::g_runDifficulty = Script::g_difficulty.getCurrent() == Script::DIFFICULTY_HARD   // E36
                                           ? Script::DIFFICULTY_HARD : Script::DIFFICULTY_NORMAL;   // E36
@@ -1155,8 +1155,9 @@ void PenumbraLayer::OnFixedUpdate(entt::registry& registry, float fixedDelta) {
             m_options.pauseOnFocusLossOverride.reset();
             m_settings.pauseOnFocusLoss = pauseOnFocusLoss;
         }
-        // E36: a pick replaces --difficulty and is saved at once; the campaign run in progress keeps the
-        // difficulty it started with (Script::g_runDifficulty), the next New Game takes this one.
+        // E36: g_difficulty changes only when New Game's prompt confirms a pick (never on hover or cancel), so a change
+        // here is a choice: it replaces --difficulty and is saved at once as the difficulty the prompt opens on next
+        // time. The run that pick starts latched it in newGame (Script::g_runDifficulty); it does not read it again.
         if (hardDifficulty != HardDifficulty()) {   // E36
             m_options.hardDifficultyOverride.reset();   // E36
             m_settings.difficulty = hardDifficulty ? "hard" : "normal";   // E36

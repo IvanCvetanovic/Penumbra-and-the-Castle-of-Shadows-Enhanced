@@ -99,10 +99,11 @@
     "Penumbra e o Castelo das Sombras - Ethanon Engine": "Penumbra и Замок Теней - Ethanon Engine",
     "Penumbra e o Castelo das Sombras": "Penumbra и Замок Теней",
     "Idioma": "Язык",
-    "Dificuldade normal": "Уровень сложности: Обычный",
-    "Dificuldade difícil": "Уровень сложности: Сложный",
     "Normal": "Обычный",
-    "Difícil": "Сложный"
+    "Difícil": "Сложный",
+    "Escolha a dificuldade": "Выберите уровень сложности",
+    "Os inimigos como no jogo original.": "Враги как в оригинальной игре.",
+    "Os inimigos têm o dobro de vida.": "У врагов вдвое больше здоровья."
   },
   "patterns": [
     {
@@ -148,10 +149,6 @@
     {
       "pt": "Normal\n{any}\n\nDifícil\n{any}",
       "text": "Обычный\n{1}\n\nСложный\n{2}"
-    },
-    {
-      "pt": "{text}\n\nDificuldade: {text}\nMude em Configurações.",
-      "text": "{1}\n\nУровень сложности: {2}\nИзмените это в настройках."
     }
   ],
   "touch": {

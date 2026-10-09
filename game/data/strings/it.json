@@ -99,10 +99,11 @@
     "Penumbra e o Castelo das Sombras - Ethanon Engine": "Penumbra e il Castello delle Ombre - Ethanon Engine",
     "Penumbra e o Castelo das Sombras": "Penumbra e il Castello delle Ombre",
     "Idioma": "Lingua",
-    "Dificuldade normal": "Difficoltà: Normale",
-    "Dificuldade difícil": "Difficoltà: Difficile",
     "Normal": "Normale",
-    "Difícil": "Difficile"
+    "Difícil": "Difficile",
+    "Escolha a dificuldade": "Scegli la difficoltà",
+    "Os inimigos como no jogo original.": "I nemici come nel gioco originale.",
+    "Os inimigos têm o dobro de vida.": "I nemici hanno il doppio dei punti vita."
   },
   "patterns": [
     {
@@ -148,10 +149,6 @@
     {
       "pt": "Normal\n{any}\n\nDifícil\n{any}",
       "text": "Normale\n{1}\n\nDifficile\n{2}"
-    },
-    {
-      "pt": "{text}\n\nDificuldade: {text}\nMude em Configurações.",
-      "text": "{1}\n\nDifficoltà: {2}\nCambiala nelle impostazioni."
     }
   ],
   "touch": {

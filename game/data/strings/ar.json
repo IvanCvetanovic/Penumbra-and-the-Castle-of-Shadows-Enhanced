@@ -99,10 +99,11 @@
     "Penumbra e o Castelo das Sombras - Ethanon Engine": "Penumbra وقلعة الظلال - Ethanon Engine",
     "Penumbra e o Castelo das Sombras": "Penumbra وقلعة الظلال",
     "Idioma": "اللغة",
-    "Dificuldade normal": "مستوى الصعوبة: عادي",
-    "Dificuldade difícil": "مستوى الصعوبة: صعب",
     "Normal": "عادي",
-    "Difícil": "صعب"
+    "Difícil": "صعب",
+    "Escolha a dificuldade": "اختر مستوى الصعوبة",
+    "Os inimigos como no jogo original.": "الأعداء كما في اللعبة الأصلية.",
+    "Os inimigos têm o dobro de vida.": "لدى الأعداء ضعف الصحة."
   },
   "patterns": [
     {
@@ -148,10 +149,6 @@
     {
       "pt": "Normal\n{any}\n\nDifícil\n{any}",
       "text": "عادي\n{1}\n\nصعب\n{2}"
-    },
-    {
-      "pt": "{text}\n\nDificuldade: {text}\nMude em Configurações.",
-      "text": "{1}\n\nمستوى الصعوبة: {2}\nيمكنك تغييره من قائمة الإعدادات."
     }
   ],
   "touch": {

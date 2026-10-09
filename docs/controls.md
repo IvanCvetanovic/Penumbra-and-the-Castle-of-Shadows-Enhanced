@@ -50,10 +50,33 @@ Typed on a keyboard or a pad, a combo has no rest: it can be repeated as often a
 and the mana lasts, as in the original. The combo buttons of the touch controls are the only ones that
 rest after each use ([E37](#touch-controls-e16)).
 
-**The original's hidden keys.** When the menu's fade ends on New Game:
+**The original's hidden keys.** When the menu's fade ends on New Game (the fade that starts once a
+difficulty is chosen, [below](#choosing-the-difficulty-e36)):
 
 - Hold 2 or 3 to start at level 2 or level 3.
 - Hold Page Up to start both characters at level 15 (`main.as`).
+
+## Choosing the difficulty (E36)
+
+Confirming New Game on the main menu (Enter, a click, a tap, a gamepad's Start or A) no longer starts the
+game: it opens a prompt, "Choose difficulty", over the dimmed menu, with two rows, Normal ("Enemies as in the
+original game.") and Hard ("Enemies have twice the health."). The lit row is the one chosen last, Normal the
+first time. What the difficulties are is in [playing.md](playing.md#difficulty-and-best-times).
+
+- **Keyboard:** Up and Down light the other row (they stop at the ends), Enter starts the game at the lit row,
+  and Esc closes the prompt and starts nothing.
+- **Gamepad:** the D-pad or the stick lights the other row, Start or A starts the game at the lit row, and
+  Back or B closes the prompt. (A pad drives the menus only while the touch controls are off: with them on, the first pad
+  plays player 2, [E22](#touch-controls-e16).)
+- **Mouse:** a click on a row chooses it and starts at once, and a pointer that moves onto a row lights it. A
+  click outside the panel closes the prompt; a click inside the panel on no row does nothing.
+- **Touch:** a tap on a row chooses it and starts at once. A phone's main menu has no Back button, so a tap
+  outside the panel is the way out; a tap inside it on no row does nothing.
+- For the first third of a second after the prompt opens, clicks and taps are ignored (so a double-click on New
+  Game neither chooses a row nor closes the prompt); Esc and Enter are not delayed. While the prompt is open the
+  menu behind it does not answer the pointer (no hover panels), the system pointer is shown over it, and the
+  direction keys and the stick move the highlight, not the pointer. Alt+Enter still switches between a window
+  and fullscreen. A chosen row starts the old 3-second fade-out and then the campaign.
 
 ## Player 2, keyboard (E4)
 
@@ -167,7 +190,7 @@ The exact positions are in [the layout's record](https://github.com/IvanCvetanov
   combos made from the ordinary buttons (walking plus sword or fireball), have no rest.
 - In the menus, the options, game over and the pause, the buttons are hidden and a tap clicks
   where it lands. The options screen has no touch back button at the top right: the original's own Back
-  arrow is on it (at the top left on a phone's large layout, E31), and a tap on it goes back. The main menu and the pause have none either.
+  arrow is on it (at the top left on a phone's large layout, E31), and a tap on it goes back. The main menu and the pause have none either: a tap on New Game opens E36's difficulty prompt, a tap on one of its rows starts the campaign at that difficulty, and a tap outside its panel closes it ([above](#choosing-the-difficulty-e36)).
 - The focus brackets show on the direction button the thumb holds, and nowhere while no direction
   is held (`"atRest"` in the manifest's `knob`; the placeholder look keeps its knob at the centre).
 - While the touch controls are on, the game's control hints speak of the buttons, in all eleven

@@ -165,10 +165,11 @@ struct Settings {
     // no pause, and played on behind another window.
     bool pauseOnFocusLoss = true;
     // E36: the campaign's difficulty, "normal" (the original's game, the default) or "hard" (every
-    // enemy with twice the hp), picked on the options screen. A campaign run latches it when New Game
-    // starts (Script::g_runDifficulty); the arenas never use it. Written as it is, in lower case;
-    // read in any case, and anything else (a number, another word) is normal. A string, as
-    // touchControls is, so the file stays readable and a third difficulty would need no new key.
+    // enemy with twice the hp): the one last chosen at New Game, which the prompt opens on and which is
+    // saved as soon as a pick is made. A campaign run latches it when New Game starts
+    // (Script::g_runDifficulty); the arenas never use it. Written as it is, in lower case; read in any
+    // case, and anything else (a number, another word) is normal. A string, as touchControls is, so the
+    // file stays readable and a third difficulty would need no new key.
     std::string difficulty = "normal";
     // E16: the on-screen touch controls (render/TouchControls.hpp). "auto" is
     // on in a mobile build (PENUMBRA_MOBILE) and off on the desktop; "on" and

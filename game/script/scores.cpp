@@ -61,7 +61,7 @@ void putRecordList(enmlFile& file, const uint difficulty, const array<uint>& lis
 
 // E36: "Normal" / "Dif\xEDcil", the words every screen names a difficulty by
 // (the headings of the best times, the heading of the end screen's list, the
-// New Game panel's line). One spelling, so that one translation serves all.
+// New Game prompt's rows). One spelling, so that one translation serves all.
 string difficultyName(const uint difficulty)
 {
     return difficulty == DIFFICULTY_HARD ? string("Dif\xED" "cil") : string("Normal");

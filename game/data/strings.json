@@ -105,10 +105,11 @@
         "Ajustar controles": "Adjust controls",
         "Ajustar controles de toque": "Adjust touch controls",
 
-        "_videoModes.cpp ENHANCEMENT E36: the campaign difficulty's row (the original had one difficulty): a Switch of two 25 px rows at (600, 564), each '[x] ' + the wording of the state it names, so both are drawn and the chosen one marked; the labels carry the word for difficulty because the row stands alone on the screen. The Portuguese is the port's own": "",
-        "Dificuldade normal": "Difficulty: Normal",
-        "Dificuldade difícil": "Difficulty: Hard",
-        "_scores.cpp ENHANCEMENT E36 difficultyName: the two difficulties' names, one spelling wherever a screen names one - the end screen's list heading and the New Game panel's line (both through a {text} slot of the patterns below). The words inside the best times panel's pattern are worded the same, and so are the options' rows": "",
+        "_menu.cpp ENHANCEMENT E36: the prompt New Game opens to ask for the campaign's difficulty (the original had one difficulty): its title, Arial Narrow 40 on one 512 px line, and the one-line description under each row's name, Arial Narrow 22 in a 480 px line. The Portuguese is the port's own; the rows' names are the two entries after these": "",
+        "Escolha a dificuldade": "Choose difficulty",
+        "Os inimigos como no jogo original.": "Enemies as in the original game.",
+        "Os inimigos têm o dobro de vida.": "Enemies have twice the health.",
+        "_scores.cpp ENHANCEMENT E36 difficultyName: the two difficulties' names, one spelling wherever a screen names one - the New Game prompt's two rows (Arial Narrow 34 in a 480 px line) and the end screen's list heading (through a {text} slot of the patterns below). The words inside the best times panel's pattern are worded the same": "",
         "Normal": "Normal",
         "Difícil": "Hard",
 
@@ -226,11 +227,6 @@
             "_note": "ENHANCEMENT E36 menu.cpp recordsPanelText: the best times panel's body - Normal's list under its name, a blank line, Hard's list under its own. One pattern, so that a phone's two-column split can only fall between the two lists. The two names are the words of the 'strings' entries Normal and Difícil",
             "pt": "Normal\n{any}\n\nDifícil\n{any}",
             "en": "Normal\n{1}\n\nHard\n{2}"
-        },
-        {
-            "_note": "ENHANCEMENT E36 menu.cpp newGamePanelText: the New Game panel's body - the story (menu.as:186, translated whole by its own entry in 'strings'), a blank line, the difficulty the run will be played at (Normal or Difícil, translated by its entry), and where it is changed. 'Configurações' is the title of the Settings button",
-            "pt": "{text}\n\nDificuldade: {text}\nMude em Configurações.",
-            "en": "{1}\n\nDifficulty: {2}\nChange it in Settings."
         },
         {
             "_note": "switch.as:79-82 \"[\" + (current ? bullet : space) + \"] \" + label",

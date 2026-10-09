@@ -206,7 +206,7 @@ ever written into the original's folder.
 
 | File | What it is |
 |---|---|
-| `settings.json` | Language (`language`: `auto`, the default, or one of `en`, `de`, `es`, `fr`, `it`, `pt`, `ru`, `tr`, `uk`, `ja`, `ar`); the window (`window`: `width`/`height`, `0` for a window fitted to the monitor; `fullscreen`, true on a first launch; the fullscreen mode, `fullscreenWidth`/`fullscreenHeight`, `0` for the desktop's resolution; `fullscreenRefresh` in Hz, `0` for the highest the monitor offers at that resolution); widescreen, volumes, pixel shaders, `smoothMotion`, `pauseOnFocusLoss`, `difficulty` (E36: the campaign's difficulty, `"normal"`, the default, or `"hard"`, set on the options screen's Difficulty row; read in any case, and anything else is Normal with a warning), `touchControls` (`"auto"`, `"on"`, `"off"`); `zoom` (E25: `"auto"` or a percentage from 100 to 200, the campaign camera's zoom while the touch controls are on); `edgeMargin` (E26: `"auto"` or a percentage from 0 to 8, how far in from a curved screen's edges the HUD is drawn while the touch controls are on); `touchTuning` (E28: the touch controls' own layout, set on the options screen's Adjust controls: `size` 0.4 to 1.4, `opacity` 0.2 to 1.8 times the normal look, and `move`, a `[dx, dy]` for each moved control in the manifest's pixels from where `touch_controls.json` puts it, +x right and +y down, and `layout` (E34), the number of the default arrangement the moves were made against, 4 since E33: a file with another number or none keeps its `size` and `opacity` and loses its `move`, and the next save writes the current number); and the controls: `joystickLayout`, `keyboardPlayer2`, `firstPadIsPlayer1`, `rawJoysticks`, `stickDeadzone`, and the `player1`/`player2` key lists. A broken or missing field falls back to its default, field by field. |
+| `settings.json` | Language (`language`: `auto`, the default, or one of `en`, `de`, `es`, `fr`, `it`, `pt`, `ru`, `tr`, `uk`, `ja`, `ar`); the window (`window`: `width`/`height`, `0` for a window fitted to the monitor; `fullscreen`, true on a first launch; the fullscreen mode, `fullscreenWidth`/`fullscreenHeight`, `0` for the desktop's resolution; `fullscreenRefresh` in Hz, `0` for the highest the monitor offers at that resolution); widescreen, volumes, pixel shaders, `smoothMotion`, `pauseOnFocusLoss`, `difficulty` (E36: the difficulty last chosen at New Game's prompt, `"normal"`, the default, or `"hard"`: the prompt opens on it, it is written when a row is chosen and it is not an option on any screen; read in any case, and anything else is Normal with a warning), `touchControls` (`"auto"`, `"on"`, `"off"`); `zoom` (E25: `"auto"` or a percentage from 100 to 200, the campaign camera's zoom while the touch controls are on); `edgeMargin` (E26: `"auto"` or a percentage from 0 to 8, how far in from a curved screen's edges the HUD is drawn while the touch controls are on); `touchTuning` (E28: the touch controls' own layout, set on the options screen's Adjust controls: `size` 0.4 to 1.4, `opacity` 0.2 to 1.8 times the normal look, and `move`, a `[dx, dy]` for each moved control in the manifest's pixels from where `touch_controls.json` puts it, +x right and +y down, and `layout` (E34), the number of the default arrangement the moves were made against, 4 since E33: a file with another number or none keeps its `size` and `opacity` and loses its `move`, and the next save writes the current number); and the controls: `joystickLayout`, `keyboardPlayer2`, `firstPadIsPlayer1`, `rawJoysticks`, `stickDeadzone`, and the `player1`/`player2` key lists. A broken or missing field falls back to its default, field by field. |
 | `hs.enml` | The best times, written after a new record. It holds both difficulties' lists (E36): the original's entity `hs` is Normal's five, and `hsHard` is Hard's five. Until the first record the original's `hs.enml` is read, and its `hs` is Normal's list. A key or an entity that is missing reads 59:59. See [Difficulty and best times](#difficulty-and-best-times). |
 | `scenes\checkpoint.esc` | The level saved at the last checkpoint. |
 
@@ -225,9 +225,10 @@ container: deleting the app deletes them.
 
 ## Difficulty and best times
 
-The campaign has two difficulties (E36), chosen on the options screen's Difficulty row, "Difficulty:
-Normal" or "Difficulty: Hard" (on a desktop beside the language chooser, on a phone its own cell). **Normal**
-is the original's game. **Hard** is the same game with every enemy's hp doubled when it is spawned:
+The campaign has two difficulties (E36), chosen when a new campaign starts: confirming New Game on the
+main menu opens a prompt, "Choose difficulty", over the dimmed menu, with two rows, Normal ("Enemies as in
+the original game.") and Hard ("Enemies have twice the health."). **Normal** is the original's game.
+**Hard** is the same game with every enemy's hp doubled when it is spawned:
 
 | Enemy | Normal | Hard |
 |---|---|---|
@@ -242,10 +243,20 @@ is the original's game. **Hard** is the same game with every enemy's hp doubled 
 - A kill gives the same experience in both (the enemy's base hp), so in Hard each kill takes twice the
   damage for the same experience, and the wizard levels up more slowly. The players, the potions'
   healing and the co-op princess are the same in both. Versus never plays Hard.
-- A New Game reads the choice when its fade ends. The run keeps it through deaths, checkpoints and the
-  next-level doors, and a change made during a run applies from the next New Game. Hovering New Game
-  shows the difficulty the run will be played at and where it is changed. `--difficulty normal|hard`
-  ([below](#command-line)) sets it for one run and saves nothing.
+- At the prompt the lit row is the one chosen last (Normal the first time). Up and Down (the arrow keys, a
+  gamepad's D-pad or stick) move it, stopping at the ends, and so does a pointer that moves onto a row.
+  Enter, or a gamepad's Start or A, starts the game at the lit row; a click or a tap on a row chooses that
+  row and starts at once, with the 3-second fade-out the menu always had. Esc, a gamepad's Back, or a click
+  or tap outside the panel closes the prompt and starts nothing (a phone's main menu has no Back button, so
+  a tap outside is its way out); a click inside the panel on no row does nothing. Clicks and taps are ignored
+  for the first third of a second after it opens, so a double-click on New Game does nothing more. While it is
+  open the menu behind it does not answer the pointer, and the story panel that shows when New Game is hovered is the
+  original's story alone. The keys are also in [controls.md](controls.md#choosing-the-difficulty-e36).
+- A choice applies to that campaign only: the run keeps it through deaths, checkpoints and the next-level
+  doors, and the next New Game asks again. The last choice is `difficulty` in `settings.json`
+  ([above](#settings-and-saves)): the prompt opens on it and it is written when a row is chosen, but it is
+  not an option on any screen. `--difficulty normal|hard` ([below](#command-line)) sets, for one run, the
+  row the prompt opens on and the difficulty of a campaign level started with `--start`, and saves nothing.
 - The five best campaign times are kept for each difficulty. The Best Times panel lists Normal's five and
   then Hard's five, each under its name. The campaign's end screen adds the time to the list of the
   difficulty that was played and shows only that list, headed "Best times (Normal):" or "Best times
@@ -267,7 +278,7 @@ The game's own options:
 | `--start <scene>` | Skip the menu and start `scenes/<scene>.esc`: `level1`–`level3` or `pvp_lv1`–`pvp_lv6`; `arena_select`, `gameover` and `videoModes` start as the scripts start them |
 | `--tour <a,b,...>@<N>` | After the menu, start each scene in turn for *N* ticks: many screens in one launch |
 | `--lang <id>` | This run's language: `en`, `de`, `es`, `fr`, `it`, `pt`, `ru`, `tr`, `uk`, `ja` or `ar`. It is not saved. |
-| `--difficulty normal\|hard` | This run's campaign difficulty (E36), over the setting. It is not saved, and a pick on the options screen's row replaces it. A campaign level started with `--start` is played at it. Any other value is an error. Like every option a player does not use, it removes the intro. |
+| `--difficulty normal\|hard` | This run's starting difficulty (E36), over the setting: the row New Game's prompt opens on, and the difficulty a campaign level started with `--start` is played at. It is not saved, and a different row chosen at the prompt replaces it. Any other value is an error. Like every option a player does not use, it removes the intro. |
 | `--widescreen on\|off` | This run's view. It is not saved. |
 | `--smooth on\|off` | This run's motion between ticks (E8). It is not saved. Off under `--fixed-step` unless given as `on`, so fixed-step captures show the ticks themselves. |
 | `--splash on\|off` | The Supersonic Engine's intro (E35). `on` plays it with any other option (a capture of the intro: `--splash on --fixed-step --frames 30 --screenshot <path>`, where `--frames 30` is the 30th tick of the intro and the menu's first frame is `--frames 121`); `off` removes it. Without it, it plays on a normal start only. |

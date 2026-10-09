@@ -1060,6 +1060,58 @@ Smart App Control on the development machine and were never launched; no real ph
 - A combo button rests after its attack key even when the script then refuses the move for lack of mana (the sword combo needs 5, the spell combo 25): the cooldown is the touch layer's and does not know the mana. A retry
   within the second is refused with the flash and the cue.
 
+## 2026-10-03 (evening) — The difficulty is chosen when New Game starts (a rework of E36, built then; committed and released with 1.0.8 on 2026-10-09)
+
+**Why.** The first 1.0.5 build put the choice of difficulty among the video options: a row on the desktop Settings screen beside the language chooser, and a fifth row of toggles in the phone's layout,
+whose cells it made shorter (78 and 75 px, from 88). The choice belongs where a game starts, not in a screen of video options, so it moved to New Game and the Settings screens went back to what 1.0.4 has.
+
+**Built (details in docs/planning/2026-10-03-e36-e37-difficulty-and-combo-cooldown.md).**
+- *The prompt.* Confirming New Game on the main menu (Enter, a click, a tap, a gamepad's Start or A) no longer starts the game: it opens a prompt over the dimmed menu, centred, titled "Choose difficulty"
+  (Escolha a dificuldade), with two rows, Normal ("Enemies as in the original game.") and Hard ("Enemies have twice the health."), each a name and a one-line description. The lit row is the last difficulty
+  chosen (Normal the first time). Up and Down (the arrow keys, a gamepad's D-pad or stick) move it, without wrapping; Enter or the gamepad's confirm starts the game at the lit row; a click or a tap on a row
+  chooses that row and starts at once; the 3-second fade-out and the old start follow. Esc, a gamepad's Back, or a click or tap outside the panel closes the prompt and starts nothing (a phone's main menu has
+  no Back button, so a tap outside is its way out); a click inside the panel on no row does nothing. Clicks and taps are ignored for the first 350 ms after it opens (a double-click on New Game does nothing more); Esc and Enter are not delayed. While it is open the menu behind it does not react (no hover panels), the direction keys move the
+  highlight, not the pointer, and the system pointer is shown over it. The panel is centred in what the window shows and, on a phone, scaled to fit the shown area (at most 1.6 times the size of the menu's text) and slid in from the screen's edges where a wide phone would put it against them. The story panel that shows when
+  New Game is hovered is the original's story alone again. Code: `game/script/menu.cpp` (`difficultyPromptBox`, `drawDifficultyPrompt`, `difficultyPrompt`; the cursor entity's data `pickDifficulty`,
+  `pickRow`, `pickX`, `pickY`).
+- *The setting.* `difficulty` in settings.json ("normal" or "hard") is now the remembered answer and the prompt's starting highlight, not an option on any screen: written only when a row is chosen,
+  default normal, read in any case, anything else normal with a warning, the file's version still 2. A choice applies to that campaign only (latched when the fade ends, through deaths, checkpoints and
+  next_level doors). `Script::g_difficulty` is a plain holder Switch ("Normal", "Difícil", drawn nowhere) that the layer seeds from the setting or from `--difficulty` and saves when it changes.
+  `--difficulty normal|hard` is this run's starting highlight for the prompt and the difficulty a `--start level1` development start plays; never saved; any other value is an error.
+- *The Settings revert.* No Difficulty row on any Settings screen; the phone layout's cells are 88 px again (`optionsPhone.cpp` is as in 1.0.4); docs/images/options.jpg and options-phone.jpg are the 1.0.4
+  pictures again.
+- *As in the first build.* Hard doubles every enemy's hp in `spawn()` (warrior 75 to 150, minion 45 to 90, knight 150 to 300, impy 75 to 150, paladin 400 to 800, master knight 1700 to 3400, king 3500 to 7000,
+  and the warriors he summons), the experience per kill unchanged; the players, the potions, the co-op princess and Versus untouched (Versus never plays Hard); hs.enml keeps the original's entity `hs` as
+  Normal's five times and adds `hsHard`, and a missing key or entity reads 59:59 (3599000 ms), never 0; the Best Times panel lists Normal then Hard; the end screen shows the played difficulty, headed
+  "Best times (Normal):" or "Best times (Hard):"; locked arenas open on the better of the two bests. E37 is untouched.
+- *Texts.* Three new strings (the prompt's title and the two descriptions) and the rows' names (Normal and Hard, which the best-times headings already use) in all eleven languages; the two Settings labels
+  and the New Game panel's difficulty pattern are gone; strings.json has 103 strings and 19 patterns (11 translatable). The Japanese face was regenerated again (two more kanji, 倍 and 択: 939 characters,
+  937 glyphs, 163,040 bytes).
+- *Tests.* `test_pn_scenarios` scenario 28 (the prompt: it opens and starts nothing, the remembered highlight, Up, Down and Enter, a click and a tap on rows, Esc, a click outside the panel, a click inside it
+  on no row, Alt+Enter, a phone's geometry, the pointer not drifting under the keys, the fade, `g_runDifficulty` latched) and scenario 27 through the prompt; the other scenarios that start the campaign from
+  the menu go through it (a first Enter opens it, a second starts at Normal); `test_pn_render_input`'s phone-layout pins are back at 88 px cells; `test_pn_render_hud` counts 19 patterns (11 translatable) and checks the
+  new texts' rooms; `test_pn_boot` no longer checks a New Game panel with difficulty lines. The other E36 and E37 tests are as before.
+- *Documents.* README (the Difficulty row, the check count as "over 47,000" in three places, the Android row), enhancements.md (the E36 row; the note on the Difficulty cell under E31 removed),
+  controls.md (a section on the prompt's keys, gamepad, mouse and touch), playing.md (the section, the settings.json row, the flag row), testing.md, the Difficulty paragraph of the three HOW TO PLAY files
+  (English and Portuguese) and the planning record.
+
+**Superseded.** The entry above (of 2026-10-03) records the first 1.0.5 build and stays as written. Its Difficulty row on the Settings screens, the 78 and 75 px phone cells, the New Game panel naming the
+difficulty and "Change it in Settings.", the regenerated options pictures and its check count no longer describe the code; this entry does.
+
+**Numbers.**
+- Linux: `test_pn_all` 17 suites, 47,580 checks, 0 failures (45,088 at 1.0.4). Windows: the first full run of the first 1.0.5 build passed 15 of the 17 suites (the 18 known E25 glyph-fit failures in
+  `test_pn_render_hud` with the real Arial Narrow, described under E28, and one Versus check of a new test, fixed afterwards); this build's Windows executables were built with zero warnings and are covered by
+  GitHub's Windows CI job; Windows Smart App Control refused two earlier launches on the development machine, and no Windows launch is claimed.
+- Looked at: not by eye in the session that built it. The prompt is exercised headless by scenarios 20, 27 and 28 and the layer test; on 2026-10-09 it was also opened on an Android 11 emulator (see the entry of that day).
+
+**Open.**
+- A pick by a tap on a real phone is untried: nothing of 1.0.5 has run on one (the rest's length, the flash and the cue, the prompt's size and a thumb's landing on a row).
+- This rework was written for a rebuild of 1.0.5 that was not made: 1.0.5 to 1.0.7 (and 1.0.8's first files) shipped the first design, a Difficulty row on the Settings screens. It was committed on 2026-10-09 and went out
+  in the replaced files of release 1.0.8 (build 10): see the entry of that day.
+- Every New Game asks: starting takes two presses (Enter and Enter, or two taps), the prompt opening on the last choice.
+- The open items of the entry above on the Windows executable, the combo buttons, the Hard experience and arena thresholds, a build older than this one dropping Hard's list, and the combo rest after a
+  refused move still stand; its items on the phone options screen's shorter cells and the regenerated pictures no longer apply.
+
 ## 2026-10-07 — E38: a start that cannot look like a crash
 
 **Why.** A tester on Windows opened `Penumbra.exe` (downloaded from GitHub) and got a black or white window that did not answer ("Wait" or "Close the program"); no log, version or hardware came with

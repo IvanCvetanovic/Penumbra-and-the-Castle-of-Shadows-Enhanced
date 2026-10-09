@@ -425,10 +425,11 @@ const char* const kE10Labels[] = {
     "Continua sem o foco",
     "Ativa controles de toque",   // E20's row, on a phone
     "Desativa controles de toque",
-    "Dificuldade normal",   // E36's row
-    "Dificuldade dif\xED" "cil",
-    "Normal",   // E36's names: the end screen's heading, the New Game line, the best times panel
-    "Dif\xED" "cil",
+    "Normal",   // E36's names: the New Game prompt's rows, the end screen's heading, the best times panel
+    ("Dif\xED" "cil"),   // in parentheses: Clang's -Wstring-concatenation reads a bare split literal in a list as a missing comma
+    "Escolha a dificuldade",   // E36: the New Game prompt's title (game/script/menu.cpp), then its two rows' descriptions
+    "Os inimigos como no jogo original.",
+    "Os inimigos t\xEAm o dobro de vida.",
 };
 
 // ENHANCEMENT E23: the display mode's lines and the refresh rate's row
@@ -1245,13 +1246,13 @@ void TestLanguages() {
     }
 
     // The patterns every language draws from strings.json as they are: the
-    // spec's seven, numbers and markers only - and none of the twelve a
+    // spec's seven, numbers and markers only - and none of the eleven a
     // translator words.
     const std::vector<std::string> shared = loc.SharedPatterns();
     const std::vector<std::string> expected = {"[{any}] {text}", "hp: {int}", "mp: {int}", "lv: {int}",
                                                "{int}x{int}x{int}", "{int}x{int}", "{int} Hz", "{int}%"};   // E25's zoom
     CHECK(shared == expected);
-    CHECK_EQ(loc.PatternCount(), std::size_t{20});   // E36: three more (the end screen's heading, the best times body, the New Game body)
+    CHECK_EQ(loc.PatternCount(), std::size_t{19});   // E36: two more (the end screen's heading, the best times body)
 }
 
 // E24: the rules of a language file, on documents of our own (the real files
@@ -1364,7 +1365,7 @@ void TestLanguageFiles() {
     CHECK_MSG(!LanguageFiles().empty(), "no language files in " + DataDir() + "/strings");
     CHECK_EQ(LanguageFiles().size(), Render::kLanguageCount - 2);
     const std::set<std::string> translatable = TranslatablePatterns();
-    CHECK_EQ(translatable.size(), std::size_t{12});   // E36: three more
+    CHECK_EQ(translatable.size(), std::size_t{11});   // E36: two more
     for (const LanguageFile& file : LanguageFiles()) {
         const char* id = Render::LanguageId(file.language);
         CHECK_MSG(loc.HasLanguageFile(file.language), id);
@@ -1509,7 +1510,7 @@ LineWidths MeasureLines(Render::FontAtlas& fonts, const std::string& utf8, const
 }
 
 // ENHANCEMENT E24: every translatable text in its room - strings.json's
-// strings, its twelve translatable patterns (each through a sample the script
+// strings, its eleven translatable patterns (each through a sample the script
 // would compose) and its touch wordings - in every language, laid out with the
 // game's own FontAtlas (this platform's faces: the Windows ones where they
 // are, the stand-ins elsewhere; Japanese and Arabic from the bundled Noto). A
@@ -2321,7 +2322,7 @@ void CheckPanelRightToLeft(const Eth::RenderSnapshot& shown) {
     std::vector<Eth::HudCmd> panel;   // the title and the body, in front of their shadows
     for (const Eth::HudCmd& cmd : shown.hud) {
         if (cmd.kind != Eth::HudCmd::Kind::Text) continue;
-        if (cmd.text != "Novo jogo" && cmd.text != Script::newGamePanelText()) {   // E36: the story and the difficulty's lines
+        if (cmd.text != "Novo jogo" && cmd.text != Script::novo_jogo) {
             CHECK_MSG(cmd.rtlRight == 0.0f, Eth::Cp1252ToUtf8(cmd.text));   // the Alt+Enter line: not in a box
             continue;
         }
@@ -2451,7 +2452,7 @@ void CheckPhonePanels(Eth::Machine& machine) {
         {"Jogador versus Jogador", Script::versus},
         {"Jogador versus Jogador", noPad},
         {"Jogador versus Jogador", onePad},
-        {"Novo jogo", Script::newGamePanelText()},   // E36: the story, then the difficulty line and the hint
+        {"Novo jogo", Script::novo_jogo},
         {"Sair do jogo", ""},
         {"Configura\xE7\xF5" "es", Script::config},
     };
@@ -2615,6 +2616,94 @@ void CheckPhonePanels(Eth::Machine& machine) {
     loc.SetLanguage(Language::English);
     Script::g_phonePanel = Script::PhonePanel{};
     hud.Detach();
+}
+
+// ENHANCEMENT E36: NEW GAME'S DIFFICULTY PROMPT ON A WIDE PHONE. Its panel (Script::difficultyPromptBox) is centred in what
+// the window shows of the menu's screen, and slid along x, never shrunk, to stay 2 px in from the screen's left and right
+// edges: HudRenderer::addRectangle carries a rectangle with an edge within half a pixel of x 0 or 1024 on to the window's
+// side, as it does a fade's, and a 21:9 phone shows a good deal more than 1024 across (2640 x 1080 with no cutout: x 30 to
+// 1448), where centring in all of it put the panel's right edge at x 1077 and turned each rectangle of it (the gradient,
+// the edge lines, the rows) into a dark band. For each window, with no safe area and with a 100 px cutout at the left,
+// the panel is where the arithmetic puts it (the table below: the centre of x 30 to the window's right edge, less the
+// overshoot past x 1022 where there is one), more than 1 px from either edge of the screen, with the rows and texts
+// moved along with it, the scale no more than the text's own limit, and inside what the window shows. Needs the menu's
+// Machine in scope (GetScreenSize).
+void CheckPromptPanelOnWidePhones() {   // E36
+    const Script::PhonePanel saved = Script::g_phonePanel;
+    const Eth::vector2 screen = Eth::GetScreenSize();
+    CHECK_MSG(screen.x == 1024.0f && screen.y == 768.0f, std::to_string(screen.x) + "x" + std::to_string(screen.y));
+    // Worked by hand from PhoneUi's ComputeMenuFrame / ComputeMenuPanel for each window: frame.scale is 1.862 (2.483 at 1440
+    // high), the window shows x 30.07 (29.81) to shownMax, and the panel is 560 x 1.2083 = 676.67 wide (the height fits it
+    // at the text's limit, 1.6 times E1's size). Centred it would stand at min..max; past x 1022 it is slid left by the
+    // overshoot, so that its right edge is 1022 and its left 345.33: 2520 x 1080 by 23.07, 2640 x 1080 by 55.30 (28.44 with
+    // the cutout), the others not at all.
+    struct Wide {
+        glm::uvec2 window;
+        float cutout;
+        float panelMin;
+        float panelMax;
+    };
+    const Wide cases[] = {{{2400u, 1080u}, 0.0f, 336.185f, 1012.852f},   {{2400u, 1080u}, 100.0f, 309.333f, 986.000f},
+                          {{2520u, 1080u}, 0.0f, 345.333f, 1022.000f},   {{2520u, 1080u}, 100.0f, 341.556f, 1018.222f},
+                          {{2640u, 1080u}, 0.0f, 345.333f, 1022.000f},   {{2640u, 1080u}, 100.0f, 345.333f, 1022.000f},
+                          {{3120u, 1440u}, 0.0f, 319.806f, 996.472f},    {{3120u, 1440u}, 100.0f, 299.667f, 976.333f}};
+    for (const Wide& wide : cases) {
+        const glm::uvec2 window = wide.window;
+        const float cutout = wide.cutout;
+        const Supersonic::SafeAreaInsets safe{cutout, 0.0f, 0.0f, 0.0f};
+        const std::string what = std::to_string(window.x) + "x" + std::to_string(window.y) + ", cutout " +
+                                 std::to_string(static_cast<int>(cutout));
+        const Render::MenuFrame frame = Render::ComputeMenuFrame(window, safe);
+        CHECK_MSG(frame.active, what);
+        const Render::MenuPanel box = Render::ComputeMenuPanel(frame, window, safe);
+        Script::g_phonePanel = Script::PhonePanel{true,         box.min,      box.max,        box.minScale,
+                                                  box.maxScale, box.shownMin, box.shownMax, false};
+        const Script::DifficultyPromptBox prompt = Script::difficultyPromptBox();
+        std::printf("  E36 prompt %s: window shows x %.1f to %.1f; panel x %.1f to %.1f at %.3f times\n", what.c_str(),
+                    box.shownMin.x, box.shownMax.x, prompt.panelMin.x, prompt.panelMax.x, prompt.scale);
+
+        // Where the arithmetic puts it (the table above), to a twentieth of a logical px.
+        CHECK_MSG(std::abs(prompt.panelMin.x - wide.panelMin) < 0.05f && std::abs(prompt.panelMax.x - wide.panelMax) < 0.05f,
+                  what + ": x " + std::to_string(prompt.panelMin.x) + " to " + std::to_string(prompt.panelMax.x) +
+                      ", not " + std::to_string(wide.panelMin) + " to " + std::to_string(wide.panelMax));
+        // Clear of both edges by more than the 0.5 px at which addRectangle stretches, and by the 2 px asked.
+        CHECK_MSG(prompt.panelMin.x > 1.0f, what + ": left edge " + std::to_string(prompt.panelMin.x));
+        CHECK_MSG(prompt.panelMax.x < screen.x - 1.0f, what + ": right edge " + std::to_string(prompt.panelMax.x));
+        CHECK_MSG(prompt.panelMin.x >= 2.0f - 1e-3f && prompt.panelMax.x <= screen.x - 2.0f + 1e-3f, what);
+        // Inside what the window shows, vertically (and across, where it shows less than the screen).
+        CHECK_MSG(prompt.panelMin.y >= box.shownMin.y - 1e-3f && prompt.panelMax.y <= box.shownMax.y + 1e-3f, what);
+        CHECK_MSG(prompt.panelMin.x >= box.shownMin.x - 1e-3f && prompt.panelMax.x <= box.shownMax.x + 1e-3f, what);
+        // Centred in what the window shows where it was not slid: the shown rectangle's centre (to the box's own edge, 10 px
+        // short of the shown right edge less the safe area, which a cutout at the left does not change).
+        const float shownCentre = 0.5f * (box.shownMin.x + std::min(box.shownMax.x, box.max.x + 10.0f));
+        const float centre = 0.5f * (prompt.panelMin.x + prompt.panelMax.x);
+        if (prompt.panelMax.x < screen.x - 2.0f - 1e-2f) {
+            CHECK_MSG(std::abs(centre - shownCentre) < 1e-2f, what + ": centre " + std::to_string(centre));
+        } else {
+            CHECK_MSG(centre < shownCentre, what + ": slid the wrong way");   // slid left, to end at x 1022
+        }
+        // Scaled as one, within the text's limits.
+        CHECK_MSG(prompt.scale > 0.0f && prompt.scale <= box.maxScale + 1e-5f, what + ": " + std::to_string(prompt.scale));
+        CHECK_MSG(prompt.scale >= box.minScale - 1e-5f, what + ": " + std::to_string(prompt.scale));
+        CHECK_MSG(std::abs((prompt.panelMax.x - prompt.panelMin.x) - 560.0f * prompt.scale) < 1e-2f, what);
+        CHECK_MSG(std::abs((prompt.panelMax.y - prompt.panelMin.y) - 330.0f * prompt.scale) < 1e-2f, what);
+        // The title, the rows and their texts moved along with it (placed from the final panelMin), and are inside it.
+        CHECK_MSG(std::abs(prompt.titlePos.x - (prompt.panelMin.x + 24.0f * prompt.scale)) < 1e-2f, what);
+        CHECK_MSG(std::abs(prompt.titleRight - (prompt.panelMin.x + (560.0f - 24.0f) * prompt.scale)) < 1e-2f, what);
+        CHECK_MSG(prompt.titleRight <= prompt.panelMax.x, what);
+        for (int t = 0; t < 2; ++t) {
+            const std::string row = what + ", row " + std::to_string(t);
+            CHECK_MSG(std::abs(prompt.rowMin[t].x - (prompt.panelMin.x + 24.0f * prompt.scale)) < 1e-2f, row);
+            CHECK_MSG(std::abs(prompt.rowMax[t].x - (prompt.panelMax.x - 24.0f * prompt.scale)) < 1e-2f, row);
+            CHECK_MSG(std::abs(prompt.labelPos[t].x - (prompt.rowMin[t].x + 22.0f * prompt.scale)) < 1e-2f, row);
+            CHECK_MSG(std::abs(prompt.descPos[t].x - prompt.labelPos[t].x) < 1e-3f, row);
+            CHECK_MSG(prompt.rowMin[t].x >= prompt.panelMin.x && prompt.rowMax[t].x <= prompt.panelMax.x, row);
+            CHECK_MSG(prompt.rowMin[t].y >= prompt.panelMin.y && prompt.rowMax[t].y <= prompt.panelMax.y, row);
+            CHECK_MSG(prompt.rowMin[t].x > 1.0f && prompt.rowMax[t].x < screen.x - 1.0f, row);
+            CHECK_MSG(prompt.textRight[t] <= prompt.rowMax[t].x, row);
+        }
+    }
+    Script::g_phonePanel = saved;
 }
 
 // E25's two columns (HudRenderer, Eth::TextFit::columns), on a text of our
@@ -2829,6 +2918,7 @@ void TestWideMenuScene() {
 
     machine.SetSidesShown(true);
     CheckPhonePanels(machine);   // E25
+    CheckPromptPanelOnWidePhones();   // E36
 }
 
 } // namespace
@@ -3705,7 +3795,7 @@ void TestPhoneOptionsNarrowBodyFit() {   // E31
     for (const Eth::HudCmd& cmd : snapshot.hud) {   // E31
         if (cmd.kind == Eth::HudCmd::Kind::Text && cmd.fit.group != 0 && (cmd.color >> 24) > 128u) fronts.push_back(cmd);   // E31
     }   // E31
-    CHECK_EQ(fronts.size(), std::size_t{18});   // every text of the body but the title   // E31, E36: 17 before the difficulty's
+    CHECK_EQ(fronts.size(), std::size_t{17});   // every text of the body but the title   // E31
 
     FitRig rig;   // E31
     for (const Language language : MeasuredLanguages(rig.loc)) {   // E31
@@ -3810,10 +3900,9 @@ void TestTouchEditorInLayer() {                                                 
     const glm::vec2 jumpAt = controls[Render::TouchControl::Jump].Centre();                                             // E28
     const glm::vec2 jumpTo = jumpAt + glm::vec2(-40.0f, 12.0f);                                                         // E28
     // E31: the layer here has the real data folder, so the options art is on and the options screen is the phone's layout   // E31
-    // (game/script/optionsPhone.cpp): the touch switch is a cell, (28, 294, 474, 78) on this 1024x768 window (frame 10 / 8 /   // E31, E36
-    // 10 / 0; (28, 314, 474, 88) before the difficulty's cell made seven rows of six), and a tap anywhere in it turns the   // E36
-    // controls off. The old layout's first row (300, 182) is a pixel shaders cell now. Worked out from the same pure layout   // E31, E36
-    // the screen draws from, from the area the layer publishes for this window.   // E31
+    // (game/script/optionsPhone.cpp): the touch switch is a cell, (28, 314, 474, 88) on this 1024x768 window (frame 10 / 8 /   // E31
+    // 10 / 0), and a tap anywhere in it turns the controls off. The old layout's second row (300, 207) is a pixel shaders cell   // E31
+    // now. Worked out from the same pure layout the screen draws from, from the area the layer publishes for this window.   // E31
     const Script::OptionsArea window43{Eth::vector2(0.0f, 0.0f), Eth::vector2(1024.0f, 768.0f), 10.0f, 8.0f, 10.0f, 0.0f};   // E31
     const Script::PhoneOptionsLayout phone = Script::phoneOptionsLayout(window43, true, true);   // E31
     const Script::PhoneRect touchCell = phone.cell[Script::PC_TOUCH];   // E31
@@ -3889,9 +3978,9 @@ void TestTouchEditorInLayer() {                                                 
         const Script::PhoneOptionsLayout live = Script::phoneOptionsLayout(Script::g_optionsArea, true, Script::g_refreshRateRow);   // E31
         CHECK(live.cell[Script::PC_TOUCH].x == touchCell.x && live.cell[Script::PC_TOUCH].y == touchCell.y &&   // E31
               live.cell[Script::PC_TOUCH].w == touchCell.w && live.cell[Script::PC_TOUCH].h == touchCell.h);   // E31
-        CHECK(restingAt.x == 265.0f && restingAt.y == 333.0f);   // E31, E36: 358 before
+        CHECK(restingAt.x == 265.0f && restingAt.y == 358.0f);   // E31
         const Eth::HudCmd* shaders = FrontText(*machine, "Ativa pixel shaders");   // the first cell's wording, 66 px into it, centred   // E31
-        CHECK(shaders != nullptr && shaders->pos == Eth::vector2(94.0f, 150.0f) && shaders->fontSize == 30.0f);   // E31, E36: y 155 in an 88 px cell
+        CHECK(shaders != nullptr && shaders->pos == Eth::vector2(94.0f, 155.0f) && shaders->fontSize == 30.0f);   // E31
         const Script::PhoneRect& backHit = live.backHit;   // E31
         CHECK_MSG(backAt.x > backHit.x && backAt.y > backHit.y && backAt.x < backHit.x + backHit.w && backAt.y < backHit.y + backHit.h,   // E31
                   "the editor's Back arrow is not under the options screen's: the leak legs below would prove nothing");   // E31
@@ -4448,16 +4537,18 @@ void TestSplashInLayer() {   // E35
     Script::g_artDir = savedArtDir;
 }
 
-// ENHANCEMENT E36: THE DIFFICULTY ROW AS THE LAYER SEEDS AND KEEPS IT. The options screen's Normal / Hard switch is a script
-// global (Script::g_difficulty) that outlives a layer: the layer sets it from the run's difficulty when it attaches - the
-// settings', or --difficulty's over them (options.hardDifficultyOverride) - and, every tick, keeps the settings in step with
-// a pick on the row. Pinned here: the seeding from each; that the flag is never written into the settings; that a pick
-// replaces the flag; and that a pick is kept (noSave stops only the file, the settings the layer holds are what is read).
+// ENHANCEMENT E36: THE DIFFICULTY AS THE LAYER SEEDS AND KEEPS IT. The Normal / Hard choice New Game's prompt makes is a
+// script global (Script::g_difficulty) that outlives a layer: the layer sets it from the run's difficulty when it attaches -
+// the settings', or --difficulty's over them (options.hardDifficultyOverride), which is what the prompt opens on - and, every
+// tick, keeps the settings in step with a pick (the prompt writes the global only when a pick is confirmed, so a test here
+// writes it directly). Pinned here: the seeding from each; that the flag is never written into the settings; that a pick
+// replaces the flag; that a pick is kept (noSave stops only the file, the settings the layer holds are what is read); and
+// that a --start of a campaign level plays at the seeded difficulty.
 void TestDifficultyInLayer() {   // E36
     const std::string savedArtDir = Script::g_artDir;
     const bool savedMobile = Script::g_mobileLayout;
     try {
-        // The defaults are Normal, and the row starts there.
+        // The defaults are Normal, and the choice starts there.
         {
             SplashRig rig(SplashOptions(false));
             CHECK_EQ(Script::g_difficulty.getCurrent(), Script::DIFFICULTY_NORMAL);
@@ -4465,7 +4556,7 @@ void TestDifficultyInLayer() {   // E36
             CHECK_EQ(Script::g_difficulty.getCurrent(), Script::DIFFICULTY_NORMAL);   // the first ticks change nothing
             CHECK(rig.layer.CurrentSettings().difficulty == "normal");
         }
-        // Settings that say Hard seed the row with Hard, a pick of Normal is kept, and Hard again.
+        // Settings that say Hard seed it with Hard, a pick of Normal is kept, and Hard again.
         {
             PenumbraLayer::Options options = SplashOptions(false);
             options.settings.difficulty = "hard";
@@ -4480,7 +4571,7 @@ void TestDifficultyInLayer() {   // E36
             rig.step();
             CHECK(rig.layer.CurrentSettings().difficulty == "hard");
         }
-        // --difficulty hard over Normal settings: the row says Hard, the settings keep Normal (never saved from a flag).
+        // --difficulty hard over Normal settings: the prompt would open on Hard, the settings keep Normal (never saved from a flag).
         // The first pick replaces the flag: Normal is then what both say, and Hard picked after it is a change of the settings.
         {
             PenumbraLayer::Options options = SplashOptions(false);
@@ -4496,7 +4587,7 @@ void TestDifficultyInLayer() {   // E36
             rig.step();
             CHECK(rig.layer.CurrentSettings().difficulty == "hard");
         }
-        // --difficulty normal over Hard settings: the row says Normal and the player's saved choice is left alone.
+        // --difficulty normal over Hard settings: the prompt would open on Normal and the player's saved choice is left alone.
         {
             PenumbraLayer::Options options = SplashOptions(false);
             options.settings.difficulty = "hard";
@@ -4508,7 +4599,7 @@ void TestDifficultyInLayer() {   // E36
             CHECK_EQ(Script::g_difficulty.getCurrent(), Script::DIFFICULTY_NORMAL);
         }
         // --start of a campaign level is New Game without the menu (PenumbraLayer::StartDevScene, which asks for the scene at the
-        // end of the first tick): the run is latched from the row at once, so a capture with --difficulty hard is played in
+        // end of the first tick): the run is latched from the seeded choice at once, so a capture with --difficulty hard is played in
         // Hard. An arena is never Hard, and a start with no flag is Normal.
         for (const bool hardFlag : {true, false}) {
             for (const char* scene : {"level1.esc", "pvp_lv1.esc"}) {
@@ -4711,7 +4802,7 @@ int main() {
     TestPhoneOptionsNarrowBodyFit();   // E31: a bare Machine of its own, its globals put back
     TestTouchEditorInLayer();   // E28: the layer itself, driven on a bare registry (its globals die with the process)
     TestSplashInLayer();   // E35: the layer again, after it: the intro, the machine standing still, the presses
-    TestDifficultyInLayer();   // E36: the layer once more: the difficulty row seeded from the settings or the flag, and kept
+    TestDifficultyInLayer();   // E36: the layer once more: the difficulty seeded from the settings or the flag, and a pick kept
     TestLaunchAfterTheFirstFrame();   // E38: the layer's launch: the display switch and the start marker wait for a frame
     return test::summary("test_pn_render_hud", 150);
 }

@@ -16,9 +16,10 @@
 //   --spawn <x>,<y>        put the wizard at a scene point once he exists (captures far from a start)
 //   --touch [on|off]       this run's on-screen touch controls (E16); on by itself. On the
 //                          desktop the held left mouse button is the finger
-//   --difficulty normal|hard  this run's campaign difficulty (E36), over the settings and never saved, so
-//                          a capture or a scripted run can start in Hard; a campaign level started with
-//                          --start plays at it too. Removes the intro, as every flag a player would not type
+//   --difficulty normal|hard  this run's starting difficulty (E36), over the settings and never saved: the
+//                          one New Game's prompt opens on, so a capture or a scripted run can start in
+//                          Hard; a campaign level started with --start plays at it too. Removes the intro,
+//                          as every flag a player would not type
 //   --refresh auto|<Hz>    this run's fullscreen refresh rate (E23), over the settings
 //   --vulkan 1.1|1.2       this run's lowest accepted GPU Vulkan version (E39), over the build's: a phone
 //                          takes 1.1 and a computer 1.2 by default. Removes the intro, as every flag a
@@ -117,7 +118,8 @@ constexpr const char* kGameUsage =
     "                         on a desktop the held left mouse button is the finger\n"
     "  --zoom auto|<percent>  this run's campaign zoom while the touch controls are on (not saved; 100-200)\n"
     "  --mobile-layout on|off this run's phone layout of the options screen (captures; not saved)\n"
-    "  --difficulty normal|hard  this run's campaign difficulty (captures and scripted runs; not saved)\n"   // E36
+    "  --difficulty normal|hard  this run's starting difficulty for the New Game prompt and the dev start\n"   // E36
+    "                         (captures and scripted runs; not saved)\n"   // E36
     "  --edge-margin auto|<percent>  this run's HUD edge margin while the touch controls are on (not saved; 0-8)\n"
     "  --safe-area <l>,<t>,<r>,<b>  the display's safe-area insets, window pixels (captures of a notched phone)\n"
     "  --princess             player 2's princess beside the wizard in a campaign level (captures of co-op)\n"
@@ -397,8 +399,9 @@ int PenumbraMain(int argc, char** argv) {
             }
             layerOptions.mobileLayoutOverride = value == "on";
         } else if (arg == "--difficulty" && hasValue) {   // E36
-            // E36: this run's campaign difficulty, over the setting and never saved; a pick on the options screen
-            // replaces it. Like every flag outside the player's own it removes the intro (render/Splash.hpp).
+            // E36: this run's starting difficulty, over the setting and never saved: the choice New Game's prompt
+            // opens on and a dev start plays at; a pick at the prompt replaces it. Like every flag outside the
+            // player's own it removes the intro (render/Splash.hpp).
             const std::string value = argv[++i];   // E36
             if (value != "normal" && value != "hard") {   // E36
                 std::cerr << "[Penumbra] --difficulty wants normal or hard, got " << value << std::endl;   // E36

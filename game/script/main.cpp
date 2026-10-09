@@ -33,7 +33,7 @@ array<Combo> g_comboManager(2);
 bool g_nextLevelOffered = false;
 
 // ENHANCEMENT E36 (Script.hpp): the difficulty the campaign run in progress is played at. It is Normal until   // E36
-// newGame("CAMPAIGN") latches the options' choice, and resetData puts it back: the arenas, which reach        // E36
+// newGame("CAMPAIGN") latches the choice New Game's prompt made, and resetData puts it back: the arenas, which reach   // E36
 // resetData too, are never Hard. A death or a checkpoint reloads a scene without resetData, so the run keeps  // E36
 // it (and spawn() doubles the hp of what the reload spawns afresh, never of what a checkpoint file restores). // E36
 uint g_runDifficulty = DIFFICULTY_NORMAL;                  // E36
@@ -62,7 +62,7 @@ void newGame(const string& sceneName)
 
     if (sceneName == "CAMPAIGN")
     {
-        // E36: the run is played at the difficulty the options say now, whatever it is changed to later.   // E36
+        // E36: the run is played at the difficulty New Game's prompt just set, whatever it is changed to later.   // E36
         g_runDifficulty = g_difficulty.getCurrent() == DIFFICULTY_HARD ? DIFFICULTY_HARD : DIFFICULTY_NORMAL;   // E36
         int level = 1;
         // main.as:109-115: keys HELD when the menu's fade ends pick the level,

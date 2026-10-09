@@ -126,8 +126,9 @@ public:
         // E13's pause on focus loss for this run (off under --fixed-step: a
         // capture's window often never has the focus); never saved.
         std::optional<bool> pauseOnFocusLossOverride;
-        // E36's difficulty for this run (--difficulty normal|hard: true is Hard), over the settings'; never
-        // saved, and a pick on the options screen's row replaces it, as a pick replaces --lang.
+        // E36's difficulty for this run (--difficulty normal|hard: true is Hard), over the settings': the one
+        // New Game's prompt opens on and a dev start plays at. Never saved, and a pick at the prompt replaces
+        // it, as a pick replaces --lang.
         std::optional<bool> hardDifficultyOverride;
         // E16's touch controls for this run (--touch: on, the mouse as the
         // finger); never saved.
