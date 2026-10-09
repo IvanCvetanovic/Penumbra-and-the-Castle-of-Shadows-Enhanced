@@ -40,7 +40,9 @@ The game also writes what happened to ~/.local/share/Penumbra/penumbra.log.
 
 Controls: arrow keys to walk, Up or Ctrl to jump, S sword, D fireball,
 Space light, Esc pause. Gamepads work too (A jump, X sword, B fireball,
-Y light). Combos: Left Left S, and Down Left D.
+Y light). Combos are three taps, one after another, each within a
+fifth of a second of the last: Left Left S (5 mana) and Down Left D
+(25 mana). If one fails, wait a moment and try again.
 
 Difficulty: the settings have a Difficulty row. Normal is the original
 game; in Hard every enemy has twice the health.
@@ -93,8 +95,10 @@ O jogo também escreve o que aconteceu em ~/.local/share/Penumbra/penumbra.log.
 
 Controles: setas para andar, Cima ou Ctrl para pular, S espada, D bola de
 fogo, Espaço luz, Esc pausa. Controles de videogame (gamepads) também
-funcionam (A pular, X espada, B bola de fogo, Y luz). Combos: Esquerda
-Esquerda S, e Baixo Esquerda D.
+funcionam (A pular, X espada, B bola de fogo, Y luz). Combos são três
+toques, um depois do outro, cada um até um quinto de segundo depois do
+anterior: Esquerda Esquerda S (5 de mana) e Baixo Esquerda D (25 de
+mana). Se falhar, espere um instante e tente de novo.
 
 Dificuldade: as configurações têm uma linha de Dificuldade. Normal é o
 jogo original; no modo Difícil, todo inimigo tem o dobro de vida.

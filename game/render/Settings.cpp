@@ -617,6 +617,7 @@ Settings Settings::FromJson(const std::string& text, const Settings& defaults, s
             ReadBool(controls, "keyboardPlayer2", settings.controls.keyboardPlayer2, warning);
             ReadBool(controls, "firstPadIsPlayer1", settings.controls.firstPadIsPlayer1, warning);
             ReadBool(controls, "rawJoysticks", settings.controls.rawJoysticks, warning);
+            ReadBool(controls, "comboAssist", settings.controls.comboAssist, warning);   // E44
             ReadFloat(controls, "stickDeadzone", 0.0f, kMaxStickDeadzone, settings.controls.stickDeadzone, warning);
             ReadBindings(controls, "player1", settings.controls.player1, warning);
             ReadBindings(controls, "player2", settings.controls.player2, warning);
@@ -675,6 +676,7 @@ std::string Settings::ToJson() const {
     out << "    \"keyboardPlayer2\": " << FormatBool(controls.keyboardPlayer2) << ",\n";
     out << "    \"firstPadIsPlayer1\": " << FormatBool(controls.firstPadIsPlayer1) << ",\n";
     out << "    \"rawJoysticks\": " << FormatBool(controls.rawJoysticks) << ",\n";
+    out << "    \"comboAssist\": " << FormatBool(controls.comboAssist) << ",\n";   // E44
     out << "    \"stickDeadzone\": " << FormatFloat(controls.stickDeadzone) << ",\n";
     WriteBindings(out, "player1", controls.player1, false);
     WriteBindings(out, "player2", controls.player2, true);

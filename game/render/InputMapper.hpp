@@ -205,6 +205,12 @@ private:
 
     int m_ticksThisFrame = 0;
     Eth::InputFrame m_lastTick;
+    // E44 (ControlSettings::comboAssist): what the game saw of the combo keys at the last tick, and the presses it has not seen yet
+    // because another combo key took the tick.
+    void serialiseComboPresses(Eth::InputFrame& frame);
+    std::array<bool, Eth::K_COUNT> m_comboSeen{};
+    std::array<bool, Eth::K_COUNT> m_comboWaiting{};
+
     std::array<bool, Eth::K_COUNT> m_latchedKeys{};
     std::array<std::array<bool, 32>, Eth::kMaxJoysticks> m_latchedButtons{};
     std::vector<std::uint32_t> m_pendingTyped;

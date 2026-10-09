@@ -89,6 +89,13 @@ struct ControlSettings {
     // index 0 would otherwise shift every pad and make hasASecondController()
     // true on its own.
     bool rawJoysticks = false;
+    // E44: combos are typed taps (left, left, S; down, a side, D) and the original records ONE command per sixtieth of a second,
+    // in the order left, right, up, down, S, D: keys that go down together - a roll of the fingers, which is how a combo is typed
+    // fast - keep only the first, and down with a side key always loses down. On, the keyboard's fresh presses of those five
+    // keys that land on one tick are handed to the game one tick apart, in the order a combo needs (down, then a side, then S or
+    // D), so a roll still records every key. Off, the original's. Player 1's keyboard only; every other rule of the combos is
+    // the original's.
+    bool comboAssist = true;
 
     bool operator==(const ControlSettings& other) const = default;
 

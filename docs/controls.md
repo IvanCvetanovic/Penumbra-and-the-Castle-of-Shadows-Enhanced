@@ -21,11 +21,30 @@ These are the original's keys:
 Esc in the menus, the options and game over goes back, as in the original. In the pause, the
 arrows choose, Enter confirms and Esc resumes; the mouse works too.
 
-**Combos.** Each gap between presses must be at most about 210 ms (`combo.as`;
-[`spec/11-logic-player-combat.md`](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/blob/main/docs/spec/11-logic-player-combat.md) §10):
+**Combos.** A combo is three separate taps, one after another: each key pressed afresh (a held key does not count, and the same key
+twice needs a release between the presses), each within about 210 ms of the one before (`combo.as`; in practice 13 ticks of the game's 60 a
+second, 217 ms)
+([`spec/11-logic-player-combat.md`](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/blob/main/docs/spec/11-logic-player-combat.md) §10):
 
 - **Sword combo (5 mana):** ← ← S or → → S. A stronger sword and a beam; the screen shakes.
 - **Blast (25 mana):** ↓ ← D or ↓ → D. A big fireball with 225 damage.
+
+The original's combo memory is strict, and these are its rules, which the game keeps:
+
+- It records **one key per tick** (a sixtieth of a second), the first of: left, right, up, down, S, D. Keys that go down in the same tick
+  keep only that one. Pressing down and a side key together loses the down, so the blast cannot be made by pressing the diagonal.
+  (Typing a combo on a keyboard, a hand rolls the keys, and about half of two keys 8 ms apart land on one tick: see **Combo assist**.)
+- It matches only the **first three keys** since it last emptied, and it empties after about a quarter of a second with no new key. Any key
+  recorded just before a combo spoils that try: the jump (Up), a sword swing (S), a fireball (D), another arrow. Pressing on without a pause
+  never recovers; stop for a quarter of a second and begin again. Mashing does not work.
+- Without the mana (5 for the sword combo, 25 for the blast) a short message is shown and an ordinary sword swing or fireball happens
+  instead. A combo that is mistyped gives no message at all.
+
+**Combo assist (E44).** On by default. Of the keyboard's five combo keys (down, left, right, S, D), the ones that go down together on one
+tick are handed to the game one tick apart, in the order a combo needs (down, then a side, then S or D), so a roll of the fingers records
+every key instead of the first. Only player 1's keyboard, only presses that land on the same tick, and no other rule changes; a plain press
+alone is never delayed, and a press that has to wait waits a sixtieth of a second per key at most. `"comboAssist": false` under `controls` in
+`settings.json` gives the original's rule back. (There is no row for it on the options screen yet.)
 
 Typed on a keyboard or a pad, a combo has no rest: it can be repeated as often as the keys can be pressed
 and the mana lasts, as in the original. The combo buttons of the touch controls are the only ones that

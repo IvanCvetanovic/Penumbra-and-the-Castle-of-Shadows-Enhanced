@@ -467,9 +467,57 @@ InputFrame InputMapper::BuildTick(const RawDevices& raw, const View& view) {
     m_latchedKeys = {};
     m_latchedButtons = {};
 
+    if (m_controls.comboAssist) {
+        if (raw.focused) {
+            serialiseComboPresses(frame);
+        } else {
+            // The game reads every key as up while the window has no focus (InputState::Update), so there is nothing to hand over,
+            // and a press held back before the focus went is not owed to it after: keys still down when it returns are fresh.
+            m_comboSeen = {};
+            m_comboWaiting = {};
+        }
+    } else {
+        m_comboSeen = {};
+        m_comboWaiting = {};
+    }
+
     m_lastTick = frame;
     ++m_ticksThisFrame;
     return frame;
+}
+
+// E44. The combo recorder (script/combo.cpp, combo.as:63) keeps at most one command per tick - the first KS_HIT in the order left,
+// right, up, down, S, D - and a HIT lasts one tick, so a second key that goes down in the same tick is lost for good. A combo is
+// three taps, and a hand rolls them: left and S, or down and a side, land together more often than not (about half the time at
+// 8 ms apart, never from 18 ms). Down loses to a side key for ever. So here, of the combo keys that are NEW this tick (down, and
+// not seen down at the last tick) or were held back by an earlier one, the first in the order a combo needs is seen now and the
+// others one tick each after it: down, then a side, then S or D. A key that comes up before its turn is still seen, for one tick.
+// The up key (the jump) is not one of them: it is not part of a combo the game asks for, and a jump must not wait.
+void InputMapper::serialiseComboPresses(InputFrame& frame) {
+    struct ComboKey {
+        int key;
+        int rank;
+    };
+    static constexpr ComboKey kComboKeys[] = {{K_DOWN, 0}, {K_LEFT, 1}, {K_RIGHT, 1}, {K_S, 2}, {K_D, 2}};
+    constexpr std::size_t kCount = sizeof(kComboKeys) / sizeof(kComboKeys[0]);
+
+    std::array<int, kCount> waiting{};
+    std::size_t count = 0;
+    for (std::size_t i = 0; i < kCount; ++i) {
+        const auto k = static_cast<std::size_t>(kComboKeys[i].key);
+        if ((frame.keys[k] && !m_comboSeen[k]) || m_comboWaiting[k]) waiting[count++] = static_cast<int>(i);
+    }
+    if (count >= 1) {
+        // By rank, and by the table's order within a rank (left before right, S before D): the order the loop above gathered them in.
+        std::stable_sort(waiting.begin(), waiting.begin() + static_cast<std::ptrdiff_t>(count),
+                         [](int a, int b) { return kComboKeys[a].rank < kComboKeys[b].rank; });
+        for (std::size_t n = 0; n < count; ++n) {
+            const auto k = static_cast<std::size_t>(kComboKeys[waiting[n]].key);
+            frame.keys[k] = n == 0;
+            m_comboWaiting[k] = n != 0;
+        }
+    }
+    for (const ComboKey& combo : kComboKeys) m_comboSeen[static_cast<std::size_t>(combo.key)] = frame.keys[static_cast<std::size_t>(combo.key)];
 }
 
 void InputMapper::EndFrame() {

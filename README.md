@@ -115,7 +115,7 @@ downloaded, and `bash tools/build_linux.sh --test` or `build\tests\test_pn_all.e
 | Pause | Esc | Back |
 
 > [!TIP]
-> Combos: **← ← S** (sword beam) and **↓ ← D** (blast). On phones the game draws its own buttons,
+> Combos: **← ← S** (sword beam) and **↓ ← D** (blast), each key a separate tap, one after another. On phones the game draws its own buttons,
 > including one-tap combos, which rest for a second after each use (combos typed on a keyboard or a pad do not).
 > Everything else is in [`docs/controls.md`](docs/controls.md).
 

@@ -202,7 +202,7 @@ Esta **edição aprimorada**, de **Ivan Cvetanović**, é igualzinha ao original
 
 **Toque:** num celular ou tablet, o jogo mostra os próprios botões, inclusive botões que fazem os combos com um toque só. Deslize o polegar pelos botões de seta para andar. Os seis botões de ação ficam embaixo à direita, em duas colunas: espada e pulo embaixo, luz e bola de fogo em cima, e os dois botões do meio fazem os combos com um toque só (cada um precisa de um segundo para recarregar depois de usado). Também há um botão para pausar. Nas configurações, Ajustar controles muda o tamanho, a transparência e a posição dos botões.
 
-**Combos:** `←` `←` `S` para um raio de espada, e `↓` `←` `D` para uma grande explosão (ou o mesmo com `→`).
+**Combos:** `←` `←` `S` para um raio de espada, e `↓` `←` `D` para uma grande explosão (ou o mesmo com `→`). Aperte as teclas uma depois da outra, cada uma até um quinto de segundo depois da anterior; se falhar, espere um instante e tente de novo.
 
 **Dois jogadores:** o segundo jogador pode usar `J` `L` para andar, `I` para pular e `U` `O` `P` para espada, bola de fogo e luz, ou um segundo controle.
 

@@ -2431,6 +2431,108 @@ void testPhoneMenuHits() {
     }
 }
 
+// E44: the combo keys that land on one tick are handed over one tick apart (InputMapper::serialiseComboPresses).
+void testComboAssist() {
+    View view;
+    ControlSettings assisted = Defaults();
+    CHECK_MSG(assisted.comboAssist, "on by default");
+    ControlSettings original = assisted;
+    original.comboAssist = false;
+
+    // Ticks of a mapper, one frame each: the keys down at each, as the game saw them.
+    const auto run = [&view](const ControlSettings& controls, const std::vector<RawDevices>& ticks) {
+        InputMapper mapper;
+        mapper.SetControls(controls);
+        mapper.SetPlayer2Pad(0);
+        std::vector<InputFrame> frames;
+        for (const RawDevices& raw : ticks) {
+            frames.push_back(mapper.BuildTick(raw, view));
+            mapper.EndFrame(raw);
+        }
+        return frames;
+    };
+    const RawDevices none;
+    const RawDevices leftS = With({GLFW_KEY_LEFT, GLFW_KEY_S});
+
+    // Off, the original's: both keys on the same tick, and the recorder keeps the first.
+    {
+        const auto frames = run(original, {leftS, leftS});
+        CHECK(frames[0].keys[K_LEFT] && frames[0].keys[K_S]);
+    }
+    // On: left now, S on the next tick (and still held after).
+    {
+        const auto frames = run(assisted, {leftS, leftS, leftS});
+        CHECK_MSG(frames[0].keys[K_LEFT] && !frames[0].keys[K_S], "the first in combo order is seen now");
+        CHECK_MSG(frames[1].keys[K_LEFT] && frames[1].keys[K_S], "and the other one tick after it");
+        CHECK(frames[2].keys[K_LEFT] && frames[2].keys[K_S]);
+    }
+    // Down with a side key: down first, whichever side, however they arrive.
+    for (const int side : {GLFW_KEY_LEFT, GLFW_KEY_RIGHT}) {
+        const int sideKey = side == GLFW_KEY_LEFT ? K_LEFT : K_RIGHT;
+        const auto frames = run(assisted, {With({side, GLFW_KEY_DOWN}), With({side, GLFW_KEY_DOWN})});
+        CHECK_MSG(frames[0].keys[K_DOWN] && !frames[0].keys[sideKey], "down comes before a side");
+        CHECK(frames[1].keys[K_DOWN] && frames[1].keys[sideKey]);
+    }
+    // All three of the blast's keys at once: down, a side, then D, a tick each.
+    {
+        const RawDevices all = With({GLFW_KEY_RIGHT, GLFW_KEY_DOWN, GLFW_KEY_D});
+        const auto frames = run(assisted, {all, all, all, all});
+        CHECK(frames[0].keys[K_DOWN] && !frames[0].keys[K_RIGHT] && !frames[0].keys[K_D]);
+        CHECK(frames[1].keys[K_DOWN] && frames[1].keys[K_RIGHT] && !frames[1].keys[K_D]);
+        CHECK(frames[2].keys[K_DOWN] && frames[2].keys[K_RIGHT] && frames[2].keys[K_D]);
+    }
+    // A key that comes up before its turn is still seen, for one tick, and no longer.
+    {
+        const auto frames = run(assisted, {leftS, With({GLFW_KEY_LEFT}), With({GLFW_KEY_LEFT}), none});
+        CHECK(frames[0].keys[K_LEFT] && !frames[0].keys[K_S]);
+        CHECK_MSG(frames[1].keys[K_S], "a tap that lost its tick to another key is seen on the next");
+        CHECK(!frames[2].keys[K_S]);
+        CHECK(!frames[3].keys[K_LEFT]);
+    }
+    // Nothing waits when nothing collides: a lone key, a held key with another pressed later, and the jump.
+    {
+        const auto lone = run(assisted, {With({GLFW_KEY_S})});
+        CHECK_MSG(lone[0].keys[K_S], "a lone press is not delayed");
+        const auto later = run(assisted, {With({GLFW_KEY_LEFT}), leftS});
+        CHECK_MSG(later[1].keys[K_LEFT] && later[1].keys[K_S], "a key pressed while another is held is not delayed");
+        const auto jump = run(assisted, {With({GLFW_KEY_LEFT, GLFW_KEY_UP})});
+        CHECK_MSG(jump[0].keys[K_LEFT] && jump[0].keys[K_UP], "the jump never waits");
+    }
+    // Losing the window's focus drops what was waiting.
+    {
+        RawDevices away = leftS;
+        away.focused = false;
+        const auto frames = run(assisted, {leftS, away, With({GLFW_KEY_LEFT})});
+        CHECK(frames[0].keys[K_LEFT] && !frames[0].keys[K_S]);
+        CHECK_MSG(!frames[1].hasFocus, "the game reads every key as up while the window is unfocused");
+        CHECK_MSG(frames[2].keys[K_LEFT] && !frames[2].keys[K_S], "a press held back before the focus went is not seen after it");
+    }
+    // A frame that ran no tick latches its press, and the latch is serialised too.
+    {
+        InputMapper mapper;
+        mapper.SetControls(assisted);
+        mapper.SetPlayer2Pad(0);
+        InputFrame frame = mapper.BuildTick(none, view);
+        mapper.EndFrame(none);    // the frame that ran that tick
+        mapper.EndFrame(leftS);   // a frame with no tick of its own: both presses are latched for the next one
+        frame = mapper.BuildTick(none, view);
+        CHECK(frame.keys[K_LEFT] && !frame.keys[K_S]);
+        mapper.EndFrame(none);
+        frame = mapper.BuildTick(none, view);
+        CHECK_MSG(frame.keys[K_S], "and the second is seen on the tick after");
+    }
+    // The setting is saved as controls.comboAssist and reads back; an old file without it keeps the default.
+    {
+        Settings settings = Settings::Defaults("en");
+        settings.controls.comboAssist = false;
+        std::string warning;
+        const Settings loaded = Settings::FromJson(settings.ToJson(), Settings::Defaults("en"), &warning);
+        CHECK(!loaded.controls.comboAssist && warning.empty());
+        const Settings old = Settings::FromJson(R"({"controls": {"keyboardPlayer2": false}})", Settings::Defaults("en"), &warning);
+        CHECK_MSG(old.controls.comboAssist, "a file written before E44 keeps the default");
+    }
+}
+
 void runTests() {
     testKeyboardPlayer1();
     testGamepads();
@@ -2450,6 +2552,7 @@ void runTests() {
     testFixedLayoutArea();  // E31
     testPhoneOptionsLayout();   // E31
     testLatch();
+    testComboAssist();   // E44
     testMenuMode();
     testKeyNames();
     testSettings();
