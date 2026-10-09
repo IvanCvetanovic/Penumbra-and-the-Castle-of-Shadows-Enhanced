@@ -1144,3 +1144,58 @@ start fix.
 - Whether a phone with Vulkan 1.1 gets past the start on its own driver (PowerVR GE8320, Adreno 619): the dialog says what happens if not; the next report should carry a screenshot of it.
 - Whether the Windows start fix is the cause of that PC's freeze; the next report from it should carry `penumbra-unfinished.log`.
 - The unfinished rework of E36 and its records are still uncommitted in the owner's working tree.
+
+## 2026-10-09 — Release 1.0.7: a report of an unexpected end (E40) and a scene the GPU can keep up with (E41)
+
+**Why.** After 1.0.6 the Oppo A54 4G tester (Android 11) said the game still closed to the home screen, the Oppo A74 5G tester (Android 12) said it ran but was slow and laggy, a Samsung Galaxy A04e (Android 14,
+the same Helio P35 and PowerVR GE8320 as the A54) reported the same close, and the owner's Xiaomi Pad 5 (Snapdragon 860, 2560x1600) drew the main menu at 8.8 frames a second. An analysis of the code and of the
+reports found that 1.0.5's Vulkan 1.2 gate explains both silent closes (their database entries read Vulkan 1.1.131; which version they ran is not known) and no evidence of a GE8320 fault on 1.0.6. E40 makes an
+unexpected end explain itself at the next start, so the next report carries evidence; E41 is the performance work, measured on the tablet on a cable (GPU saturated, the game's thread idle, cost proportional to the
+scene target's pixels). The files of a published release are never replaced, so it is a new release; 1.0.4, 1.0.5 and 1.0.6 stay published.
+
+**What it carries.** E40 (`PostMortem.java`, the activity's dialog with Share, `nativeSetHoldStart`, the log lines of the graphics device, limits and stages; the engine's opt-in manifest meta-data) and E41
+(`DynamicResolution`, the sprite-only specialisation of `shader.frag`, the manifest fields and the game's flags); the planning records say what each does and what was measured.
+
+**Released.** 1.0.7 (build 8), Latest, tag v1.0.7 = c28f578 (CI green on it: Linux, Windows and Apple; release.yml run 37905631124, four jobs green). The Windows zip (612 files, 19,727,537 bytes) and the APK
+(22,899,298 bytes, signed with the release key, certificate AC:1D:43:BD, schemes v2 and v3, versionCode 8, minSdk 26, not debuggable) were built from a clean clone at C:\pn; the Linux, Mac and iPhone/iPad files by
+release.yml, which rewrote SHA256SUMS.txt. The six files downloaded from the draft were verified (the checksums, the versions in the exe and the plists, the APK's signature and release key, no installer, and
+0 occurrences of the user folder name in 3,002 files scanned); the APK carries the original's 25 AngelScript sources as assets, exactly as 1.0.6's does (the desktop downloads carry none). The notes are English
+then Portuguese, in 1.0.6's shape. All six releases/latest/download links answer. Copies and release.json are in out/release/published/v1.0.7 (gitignored). Not done: the downloaded Windows exe was not launched
+(Smart App Control); nothing was played on a real phone.
+
+**Measured.** On the Pad 5: the menu 8.7 to 61.7 frames a second, level 2 61.7, level 1 27 to 71-76; the sprite-only shader at full size alone, menu 13 and level 1 43; captures of the menu and two levels with
+`--sprites-only` on and off byte-identical on the tablet and on lavapipe. On a Pixel 9 Pro XL: no regression (the controller returned to 0.93-1.0). E40 on an Android 11 emulator: a native crash, the report, OK,
+the game, the share sheet; a forced stop, a cached kill, a clean start and a scripted launch show nothing.
+
+**Open.**
+- The A54 tester ran 1.0.7 and found it **too laggy to play**; the A74 5G tester says the game now runs smoothly but that "sometimes the touchscreen completely stops working"; a Windows tester said keys pressed fast
+  or together do not register when trying the combo. Each is taken up below.
+- The owner's unfinished rework of E36 and its records are still uncommitted in his working tree.
+
+## 2026-10-09 — After 1.0.7: E42 (a phone says where its frames go), E43 (a phone that does not go quiet) and E44 (combo assist). Not released
+
+**Why.** The three reports above. A seven-lens review of the code and the hardware (each finding re-read by a second reader) said the A54's GPU (PowerVR GE8320) is about 15 times slower than the Pad 5's Adreno
+640 at per-pixel work and its CPU two to three times slower (3DMark Sling Shot 739 against 10,766 for a Poco X3 Pro; the Redmi 10A, whose tester says the game does not crash, scores 736), so 1.0.7 would draw
+level 1 at about 9 frames a second at the A54's starting size and about 19 after the size controller has done what it can; that E41's controller hunted between two sizes when a step bought 43% or more of the
+speed and rejected a step that bought a real gain; that four empty 2048x2048 shadow depth targets were redrawn on every scrolling frame; and that nothing here could say which part of a frame was the limit, because
+the log of an installed Android app is private. A second review took the A74 and Windows reports: no cause can be named for the A74's touch from the code (the one stall that always happens is the first level start of
+each launch, about four minutes of music decoded on the thread that also reads the touch queue; a focus flag a phone could leave false; E41's resize path), and the Windows keys are the original's own, strict and
+never explained, combo rules.
+
+**What changed.** E42: frame statistics and an overlay with Share and size buttons, the idle-wait counter, the controller's fixes, an empty shadow pass that stays cached, the pipeline cache created first, the file
+watcher off on a phone, `sceneSamples`. E43: sounds decoded in the background, a focus that heals when a finger lands, the touch layer's state on the overlay, small shadow maps and one sample per pixel on a phone.
+E44: combo assist (keys pressed together are handed to the combo recorder one tick apart; `comboAssist` in `settings.json`, on by default) and the combo rules written down in the how-to-play files and the guides.
+The planning records `2026-10-09-e42-...`, `-e43-...` and `-e44-...` say what each does, what was measured and what was not; docs/enhancements.md has the rows.
+
+**Verified.** Linux `test_pn_all` 17 of 17 suites, 48,461 checks, 0 failures (E42: 48,418; E43: 48,435); the engine's `test_gameruntime` 1,324 checks, `test_materials` 456, `test_light2d` 281, `test_shadowcache` 87;
+MSVC `/W4` (`tools/check.bat`) clean for every changed C++ file; CI on the E42 and E43 commits (Linux, Windows, Apple) green. A test APK, `Penumbra-1.0.8-test1` and `-test2` (debug-signed, versionCode 9, the label set
+temporarily in the manifest and not committed: `test_pn_paths` insists the manifest's versionName equals the CMake version), ran on an Android 11 emulator: the overlay, the size buttons, Share's system sheet, one sample,
+16x16 shadow maps, and **all 24 sounds of the first level taken from the worker in 3 ms** after 36 s on the menu. Building the first test APK found that the share code's two Java string literals had been committed
+with real newlines (the Linux suites and the MSVC check never compile Java).
+
+**Open.**
+- **Nothing is measured on a real PowerVR phone, an A53 CPU or the A74.** The test builds exist to learn that (the A54 tester's answer is what decides the next step: an unlit pipeline variant for the fog and halos, a
+  cheaper light loop and batched one-off uploads are the candidates the review ranked).
+- Whether the first-level decode, the focus latch or something else is the A74's freeze is not known; the overlay's touch line is there to tell them apart if it happens again.
+- Combo assist has no options row, and the level-1 sign's "+" (eleven languages) still reads as keys together: both wait for the E36 rework to be committed (the options screens and the strings are its files).
+- No release has been made from this work; a 1.0.8 needs the testers' answers, a version bump and the owner's word.

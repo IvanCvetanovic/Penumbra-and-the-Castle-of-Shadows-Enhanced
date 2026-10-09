@@ -103,7 +103,15 @@ through `ANDROID_SDK`, `ANDROID_HOME` or `ANDROID_SDK_ROOT`, else at Android Stu
 bash tools/build_android.sh               # x86_64 (the emulator's): configure, build, package
 bash tools/build_android.sh --abi all     # x86_64 + arm64-v8a (phones) in one APK
 bash tools/build_android.sh --install --serial <device>   # adb install -r
+bash tools/build_android.sh --perf-diag   # a TEST build for a player's phone (E42): the performance panel and a log line every 5 s on
 ```
+
+`--perf-diag` sets the CMake option `PENUMBRA_PERF_DIAG`, which the script states ON or OFF on every run (a cache keeps an option for
+good, and a test build must not carry into the next release built in the same tree). The panel (`--perf-overlay on` does the same on any
+build) shows the frame rate and where each frame's time went, the scene target's size and the touch layer's state, has size buttons that fix
+the scene target's scale for a measurement and a Share button (Android's share sheet, with the end of the game's log appended): the
+log of an installed app is in private storage, which no file manager shows on Android 11 and later. Other developer flags of this work:
+`--perf-log <seconds>`, `--scene-samples 1|2|4`, `--shadow-maps <16-4096>|default` (E42, E43).
 
 The APK is `out/android/Penumbra-debug.apk` (about 18 MB for both ABIs, as a debug build), debug-signed. It is a
 NativeActivity with a few lines of Java (the engine's `SupersonicActivity`: it hides the system

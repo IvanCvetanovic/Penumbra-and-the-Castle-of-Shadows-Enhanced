@@ -49,7 +49,7 @@ five seconds and one sample per pixel: the build sent to a tester's phone, so th
 
 ## Measured and tested
 
-- Linux (GCC, WSL): `test_pn_all` 17 of 17 suites pass (48,114 checks); the engine's `test_gameruntime` 1,312 checks, `test_materials` 456, `test_light2d` 281, `test_shadowcache` 87, 0 failures.
+- Linux (GCC, WSL): `test_pn_all` 17 of 17 suites pass (48,418 checks); the engine's `test_gameruntime` 1,312 checks, `test_materials` 456, `test_light2d` 281, `test_shadowcache` 87, 0 failures.
   The controller changes are tested on stand-in GPUs and were replayed in a Python port that reproduces the old numbers (64 changes ending at full size; 7 ending at 0.5 and 8 fps
   now). MSVC `/W4` (`tools/check.bat`) is clean for every changed C++ file.
 - A headless run on lavapipe with the overlay: the log line (`Perf: 28.1 fps, frame 35.5 ms ... wait 0.2 game 0.6 scene 28.9 ... drain 0.0/0, ticks 2.14, scale 1.00 1280x720 of 1280x720,
