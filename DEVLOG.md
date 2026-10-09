@@ -1274,3 +1274,32 @@ out/release/published/v1.0.8 (gitignored). Not done: the downloaded Windows exe 
   out/android) or will install 1.0.8, and their answers (the panel's numbers on a test build, a screenshot of its touch line during a freeze) decide the next step.
 - Reports not yet answered: a Redmi Note 13 on a pre-1.0.6 build (the 4G's Adreno 610 reports Vulkan 1.1, which those builds refused: its model and version are not known); the Redmi 10A's smoothness.
 - Combo assist has no options row, and the level-1 sign's "+" still reads as keys together: both wait for the owner's E36 rework to be committed.
+
+## 2026-10-09 (night) — Release 1.0.8 rebuilt with the New Game question (build 10): the first 1.0.8's files were replaced
+
+**Why.** The rework of E36 (the Normal/Hard choice moved from a Settings row to a "Choose difficulty" question that opens when New Game is confirmed; the entry of 2026-10-03, evening) was built on
+2026-10-03 and stayed uncommitted while 1.0.5 to 1.0.7 and the first 1.0.8 shipped the Settings row. It was committed (4d88d3b, with the fixes of a review of it: the question was drawn before the menu's
+fade-in, so a question opened in the menu's first three seconds was veiled by the fade's black rectangle while it already took input; a scenario now pins the draw order, and fails with the old order) and
+released under the version it was finished in, 1.0.8, instead of as 1.0.9. 3cd241c raises the build to 10 (Android versionCode 10, CFBundleVersion 10) so that a phone with the first build sees an update.
+
+**Replaced, not added.** The entries above say a published release's files are never replaced; these were, about three hours after the first publication: v1.0.8 and its tag (62f302e) were deleted and
+published again at 3cd241c. The first build's six files, its notes and its release.json are kept in out/release/published/v1.0.8-first-build (gitignored); 62f302e stays in the history. How many people had
+downloaded the first build is not known (the release's counters went with it; its release.json, written at publication, says 0). Not tried: Android installing build 10 over build 9 on a phone.
+
+**What the release run did.** The Windows zip (612 files, 19,754,605 bytes) and the APK (23,001,698 bytes, the release key on the owner's word, versionCode 10) were built from a clean clone at C:\pn at 3cd241c.
+release.yml (run 37991736234, on 3cd241c): macOS and iPhone/iPad green; the Linux job never started, four times (the run and three re-runs over about 25 minutes): Docker Hub refused the `ubuntu:22.04`
+pull with "toomanyrequests" (an unauthenticated pull limit on the runners' shared addresses). f4bc209 changes only that line of release.yml to AWS's mirror of the same official image
+(public.ecr.aws/docker/library/ubuntu:22.04); the run on it (37994533493) was green in all four jobs, publish included. So the Linux, Mac and iPhone/iPad files (20,547,380, 25,158,323 and 19,593,163 bytes)
+are built from f4bc209 and the Windows zip and the APK from 3cd241c; the game is the same, and the notes say so.
+
+**Verified.** The six files downloaded from the draft: SHA256SUMS.txt (the Windows and Android lines equal the local build's) agrees with all five; the verification script, 9,016 checks, 0 failures (the
+versions in the exe and the plists, no installer, the original's 25 AngelScript sources only in the APK as in 1.0.6 and 1.0.7, no occurrence of the user folder name in 3,002 files); by hand on the
+download, apksigner (schemes v2 and v3 verify, certificate SHA-256 AC:1D:43:BD...), `aapt2 dump badging` (versionCode 10, versionName 1.0.8), and the Apple plists (1.0.8, build 10). Published as Latest with
+the notes in English then Portuguese (they describe the New Game question, say the files replace the first build's and name both commits); the six releases/latest/download links answer and match the sums.
+Copies and release.json: out/release/published/v1.0.8. Not done: the downloaded Windows exe was not launched (Smart App Control), the question was opened on an Android 11 emulator and headless but on no
+real phone, combo assist was not tried with a real keyboard, and the translations are unchecked by native speakers.
+
+**Open.**
+- The options row for combo assist and the level-1 sign's "+" wording are no longer waiting for the E36 rework: they can be done now.
+- The testers' answers (A54, A74, Redmi Note 13) are still what decides the next step on phones; this release changes nothing there.
+- The owner's working folder still holds uncommitted copies of the rework's files: to be fast-forwarded to origin/main with a stash kept until the two are compared.
