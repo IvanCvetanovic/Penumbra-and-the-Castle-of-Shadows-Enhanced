@@ -64,7 +64,10 @@ jobs:
   linux:
     name: Linux - Ubuntu 22.04 build, test, package, run
     runs-on: ubuntu-24.04
-    container: ubuntu:22.04
+    # The same Docker official image, from AWS's public mirror: Docker Hub refuses anonymous pulls from the
+    # runners' shared addresses once a limit is reached ("toomanyrequests" at "Initialize containers"; four
+    # runs in a row on 2026-10-09), and this job has no Docker Hub login to raise the limit.
+    container: public.ecr.aws/docker/library/ubuntu:22.04
     timeout-minutes: 120
     steps:
       # Before the checkout: without git in the container, actions/checkout
