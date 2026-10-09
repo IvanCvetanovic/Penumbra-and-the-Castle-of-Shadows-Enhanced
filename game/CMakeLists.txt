@@ -37,6 +37,15 @@ if (ANDROID OR IOS)
     target_compile_definitions(PenumbraGame PUBLIC PENUMBRA_MOBILE=1)
 endif()
 
+# A TEST BUILD for a player's phone (tools/build_android.sh --perf-diag): the performance readout and a log line
+# every 5 seconds are on without a flag (main.cpp, E42), so what the player sends back says where the frames' time went.
+# The script passes it explicitly, ON or OFF, on every configure, so it never lingers in a build directory's cache into a
+# release.
+option(PENUMBRA_PERF_DIAG "Test build: the performance readout and log are on by default" OFF)
+if (PENUMBRA_PERF_DIAG)
+    target_compile_definitions(PenumbraGame PUBLIC PENUMBRA_PERF_DIAG=1)
+endif()
+
 if (ANDROID)
     # A NativeActivity loads the game as libPenumbra.so (android/AndroidManifest.xml
     # names it) and the engine's android_main, linked in with SupersonicCore,

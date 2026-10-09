@@ -9,6 +9,9 @@
 #   --config Release|Debug|RelWithDebInfo       native build type (default Release: without
 #                                 --release the APK is a debug APK - debuggable, debug-signed -
 #                                 either way)
+#   --perf-diag                  A TEST BUILD for a player's phone: the performance readout and a log line
+#                                 every 5 seconds on by default (E42). Stated on every run, so it never
+#                                 carries from one build into the next in the same tree.
 #   --release                    THE RELEASE APK: not debuggable (aapt2 without --debug-mode),
 #                                 signed with the release key, never the debug one, and checked
 #                                 after signing (apksigner verify, the certificate against the
@@ -68,6 +71,7 @@ RUN_FLAGS=""
 PACKAGE_ONLY=0
 JOBS=6
 RELEASE=0
+PERF_DIAG=OFF
 KEYSTORE_FLAG=""
 PASS_FILE_FLAG=""
 KEY_ALIAS_FLAG=""
@@ -81,6 +85,7 @@ while [[ $# -gt 0 ]]; do
         --package-only) PACKAGE_ONLY=1; shift ;;
         --jobs) JOBS="$2"; shift 2 ;;
         --release) RELEASE=1; shift ;;
+        --perf-diag) PERF_DIAG=ON; shift ;;
         --keystore) KEYSTORE_FLAG="$2"; shift 2 ;;
         --keystore-pass-file) PASS_FILE_FLAG="$2"; shift 2 ;;
         --key-alias) KEY_ALIAS_FLAG="$2"; shift 2 ;;
@@ -166,7 +171,12 @@ for abi in "${ABIS[@]}"; do
                 -DANDROID_STL=c++_static \
                 -DCMAKE_BUILD_TYPE="$CONFIG" \
                 -DSUPERSONIC_ENABLE_VALIDATION=OFF \
-                -DPENUMBRA_BUILD_TESTS=OFF
+                -DPENUMBRA_BUILD_TESTS=OFF \
+                -DPENUMBRA_PERF_DIAG="$PERF_DIAG"
+        elif ! grep -q "^PENUMBRA_PERF_DIAG:BOOL=$PERF_DIAG\$" "$tree/CMakeCache.txt"; then
+            # A cache keeps an option for good, so the script states it again whenever it differs (or was never
+            # there): a test build (--perf-diag) must not carry into the next release built in the same tree.
+            "$CMAKE" -S "$(win "$REPO")" -B "$(win "$tree")" -DPENUMBRA_PERF_DIAG="$PERF_DIAG"
         fi
         # Six jobs by default, at most: another project compiles on this machine too.
         "$CMAKE" --build "$(win "$tree")" --target Penumbra -j "$JOBS"

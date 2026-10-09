@@ -29,6 +29,12 @@
 //   --dynamic-res on|off   the scene target's size chosen by how fast the GPU draws it (E41), over the build's:
 //                          on for a phone or tablet, off for a computer
 //   --sprites-only on|off  the scene pipelines specialised to the sprite path (E41), over the build's (on)
+//   --perf-overlay on|off  a readout of the frame rate and where the frame's time went, over the picture, with a Share
+//                          button and fixed scene sizes to try (E42). Off, but for a test build (PENUMBRA_PERF_DIAG)
+//   --scene-samples 1|2|4  the most samples per pixel of the scene target (E42), over the build's (4): applies at
+//                          the next start. Removes the intro, as every flag a player would not type
+//   --perf-log <seconds>   one log line of the same numbers every so many seconds (E42; 0 none). Removes the intro,
+//                          as every flag a player would not type
 //   --modes <WxH@R,...>    the display modes the options screen lists, instead of the monitor's
 //                          (captures); a '*' after one makes it the desktop's
 //   --touch-tuning <list>  this run's touch controls' size, opacity and places (E28), over the settings:
@@ -119,6 +125,9 @@ constexpr const char* kGameUsage =
     "  --render-scale <0.1-1> this run's scene target as a fraction of the window (fixed; developer flag)\n"   // E41
     "  --dynamic-res on|off   the scene target's size chosen by the GPU's speed (a phone or tablet: on)\n"   // E41
     "  --sprites-only on|off  the scene pipelines specialised to the sprite path (on)\n"   // E41
+    "  --perf-overlay on|off  a readout of the frame rate and its parts, with Share and size buttons (off)\n"   // E42
+    "  --scene-samples 1|2|4  the most samples per pixel of the scene target (4)\n"   // E42
+    "  --perf-log <seconds>   a log line of the frame rate and its parts every so many seconds (0: none)\n"   // E42
     "  --modes <WxH@R,...>    the display modes the options screen lists (captures; not saved);\n"
     "                         a '*' after one makes it the desktop's mode, else the largest is\n"   // E28
     "  --touch-tuning <list>  this run's touch controls' size, opacity and places (not saved; nothing is\n"   // E28
@@ -305,6 +314,9 @@ int PenumbraMain(int argc, char** argv) {
     std::optional<bool> dynamicResolutionOverride;   // E41
     std::optional<bool> spritesOnlyOverride;   // E41
     std::optional<float> renderScaleOverride;   // E41
+    std::optional<bool> perfOverlayOverride;   // E42
+    std::optional<float> perfLogOverride;   // E42
+    std::optional<unsigned> sceneSamplesOverride;   // E42
     std::filesystem::path originalFlag;
     std::filesystem::path dataFlag;
     std::vector<char*> engineArgs{argv[0]};
@@ -481,6 +493,30 @@ int PenumbraMain(int argc, char** argv) {
                 return EXIT_FAILURE;
             }
             (arg == "--dynamic-res" ? dynamicResolutionOverride : spritesOnlyOverride) = value == "on";
+        } else if (arg == "--perf-overlay" && hasValue) {   // E42
+            const std::string value = argv[++i];
+            if (value != "on" && value != "off") {
+                std::cerr << "[Penumbra] --perf-overlay wants on or off, got " << value << std::endl;
+                return EXIT_FAILURE;
+            }
+            perfOverlayOverride = value == "on";
+        } else if (arg == "--scene-samples" && hasValue) {   // E42
+            const std::string value = argv[++i];
+            if (value != "1" && value != "2" && value != "4") {
+                std::cerr << "[Penumbra] --scene-samples wants 1, 2 or 4, got " << value << std::endl;
+                return EXIT_FAILURE;
+            }
+            sceneSamplesOverride = static_cast<unsigned>(std::stoul(value));
+        } else if (arg == "--perf-log" && hasValue) {   // E42
+            const std::string value = argv[++i];
+            try {
+                const float seconds = std::stof(value);
+                if (!(seconds >= 0.0f && seconds <= 3600.0f)) throw std::out_of_range("seconds");
+                perfLogOverride = seconds;
+            } catch (const std::exception&) {
+                std::cerr << "[Penumbra] --perf-log wants a number of seconds from 0 to 3600, got " << value << std::endl;
+                return EXIT_FAILURE;
+            }
         } else if (arg == "--render-scale" && hasValue) {   // E41
             const std::string value = argv[++i];
             try {
@@ -663,6 +699,24 @@ int PenumbraMain(int argc, char** argv) {
     manifest.dynamicResolution.startMaxPixels = 2200000;
     manifest.dynamicResolution.minScale = 0.3f;
     manifest.dynamicResolution.targetFps = 58.0f;
+    // E42: how the frames run, measured where nobody can attach a profiler. Off for a player; a test build sent to a
+    // player's phone (PENUMBRA_PERF_DIAG) has the readout on and a log line every 5 seconds, so what comes back says
+    // whether the GPU or the CPU is the limit.
+#ifdef PENUMBRA_PERF_DIAG
+    constexpr bool kPerfDiag = true;
+#else
+    constexpr bool kPerfDiag = false;
+#endif
+    manifest.perfOverlay = perfOverlayOverride.value_or(kPerfDiag);
+    manifest.perfLogSeconds = perfLogOverride.value_or(kPerfDiag ? 5.0f : 0.0f);
+    // E42: the engine stats every path a scene names for a change on disk on every frame; a phone's textures are
+    // virtual keys that are not files at all, and a shipped game's files never change under it.
+    manifest.assetWatching = !Penumbra::Render::kMobileBuild;
+    // E42: 0 is the engine's own choice (the device's best, up to 4x), as it always was. A test build takes one sample: a
+    // sprite game's picture is axis-aligned quads, which 4x multisampling only smooths at their hairline seams and edges
+    // (3 to 4% of a frame's pixels, by about 2 levels, in captures), while the 4x RGBA16F colour and depth of a 1600x720
+    // target is 55 MB and shrinks a tile-based GPU's tiles. What it buys on a phone is for the test build's numbers to say.
+    manifest.sceneSamples = sceneSamplesOverride.value_or(kPerfDiag ? 1u : 0u);
     if (renderScaleOverride) {
         // A fixed scale: the floor is the ceiling, so there is no controller, only a size.
         manifest.dynamicResolution.enabled = true;
