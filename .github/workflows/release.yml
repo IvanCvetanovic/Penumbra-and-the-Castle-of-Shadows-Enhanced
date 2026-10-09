@@ -38,7 +38,7 @@ on:
       tag:
         description: The release to add the files to (its tag)
         required: true
-        default: v1.0.6
+        default: v1.0.7
       publish:
         description: Upload the files to that release (off - build and check only)
         type: boolean

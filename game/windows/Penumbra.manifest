@@ -3,7 +3,7 @@
      (enhancement E2), so Windows must not scale it as a bitmap - which is what
      it did to the original at 150% (reference/captures: a 1536x1152 window). -->
 <assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0">
-  <assemblyIdentity type="win32" name="Penumbra.Enhanced" version="1.0.6.0" processorArchitecture="amd64"/>
+  <assemblyIdentity type="win32" name="Penumbra.Enhanced" version="1.0.7.0" processorArchitecture="amd64"/>
   <description>Penumbra and the Castle of Shadows - Enhanced</description>
   <trustInfo xmlns="urn:schemas-microsoft-com:asm.v3">
     <security>
