@@ -15,16 +15,24 @@
 // same voice, and only through that one - against a stand-in for the device whose
 // UnloadAll stops every voice, as AudioOutEngine's does.
 
+#include <chrono>
 #include <cmath>
+#include <condition_variable>
 #include <cstdio>
 #include <filesystem>
+#include <functional>
+#include <future>
 #include <map>
+#include <memory>
+#include <mutex>
 #include <string>
+#include <thread>
 
 #include "TestHarness.hpp"
 
 #include "core/AudioClip.hpp"
 #include "eth/Audio.hpp"
+#include "eth/AudioPrefetch.hpp"
 #include "eth/SoundDecode.hpp"
 
 namespace {   // E30
@@ -170,6 +178,124 @@ void TestKeepOnNextLoad() {
 
 } // namespace   // E30
 
+// ENHANCEMENT E43: sounds decoded in the background (eth/AudioPrefetch.hpp), against a decoder that needs no files. The clip's size
+// says which path it came from; a path starting "bad" fails; one starting "slow" waits at a gate the test opens.
+namespace {
+
+namespace Eth = Penumbra::Eth;
+
+struct PrefetchRig {
+    std::mutex mutex;
+    std::condition_variable gateChanged;
+    bool gateOpen = true;   // closed for the paths that start "slow"
+    std::map<std::string, int> decodes;   // how many times each path was decoded
+
+    Eth::AudioPrefetch::Decoder Decoder() {
+        return [this](const std::string& path, Supersonic::AudioClip& out, std::string& error) {
+            std::unique_lock<std::mutex> lock(mutex);
+            ++decodes[path];
+            const std::string name = std::filesystem::path(path).filename().string();
+            if (name.rfind("slow", 0) == 0) gateChanged.wait(lock, [this] { return gateOpen; });
+            if (name.rfind("bad", 0) == 0) {
+                error = "cannot decode " + path;
+                return false;
+            }
+            out = Supersonic::AudioClip{};
+            out.channels = 1;
+            out.sampleRate = 22050;
+            out.bitsPerSample = 16;
+            out.pcm.assign(2 * (name.size() + 1), 0);   // a valid clip whose size is its file name's length
+            return true;
+        };
+    }
+    void SetGate(bool open) {
+        {
+            std::lock_guard<std::mutex> lock(mutex);
+            gateOpen = open;
+        }
+        gateChanged.notify_all();
+    }
+    int Decoded(const std::string& path) {
+        std::lock_guard<std::mutex> lock(mutex);
+        const auto it = decodes.find(path);
+        return it == decodes.end() ? 0 : it->second;
+    }
+};
+
+bool WaitFor(const std::function<bool()>& condition) {
+    for (int i = 0; i < 500; ++i) {   // five seconds at most
+        if (condition()) return true;
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+    return condition();
+}
+
+void TestAudioPrefetch() {
+    // The worker decodes in order, and a finished clip is moved out at once.
+    {
+        PrefetchRig rig;
+        Eth::AudioPrefetch prefetch(rig.Decoder());
+        prefetch.Request({"soundfx/a.ogg", "soundfx/bad.mp3", "soundfx/bcd.ogg"});
+        CHECK_MSG(WaitFor([&] { return prefetch.Ready() == 2; }), "two of the three decode in the background");
+        Supersonic::AudioClip clip;
+        std::string error;
+        CHECK_MSG(prefetch.Take("soundfx/a.ogg", clip, error) && clip.pcm.size() == 2 * (std::string("a.ogg").size() + 1), "a decoded clip is handed over");
+        CHECK_MSG(!prefetch.Take("soundfx/bad.mp3", clip, error) && error.find("cannot decode") != std::string::npos, "a failure says why, and the caller tries for itself");
+        CHECK_MSG(prefetch.Take("soundfx/bcd.ogg", clip, error), "the next one is there too");
+        CHECK_MSG(!prefetch.Take("soundfx/never.ogg", clip, error), "a path never requested is not there");
+        CHECK_MSG(!prefetch.Take("soundfx/a.ogg", clip, error), "a clip is handed over once");
+        CHECK_EQ(rig.Decoded("soundfx/a.ogg"), 1);
+    }
+    // Spellings of one path are one path; asking twice decodes once.
+    {
+        PrefetchRig rig;
+        Eth::AudioPrefetch prefetch(rig.Decoder());
+        prefetch.Request({"soundfx/./a.ogg"});
+        prefetch.Request({"soundfx/a.ogg", "soundfx/dir/../a.ogg"});
+        CHECK(WaitFor([&] { return prefetch.Ready() == 1; }));
+        Supersonic::AudioClip clip;
+        std::string error;
+        CHECK_MSG(prefetch.Take("soundfx//a.ogg", clip, error), "found by another spelling");
+        CHECK_EQ(rig.Decoded("soundfx/a.ogg"), 1);
+    }
+    // A file the worker has not started is the caller's: taken off the queue, never decoded twice. One it is decoding is waited for.
+    {
+        PrefetchRig rig;
+        rig.SetGate(false);
+        Eth::AudioPrefetch prefetch(rig.Decoder());
+        prefetch.Request({"soundfx/slow1.mp3", "soundfx/second.ogg"});
+        CHECK_MSG(WaitFor([&] { return rig.Decoded("soundfx/slow1.mp3") == 1; }), "the worker is inside the first decode");
+        Supersonic::AudioClip clip;
+        std::string error;
+        CHECK_MSG(!prefetch.Take("soundfx/second.ogg", clip, error), "a file not started is left to the caller");
+        auto waiting = std::async(std::launch::async, [&] {
+            Supersonic::AudioClip got;
+            std::string why;
+            const bool ok = prefetch.Take("soundfx/slow1.mp3", got, why);
+            return ok && !got.pcm.empty();
+        });
+        CHECK_MSG(waiting.wait_for(std::chrono::milliseconds(100)) == std::future_status::timeout, "a file being decoded is waited for");
+        rig.SetGate(true);
+        CHECK_MSG(waiting.get(), "and handed over when it is done");
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        CHECK_EQ(rig.Decoded("soundfx/second.ogg"), 0);   // the worker skipped the one the caller claimed
+    }
+    // Destroying it while a decode is blocked does not hang once the decode finishes.
+    {
+        PrefetchRig rig;
+        rig.SetGate(false);
+        auto prefetch = std::make_unique<Eth::AudioPrefetch>(rig.Decoder());
+        prefetch->Request({"soundfx/slow2.mp3"});
+        CHECK(WaitFor([&] { return rig.Decoded("soundfx/slow2.mp3") == 1; }));
+        auto destroying = std::async(std::launch::async, [&] { prefetch.reset(); });
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        rig.SetGate(true);
+        CHECK_MSG(destroying.wait_for(std::chrono::seconds(5)) == std::future_status::ready, "the destructor joins after the file it was on");
+    }
+}
+
+} // namespace
+
 int main() {
     const std::filesystem::path dir = std::filesystem::path(PENUMBRA_ORIGINAL_DIR) / "soundfx";
     if (!std::filesystem::exists(dir)) {
@@ -214,5 +340,6 @@ int main() {
     CHECK_EQ(ogg, 19);
     CHECK_EQ(mp3, 16);
     TestKeepOnNextLoad();   // E30
+    TestAudioPrefetch();   // E43
     return test::summary("test_pn_audio", 100);
 }

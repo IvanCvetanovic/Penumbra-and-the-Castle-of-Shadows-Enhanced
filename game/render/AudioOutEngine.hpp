@@ -23,6 +23,7 @@
 // global level, not a difference between sounds).
 
 #include <cstddef>
+#include <memory>
 #include <set>
 #include <string>
 
@@ -34,14 +35,18 @@ namespace Supersonic {
 class AudioEngine;
 }
 
+namespace Penumbra::Eth {
+class AudioPrefetch;
+}
+
 namespace Penumbra::Render {
 
 class AudioOutEngine final : public Eth::AudioOut {
 public:
-    AudioOutEngine() = default;
+    AudioOutEngine();
     // Does not touch the engine, which may already be gone. Call Detach from
     // the layer's OnDetach.
-    ~AudioOutEngine() override = default;
+    ~AudioOutEngine() override;
     AudioOutEngine(const AudioOutEngine&) = delete;
     AudioOutEngine& operator=(const AudioOutEngine&) = delete;
 
@@ -72,6 +77,13 @@ private:
     // decodes the file, Eth::LoadSound + AddClip where it does not (an MP3
     // off Windows, eth/SoundDecode.hpp). False when it will not decode.
     bool ensureClip(const std::string& absolutePath);
+
+    // E43: where the game decodes its own sounds (everywhere but Windows), the first sound asked for from a soundfx folder starts
+    // a worker that decodes the rest of that folder in the background (eth/AudioPrefetch.hpp), so that the first level's
+    // four minutes of music do not take the game thread, which is also the touch screen's reader, away for seconds.
+    void startPrefetchBeside(const std::string& absolutePath);
+    std::unique_ptr<Eth::AudioPrefetch> m_prefetch;
+    bool m_prefetchStarted = false;
 
     Supersonic::AudioEngine* m_engine = nullptr;
     std::set<std::string> m_loaded;   // every path handed to LoadClip, failures included

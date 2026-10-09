@@ -1,15 +1,18 @@
 #include "render/AudioOutEngine.hpp"
 
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <cstdint>
 #include <filesystem>
+#include <vector>
 #include <system_error>
 #include <utility>
 
 #include "core/AudioClip.hpp"
 #include "core/AudioEngine.hpp"
 #include "core/Log.hpp"
+#include "eth/AudioPrefetch.hpp"
 #include "eth/SoundDecode.hpp"
 
 namespace Penumbra::Render {
@@ -37,6 +40,56 @@ float Pan(float pan) { return std::isfinite(pan) ? std::clamp(pan, -1.0f, 1.0f) 
 constexpr float kPitch = 1.0f;   // the scripts never change pitch
 
 } // namespace
+
+AudioOutEngine::AudioOutEngine() = default;
+
+// Joins the worker (it finishes the file it is on first): this is why the destructor is out of line.
+AudioOutEngine::~AudioOutEngine() = default;
+
+void AudioOutEngine::startPrefetchBeside(const std::string& absolutePath) {
+    if (m_prefetchStarted) return;
+    m_prefetchStarted = true;
+#ifdef _WIN32
+    // Windows' MP3 decoder is the engine's (Media Foundation), fast and not meant for a thread of its own.
+    (void)absolutePath;
+#else
+    // Only the game's own sounds: a folder named soundfx (the original's), in whatever directory the data was unpacked to.
+    std::error_code ec;
+    const std::filesystem::path file(absolutePath);
+    std::string folder = file.parent_path().filename().string();
+    std::transform(folder.begin(), folder.end(), folder.begin(), [](unsigned char c) { return std::tolower(c); });
+    if (folder != "soundfx") return;
+
+    struct Item {
+        std::string path;
+        std::uintmax_t size;
+    };
+    std::vector<Item> items;
+    for (const auto& entry : std::filesystem::directory_iterator(file.parent_path(), ec)) {
+        if (!entry.is_regular_file(ec)) continue;
+        if (entry.path() == file) continue;   // being decoded by the caller, now
+        const std::string path = entry.path().string();
+        // What the engine or the port decodes: the extensions the scripts ask for.
+        if (!Eth::IsMp3(path)) {
+            std::string ext = entry.path().extension().string();
+            std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char c) { return std::tolower(c); });
+            if (ext != ".ogg") continue;
+        }
+        items.push_back({path, entry.file_size(ec)});
+    }
+    // The longest first (the level's two pieces of music): they are the ones whose decode a late New Game would wait for.
+    std::sort(items.begin(), items.end(), [](const Item& a, const Item& b) { return a.size != b.size ? a.size > b.size : a.path < b.path; });
+    std::vector<std::string> paths;
+    for (const Item& item : items) paths.push_back(item.path);
+    if (paths.empty()) return;
+
+    m_prefetch = std::make_unique<Eth::AudioPrefetch>(
+        [](const std::string& path, Supersonic::AudioClip& out, std::string& error) { return Eth::LoadSound(path, out, error); });
+    m_prefetch->Request(paths);
+    SUPERSONIC_LOG_INFO("Penumbra") << "Decoding " << paths.size() << " more sounds from " << file.parent_path().string()
+                                    << " in the background." << std::endl;
+#endif
+}
 
 void AudioOutEngine::Attach(entt::registry& registry) {
     Supersonic::AudioEngine** slot = registry.ctx().find<Supersonic::AudioEngine*>();
@@ -83,6 +136,18 @@ bool AudioOutEngine::Load(const Eth::string& absolutePath, bool music) {
 
 bool AudioOutEngine::ensureClip(const std::string& absolutePath) {
     if (m_engine->HasClip(absolutePath)) return true;
+    startPrefetchBeside(absolutePath);
+    if (m_prefetch) {
+        // Decoded by the worker already (moved out at once), or being decoded now (waited for: at most that one file's remainder).
+        // Not there, not started or failed: the caller's own decode below, as ever.
+        Supersonic::AudioClip prefetched;
+        std::string ignored;
+        if (m_prefetch->Take(absolutePath, prefetched, ignored)) {
+            SUPERSONIC_LOG_INFO("Penumbra") << "Decoded " << absolutePath << " (in the background, " << prefetched.channels << "ch, "
+                                            << prefetched.sampleRate << " Hz, " << prefetched.durationSeconds() << "s)." << std::endl;
+            if (m_engine->AddClip(absolutePath, std::move(prefetched)) != nullptr) return true;
+        }
+    }
     if (Eth::EngineDecodes(absolutePath)) {
         if (m_engine->LoadClip(absolutePath) != nullptr) return true;
         if (!Eth::IsMp3(absolutePath)) return false;   // the engine's verdict, logged by it

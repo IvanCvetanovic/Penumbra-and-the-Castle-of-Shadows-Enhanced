@@ -33,6 +33,8 @@
 //                          button and fixed scene sizes to try (E42). Off, but for a test build (PENUMBRA_PERF_DIAG)
 //   --scene-samples 1|2|4  the most samples per pixel of the scene target (E42), over the build's (4): applies at
 //                          the next start. Removes the intro, as every flag a player would not type
+//   --shadow-maps <16-4096>|default  the resolution of the renderer's shadow maps (E43), over the build's: small on a
+//                          phone (the game casts no shadow), the engine's own sizes on a computer
 //   --perf-log <seconds>   one log line of the same numbers every so many seconds (E42; 0 none). Removes the intro,
 //                          as every flag a player would not type
 //   --modes <WxH@R,...>    the display modes the options screen lists, instead of the monitor's
@@ -127,6 +129,7 @@ constexpr const char* kGameUsage =
     "  --sprites-only on|off  the scene pipelines specialised to the sprite path (on)\n"   // E41
     "  --perf-overlay on|off  a readout of the frame rate and its parts, with Share and size buttons (off)\n"   // E42
     "  --scene-samples 1|2|4  the most samples per pixel of the scene target (4)\n"   // E42
+    "  --shadow-maps <n>|default  the shadow maps' resolution (a phone: small, nothing casts a shadow here)\n"   // E43
     "  --perf-log <seconds>   a log line of the frame rate and its parts every so many seconds (0: none)\n"   // E42
     "  --modes <WxH@R,...>    the display modes the options screen lists (captures; not saved);\n"
     "                         a '*' after one makes it the desktop's mode, else the largest is\n"   // E28
@@ -317,6 +320,7 @@ int PenumbraMain(int argc, char** argv) {
     std::optional<bool> perfOverlayOverride;   // E42
     std::optional<float> perfLogOverride;   // E42
     std::optional<unsigned> sceneSamplesOverride;   // E42
+    std::optional<unsigned> shadowMapsOverride;   // E43
     std::filesystem::path originalFlag;
     std::filesystem::path dataFlag;
     std::vector<char*> engineArgs{argv[0]};
@@ -500,6 +504,22 @@ int PenumbraMain(int argc, char** argv) {
                 return EXIT_FAILURE;
             }
             perfOverlayOverride = value == "on";
+        } else if (arg == "--shadow-maps" && hasValue) {   // E43
+            const std::string value = argv[++i];
+            try {
+                if (value == "default") {
+                    shadowMapsOverride = 0u;
+                } else {
+                    const unsigned long size = std::stoul(value);
+                    if (value.find_first_not_of("0123456789") != std::string::npos || size < 16ul || size > 4096ul) {
+                        throw std::out_of_range("size");
+                    }
+                    shadowMapsOverride = static_cast<unsigned>(size);
+                }
+            } catch (const std::exception&) {
+                std::cerr << "[Penumbra] --shadow-maps wants default or a number from 16 to 4096, got " << value << std::endl;
+                return EXIT_FAILURE;
+            }
         } else if (arg == "--scene-samples" && hasValue) {   // E42
             const std::string value = argv[++i];
             if (value != "1" && value != "2" && value != "4") {
@@ -712,11 +732,15 @@ int PenumbraMain(int argc, char** argv) {
     // E42: the engine stats every path a scene names for a change on disk on every frame; a phone's textures are
     // virtual keys that are not files at all, and a shipped game's files never change under it.
     manifest.assetWatching = !Penumbra::Render::kMobileBuild;
-    // E42: 0 is the engine's own choice (the device's best, up to 4x), as it always was. A test build takes one sample: a
-    // sprite game's picture is axis-aligned quads, which 4x multisampling only smooths at their hairline seams and edges
-    // (3 to 4% of a frame's pixels, by about 2 levels, in captures), while the 4x RGBA16F colour and depth of a 1600x720
-    // target is 55 MB and shrinks a tile-based GPU's tiles. What it buys on a phone is for the test build's numbers to say.
-    manifest.sceneSamples = sceneSamplesOverride.value_or(kPerfDiag ? 1u : 0u);
+    // E42, E43: 0 is the engine's own choice (the device's best, up to 4x), as it always was, on a computer. A phone takes one
+    // sample: a sprite game's picture is axis-aligned quads, which 4x multisampling only smooths at their hairline seams and
+    // edges (3 to 4% of a frame's pixels, by about 2 levels, in captures), while the 4x RGBA16F colour and depth and the resolve
+    // image of a 2208x992 target (the budget of a 1080x2400 phone) are 92 MiB more than one sample takes, in a memory the system
+    // shares with every other app, and 4x shrinks a tile-based GPU's tiles.
+    manifest.sceneSamples = sceneSamplesOverride.value_or(Penumbra::Render::kMobileBuild || kPerfDiag ? 1u : 0u);
+    // E43: the renderer allocates 120 MiB of shadow maps whatever a game draws, and this game casts no shadow (every draw is a
+    // sprite through the unlit pipelines, which never sample them): a phone gets 16x16 ones. A computer keeps the defaults.
+    manifest.shadowMapResolution = shadowMapsOverride.value_or(Penumbra::Render::kMobileBuild ? 16u : 0u);
     if (renderScaleOverride) {
         // A fixed scale: the floor is the ceiling, so there is no controller, only a size.
         manifest.dynamicResolution.enabled = true;
