@@ -1331,3 +1331,29 @@ behaviour for the failure only: a save that works writes the same bytes to the s
 - E45 is committed but no release carries it: 1.0.8's files do not. Releasing it (as 1.0.9) is the owner's decision.
 - Still no real weak phone and no real keyboard: the A54's lag and the A74's "stuck" report are untouched by anything above; E45 is only one thing that could look like the latter.
 - `SaveStringToFile` of the Eth layer (called by no script) still writes in place.
+
+## 2026-10-10 - Release 1.0.9: saves that cannot end a run (E45), the combo assist's row and the sign's commas (E46)
+
+**Why.** The defect the checks of the morning found (a checkpoint cut short ends the run, in every release since 1.0.0) needed a release, and the two small items E44 had left open went with it. 1.0.8, 1.0.7 and the earlier releases stay
+published; nothing was replaced this time: v1.0.9 is a new tag.
+
+**What it carries.** E45: every save is written whole or not at all (`eth/AtomicWrite.hpp`: the checkpoint and the best times), and a scene that cannot be read starts the running level again. E46: the desktop's Settings screen has a "Combo assist" row (the
+live input mapper has the setting at once; a phone's layouts do not draw it), in the eleven languages, and the level-1 sign's translations say "[forward, forward, sword]" in ten languages (Portuguese keeps the original's plus signs). Scenarios 29 to 31
+and the layer test of the row. Landed as separate commits (E45 724bdc9, the sign 641fef4, the row 356c394) with CI green on each head, then the bump df939fb.
+
+**Released.** 1.0.9 (build 11), Latest, tag v1.0.9 = df939fb (CI green on it: Linux and Windows 17 of 17 suites, Apple; release.yml run 38043811172, four jobs green, the Linux job from AWS's mirror of the Ubuntu image). The Windows zip (612 files, 19,764,675
+bytes, sha 1a820aa3...) and the APK (23,005,794 bytes, sha 783d5549..., signed with the release key on the owner's request for the release, certificate AC:1D:43:BD, versionCode 11) were built from a clean clone at C:\pn; the Linux (20,563,905), Mac (25,161,398) and
+iPhone/iPad (19,594,628) files by release.yml, which rewrote SHA256SUMS.txt. All six files, downloaded from the draft: the checksums agree; the verification script, 9,016 checks, 0 failures (versions, no installer, the 25 AngelScript sources only in the
+APK, the user folder's name nowhere); by hand, apksigner (v2 and v3 verify, the release key), `aapt2 dump badging` (versionCode 11, versionName 1.0.9, not debuggable), the Apple plists (1.0.9, build 11), and the Windows zip and the APK byte for byte equal to the local
+build. The six releases/latest/download links answer and match. Copies, notes (English then Portuguese) and release.json are in out/release/published/v1.0.9 (gitignored).
+
+**Checked on the emulator before publishing** (Android 13, API 33, release key): build 11 installed over build 10 with `adb install -r`, accepted, German and Hard kept, the phone's Settings screen unchanged (no combo row), a Hard game started level 1 with the touch
+controls, no fatal in the log. The desktop options screen with the row was captured on Linux in English, Arabic, German and Japanese (docs/images/options.jpg is the English one).
+
+**Not done.** No real weak phone (the A54's lag and the A74's touch freeze are as 1.0.8 left them), no real keyboard, the Windows exe not launched (Smart App Control), no real interrupted write (E45 is tested by scenarios on Linux and Windows CI), and a Portuguese
+keyboard player still reads the sign's plus signs.
+
+**Open.**
+- The testers' answers (A54, A74, Redmi Note 13) decide the next step on phones; the test builds `-test1`/`-test2` carry the performance panel and are not 1.0.9.
+- `SaveStringToFile` of the Eth layer (called by no script) still writes in place.
+- The Portuguese plain sign has no table to override (the original's bytes pass through): a change would be to the localisation layer, not to a string file.
