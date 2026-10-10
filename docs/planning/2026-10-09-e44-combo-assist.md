@@ -38,8 +38,10 @@ Keyboard rollover, Windows Filter Keys and a very low frame rate can add to it a
 - `test_pn_render_input` has 26 new checks (the assisted sequences tick by tick: left with S, down with each side, all three of the blast's keys, a key that comes up before its turn, a lone press,
   a held key with another pressed later, the jump, the focus, a latched press, and the setting's JSON round trip and its default in a file written before E44) and every other check of the suite
   is unchanged.
-- **Not run: a real keyboard.** The assisted tick sequences are asserted, the recorder is unchanged and was not driven end to end through the mapper (the scenario suite feeds the Eth frames
-  directly, not through the mapper).
+- **End to end, added after the release (scenario 29 of `test_pn_scenarios`, which now links the whole game for it):** the keyboard's keys per tick go through a real `InputMapper` into the game's
+  recorder. Assist off: the second RIGHT with S pressed together, DOWN with RIGHT together, and all three of the spell's keys together make no combo (a plain fireball); with it on each makes the combo
+  (5 and 25 mana); three clean taps make it both ways. The tester's "keys pressed too fast or at once do not register" is therefore reproduced by the original's rule and fixed by the assist, in the game's
+  own machine. **Not run: a real keyboard** (rollover, Filter Keys, key-repeat timing, a frame rate that is not 60 Hz): the keys here are ticks, not hardware.
 
 ## Open
 

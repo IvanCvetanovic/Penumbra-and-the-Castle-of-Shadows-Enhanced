@@ -15,7 +15,8 @@
 # A suite links the runtime and the ported scripts (PenumbraScript, which
 # brings PenumbraEth); one named test_pn_render_* or test_pn_layer_* links the
 # whole game (PenumbraGame), so the runtime's suites build while render/ is
-# still being written.
+# still being written. test_pn_scenarios links it too (E44): scenario 29 plays
+# the keyboard through the real InputMapper into the game.
 function(add_pn_test name)
     cmake_parse_arguments(PARSE_ARGV 1 PN "SKIPS_WITH_77;GAME" "" "")
     if (PN_UNPARSED_ARGUMENTS)
@@ -37,7 +38,7 @@ endfunction()
 file(GLOB _pnSuites RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/test_pn_*.cpp)
 foreach(_suite ${_pnSuites})
     get_filename_component(_name ${_suite} NAME_WE)
-    if (_name MATCHES "^test_pn_(render|layer)")
+    if (_name MATCHES "^test_pn_(render|layer|scenarios)")
         add_pn_test(${_name} SKIPS_WITH_77 GAME)
     else()
         add_pn_test(${_name} SKIPS_WITH_77)

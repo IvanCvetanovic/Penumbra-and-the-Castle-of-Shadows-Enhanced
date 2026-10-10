@@ -58,7 +58,11 @@
 // logged with its frame and loop flag (see SoundLog for how long a one-shot
 // "plays").
 
+#include "render/InputMapper.hpp"   // E44: scenario 29 plays the keyboard through the mapper
+#include "render/Settings.hpp"       // E44
 #include "script/Script.hpp"
+
+#include <GLFW/glfw3.h>   // E44: key codes
 
 #include <algorithm>
 #include <cmath>
@@ -5103,6 +5107,133 @@ void ScenarioPhoneOptionsE31(Game& g) {   // E31
     S::g_artDir = savedArt;   // E31
 }   // E31
 
+// === 29. E44: combo assist, from the keyboard's keys to the recorder ==================================
+
+// What the keyboard does on each tick, as GLFW reports it, through a real InputMapper and into the game: the whole path
+// that "keys pressed together" takes. The mapper's own suite asserts the frames it makes and scenario 11 plays frames made
+// by hand; this joins the two halves.
+struct Keyboard {
+    Game& g;
+    Penumbra::Render::InputMapper mapper;
+    Penumbra::Render::View view;
+    Spotter* spotter = nullptr;
+
+    Keyboard(Game& game, const bool assist) : g(game) {
+        Penumbra::Render::ControlSettings controls = Penumbra::Render::Settings::Defaults("en").controls;
+        controls.comboAssist = assist;
+        mapper.SetControls(controls);
+        mapper.SetPlayer2Pad(0);
+    }
+    // `n` ticks with `down` held (GLFW key codes), none for an empty list.
+    void Ticks(const uint n, std::initializer_list<int> down) {
+        for (uint i = 0; i < n; ++i) {
+            Penumbra::Render::RawDevices raw;
+            for (const int key : down) raw.keys[static_cast<std::size_t>(key)] = true;
+            InputFrame frame = mapper.BuildTick(raw, view);
+            frame.cursor = g.base.cursor;
+            frame.cursorAbsolute = g.base.cursorAbsolute;
+            g.Step(frame);
+            mapper.EndFrame(raw);
+            if (spotter != nullptr) spotter->Poll();
+        }
+    }
+};
+
+struct ComboTry {
+    uint swords = 0;   // combo_sword.ent
+    uint balls = 0;    // combo_fire_ball.ent
+    int mana = 0;      // spent
+};
+
+// One try, from a quiet start: the wizard back where he began, full mana, a mapper of its own (the assist on or off).
+ComboTry TryCombo(Game& g, const ETHEntity& p, const vector2& start, const bool assist,
+                  const std::function<void(Keyboard&)>& play) {
+    Keyboard kb(g, assist);
+    kb.Ticks(30, {});   // the recorder empties after 14 quiet ticks (combo.as); the last try's moves are over
+    Teleport(p, start);   // SHORTCUT: the keys below walk him
+    kb.Ticks(4, {});
+    p->AddIntData("mp", p->GetIntData("maxMp"));   // SHORTCUT: mana restored, as scenario 11 does
+    const int mp = p->GetIntData("mp");
+    Spotter spot(GetLastID(), {"combo_sword.ent", "combo_fire_ball.ent"});
+    kb.spotter = &spot;
+    play(kb);
+    kb.Ticks(8, {});
+    ComboTry out;
+    out.swords = spot.Count("combo_sword.ent");
+    out.balls = spot.Count("combo_fire_ball.ent");
+    out.mana = mp - p->GetIntData("mp");
+    return out;
+}
+
+void ScenarioComboAssistE44(Game& g) {
+    constexpr int kRight = GLFW_KEY_RIGHT;
+    constexpr int kDown = GLFW_KEY_DOWN;
+    constexpr int kSword = GLFW_KEY_S;
+    constexpr int kFire = GLFW_KEY_D;
+
+    const uint setup = Script::g_levelStartTime;
+    Script::newGame("CAMPAIGN");
+    WaitFor(g, 3, [&] { return Script::g_levelStartTime != setup; });
+    CHECK(GetSceneFileName() == "scenes/level1.esc");
+    const ETHEntity p = WaitForPlayerReady(g, 240, "combo assist");
+    if (!Ready(p)) {
+        CHECK_MSG(false, "no wizard");
+        return;
+    }
+    g.Steps(20);
+    const vector2 start = p->GetPositionXY();
+
+    struct Case {
+        const char* what;
+        bool blast;           // the spell combo, else the sword combo
+        bool originalWorks;   // the original's rule: one command per tick
+        std::function<void(Keyboard&)> play;
+    };
+    const std::vector<Case> cases = {
+        {"sword RIGHT, RIGHT, S: three clean taps, 4 ticks apart", false, true, [&](Keyboard& k) {
+             k.Ticks(1, {kRight}); k.Ticks(4, {});
+             k.Ticks(1, {kRight}); k.Ticks(4, {});
+             k.Ticks(1, {kSword});
+         }},
+        {"sword RIGHT, RIGHT, S: the second RIGHT and S pressed together", false, false, [&](Keyboard& k) {
+             k.Ticks(1, {kRight}); k.Ticks(5, {});
+             k.Ticks(6, {kRight, kSword});
+         }},
+        {"blast DOWN, RIGHT, D: three clean taps, 4 ticks apart", true, true, [&](Keyboard& k) {
+             k.Ticks(1, {kDown}); k.Ticks(4, {});
+             k.Ticks(1, {kRight}); k.Ticks(4, {});
+             k.Ticks(1, {kFire});
+         }},
+        {"blast DOWN, RIGHT, D: DOWN and RIGHT pressed together, then D", true, false, [&](Keyboard& k) {
+             k.Ticks(6, {kDown, kRight}); k.Ticks(2, {});
+             k.Ticks(5, {kFire});
+         }},
+        {"blast DOWN, RIGHT, D: all three pressed together", true, false, [&](Keyboard& k) {
+             k.Ticks(6, {kDown, kRight, kFire});
+         }},
+    };
+
+    for (const Case& c : cases) {
+        std::printf("-- %s\n", c.what);
+        for (const bool assist : {false, true}) {
+            const ComboTry t = TryCombo(g, p, start, assist, c.play);
+            const bool worked = c.blast ? t.balls == 1u : t.swords == 1u;
+            const bool expected = assist || c.originalWorks;
+            std::printf("  assist %-3s: combo_sword %u, combo_fire_ball %u, mana spent %d -> %s (expected %s)\n",
+                        assist ? "on" : "off", t.swords, t.balls, t.mana, worked ? "the combo" : "no combo",
+                        expected ? "the combo" : "no combo");
+            CHECK_MSG(worked == expected, c.what);
+            // The other combo never fires by accident.
+            CHECK_EQ(c.blast ? t.swords : t.balls, 0u);
+            // A combo that fired cost what the original charged (5 and 25 mana; a tick's regeneration may take one back).
+            if (worked) {
+                if (c.blast) CHECK(t.mana == 25 || t.mana == 24);
+                else CHECK(t.mana == 5 || t.mana == 4);
+            }
+        }
+    }
+}   // E44
+
 } // namespace
 
 int main() {
@@ -5158,6 +5289,7 @@ int main() {
         RunScenario(g, "19. versus in arenas 2-6, arena 6 to 3 points", ScenarioArenas);
         RunScenario(g, "27. Hard: the panels, the king, the end screen, the two lists (E36)", ScenarioHardE36);   // E36
         RunScenario(g, "28. New Game's difficulty prompt (E36)", ScenarioNewGamePromptE36);   // E36
+        RunScenario(g, "29. combo assist, from the keyboard's keys to the recorder (E44)", ScenarioComboAssistE44);   // E44
         RunScenario(g, "13. the menu's Quit", [](Game& game) {
             CHECK(EnsureMenu(game));
             game.base.cursor = kQuitButton;
