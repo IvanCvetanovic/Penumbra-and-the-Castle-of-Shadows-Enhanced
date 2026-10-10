@@ -2094,6 +2094,8 @@ void ScenarioOptionsE10(Game& g) {
         {&Script::g_widescreen, 255.0f, 494.0f, "Tela larga (widescreen)", "Tela 4:3 (original)"},
         // E13's, in the second column (x 540-796) beside E8's.
         {&Script::g_pauseOnFocusLoss, 540.0f, 694.0f, "Pausa ao perder o foco", "Continua sem o foco"},
+        // E46's, to the right of the language chooser (x 600-900, y 564-614).
+        {&Script::g_comboAssist, 600.0f, 564.0f, "Ajuda de combo", "Sem ajuda de combo"},
     };
     const auto switchRow = [&](const E10Switch& row) {
         CHECK_EQ(row.widget->getCurrent(), 0u);
@@ -2121,6 +2123,7 @@ void ScenarioOptionsE10(Game& g) {
     CHECK_EQ(Script::g_language.getCurrent(), 6u);
     CHECK(WaitForHud(g, "{language:pt}", 3));
     switchRow(e10Switches[2]);
+    switchRow(e10Switches[3]);   // E46
     // None of them moved the original's switches, nor E8's beside E13's.
     CHECK_EQ(Script::g_smoothMotion.getCurrent(), 0u);
     CHECK_EQ(Script::g_enablePS.getCurrent(), 0u);

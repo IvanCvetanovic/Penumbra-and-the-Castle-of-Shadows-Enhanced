@@ -43,8 +43,9 @@ The original's combo memory is strict, and these are its rules, which the game k
 **Combo assist (E44).** On by default. Of the keyboard's five combo keys (down, left, right, S, D), the ones that go down together on one
 tick are handed to the game one tick apart, in the order a combo needs (down, then a side, then S or D), so a roll of the fingers records
 every key instead of the first. Only player 1's keyboard, only presses that land on the same tick, and no other rule changes; a plain press
-alone is never delayed, and a press that has to wait waits a sixtieth of a second per key at most. `"comboAssist": false` under `controls` in
-`settings.json` gives the original's rule back. (There is no row for it on the options screen yet.)
+alone is never delayed, and a press that has to wait waits a sixtieth of a second per key at most. The row **Combo assist** of the desktop's
+Settings screen (E46, beside the language) turns it off ("No combo assist") and on, at once; `"comboAssist": false` under `controls` in
+`settings.json` does the same. Off, the original's rule is back. (A phone has no row for it: it has no keyboard for the assist to help.)
 
 Typed on a keyboard or a pad, a combo has no rest: it can be repeated as often as the keys can be pressed
 and the mana lasts, as in the original. The combo buttons of the touch controls are the only ones that

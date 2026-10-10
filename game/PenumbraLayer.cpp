@@ -199,6 +199,7 @@ void PenumbraLayer::OnAttach(entt::registry& registry) {
     m_languageChoiceSeeded = Script::g_language.getCurrent();
     Script::g_widescreen.setCurrent(Widescreen() ? 0u : 1u);
     Script::g_keyboardP2.setCurrent(m_settings.controls.keyboardPlayer2 ? 0u : 1u);
+    Script::g_comboAssist.setCurrent(m_settings.controls.comboAssist ? 0u : 1u);   // E46
     Script::g_musicVolume.setCurrent(Script::g_musicVolume.stepFor(m_settings.musicVolume));
     Script::g_effectsVolume.setCurrent(Script::g_effectsVolume.stepFor(m_settings.effectsVolume));
     Script::g_smoothMotion.setCurrent(SmoothMotion() ? 0u : 1u);   // E8's row: as this run draws (--smooth, --fixed-step)
@@ -1095,11 +1096,13 @@ void PenumbraLayer::OnFixedUpdate(entt::registry& registry, float fixedDelta) {
     const int layout = static_cast<int>(Script::g_controls.getCurrent());
     const bool pixelShaders = Script::g_enablePS.getCurrent() == 0;
     const bool keyboardPlayer2 = Script::g_keyboardP2.getCurrent() == 0;   // E10
+    const bool comboAssist = Script::g_comboAssist.getCurrent() == 0;   // E46: at once, like the second player's keys
     if (layout != m_settings.controls.joystickLayout || pixelShaders != m_settings.pixelShaders ||
-        keyboardPlayer2 != m_settings.controls.keyboardPlayer2) {
+        keyboardPlayer2 != m_settings.controls.keyboardPlayer2 || comboAssist != m_settings.controls.comboAssist) {   // E46
         m_settings.controls.joystickLayout = layout;
         m_settings.pixelShaders = pixelShaders;
         m_settings.controls.keyboardPlayer2 = keyboardPlayer2;   // E10
+        m_settings.controls.comboAssist = comboAssist;   // E46
         m_input.SetControls(m_settings.controls);
         SaveSettings();
     }

@@ -8,6 +8,7 @@
 // Enhancement E24 makes the language row a chooser of eleven; marked.            // E24
 // Enhancement E28 adds the button that opens the touch controls' editor; marked. // E28
 // Enhancement E31 hands the screen to optionsPhone.cpp's larger layout on a phone; marked.   // E31
+// Enhancement E46 adds the combo assist's row, on the desktop's screen; marked.              // E46
 
 #include "script/Script.hpp"
 
@@ -35,6 +36,8 @@ Stepper g_effectsVolume("Volume dos efeitos", 10, 10);                          
 Switch g_smoothMotion("Ativa movimento suave", "Desativa movimento suave");     // E10
 // E13's automatic pause (settings.pauseOnFocusLoss), beside E8's.             // E13
 Switch g_pauseOnFocusLoss("Pausa ao perder o foco", "Continua sem o foco");      // E13
+// E44's combo assist (settings.controls.comboAssist), worded as E13's row is: the state it is in.   // E46
+Switch g_comboAssist("Ajuda de combo", "Sem ajuda de combo");                                      // E46
 // E36's difficulty (settings.difficulty): the state of the choice made at New Game, row 0 = Normal, the original's   // E36
 // game and the default, row 1 = Hard. No options row draws it, so its labels are only the two names (the words of     // E36
 // difficultyName()); the layer seeds it from the setting (or --difficulty) and saves it when it changes, and          // E36
@@ -350,6 +353,14 @@ void screenModesLoop()
     g_effectsVolume.put(vector2(255, origin.y+559), "Arial Narrow", fontSize, 180);   // E10: y 659-684
     g_smoothMotion.put(vector2(255, origin.y+594), "Arial Narrow", fontSize, 256);    // E10: y 694-744
     g_pauseOnFocusLoss.put(vector2(540, origin.y+594), "Arial Narrow", fontSize, 256);   // E13: x 540-796, y 694-744
+
+    // ENHANCEMENT E46: the combo assist, a Switch of two 25 px rows at (600, 564), to the right of the language's chooser    // E46
+    // (x 255-511) and of its globe (x 530-576, y 564-610), between the rules at y 554 and 624, where E36's difficulty row    // E46
+    // once stood (nothing else is in x 590-909 at those y in the desktop's two layouts, the plain list and E27's frame).     // E46
+    // Not drawn on a phone's layouts (a phone has no keyboard for the assist to help, and its cells are laid out in           // E46
+    // optionsPhone.cpp and E20's list). The hit box is 300 wide, x 600-900, inside the panel's inner edge (x 909).           // E46
+    if (!g_mobileLayout)                                                                                                       // E46
+        g_comboAssist.put(vector2(600, origin.y+464), "Arial Narrow", fontSize, 300);   // E46: x 600-900, y 564-614
 
     showToggleFullscreenMessage();                                    // videoModes.as:131
     waitForInputToMenu();

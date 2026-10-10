@@ -423,6 +423,8 @@ const char* const kE10Labels[] = {
     "Desativa movimento suave",
     "Pausa ao perder o foco",   // E13's row
     "Continua sem o foco",
+    "Ajuda de combo",   // E46's row, on the desktop's screen
+    "Sem ajuda de combo",
     "Ativa controles de toque",   // E20's row, on a phone
     "Desativa controles de toque",
     "Normal",   // E36's names: the New Game prompt's rows, the end screen's heading, the best times panel
@@ -4624,6 +4626,91 @@ void TestDifficultyInLayer() {   // E36
     Script::g_artDir = savedArtDir;
 }
 
+// ENHANCEMENT E46: THE COMBO ASSIST'S ROW AS THE LAYER KEEPS IT. The options screen's switch (Script::g_comboAssist) is
+// seeded from the settings when the layer attaches and, every tick, the settings AND the input mapper are kept in step with
+// it - the mapper holds its own copy of the controls, so a switch that reached only the settings would change the file and
+// nothing the player does until a restart. Pinned here end to end, through the engine's raw input into the game: with the
+// assist on, LEFT and S pressed on one tick reach the game one tick apart; after the switch is flipped, the next pair
+// reach it together; flipped back, apart again; and the seeding from settings that say off.
+// What the game sees of LEFT and S pressed together on one tick, then on the tick after: {left, s} at each.
+struct ComboPair {
+    bool leftFirst = false, sFirst = false, leftSecond = false, sSecond = false;
+};
+
+bool KeySeen(const Eth::KEY_STATE state) { return state == Eth::KS_HIT || state == Eth::KS_DOWN; }
+
+void ReleaseAllKeys(SplashRig& rig) {
+    rig.devices.keys[Supersonic::Key::Left] = false;
+    rig.devices.keys[Supersonic::Key::S] = false;
+}
+
+ComboPair PressLeftAndS(SplashRig& rig) {
+    ReleaseAllKeys(rig);
+    rig.step();
+    rig.step();
+    rig.step();   // quiet: nothing is held and the recorder's tick is clear
+    rig.devices.keys[Supersonic::Key::Left] = true;
+    rig.devices.keys[Supersonic::Key::S] = true;
+    rig.step();
+    ComboPair pair;
+    pair.leftFirst = KeySeen(rig.key(Eth::K_LEFT));
+    pair.sFirst = KeySeen(rig.key(Eth::K_S));
+    rig.step();
+    pair.leftSecond = KeySeen(rig.key(Eth::K_LEFT));
+    pair.sSecond = KeySeen(rig.key(Eth::K_S));
+    ReleaseAllKeys(rig);
+    rig.step();
+    rig.step();
+    return pair;
+}
+
+void TestComboAssistInLayer() {   // E46
+    const std::string savedArtDir = Script::g_artDir;
+    const bool savedMobile = Script::g_mobileLayout;
+    try {
+        {
+            SplashRig rig(SplashOptions(false));
+            CHECK_EQ(Script::g_comboAssist.getCurrent(), 0u);   // on by default
+            rig.runTo(5);
+            CHECK(rig.layer.CurrentSettings().controls.comboAssist);
+            const ComboPair on = PressLeftAndS(rig);
+            std::printf("  assist on: left %d s %d, then left %d s %d\n", on.leftFirst, on.sFirst, on.leftSecond, on.sSecond);
+            CHECK(on.leftFirst && !on.sFirst && on.leftSecond && on.sSecond);
+
+            Script::g_comboAssist.setCurrent(1u);   // the row's second state: "Sem ajuda de combo"
+            rig.step();
+            CHECK(!rig.layer.CurrentSettings().controls.comboAssist);
+            const ComboPair off = PressLeftAndS(rig);
+            std::printf("  assist off: left %d s %d, then left %d s %d\n", off.leftFirst, off.sFirst, off.leftSecond, off.sSecond);
+            CHECK(off.leftFirst && off.sFirst && off.leftSecond && off.sSecond);
+
+            Script::g_comboAssist.setCurrent(0u);
+            rig.step();
+            CHECK(rig.layer.CurrentSettings().controls.comboAssist);
+            const ComboPair again = PressLeftAndS(rig);
+            CHECK(again.leftFirst && !again.sFirst && again.leftSecond && again.sSecond);
+        }
+        // Settings that say off seed the switch with its second row, and the first ticks change nothing.
+        {
+            PenumbraLayer::Options options = SplashOptions(false);
+            options.settings.controls.comboAssist = false;
+            SplashRig rig(options);
+            CHECK_EQ(Script::g_comboAssist.getCurrent(), 1u);
+            rig.runTo(5);
+            CHECK(!rig.layer.CurrentSettings().controls.comboAssist);
+            CHECK_EQ(Script::g_comboAssist.getCurrent(), 1u);
+            const ComboPair off = PressLeftAndS(rig);
+            CHECK(off.leftFirst && off.sFirst);
+        }
+    } catch (const std::exception& e) {
+        CHECK_MSG(false, std::string("the layer threw: ") + e.what());
+    }
+    Supersonic::Input::Update(Supersonic::RawInputState{});
+    Script::g_comboAssist.setCurrent(0u);   // a Script global outlives a layer
+    Script::g_mobileLayout = savedMobile;
+    Script::g_artDir = savedArtDir;
+}
+
 } // namespace   // E35
 
 // ENHANCEMENT E38: A START THAT CANNOT LOOK LIKE A CRASH. The layer's two parts, driven on a bare registry with a
@@ -4802,6 +4889,7 @@ int main() {
     TestPhoneOptionsNarrowBodyFit();   // E31: a bare Machine of its own, its globals put back
     TestTouchEditorInLayer();   // E28: the layer itself, driven on a bare registry (its globals die with the process)
     TestSplashInLayer();   // E35: the layer again, after it: the intro, the machine standing still, the presses
+    TestComboAssistInLayer();   // E46: the row's switch seeded from the settings, and what it changes in the live mapper
     TestDifficultyInLayer();   // E36: the layer once more: the difficulty seeded from the settings or the flag, and a pick kept
     TestLaunchAfterTheFirstFrame();   // E38: the layer's launch: the display switch and the start marker wait for a frame
     return test::summary("test_pn_render_hud", 150);

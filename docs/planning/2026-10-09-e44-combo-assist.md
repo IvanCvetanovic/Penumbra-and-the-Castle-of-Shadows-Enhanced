@@ -24,8 +24,7 @@ Keyboard rollover, Windows Filter Keys and a very low frame rate can add to it a
 
 ## What changed
 
-- **Combo assist** (`ControlSettings::comboAssist`, default on; `"comboAssist": false` under `controls` in `settings.json` gives the original's rule back; no options row yet, because the options
-  screens, the eleven languages' strings and their rooms were the E36 rework's files, committed after this): of the keyboard's five combo keys (down, left, right, S, D), the ones that
+- **Combo assist** (`ControlSettings::comboAssist`, default on; `"comboAssist": false` under `controls` in `settings.json` gives the original's rule back; an options row since E46): of the keyboard's five combo keys (down, left, right, S, D), the ones that
   are NEW on one tick (down, and not seen down at the last tick) or were held back by an earlier tick are handed to the game one tick apart, in the order a combo needs: down, then a side,
   then S or D. A key that comes up before its turn is still seen, for one tick. The jump (Up) is not one of them and never waits; a lone press is never delayed; a key pressed while another is held
   is not delayed; the wait is a sixtieth of a second per key at most; the window losing the focus drops what was waiting. It is in `InputMapper::BuildTick`, after the latch of a frame that ran
@@ -45,6 +44,6 @@ Keyboard rollover, Windows Filter Keys and a very low frame rate can add to it a
 
 ## Open
 
-- The options screens have no row for it, and the level-1 sign's "+" (in 11 languages) still reads as keys together: both are open follow-ups (the E36 rework, now committed, owns the options screens and the strings).
+- Done in [E46](2026-10-10-e46-the-combo-assist-row-and-the-sign.md): the desktop's options screen has a row for it, and the level-1 sign separates its three keys with commas in ten languages.
 - The buffer's anchoring (a stray key spoils the try) and the 217 ms gap are the original's and unchanged. A looser recorder (match the last three keys, not the first) would make mashing work,
   and would change what a player can do by accident; not done.

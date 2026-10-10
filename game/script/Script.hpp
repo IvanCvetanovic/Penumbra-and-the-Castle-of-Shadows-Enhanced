@@ -496,6 +496,7 @@ extern Stepper g_musicVolume;                         // E10: tenths of the musi
 extern Stepper g_effectsVolume;                       // E10: tenths of the effects' master volume
 extern Switch g_smoothMotion;                         // E10: 0 = smooth motion on (E8), 1 = off
 extern Switch g_pauseOnFocusLoss;                     // E13: 0 = pause on focus loss, 1 = play on
+extern Switch g_comboAssist;                          // E46: 0 = combo assist on (E44), 1 = off; the desktop's options screen only
 extern Switch g_difficulty;                           // E36: 0 = Normal (the original's game), 1 = Hard (enemies with twice the hp); written only by New Game's prompt when a row is chosen (the layer seeds it and saves a change), read by newGame when the campaign starts
 
 // ENHANCEMENT E20 (not in the original): the options screen on a phone. The    // E20

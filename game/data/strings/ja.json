@@ -44,6 +44,8 @@
     "Desativa movimento suave": "スムーズモーション無効",
     "Pausa ao perder o foco": "非アクティブ時はポーズ",
     "Continua sem o foco": "非アクティブ時も続行",
+    "Ajuda de combo": "コンボアシスト",
+    "Sem ajuda de combo": "コンボアシストなし",
     "Ativa controles de toque": "タッチ操作有効",
     "Desativa controles de toque": "タッチ操作無効",
     "Automático (melhor)": "自動",
