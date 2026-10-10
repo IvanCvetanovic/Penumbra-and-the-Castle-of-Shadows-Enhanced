@@ -1303,3 +1303,31 @@ real phone, combo assist was not tried with a real keyboard, and the translation
 - The options row for combo assist and the level-1 sign's "+" wording are no longer waiting for the E36 rework: they can be done now.
 - The testers' answers (A54, A74, Redmi Note 13) are still what decides the next step on phones; this release changes nothing there.
 - The owner's working folder still holds uncommitted copies of the rework's files: to be fast-forwarded to origin/main with a stash kept until the two are compared.
+
+## 2026-10-10 - Checks that need no phone: a defect found (E45, not released), the combo path end to end, a soak, the phone settings' memory, the update to build 10
+
+**Why.** What 1.0.8 could not claim (nothing run on a real weak phone, no real keyboard) was looked at again for what a laptop can show. The owner's working folder was fast-forwarded to origin/main on 2026-10-09 (a backup of his old drafts, all older
+than what is committed, is in out/sync-backup-2026-10-09).
+
+**Found: a checkpoint cut short ends the run.** `SaveScene` opened the checkpoint truncated and wrote into it, and the scripts set `hasCheckpoint` whatever the write did. A write cut short (the app killed, a full storage) left a file that cannot be read; the next
+death loaded nothing and 0.7.12's rule for an unreadable scene left an empty one under the old loop: no wizard, nothing to play or leave. Scenario 31 reproduced it in the code of 1.0.8 (0 entities). **E45** (committed, NOT released): every save is written beside
+the file and renamed over it (`eth/AtomicWrite.hpp`: the checkpoint and the best times; the settings already were), and a scene that cannot be read starts the one that was running again, which for a checkpoint is the level from its start, the life already spent.
+With it the same test gets a playable wizard 245 frames after the death. It is in the code since the port's first commit, so in every release; it needs a save to be interrupted, which a cheap phone with a full storage makes likelier. It is an enhancement of 0.7.12's
+behaviour for the failure only: a save that works writes the same bytes to the same place.
+
+**Checked, and what each showed** (details in docs/planning/2026-10-10-e45-a-save-that-cannot-end-the-run.md):
+- Combo assist from the keys to the recorder (scenario 29, `test_pn_scenarios` now links the whole game): with the assist off the second RIGHT with S, DOWN with RIGHT, and all three of the spell's keys together make no combo (a plain fireball), which is what the
+  Windows tester described; with it on each makes the combo (5 and 25 mana); clean taps make it both ways.
+- A soak (scenario 30): 210,000 ticks of seeded random input in levels 1 to 3 (also at level 15) and two Versus arenas: 0 script aborts, no wizard that is not a number, flat entity counts. The game's logic costs 0.05 to 0.16 ms a tick here, so a slow phone's frames are
+  not the logic's cost; a scene load is about 35 ms of reading and filling (about 150 ms in all in this setup, files on a Windows drive seen from WSL). Real drawing costs are not measured by it.
+- Memory of the phone settings: level 1 at 2400x1080, software Vulkan, dynamic resolution off, peak resident memory 542 MiB with 1.0.7's settings and 310 MiB with 1.0.8's (16x16 shadow maps and one sample), 232 MiB less, three runs each within 1 MiB. A software driver
+  keeps its pictures in the process; a phone's GPU drivers account their memory otherwise, so it is the saving, not a phone's figure.
+- The update (Android 13 emulator, release key): 1.0.7 (versionCode 8) set to Hard and German through its Settings screen, then build 9 and build 10 installed over it with `adb install -r`: accepted, language and difficulty kept, build 10's New Game question opened in German
+  with Hard lit, Android's Back closed it with the game still running, a Hard game started level 1. Not tried: a phone maker's installer.
+
+**Tests.** Linux: 17 of 17 suites, 48,210 checks (48,090 before this day's three scenarios); on a Windows runner e0198b1 (scenario 29) passed 17 of 17, 2,194 scenario checks; tools/check.bat /W4 clean for the changed files. CI runs the Windows and Apple builds.
+
+**Not done / open.**
+- E45 is committed but no release carries it: 1.0.8's files do not. Releasing it (as 1.0.9) is the owner's decision.
+- Still no real weak phone and no real keyboard: the A54's lag and the A74's "stuck" report are untouched by anything above; E45 is only one thing that could look like the latter.
+- `SaveStringToFile` of the Eth layer (called by no script) still writes in place.

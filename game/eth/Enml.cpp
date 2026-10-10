@@ -19,6 +19,7 @@
 #include <vector>
 
 #include "core/Log.hpp"
+#include "eth/AtomicWrite.hpp"   // E45
 #include "eth/Eth.hpp"
 
 namespace Penumbra::Eth {
@@ -433,12 +434,9 @@ void enmlFile::writeToFile(const string& absolutePath) const {
     const std::filesystem::path path(target);
     std::error_code ignored;
     if (path.has_parent_path()) std::filesystem::create_directories(path.parent_path(), ignored);
-    std::ofstream file(path, std::ios::binary | std::ios::trunc);
-    if (!file) {
-        SUPERSONIC_LOG_WARN("Penumbra") << "enml: cannot write " << target;
-        return;
-    }
-    file.write(bytes.data(), static_cast<std::streamsize>(bytes.size()));
+    // ENHANCEMENT E45 (eth/AtomicWrite.hpp): the best times are replaced whole or not at all.
+    string why;
+    if (!WriteFileAtomic(path, bytes, why)) SUPERSONIC_LOG_WARN("Penumbra") << "enml: " << why;
 }
 
 } // namespace Penumbra::Eth

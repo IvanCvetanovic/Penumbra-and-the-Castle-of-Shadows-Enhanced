@@ -17,6 +17,7 @@
 #include <utility>
 
 #include "core/Log.hpp"
+#include "eth/AtomicWrite.hpp"   // E45
 #include "eth/ImageInfo.hpp"
 #include "eth/Paths.hpp"
 
@@ -217,6 +218,20 @@ void Machine::DoLoad(const PendingLoad& request) {
             // :835-839 returns before the name, camera, background and scripts:
             // the new scene stays empty and the old loop keeps running.
             SUPERSONIC_LOG_ERROR("Penumbra") << "Couldn't load the scene " << request.file << " (" << path << ")";
+            // ENHANCEMENT E45 (not in the original): the empty scene under the old loop is a screen that can be neither
+            // played nor left. A checkpoint cut short by a phone killed in the middle of its write, or by a full storage,
+            // used to end the run there at the next death. The scene that was running is started again instead, with
+            // the request's own scripts: what a death with no checkpoint does. Only when the request goes on with the
+            // loop that is running (a checkpoint's levelLoop after the level's), so that a load that changes what is
+            // played stays as it was, and only when that scene is another file, so a scene that cannot be read twice
+            // stops here as it always did.
+            if (!m_sceneFileName.empty() && m_sceneFileName != request.file && m_sceneFileName != kEmptyScene &&
+                request.onLoop == m_loopFunction) {
+                PendingLoad again = request;
+                again.file = m_sceneFileName;
+                SUPERSONIC_LOG_WARN("Penumbra") << "Starting " << again.file << " again instead";
+                DoLoad(again);
+            }
             return;
         }
         m_scene->Populate(*file);
@@ -658,13 +673,13 @@ bool Machine::SaveScene(const string& file) {
         return false;
     }
     const string text = WriteSceneFile(scene);
-    std::ofstream out(std::filesystem::path(path), std::ios::binary | std::ios::trunc);
-    if (!out) {
-        SUPERSONIC_LOG_WARN("Penumbra") << "SaveScene: cannot write " << path;
+    // ENHANCEMENT E45 (eth/AtomicWrite.hpp): a save that is cut short leaves the last checkpoint as it was.
+    string why;
+    if (!WriteFileAtomic(std::filesystem::path(path), text, why)) {
+        SUPERSONIC_LOG_WARN("Penumbra") << "SaveScene: " << why;
         return false;
     }
-    out.write(text.data(), static_cast<std::streamsize>(text.size()));
-    return static_cast<bool>(out);
+    return true;
 }
 
 string Machine::GetSceneFileName() const { return m_sceneFileName; }

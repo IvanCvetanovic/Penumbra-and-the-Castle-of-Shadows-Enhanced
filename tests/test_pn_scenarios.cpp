@@ -65,6 +65,7 @@
 #include <GLFW/glfw3.h>   // E44: key codes
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <cstdio>
 #include <exception>
@@ -5234,6 +5235,247 @@ void ScenarioComboAssistE44(Game& g) {
     }
 }   // E44
 
+// === 30. A soak: seeded random keys, pad buttons and sticks through the whole game ====================
+
+float Unit(std::mt19937& rng) { return static_cast<float>(rng() >> 8) / 16777216.0f; }   // [0, 1), the same on every platform
+
+bool InPlay() {
+    const string scene = GetSceneFileName();
+    return scene.rfind("scenes/level", 0) == 0 || scene.rfind("scenes/pvp_lv", 0) == 0;
+}
+
+// What the hand-written scenarios cannot: moves in orders nobody wrote down. Every tick each key (player 1's) and each
+// button of pad 0 (player 2, and the summon) may be pressed or let go, so that a held key and a quick tap both happen,
+// leaning to the right so that the wizard gets somewhere, with the escape key, the confirm key and the sticks thrown in;
+// the game is asked only to go on: no script abort, no wizard that is not a number, no entity count that runs away. A run that ends in the menu or the game over screen starts again. Seeded, so a failure
+// repeats; the wall-clock time of each tick is printed (never asserted) as the CPU's cost of the game's own logic.
+void ScenarioSoak(Game& g) {
+    struct Run {
+        const char* what;
+        const char* scene;
+        const char* expected;     // the scene it ends up in
+        std::vector<KEY> start;   // held when newGame looks (main.as:109-115): the level cheats and PAGEUP
+        uint seed;
+    };
+    const std::vector<Run> runs = {
+        {"level 1", "CAMPAIGN", "scenes/level1.esc", {}, 11u},
+        {"level 1 with both characters at level 15 (PAGEUP)", "CAMPAIGN", "scenes/level1.esc", {K_PAGEUP}, 12u},
+        {"level 2", "CAMPAIGN", "scenes/level2.esc", {K_2}, 13u},
+        {"level 3", "CAMPAIGN", "scenes/level3.esc", {K_3}, 14u},
+        {"level 3 with both characters at level 15", "CAMPAIGN", "scenes/level3.esc", {K_3, K_PAGEUP}, 15u},
+        {"versus, arena 1", "pvp_lv1.esc", "scenes/pvp_lv1.esc", {}, 16u},
+        {"versus, arena 4", "pvp_lv4.esc", "scenes/pvp_lv4.esc", {}, 17u},
+    };
+    struct Chan {
+        bool pad;
+        int code;
+        float press;     // chance per tick of going down, when up
+        float release;   // and of coming up, when down
+        bool down = false;
+    };
+    constexpr uint kTicks = 30000;
+    constexpr uint kEntityCap = 1500;   // a level holds about 640 at its start, a Versus arena about 110
+
+    for (const Run& run : runs) {
+        std::printf("-- soak: %s (seed %u, %u ticks)\n", run.what, run.seed, kTicks);
+        std::mt19937 rng(run.seed);
+        std::vector<Chan> chans = {
+            {false, K_LEFT, 0.03f, 0.10f},  {false, K_RIGHT, 0.10f, 0.04f}, {false, K_UP, 0.10f, 0.20f},
+            {false, K_DOWN, 0.03f, 0.20f},  {false, K_S, 0.10f, 0.15f},     {false, K_D, 0.06f, 0.20f},
+            {false, K_SPACE, 0.02f, 0.10f}, {false, K_CTRL, 0.05f, 0.15f},  {false, K_ESC, 0.0002f, 0.5f},
+            {false, K_RETURN, 0.004f, 0.3f},
+            {true, JK_01, 0.05f, 0.2f},     {true, JK_02, 0.05f, 0.2f},     {true, JK_03, 0.05f, 0.2f},
+            {true, JK_04, 0.05f, 0.2f},     {true, JK_09, 0.004f, 0.3f},    {true, JK_10, 0.006f, 0.3f},
+        };
+        vector2 stick(0.0f);
+
+        const auto begin = [&]() {
+            InputFrame hold = g.base;
+            for (const KEY k : run.start) hold.keys[static_cast<std::size_t>(k)] = true;
+            g.Steps(2, hold);   // the cheats read KS_DOWN, not the first frame's KS_HIT: two frames before newGame looks
+            const uint setup = Script::g_levelStartTime;
+            Script::newGame(run.scene);
+            WaitFor(g, 3, [&] { return Script::g_levelStartTime != setup; }, &hold);
+            WaitFor(g, 400, [] { return Ready(Player()); }, &hold);
+            g.Steps(2);
+            for (Chan& c : chans) c.down = false;
+        };
+        begin();
+        CHECK_MSG(GetSceneFileName() == run.expected, run.what);
+
+        const uint abortsBefore = g.m.ScriptAborts();
+        uint restarts = 0, outOfPlay = 0, maxEntities = 0, notFinite = 0;
+        std::vector<double> ms;
+        ms.reserve(kTicks);
+        for (uint t = 0; t < kTicks; ++t) {
+            InputFrame frame = g.base;
+            for (Chan& c : chans) {
+                if (Unit(rng) < (c.down ? c.release : c.press)) c.down = !c.down;
+                if (!c.down) continue;
+                if (c.pad) frame.pads[0].buttons[static_cast<std::size_t>(c.code)] = true;
+                else frame.keys[static_cast<std::size_t>(c.code)] = true;
+            }
+            if (t % 20 == 0) {
+                stick = Unit(rng) < 0.5f ? vector2(0.0f) : vector2(Unit(rng) * 2.0f - 1.0f, Unit(rng) * 2.0f - 1.0f);
+            }
+            frame.pads[0].connected = true;
+            frame.pads[0].xy = stick;
+
+            const string sceneBefore = GetSceneFileName();
+            const auto t0 = std::chrono::steady_clock::now();
+            g.Step(frame);
+            ms.push_back(std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count());
+            if (ms.back() > 50.0) {   // a scene load inside the tick: what a slow phone would feel as a freeze
+                std::printf("  slow tick %u: %.1f ms, %s -> %s\n", t, ms.back(), sceneBefore.c_str(),
+                            GetSceneFileName().c_str());
+            }
+
+            if (g.m.ScriptAborts() != abortsBefore) {
+                std::printf("  SCRIPT ABORT at tick %u in %s\n", t, GetSceneFileName().c_str());
+                break;
+            }
+            maxEntities = std::max(maxEntities, GetNumEntities());
+            if (t % 10 == 0) {
+                const ETHEntity p = Player();
+                if (p != nullptr) {
+                    const vector3 pos = p->GetPosition();
+                    if (!std::isfinite(pos.x) || !std::isfinite(pos.y) || !std::isfinite(pos.z)) ++notFinite;
+                }
+            }
+            outOfPlay = InPlay() ? 0u : outOfPlay + 1u;
+            if (outOfPlay > 300u) {   // the menu or the game over screen: begin again
+                ++restarts;
+                outOfPlay = 0;
+                begin();
+            }
+        }
+        std::sort(ms.begin(), ms.end());
+        double sum = 0.0;
+        for (const double v : ms) sum += v;
+        const double mean = ms.empty() ? 0.0 : sum / static_cast<double>(ms.size());
+        const double p99 = ms.empty() ? 0.0 : ms[ms.size() * 99 / 100];
+        const double worst = ms.empty() ? 0.0 : ms.back();
+        std::printf("  ended in %s; %u restarts; most entities %u; script aborts %u; wizard not a number %u times;\n"
+                    "  per tick (the game's logic alone, no drawing): mean %.3f ms, p99 %.3f ms, worst %.3f ms\n",
+                    GetSceneFileName().c_str(), restarts, maxEntities, g.m.ScriptAborts() - abortsBefore, notFinite,
+                    mean, p99, worst);
+        CHECK_MSG(g.m.ScriptAborts() == abortsBefore, run.what);
+        CHECK_MSG(notFinite == 0u, run.what);
+        CHECK_MSG(maxEntities < kEntityCap, run.what);
+    }
+}   // E45
+
+// === 31. A checkpoint the save did not finish (E45) ==================================================
+
+// SaveScene used to open scenes/checkpoint.esc truncated and then write it, so a phone killed in the middle of it, or with
+// no room left, left a cut-short file and no way back; the next death loaded it, the load failed, and 0.7.12's rule for a
+// scene it cannot read (ETHEngine.cpp:835-839: the new scene stays empty and the old loop keeps running) left an empty
+// screen that could not be played or left. Now the file is written beside itself and renamed over the old one, so the old
+// one survives a save that fails, and a checkpoint that cannot be read starts the level again, which is what a death
+// without a checkpoint does.
+void ScenarioDamagedCheckpoint(Game& g) {
+    const ETHEntity p = EnsureLevel(g, "scenes/level1.esc");
+    if (!Ready(p)) {
+        CHECK_MSG(false, "no wizard");
+        return;
+    }
+    const std::filesystem::path userSave = std::filesystem::path(g.userRoot) / "scenes" / "checkpoint.esc";
+    const std::filesystem::path tmpSave = std::filesystem::path(g.userRoot) / "scenes" / "checkpoint.esc.tmp";
+
+    std::printf("-- take the checkpoint\n");
+    const ETHEntity cp = SeekEntity(201);
+    CHECK(cp != nullptr);
+    if (cp == nullptr) return;
+    // SHORTCUT: the wizard is teleported onto the checkpoint, as scenario 3 does.
+    Teleport(p, cp->GetPositionXY() + vector2(0.0f, -10.0f));
+    CHECK(WaitFor(g, 10, [&] { return !cp->IsAlive(); }) >= 0);
+    CHECK(FileExists(userSave));
+    const string good = ReadFile(userSave);
+    CHECK(good.size() > 1000);
+    CHECK(!FileExists(tmpSave));
+
+    std::printf("-- a save that cannot be written leaves the old checkpoint as it was\n");
+    std::error_code ec;
+    std::filesystem::create_directories(tmpSave, ec);   // the file beside it cannot be created: a directory is there
+    const bool saved = g.m.SaveScene("scenes/checkpoint.esc");
+    std::printf("  SaveScene answered %s; the old file is %s\n", saved ? "true" : "false",
+                ReadFile(userSave) == good ? "intact" : "CHANGED");
+    CHECK(!saved);
+    CHECK(ReadFile(userSave) == good);
+    std::filesystem::remove_all(tmpSave, ec);
+    CHECK(!FileExists(tmpSave) && !std::filesystem::exists(tmpSave, ec));
+
+    std::printf("-- a save that went through leaves no file beside it\n");
+    CHECK(g.m.SaveScene("scenes/checkpoint.esc"));
+    CHECK(!std::filesystem::exists(tmpSave, ec));
+    CHECK(ReadFile(userSave).size() > 1000);
+
+    std::printf("-- a save that cannot replace the file (a folder with something in it stands there) fails and leaves nothing beside it\n");
+    {
+        const std::filesystem::path parked = std::filesystem::path(g.userRoot) / "scenes" / "checkpoint.esc.keep";
+        const string before = ReadFile(userSave);
+        std::filesystem::rename(userSave, parked, ec);
+        std::filesystem::create_directories(userSave, ec);
+        { std::ofstream(userSave / "inside.txt") << "x"; }
+        const bool replaced = g.m.SaveScene("scenes/checkpoint.esc");
+        std::printf("  SaveScene answered %s; a file beside it %s\n", replaced ? "true" : "false",
+                    std::filesystem::exists(tmpSave, ec) ? "LEFT" : "none");
+        CHECK(!replaced);
+        CHECK(!std::filesystem::exists(tmpSave, ec));
+        std::filesystem::remove_all(userSave, ec);
+        std::filesystem::rename(parked, userSave, ec);
+        CHECK(ReadFile(userSave) == before);
+    }
+
+    // The ways a write ends when it does not end: cut in half, cut before its first byte (the file opened empty, then the
+    // process killed or the storage full), and bytes that are not a scene at all. Each time a checkpoint is taken in a
+    // fresh level 1, damaged, and the wizard dies.
+    struct Damage {
+        const char* what;
+        string bytes;
+    };
+    const std::vector<Damage> damages = {
+        {"cut in half", good.substr(0, good.size() / 2)},
+        {"empty (cut before its first byte)", string()},
+        {"not a scene (text with no tags)", string("this is not a scene\n")},
+    };
+    for (const Damage& damage : damages) {
+        std::printf("-- the checkpoint is %s, and the wizard dies\n", damage.what);
+        const ETHEntity level = LoadLevel(g, "scenes/level1.esc");   // a fresh one: its checkpoint is still there
+        const ETHEntity gate = SeekEntity(201);
+        CHECK(Ready(level));
+        CHECK(gate != nullptr);
+        if (!Ready(level) || gate == nullptr) return;
+        Teleport(level, gate->GetPositionXY() + vector2(0.0f, -10.0f));
+        CHECK(WaitFor(g, 10, [&] { return !gate->IsAlive(); }) >= 0);
+        CHECK(level->GetUIntData("hasCheckpoint") == 1u);
+        {
+            std::ofstream cut(userSave, std::ios::binary | std::ios::trunc);
+            cut.write(damage.bytes.data(), static_cast<std::streamsize>(damage.bytes.size()));
+        }
+        CHECK(ReadFile(userSave) == damage.bytes);
+        g.Steps(5);
+        const int livesBeforeDeath = Script::g_lives;
+        level->AddIntData("hp", 0);   // SHORTCUT
+        const int back = WaitFor(g, 400, [&] { return Ready(Player()) && Player() != level; });
+        const ETHEntity again = Player();
+        std::printf("  a playable wizard %d frames after hp 0 (scene '%s', lives %d -> %d, %u entities)\n", back,
+                    GetSceneFileName().c_str(), livesBeforeDeath, Script::g_lives, GetNumEntities());
+        CHECK(back >= 0);
+        CHECK(Ready(again));
+        CHECK_EQ(Script::g_lives, livesBeforeDeath - 1);
+        CHECK(GetNumEntities() > 100u);
+        CHECK(GetSceneFileName() == "scenes/level1.esc");
+        // The level, not the checkpoint: the wizard stands where level 1 puts him, with no checkpoint taken.
+        if (Ready(again)) {
+            CHECK(again->CheckCustomData("hasCheckpoint") == DT_NODATA);
+            CHECK(std::fabs(again->GetPosition().x - gate->GetPositionXY().x) > 500.0f);
+        }
+        g.Steps(120);
+        CHECK(Ready(Player()));
+    }
+}   // E45
+
 } // namespace
 
 int main() {
@@ -5290,6 +5532,8 @@ int main() {
         RunScenario(g, "27. Hard: the panels, the king, the end screen, the two lists (E36)", ScenarioHardE36);   // E36
         RunScenario(g, "28. New Game's difficulty prompt (E36)", ScenarioNewGamePromptE36);   // E36
         RunScenario(g, "29. combo assist, from the keyboard's keys to the recorder (E44)", ScenarioComboAssistE44);   // E44
+        RunScenario(g, "30. a soak: seeded random input through levels 1-3 and two Versus arenas (E45)", ScenarioSoak);   // E45
+        RunScenario(g, "31. a checkpoint the save did not finish (E45)", ScenarioDamagedCheckpoint);   // E45
         RunScenario(g, "13. the menu's Quit", [](Game& game) {
             CHECK(EnsureMenu(game));
             game.base.cursor = kQuitButton;
