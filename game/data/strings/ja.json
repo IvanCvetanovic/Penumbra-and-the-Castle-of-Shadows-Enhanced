@@ -82,7 +82,7 @@
     "Abaixo da fortaleza encontra-se o\njardim do Castelo das Sombras de Penumbra": "要塞の下には、\nPenumbraの影の城の庭園が広がる",
     "Se esses soldados fossem bons, não\nteriam sido mandados aqui para baixo": "この兵士たちが腕利きなら、\n地下送りにはされなかっただろう",
     "Tentar jogar inimigos na piscina de lava\npode ficar bem divertido": "敵を溶岩の池に放り込むのも\nなかなか楽しい",
-    "Experimente algumas combinações de teclas,\ncomo [frente + frente + espada] entre outras": "キーの組み合わせを試してみよう。\nたとえば[前 + 前 + 剣]など",
+    "Experimente algumas combinações de teclas,\ncomo [frente + frente + espada] entre outras": "キーの組み合わせを試してみよう。\nたとえば[前、前、剣]など",
     "Essas pontes precisam de\numa boa reforma": "ここの橋は、\n本格的な修理が必要だ",
     "Não é chato ter que fazer o caminho\ntodo outra vez?": "また同じ道を一からたどるのは\n面倒じゃないか？",
     "Como será que essas paredes flutuam?": "この壁、なぜ浮いてるんだろう？",
@@ -160,7 +160,7 @@
     "Bola de fogo: tecla 'D'": "火球：火ボタン",
     "Próxima fase: seta para baixo": "次のステージへ：矢印ボタンの上に現れる下矢印ボタン",
     "É necessário ao menos um joystick\n para jogar neste modo.": "プレイヤー2用のパッドを\n接続してください。\n\nプレイヤー1はタッチで操作します。",
-    "Experimente algumas combinações de teclas,\ncomo [frente + frente + espada] entre outras": "ボタンの組み合わせを試してみよう。\nたとえば[前 + 前 + 剣]など",
+    "Experimente algumas combinações de teclas,\ncomo [frente + frente + espada] entre outras": "ボタンの組み合わせを試してみよう。\nたとえば[前、前、剣]など",
     "•Controles\n Movimento: < e >\n Pulo: ^ ou CTRL (joystick 3)\n Ataque/espada: S (joystick 4)\n Ataque/fogo: D (joystick 2)\n Acionar Luz: ESPAÇO (joystick 1)\n\n Detectar joysticks: segure J\n\n•2 jogadores:\n Se houver um joystick plugado,\n o personagem principal ganha\n a habilidade de invocar a\n criatura que pode ser controlada\n pelo 2º jogador.\n\n Para invocar a criatura basta pres-\n sionar START no 2º controle.\n\n A mágica de invocação custa 50 mana\n e uma vida, mas possibilitará que 2\n jogadores lutem lado-a-lado.\n\n Somente o jogador 1 pode pegar\n checkpoints e passar de fase.": "•タッチ操作\n 移動：左下の矢印ボタン\n ジャンプ：ジャンプボタン\n 剣で攻撃：剣ボタン\n 火で攻撃：火ボタン\n 光を灯す：光ボタン\n\n コンボ：中段の2つのボタン\n ポーズ：右上のボタン\n\n•2人プレイ：\n パッドが接続されていれば、\n 主人公は、プレイヤー2が操作する\n クリーチャーを召喚する力を\n 得ます。\n\n 召喚するには、2つ目のパッドの\n STARTを押すだけです。\n\n 召喚魔法はマナ50と残機1つを\n 消費しますが、2人で肩を並べて\n 戦えるようになります。\n\n 中間地点の通過と\n ステージクリアができるのは\n プレイヤー1だけです。"
   },
   "art": {

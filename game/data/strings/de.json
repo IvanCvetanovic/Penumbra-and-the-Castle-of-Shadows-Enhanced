@@ -82,7 +82,7 @@
     "Abaixo da fortaleza encontra-se o\njardim do Castelo das Sombras de Penumbra": "Unterhalb der Festung liegt der\nGarten der Burg der Schatten von Penumbra",
     "Se esses soldados fossem bons, não\nteriam sido mandados aqui para baixo": "Wären diese Soldaten etwas wert,\nhätte man sie nicht hierher geschickt",
     "Tentar jogar inimigos na piscina de lava\npode ficar bem divertido": "Gegner ins Lavabecken zu werfen\nkann richtig Spaß machen",
-    "Experimente algumas combinações de teclas,\ncomo [frente + frente + espada] entre outras": "Probiere ein paar Tastenkombinationen aus,\nzum Beispiel [vor + vor + Schwert]",
+    "Experimente algumas combinações de teclas,\ncomo [frente + frente + espada] entre outras": "Probiere ein paar Tastenkombinationen aus,\nzum Beispiel [vor, vor, Schwert]",
     "Essas pontes precisam de\numa boa reforma": "Diese Brücken müssten\ndringend repariert werden",
     "Não é chato ter que fazer o caminho\ntodo outra vez?": "Ist es nicht lästig, den ganzen\nWeg noch einmal zu gehen?",
     "Como será que essas paredes flutuam?": "Wie diese Wände wohl schweben?",
@@ -160,7 +160,7 @@
     "Bola de fogo: tecla 'D'": "Feuerball: die Feuertaste",
     "Próxima fase: seta para baixo": "Nächstes Level: Abwärtspfeil, der über den Pfeilen erscheint",
     "É necessário ao menos um joystick\n para jogar neste modo.": "Schließe einen Joystick für Spieler 2 an.\n\nSpieler 1 spielt mit der\n Touch-Steuerung.",
-    "Experimente algumas combinações de teclas,\ncomo [frente + frente + espada] entre outras": "Probiere ein paar Tastenkombinationen aus,\nzum Beispiel [vor + vor + Schwert]",
+    "Experimente algumas combinações de teclas,\ncomo [frente + frente + espada] entre outras": "Probiere ein paar Tastenkombinationen aus,\nzum Beispiel [vor, vor, Schwert]",
     "•Controles\n Movimento: < e >\n Pulo: ^ ou CTRL (joystick 3)\n Ataque/espada: S (joystick 4)\n Ataque/fogo: D (joystick 2)\n Acionar Luz: ESPAÇO (joystick 1)\n\n Detectar joysticks: segure J\n\n•2 jogadores:\n Se houver um joystick plugado,\n o personagem principal ganha\n a habilidade de invocar a\n criatura que pode ser controlada\n pelo 2º jogador.\n\n Para invocar a criatura basta pres-\n sionar START no 2º controle.\n\n A mágica de invocação custa 50 mana\n e uma vida, mas possibilitará que 2\n jogadores lutem lado-a-lado.\n\n Somente o jogador 1 pode pegar\n checkpoints e passar de fase.": "•Touch-Steuerung\n Bewegen: Pfeile unten links\n Springen: Sprungtaste\n Angriff/Schwert: Schwerttaste\n Angriff/Feuer: Feuertaste\n Lichtzauber: Lichttaste\n\n Combos: die zwei mittleren Tasten\n Pause: Taste oben rechts\n\n•2 Spieler:\n Ist ein Joystick angeschlossen,\n erhält die Hauptfigur die\n Fähigkeit, eine Kreatur zu\n beschwören, die der 2. Spieler\n steuern kann.\n\n Um die Kreatur zu beschwören,\n drücke START am 2. Joystick.\n\n Die Beschwörung kostet 50 Mana\n und ein Leben, dafür können dann 2\n Spieler Seite an Seite kämpfen.\n\n Nur Spieler 1 kann Checkpoints\n einsammeln und Level abschließen."
   },
   "art": {

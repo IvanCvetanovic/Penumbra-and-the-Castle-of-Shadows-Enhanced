@@ -155,7 +155,7 @@
         "Tentar jogar inimigos na piscina de lava\npode ficar bem divertido":
             "Throwing enemies into the lava pool\ncan be quite fun",
         "Experimente algumas combinações de teclas,\ncomo [frente + frente + espada] entre outras":
-            "Try out a few key combinations,\nlike [forward + forward + sword] and more",
+            "Try out a few key combinations,\nlike [forward, forward, sword] and more",
         "Essas pontes precisam de\numa boa reforma": "These bridges are in need\nof some serious repair",
         "Não é chato ter que fazer o caminho\ntodo outra vez?": "Isn't it annoying to have to walk\nthe whole way again?",
         "Como será que essas paredes flutuam?": "How do these walls float, I wonder?",
@@ -318,8 +318,8 @@
 
         "_lore sign: data.enml global.comboTip (ETHCallback_story); the combos are the same moves on the arrows and the sword and fire buttons, which the two combo buttons also make in one tap": "",
         "Experimente algumas combinações de teclas,\ncomo [frente + frente + espada] entre outras": {
-            "pt": "Experimente algumas combinações de botões,\ncomo [frente + frente + espada] entre outras",
-            "en": "Try out a few button combinations,\nlike [forward + forward + sword] and more"
+            "pt": "Experimente algumas combinações de botões,\ncomo [frente, frente, espada] entre outras",
+            "en": "Try out a few button combinations,\nlike [forward, forward, sword] and more"
         },
 
         "_menu.as:123 como_jogar (heredoc): the keyboard names give way to the buttons, line for line. Not both lists: the panel has room for three more lines, not seven, and a phone has no keyboard. The joystick numbers go with the keyboard's (a line with both is wider than the column): a player on a pad turns the touch controls off (the options' row) and reads the original. 'Detectar joysticks: segure J' becomes the combo and pause buttons (no J on a phone; the menu finds a pad by itself, menu.as:74). The 2-player part names the second pad's START, still true, and stays.": "",

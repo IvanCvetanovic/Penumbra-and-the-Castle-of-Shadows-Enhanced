@@ -82,7 +82,7 @@
     "Abaixo da fortaleza encontra-se o\njardim do Castelo das Sombras de Penumbra": "Під фортецею розкинувся\nсад Замку Тіней у Penumbra",
     "Se esses soldados fossem bons, não\nteriam sido mandados aqui para baixo": "Якби ці солдати були чогось варті,\nїх би не відправили сюди, вниз",
     "Tentar jogar inimigos na piscina de lava\npode ficar bem divertido": "Скидати ворогів у лавове озеро\nбуває дуже весело",
-    "Experimente algumas combinações de teclas,\ncomo [frente + frente + espada] entre outras": "Спробуйте різні комбінації клавіш,\nяк-от [вперед + вперед + меч] тощо",
+    "Experimente algumas combinações de teclas,\ncomo [frente + frente + espada] entre outras": "Спробуйте різні комбінації клавіш,\nяк-от [вперед, вперед, меч] тощо",
     "Essas pontes precisam de\numa boa reforma": "Цим мостам потрібен\nкапітальний ремонт",
     "Não é chato ter que fazer o caminho\ntodo outra vez?": "Хіба не нудно знову проходити\nвесь цей шлях?",
     "Como será que essas paredes flutuam?": "Цікаво, як ці стіни висять у повітрі?",
@@ -160,7 +160,7 @@
     "Bola de fogo: tecla 'D'": "Вогняна куля: кнопка вогню",
     "Próxima fase: seta para baixo": "Наступний рівень: над стрілками з’явиться стрілка вниз",
     "É necessário ao menos um joystick\n para jogar neste modo.": "Під’єднайте джойстик для гравця 2.\n\nГравець 1 користується\n сенсорним керуванням.",
-    "Experimente algumas combinações de teclas,\ncomo [frente + frente + espada] entre outras": "Спробуйте різні комбінації кнопок,\nяк-от [вперед + вперед + меч] тощо",
+    "Experimente algumas combinações de teclas,\ncomo [frente + frente + espada] entre outras": "Спробуйте різні комбінації кнопок,\nяк-от [вперед, вперед, меч] тощо",
     "•Controles\n Movimento: < e >\n Pulo: ^ ou CTRL (joystick 3)\n Ataque/espada: S (joystick 4)\n Ataque/fogo: D (joystick 2)\n Acionar Luz: ESPAÇO (joystick 1)\n\n Detectar joysticks: segure J\n\n•2 jogadores:\n Se houver um joystick plugado,\n o personagem principal ganha\n a habilidade de invocar a\n criatura que pode ser controlada\n pelo 2º jogador.\n\n Para invocar a criatura basta pres-\n sionar START no 2º controle.\n\n A mágica de invocação custa 50 mana\n e uma vida, mas possibilitará que 2\n jogadores lutem lado-a-lado.\n\n Somente o jogador 1 pode pegar\n checkpoints e passar de fase.": "•Сенсорне керування\n Рух: стрілки внизу ліворуч\n Стрибок: кнопка стрибка\n Атака/меч: кнопка меча\n Атака/вогонь: кнопка вогню\n Світло: кнопка світла\n\n Комбо: дві середні кнопки\n Пауза: кнопка вгорі праворуч\n\n•2 гравці:\n Якщо під’єднано джойстик,\n головний герой отримує\n здатність викликати\n істоту, якою може керувати\n 2-й гравець.\n\n Щоб викликати істоту, досить\n натиснути START на 2-му джойстику.\n\n Чари виклику коштують 50 мани\n й одне життя, зате дозволяють 2\n гравцям битися пліч-о-пліч.\n\n Лише гравець 1 може активувати\n чекпойнти й завершувати рівень."
   },
   "art": {
