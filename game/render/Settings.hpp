@@ -180,6 +180,11 @@ struct Settings {
     // phone-shaped screen, 125% on another), else a percentage, 100 to 200.
     // Without the touch controls the levels are not zoomed, whatever it says.
     int zoom = 0;
+    // E47: the size of the picture on a phone or tablet (the scene target the engine's DynamicResolution sizes by how
+    // fast the GPU draws it): "auto" lets that controller decide; "sharp", "balanced" and "fast" hold the picture at 100%,
+    // 70% and 50% of the largest size it would start at (never below the readable floor). Written as it is, in lower
+    // case; read in any case, and anything else is "auto". A computer's picture is always the window's, whatever it says.
+    std::string pictureSize = "auto";
     // E26: the HUD's safe frame while the touch controls are on
     // (render/PhoneUi.hpp): negative is automatic (written "auto": 3.5% on a
     // phone-shaped screen, 1% on another), else a percentage, 0 to 8, of the

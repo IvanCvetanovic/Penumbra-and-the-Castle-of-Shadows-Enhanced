@@ -10,6 +10,7 @@
 #include <glm/glm.hpp>
 
 #include "core/EngineLayer.hpp"
+#include "core/RenderScaleControl.hpp"   // E47
 #include "core/WindowControl.hpp"
 
 #include "eth/EthTypes.hpp"
@@ -237,6 +238,8 @@ private:
     void StartDevScene(const std::string& scene);
     // The engine's window, or null (a host that publishes none).
     static Supersonic::WindowControl* WindowControlOf(entt::registry& registry);
+    // E47: what a game may ask of the scene target's size (core/RenderScaleControl.hpp); null where the engine publishes none.
+    static Supersonic::RenderScaleControl* RenderScaleControlOf(entt::registry& registry);
     // What the scripts asked of the window this tick, handed to the engine.
     void ApplyWindowRequest(entt::registry& registry);
     // The settings' fullscreen display mode; 0 x 0 is automatic (the desktop's size).
@@ -305,6 +308,10 @@ private:
     Render::MenuFrame MenuFrameFor(const std::string& sceneFile, glm::uvec2 image) const;
     // E25: the zoom row's options (Script::g_zoom), from the setting.
     void RefreshZoomChoices();
+    // E47: the picture size row's options (Script::g_pictureSize), from the setting; and the engine asked for the setting's
+    // choice (Automatic when "auto").
+    void RefreshPictureChoices();
+    void ApplyPictureSize(Supersonic::RenderScaleControl& control) const;
     // The display's safe-area insets now, window px (--safe-area, else the platform's).
     Supersonic::SafeAreaInsets SafeInsets() const;
     // E26 (render/PhoneUi.hpp): the edge margin this run uses, percent
@@ -383,6 +390,10 @@ private:
     // way on in the last frame, and in which scene (a load drops it).
     std::vector<int> m_zoomChoices;
     uint32_t m_zoomChoiceSeeded = 0;
+    // E47: the picture size row's index as last seeded or picked, and whether the engine has been asked for the saved choice
+    // yet (the controller exists from the first frame, but not for a capture).
+    uint32_t m_pictureChoiceSeeded = 0;
+    bool m_pictureApplied = false;
     // E27: the language row's choice as it was last seeded or applied. The row
     // is 0 = automatic (the system's language), then Render::kLanguages in
     // order: index i + 1 is kLanguages[i]. A different index is a pick; what

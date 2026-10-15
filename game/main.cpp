@@ -722,6 +722,16 @@ int PenumbraMain(int argc, char** argv) {
     manifest.dynamicResolution.startMaxPixels = 2200000;
     manifest.dynamicResolution.minScale = 0.3f;
     manifest.dynamicResolution.targetFps = 58.0f;
+    // E47: a Galaxy A05 (a 1600x720 window, Mali-G52) sat at E41's floor, 0.30 = 480x216, in the menu and in a level alike:
+    // the HUD, the text and the touch buttons are drawn into that picture, and the controller only rose after 110 fps for 8
+    // seconds, which a frame with a fixed share of 9 ms or more never shows. So: (1) the way up opens at 1.25 x the target
+    // (72.5 fps) on a loop the display does not pace (the engine tells the controller which it is), with a hold after a rise
+    // that does not hold; (2) the floor is 360 lines of picture, not 30% of the window (it is still 30% where that is more
+    // lines, as on a 2560x1600 tablet); (3) and the floor gives way only where the game would run under 30 fps at it, so the
+    // phones that were at 0.3 for speed (a PowerVR GE8320) stay there. The player's own say is the options row (E47).
+    manifest.dynamicResolution.relaxedRise = true;
+    manifest.dynamicResolution.minTargetHeight = 360;
+    manifest.dynamicResolution.emergencyBelowFps = 30.0f;
     // E42: how the frames run, measured where nobody can attach a profiler. Off for a player; a test build sent to a
     // player's phone (PENUMBRA_PERF_DIAG) has the readout on and a log line every 5 seconds, so what comes back says
     // whether the GPU or the CPU is the limit.

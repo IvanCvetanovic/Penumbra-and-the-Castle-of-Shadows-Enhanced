@@ -596,6 +596,17 @@ Settings Settings::FromJson(const std::string& text, const Settings& defaults, s
         }
     }
     ReadZoom(root, settings.zoom, warning);   // E25
+    if (root.Has("pictureSize")) {   // E47
+        const Value& picture = root["pictureSize"];   // E47
+        const std::string word = picture.IsString() ? picture.AsString() : std::string();   // E47
+        settings.pictureSize = "auto";   // E47
+        for (const char* known : {"auto", "sharp", "balanced", "fast"}) {   // E47
+            if (EqualsIgnoreCase(word, known)) settings.pictureSize = known;   // E47
+        }   // E47
+        if (!EqualsIgnoreCase(word, settings.pictureSize)) {   // E47
+            Warn(warning, "pictureSize is not \"auto\", \"sharp\", \"balanced\" or \"fast\"; using auto");   // E47
+        }   // E47
+    }   // E47
     ReadEdgeMargin(root, settings.edgeMargin, warning);   // E26
     // E28: the touch controls' own size, opacity and places; every wrong field keeps its default, with a warning.
     if (root.Has("touchTuning")) TouchTuning::ReadFrom(root["touchTuning"], settings.touchTuning, warning);   // E28
@@ -668,6 +679,7 @@ std::string Settings::ToJson() const {
     out << "  \"difficulty\": \"" << (HardDifficulty() ? "hard" : "normal") << "\",\n";   // E36
     out << "  \"touchControls\": \"" << Supersonic::Json::Escape(touchControls) << "\",\n";   // E16
     out << "  \"zoom\": " << (zoom == 0 ? std::string("\"auto\"") : std::to_string(zoom)) << ",\n";   // E25
+    out << "  \"pictureSize\": \"" << Supersonic::Json::Escape(pictureSize) << "\",\n";   // E47
     out << "  \"edgeMargin\": " << (edgeMargin < 0.0f ? std::string("\"auto\"") : FormatFloat(edgeMargin))
         << ",\n";   // E26
     out << "  \"touchTuning\": " << touchTuning.ToJson() << ",\n";   // E28

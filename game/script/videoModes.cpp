@@ -58,6 +58,8 @@ Chooser g_refreshRate("Taxa de atualiza\xE7\xE3o");                             
 bool g_refreshRateRow = true;                                                    // E23: the layer lowers it where no rate can be set
 // E25 (Script.hpp): the zoom's row on a phone, and the menu panel's text box.   // E25
 Chooser g_zoom("Zoom");                                                          // E25
+Chooser g_pictureSize("Nitidez da imagem");                                      // E47
+bool g_pictureSizeRow = false;                                                   // E47: the layer raises it where a controller can be asked
 PhonePanel g_phonePanel;                                                         // E25
 vector2 g_joystickIconsMin{0.0f};                                                // E25
 vector2 g_joystickIconsMax{0.0f};                                                // E25

@@ -1979,6 +1979,40 @@ void testSetting() {
     CHECK(!warning.empty());
 }
 
+// E47: the size of the picture on a phone. "auto" is the engine's controller; the three others hold the picture at a share of the
+// largest size it would start at.
+void testPictureSizeSetting() {
+    const Settings defaults = Settings::Defaults("en");
+    CHECK(defaults.pictureSize == "auto");
+    CHECK(Settings::Defaults("pt").pictureSize == "auto");
+
+    for (const char* size : {"auto", "sharp", "balanced", "fast"}) {
+        Settings changed = defaults;
+        changed.pictureSize = size;
+        const std::string json = changed.ToJson();
+        CHECK(json.find(std::string("\"pictureSize\": \"") + size + "\"") != std::string::npos);
+        std::string warning;
+        const Settings back = Settings::FromJson(json, defaults, &warning);
+        CHECK(back == changed);
+        CHECK(warning.empty());
+    }
+    std::string warning;
+    CHECK(Settings::FromJson(R"({"pictureSize": "SHARP"})", defaults, &warning).pictureSize == "sharp");
+    CHECK(Settings::FromJson(R"({"pictureSize": "Fast"})", defaults, &warning).pictureSize == "fast");
+    CHECK(warning.empty());
+    // An older file without it (every file before E47): the default, and nothing said.
+    CHECK(Settings::FromJson(R"({"language": "en"})", defaults, &warning).pictureSize == "auto");
+    CHECK(warning.empty());
+    // Nonsense: the default, and a warning; a file that held another choice does not keep it.
+    Settings sharp = defaults;
+    sharp.pictureSize = "sharp";
+    CHECK(Settings::FromJson(R"({"pictureSize": "ultra"})", sharp, &warning).pictureSize == "auto");
+    CHECK(!warning.empty());
+    warning.clear();
+    CHECK(Settings::FromJson(R"({"pictureSize": 3})", sharp, &warning).pictureSize == "auto");
+    CHECK(!warning.empty());
+}
+
 // --- The combo buttons ----------------------------------------------------------------
 
 TouchInput Facing(std::vector<TouchContact> contacts, TouchFacing facing, glm::vec2 screen = kFourThree) {
@@ -5151,6 +5185,7 @@ void runTests() {
     testWideMenuCorner();
     testManifest();
     testSetting();
+    testPictureSizeSetting();   // E47
     testComboTimelines();
     testComboFingers();
     testComboTaps();

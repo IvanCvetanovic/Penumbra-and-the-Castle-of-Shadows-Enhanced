@@ -2082,7 +2082,7 @@ std::vector<std::pair<std::string, PhoneRect>> HitBoxes(const Penumbra::Script::
     for (const PhoneCell c : {PC_PIXEL_SHADERS, PC_SMOOTH_MOTION, PC_WIDESCREEN, PC_PAUSE_FOCUS, PC_TOUCH, PC_ADJUST, PC_KEYBOARD_P2, PC_JOYSTICK}) {   // E31
         if (l.present[c]) boxes.emplace_back("cell " + std::to_string(c), l.cell[c]);   // E31
     }   // E31
-    for (const PhoneCell c : {PC_REFRESH, PC_ZOOM, PC_MUSIC, PC_EFFECTS}) {   // E31
+    for (const PhoneCell c : {PC_REFRESH, PC_ZOOM, PC_PICTURE, PC_MUSIC, PC_EFFECTS}) {   // E31, E47
         if (!l.present[c]) continue;   // E31
         boxes.emplace_back("less " + std::to_string(c), l.less[c]);   // E31
         boxes.emplace_back("more " + std::to_string(c), l.more[c]);   // E31
@@ -2123,7 +2123,7 @@ void testPhoneOptionsLayout() {   // E31
           SameRect(l.more[PC_MUSIC], 412, 649, 86, 88));   // E31
     CHECK(SameRect(l.less[PC_EFFECTS], 752, 649, 86, 88) && SameRect(l.value[PC_EFFECTS], 838, 649, 68, 88) &&   // E31
           SameRect(l.more[PC_EFFECTS], 906, 649, 86, 88));   // E31
-    for (int c = 0; c < PC_COUNT; ++c) CHECK_MSG(l.present[c], "cell " + std::to_string(c));   // E31
+    for (int c = 0; c < PC_COUNT; ++c) CHECK_MSG(l.present[c] == (c != PC_PICTURE), "cell " + std::to_string(c));   // E31, E47: all but the picture size's, which is laid out only where asked
 
     // The 4:3 screen (area 0..1024, frame 10 / 8 / 10 / 0): the rows at y 126, 220, 314, 408, the choosers at 506, the volumes at 630.   // E31
     l = phoneOptionsLayout(OptionsAreaOf(ComputeFixedLayoutArea({1024u, 768u}, 0.0f, Supersonic::SafeAreaInsets{}, 1.0f)), true, true);   // E31
@@ -2180,6 +2180,24 @@ void testPhoneOptionsLayout() {   // E31
     CHECK(!l.present[PC_REFRESH] && l.present[PC_ZOOM] && l.present[PC_ADJUST]);   // E31
     CHECK(SameRect(l.cell[PC_ZOOM], 28, 525, 474, 118) && SameRect(l.less[PC_ZOOM], 32, 555, 86, 88));   // E31
 
+    // E47: the picture size's chooser. Not asked for, or asked for with the default argument, the geometry is exactly what it was.
+    l = phoneOptionsLayout(phone, true, true, false);   // E47
+    CHECK(!l.present[PC_PICTURE] && SameRect(l.cell[PC_REFRESH], 28, 525, 474, 118) && SameRect(l.cell[PC_MUSIC], 28, 649, 474, 88));   // E47
+    // With the refresh rate's row it has a row of its own under Refresh | Zoom, in the left column, and the rows give up a
+    // seventh of the height to it (and a label strip and a gap); Music | Effects follow it.
+    l = phoneOptionsLayout(phone, true, true, true);   // E47
+    CHECK_MSG(l.present[PC_PICTURE] && l.hc >= 60.0f && l.hc < 88.0f, "seven rows: " + std::to_string(l.hc));   // E47
+    CHECK_MSG(l.cell[PC_PICTURE].x == l.cell[PC_REFRESH].x && l.cell[PC_PICTURE].w == l.cell[PC_REFRESH].w, "the picture cell under Refresh");   // E47
+    CHECK_MSG(l.cell[PC_PICTURE].y == l.cell[PC_REFRESH].y + l.cell[PC_REFRESH].h + 6.0f, "the picture cell 6 px under Refresh");   // E47
+    CHECK_MSG(l.cell[PC_MUSIC].y == l.cell[PC_PICTURE].y + l.cell[PC_PICTURE].h + 6.0f, "Music 6 px under the picture cell");   // E47
+    CHECK_MSG(l.cell[PC_PICTURE].h == 30.0f + l.hc && l.value[PC_PICTURE].w == l.value[PC_REFRESH].w, "a chooser like the others");   // E47
+    CHECK(l.panel.y + l.panel.h <= 768.0f);   // E47
+    // Without the refresh rate's row (iOS) it sits beside Zoom, in the right column, and the six rows are what they were.
+    l = phoneOptionsLayout(phone, true, false, true);   // E47
+    CHECK(l.present[PC_PICTURE] && !l.present[PC_REFRESH] && l.hc == 88.0f);   // E47
+    CHECK(SameRect(l.cell[PC_ZOOM], 28, 525, 474, 118) && SameRect(l.cell[PC_PICTURE], 522, 525, 474, 118));   // E47
+    CHECK(SameRect(l.less[PC_PICTURE], 526, 555, 86, 88) && SameRect(l.more[PC_PICTURE], 906, 555, 86, 88));   // E47
+
     // Every shape: the body is inside 12..1012 (a rectangle that crossed x 0 or 1024 would be stretched out to the shown edge),    // E31
     // every cell inside the panel, every hit box inside the shown area and the frame (Back's reaches the corner on purpose), and   // E31
     // no two hit boxes overlap, so a press does one thing.                                                                 // E31
@@ -2193,8 +2211,10 @@ void testPhoneOptionsLayout() {   // E31
         const OptionsArea area = OptionsAreaOf(fixed);   // E31
         for (const bool touch : {true, false}) {   // E31
             for (const bool refresh : {true, false}) {   // E31
-                const std::string what = std::to_string(shape.window.x) + "x" + std::to_string(shape.window.y) + (touch ? " touch" : " no touch") + (refresh ? "" : " no refresh row");   // E31
-                const PhoneOptionsLayout lay = phoneOptionsLayout(area, touch, refresh);   // E31
+              for (const bool picture : {false, true}) {   // E47
+                const std::string what = std::to_string(shape.window.x) + "x" + std::to_string(shape.window.y) + (touch ? " touch" : " no touch") + (refresh ? "" : " no refresh row") + (picture ? " picture row" : "");   // E31, E47
+                const PhoneOptionsLayout lay = phoneOptionsLayout(area, touch, refresh, picture);   // E31, E47
+                CHECK_MSG(lay.present[PC_PICTURE] == picture && lay.hc >= (picture && refresh ? 60.0f : 68.0f), what + " the picture cell and the row height");   // E47
                 CHECK_MSG(lay.panel.x >= 12.0f && lay.panel.x + lay.panel.w <= 1012.0f, what + " panel " + RectText(lay.panel));   // E31
                 CHECK_MSG(lay.panel.y + lay.panel.h <= 768.0f, what + " panel bottom");   // E31
                 const float left = fixed.shownMin.x + fixed.frame.left;   // E31
@@ -2220,6 +2240,7 @@ void testPhoneOptionsLayout() {   // E31
                                   cell.y >= lay.panel.y && cell.y + cell.h <= lay.panel.y + lay.panel.h,   // E31
                               what + " cell " + std::to_string(c) + " " + RectText(cell));   // E31
                 }   // E31
+              }   // E47
             }   // E31
         }   // E31
     }   // E31

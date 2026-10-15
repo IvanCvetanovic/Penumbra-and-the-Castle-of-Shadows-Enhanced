@@ -62,6 +62,7 @@ constexpr float kLangValueW = 168.0f;
 constexpr float kGlobe = 56.0f;
 constexpr float kLangRowH = 84.0f;
 constexpr float kHcMin = 68.0f;
+constexpr float kHcMinSeven = 60.0f;       // E47: the rows' least where the picture size takes a seventh (a 3120x1440 screen with an 8% frame leaves 66)
 constexpr float kHcMax = 88.0f;
 constexpr float kBottom = 6.0f;            // the panel's bottom to the frame's
 // The height the header, the panel's padding, the gaps and the chooser strip take; what the rows share is the rest.
@@ -296,7 +297,7 @@ void putLanguage(Frame& f, const PhoneOptionsLayout& l)
 
 // --- The geometry -------------------------------------------------------------------------------------------
 
-PhoneOptionsLayout phoneOptionsLayout(const OptionsArea& given, const bool touchOn, const bool refreshRow)
+PhoneOptionsLayout phoneOptionsLayout(const OptionsArea& given, const bool touchOn, const bool refreshRow, const bool pictureRow)
 {
     OptionsArea area = given;
     if (!(area.shownMax.x > area.shownMin.x))   // none published: the whole screen, no frame
@@ -310,8 +311,12 @@ PhoneOptionsLayout phoneOptionsLayout(const OptionsArea& given, const bool touch
     const float fr = std::round(area.right);
 
     PhoneOptionsLayout l;
-    // The six rows' height: what the frame's top and bottom leave of the screen, less the fixed parts, shared by six.
-    l.hc = std::clamp(std::floor((kScreenH-kFixedHeight-area.bottom-ft)/6.0f), kHcMin, kHcMax);
+    // The rows' height: what the frame's top and bottom leave of the screen, less the fixed parts, shared by six rows. E47: by
+    // seven where the picture size has a row of its own (under Refresh | Zoom), which also takes a second label strip and gap.
+    const bool pictureOwnRow = pictureRow && refreshRow;
+    const float rowCount = pictureOwnRow ? 7.0f : 6.0f;
+    const float extraFixed = pictureOwnRow ? kLabelStrip+kRowGap : 0.0f;
+    l.hc = std::clamp(std::floor((kScreenH-kFixedHeight-extraFixed-area.bottom-ft)/rowCount), pictureOwnRow ? kHcMinSeven : kHcMin, kHcMax);
     const float hc = l.hc;
 
     // The header: the Back arrow at the top-left corner of what the window shows, inside the frame; its hit box
@@ -351,7 +356,8 @@ PhoneOptionsLayout phoneOptionsLayout(const OptionsArea& given, const bool touch
         y += hc+kRowGap;
     }
     const float r5 = y-kRowGap+kGroupGap;
-    const float r6 = r5+kLabelStrip+hc+kRowGap;
+    const float r5b = r5+kLabelStrip+hc+kRowGap;   // E47: the picture size's row, where it has one of its own
+    const float r6 = (pictureOwnRow ? r5b : r5)+kLabelStrip+hc+kRowGap;
     l.panel = PhoneRect{px, panelY, pw, r6+hc+kPad-panelY};
 
     const auto place = [&l, wc, hc](const PhoneCell c, const float x, const float yy)
@@ -371,22 +377,28 @@ PhoneOptionsLayout phoneOptionsLayout(const OptionsArea& given, const bool touch
 
     // Refresh | Zoom, each a card of its label strip and a row of two buttons; Zoom takes the left place where
     // nothing sets a refresh rate (iOS).
-    const auto chooser = [&l, wc, hc, r5](const PhoneCell c, const float x)
+    const auto chooser = [&l, wc, hc](const PhoneCell c, const float x, const float top)
     {
-        l.cell[c] = PhoneRect{x, r5, wc, kLabelStrip+hc};
+        l.cell[c] = PhoneRect{x, top, wc, kLabelStrip+hc};
         l.present[c] = true;
-        const float yy = r5+kLabelStrip;
+        const float yy = top+kLabelStrip;
         l.less[c] = PhoneRect{x+kBtnInset, yy, kBtnHitW, hc};
         l.more[c] = PhoneRect{x+wc-kBtnInset-kBtnHitW, yy, kBtnHitW, hc};
         l.value[c] = PhoneRect{x+kBtnInset+kBtnHitW, yy, wc-2.0f*(kBtnInset+kBtnHitW), hc};
     };
     if (refreshRow)
     {
-        chooser(PC_REFRESH, col[0]);
-        chooser(PC_ZOOM, col[1]);
+        chooser(PC_REFRESH, col[0], r5);
+        chooser(PC_ZOOM, col[1], r5);
+        if (pictureRow)
+            chooser(PC_PICTURE, col[0], r5b);   // E47: a row of its own, its right place left empty
     }
     else
-        chooser(PC_ZOOM, col[0]);
+    {
+        chooser(PC_ZOOM, col[0], r5);
+        if (pictureRow)
+            chooser(PC_PICTURE, col[1], r5);   // E47: where nothing sets a rate, beside Zoom
+    }
 
     // Music | Effects: the label, then [-] value [+] at the cell's right.
     const auto stepper = [&l, wc, hc, r6](const PhoneCell c, const float x)
@@ -420,7 +432,7 @@ void phoneOptionsLoop()
     }
     // The Adjust cell's slot is always laid out: whether it shows and answers is the touch switch's live state, read
     // when its turn comes (after the touch cell's, so a tap that turns the controls off or on shows at once).
-    const PhoneOptionsLayout l = phoneOptionsLayout(area, true, g_refreshRateRow);
+    const PhoneOptionsLayout l = phoneOptionsLayout(area, true, g_refreshRateRow, g_pictureSizeRow);
 
     Frame f;
     f.cursor = GetInputHandle().GetCursorPos();
@@ -441,6 +453,8 @@ void phoneOptionsLoop()
     if (g_refreshRateRow)
         putChooser(f, l, PC_REFRESH, g_refreshRate);
     putChooser(f, l, PC_ZOOM, g_zoom);
+    if (l.present[PC_PICTURE])   // E47
+        putChooser(f, l, PC_PICTURE, g_pictureSize);   // E47
     putStepper(f, l, PC_MUSIC, g_musicVolume);
     putStepper(f, l, PC_EFFECTS, g_effectsVolume);
 

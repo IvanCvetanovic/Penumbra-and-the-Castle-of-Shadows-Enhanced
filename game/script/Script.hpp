@@ -554,6 +554,12 @@ struct PhonePanel {                                   // E25
     bool rightToLeft = false;                         // E25: the language's lines end at the box's right
 };                                                    // E25
 extern Chooser g_zoom;                                // E25: 0 = automatic, then the layer's percentages
+// ENHANCEMENT E47 (not in the original): the size of the picture, a row of a phone's options screen: "Autom\xE1tica"  // E47
+// (the engine's DynamicResolution decides), then "N\xEDtida", "Equilibrada" and "R\xE1pida" (held at 100%, 70% and 50% // E47
+// of the largest size it would start at). The row is laid out only where the layer says there is a controller to ask  // E47
+// (g_pictureSizeRow): a computer's picture is the window's.                                                          // E47
+extern Chooser g_pictureSize;                         // E47
+extern bool g_pictureSizeRow;                         // E47
 extern PhonePanel g_phonePanel;                       // E25
 // E25: the box the gamepad icons take on a phone's panel this frame (none:   // E25
 // max not past min), which showData's text keeps clear of.                   // E25
@@ -596,7 +602,7 @@ struct PhoneRect {                                    // E31
 };                                                    // E31
 // The cells, in the order the loop updates and draws them (so the Adjust cell reads the touch switch's new state).   // E31
 enum PhoneCell { PC_PIXEL_SHADERS, PC_SMOOTH_MOTION, PC_WIDESCREEN, PC_PAUSE_FOCUS, PC_TOUCH, PC_ADJUST, PC_KEYBOARD_P2,   // E31
-                 PC_JOYSTICK, PC_REFRESH, PC_ZOOM, PC_MUSIC, PC_EFFECTS, PC_COUNT };                                    // E31
+                 PC_JOYSTICK, PC_REFRESH, PC_ZOOM, PC_PICTURE, PC_MUSIC, PC_EFFECTS, PC_COUNT };                        // E31, E47
 struct PhoneOptionsLayout {                           // E31
     float hc = 0.0f;                                  // E31: the row height, 68..88 by the room the frame's bottom leaves
     PhoneRect panel, back, backHit, globe, langLess, langValue, langMore;   // E31: the buttons' rects are their hit boxes
@@ -606,8 +612,10 @@ struct PhoneOptionsLayout {                           // E31
     bool present[PC_COUNT] = {};                      // E31: false where the cell is not laid out: Adjust without touch, Refresh without its row
 };                                                    // E31
 // Pure: the area (the unset one read as the whole 1024 x 768 screen, no frame), whether the touch controls are on (the   // E31
-// Adjust cell exists), whether the refresh rate has a row (not on iOS: the Zoom cell then takes its place).   // E31
-PhoneOptionsLayout phoneOptionsLayout(const OptionsArea& area, bool touchOn, bool refreshRow);   // E31
+// Adjust cell exists), whether the refresh rate has a row (not on iOS: the Zoom cell then takes its place), and (E47)   // E31
+// whether the picture size has one: beside Zoom where nothing sets a refresh rate, else on a row of its own under       // E47
+// Refresh | Zoom, which makes seven rows of the six and a little less tall.                                              // E47
+PhoneOptionsLayout phoneOptionsLayout(const OptionsArea& area, bool touchOn, bool refreshRow, bool pictureRow = false);   // E31, E47
 bool phoneOptionsOn();                                // E31: g_mobileLayout && optionsArtReady()
 void phoneOptionsLoop();                              // E31: one frame of the phone's options screen
 

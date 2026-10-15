@@ -1357,3 +1357,21 @@ keyboard player still reads the sign's plus signs.
 - The testers' answers (A54, A74, Redmi Note 13) decide the next step on phones; the test builds `-test1`/`-test2` carry the performance panel and are not 1.0.9.
 - `SaveStringToFile` of the Eth layer (called by no script) still writes in place.
 - The Portuguese plain sign has no table to override (the original's bytes pass through): a change would be to the localisation layer, not to a string file.
+
+## 2026-10-16 - A Galaxy A05's picture at the floor (E47): measured, then a rise that does not need 110 fps, a floor in pixels and a row to choose the sharpness
+
+**Why.** A tester on a Galaxy A05 (Android 15) wrote that the game "got more and more pixelated" while played, with the text, the damage and the enemies unreadable; two screenshots came with it. Both were measured against captures of this build at known scales (four
+estimators, calibrated through the tester's JPEG quality): each was drawn from a 480x216 scene target, 0.30, E41's floor. The HUD, the text and the touch buttons are inside that target. Why it stayed there: a rise needed 110 fps for 8 s on end, and any window between 54.5 and
+110 reset the count, which a frame with a fixed share of 9 ms or more cannot show; the floor was a share of the window chosen on a 2560x1600 tablet. What took it down first is not known (both shots are already at the floor), and nothing was measured on the phone.
+
+**What changed (E47, committed locally, not pushed, not released).** Engine, opt-in, off by default: `relaxedRise` (the way up opens at 1.25 x the target on a loop the display does not pace, on trial for 20 s, a hold of 60 s doubling to 480 after a rise that does not hold),
+`minTargetHeight` (a floor in lines, 360 for Penumbra: 0.5 on a 720-line phone) with `emergencyBelowFps` (it gives way only where the game would run under 30 fps at it), `DynamicResolution::ForWindow` / `Pinned`, and `RenderScaleControl` (a request channel in the registry context,
+applied at the top of a frame). Game: the three on for every phone build, `pictureSize` in `settings.json`, and a "Picture sharpness" row (Automatic, Sharp, Balanced, Fast: held at 100%, 70%, 50% of the start size, never under the floor) on the phone's options screen,
+eleven languages; on Android it is a row of its own under Refresh | Zoom, so the rows are seven, about 70 px tall instead of 88 (60 at the least).
+
+**Checked.** Engine suite 3,283 checks, 0 failures, E41's controller tests unmodified; Linux 17 of 17 suites (before the last three small changes; after them the engine suite and `test_pn_render_input` pass, the full run was not repeated: the machine was short of memory); MSVC /W4 clean on the final tree; the old and the new controller on identical traces (bit-identical with every option off, 100,000 traces; the re-run on the final tree was stopped for memory; see the planning note); the real controller on simulated phones (A05-like: the picture ends 0.60 to 0.85 where E41 left
+0.37 to 0.52, none under 30 fps; a paced loop is E41's; the tablet stand-in does not regress); a hostile review of the engine diff, which found four defects (a pinned size overridden by the emergency floor, a controller reset by every window-height change, an emergency floor
+unreachable from one hundredth over the floor, a raised floor leaving a picture below it), all fixed with a test each; the options screen with the row in eleven languages and five screen shapes, and a live run that walks the row and saves it.
+
+**Not done / open.** No A05, no Mali phone, no Android build of this change; the first fall's cause; the Android and iOS layouts on a real screen (iOS by geometry only); a native speaker's reading of ten translations; a hint that a scene is a menu; a native-resolution overlay; per-pass GPU
+timestamps in the performance log (the render-path review's first request). Details: docs/planning/2026-10-16-e47-a-picture-that-keeps-its-sharpness.md.

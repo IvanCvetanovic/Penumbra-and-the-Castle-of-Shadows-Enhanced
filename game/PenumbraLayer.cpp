@@ -14,6 +14,7 @@
 #include "core/Input.hpp"
 #include "core/Light2D.hpp"
 #include "core/Log.hpp"
+#include "core/RenderScaleControl.hpp"   // E47
 #include "core/ScreenOverlay.hpp"   // E35
 #include "core/SimulationClock.hpp"
 #include "core/WindowControl.hpp"
@@ -207,6 +208,7 @@ void PenumbraLayer::OnAttach(entt::registry& registry) {
     Script::g_difficulty.setCurrent(HardDifficulty() ? Script::DIFFICULTY_HARD : Script::DIFFICULTY_NORMAL);   // E36's: the New Game prompt opens on what this run has (the setting, or --difficulty); row 0 is Normal
     Script::g_touchControls.setCurrent(m_touchEnabled ? 0u : 1u);   // E20's: as this run has them (--touch)
     RefreshZoomChoices();   // E25's: as this run zooms (--zoom)
+    RefreshPictureChoices();   // E47's: the saved size of the picture
     m_input.SetControls(m_settings.controls);
     m_interp.SetEnabled(SmoothMotion());
 
@@ -266,6 +268,11 @@ void PenumbraLayer::OnDetach(entt::registry& registry) {
 Supersonic::WindowControl* PenumbraLayer::WindowControlOf(entt::registry& registry) {
     auto* const* window = registry.ctx().find<Supersonic::WindowControl*>();
     return window != nullptr ? *window : nullptr;
+}
+
+Supersonic::RenderScaleControl* PenumbraLayer::RenderScaleControlOf(entt::registry& registry) {
+    auto* const* control = registry.ctx().find<Supersonic::RenderScaleControl*>();
+    return control != nullptr ? *control : nullptr;
 }
 
 bool PenumbraLayer::Widescreen() const {
@@ -334,6 +341,47 @@ void PenumbraLayer::RefreshZoomChoices() {
     }
     Script::g_zoom.setOptions(labels, current);
     m_zoomChoiceSeeded = Script::g_zoom.getCurrent();
+}
+
+// E47: the picture size row's steps: the setting's word, the script's Portuguese (strings.json translates it), and the share of
+// the largest size the engine's controller would start at that the picture is held at (0: the controller decides).
+namespace {
+struct PictureStep {
+    const char* id;
+    const char* label;
+    float fraction;
+};
+constexpr PictureStep kPictureSteps[] = {
+    {"auto", "Autom\xE1tica", 0.0f},
+    {"sharp", "N\xEDtida", 1.0f},
+    {"balanced", "Equilibrada", 0.7f},
+    {"fast", "R\xE1pida", 0.5f},
+};
+constexpr std::size_t kPictureStepCount = sizeof(kPictureSteps) / sizeof(kPictureSteps[0]);
+} // namespace
+
+void PenumbraLayer::RefreshPictureChoices() {
+    Eth::array<Eth::string> labels;
+    uint32_t current = 0;
+    for (std::size_t i = 0; i < kPictureStepCount; ++i) {
+        labels.insertLast(std::string(kPictureSteps[i].label));
+        if (m_settings.pictureSize == kPictureSteps[i].id) current = static_cast<uint32_t>(i);
+    }
+    Script::g_pictureSize.setOptions(labels, current);
+    m_pictureChoiceSeeded = Script::g_pictureSize.getCurrent();
+}
+
+void PenumbraLayer::ApplyPictureSize(Supersonic::RenderScaleControl& control) const {
+    for (const PictureStep& step : kPictureSteps) {
+        if (m_settings.pictureSize != step.id) continue;
+        if (step.fraction > 0.0f) {
+            control.RequestFixed(step.fraction);
+        } else {
+            control.RequestAutomatic();
+        }
+        return;
+    }
+    control.RequestAutomatic();
 }
 
 Render::Language PenumbraLayer::CurrentLanguage() const {
@@ -1212,6 +1260,24 @@ void PenumbraLayer::OnFixedUpdate(entt::registry& registry, float fixedDelta) {
                                                 : std::to_string(m_settings.zoom) + "%")
                                         << " (from the next level)" << std::endl;
         RefreshZoomChoices();
+    }
+
+    // E47: the picture size's row (a phone's options screen), which exists where the engine has a controller to ask. The
+    // saved choice is asked for once, at the first frame the controller is there; a pick is saved and asked for at once.
+    Supersonic::RenderScaleControl* const pictureControl = RenderScaleControlOf(registry);
+    const bool pictureAvailable = pictureControl != nullptr && pictureControl->Available();
+    Script::g_pictureSizeRow = pictureAvailable;
+    if (pictureAvailable && !m_pictureApplied) {
+        m_pictureApplied = true;
+        if (m_settings.pictureSize != "auto") ApplyPictureSize(*pictureControl);
+    }
+    const uint32_t pictureIndex = Script::g_pictureSize.getCurrent();
+    if (pictureIndex != m_pictureChoiceSeeded && pictureIndex < kPictureStepCount) {
+        m_settings.pictureSize = kPictureSteps[pictureIndex].id;
+        SaveSettings();
+        SUPERSONIC_LOG_INFO("Penumbra") << "E47 picture size picked: " << m_settings.pictureSize << std::endl;
+        if (pictureAvailable) ApplyPictureSize(*pictureControl);
+        RefreshPictureChoices();
     }
 
     // E23: the refresh rate's row. A pick replaces --refresh and is saved; in
