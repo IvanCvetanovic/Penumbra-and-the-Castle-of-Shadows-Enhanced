@@ -69,6 +69,8 @@ Have fun!
 
 **You need:** Android 8 or newer, and graphics that support Vulkan 1.1 (most phones that came with Android 10 or newer have it). Versions up to 1.0.5 needed Vulkan 1.2 and closed as soon as they opened on the many phones that only have 1.1: if that happened to you, download this version.
 
+**64-bit phones only:** the download holds only the 64-bit program, and there is no 32-bit version. Most phones are 64-bit, but some budget phones, mainly ones with Android Go, run a 32-bit Android even though their processor can do 64-bit. On those, Android says the app is not compatible and does not install it (see *It didn't work?* below).
+
 > **Tested:** an earlier version of the Android game was played through on a real phone by the person who made it, including the screen that adjusts the buttons. The newest button layout was only tried on an Android emulator, where the game was also tested automatically. Other phones may behave differently.
 
 **[Download for Android](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/releases/latest/download/Penumbra-Android.apk)**
@@ -95,6 +97,7 @@ Have fun!
 <details>
 <summary>It didn't work?</summary>
 
+- **Android says the app is "not compatible" and nothing is installed:** the most likely reason is that the phone runs a 32-bit Android. The download only has the 64-bit program, and there is no 32-bit version yet. Some budget phones, mainly ones with Android Go, are like this even when they are new. To check, install a free app that shows the phone's processor details, such as *Droid Hardware Info*, and look for the supported ABIs or instruction sets. If you see *arm64-v8a*, the phone is 64-bit and this is not the reason: please tell us the exact message and the phone's model. If you see only *armeabi-v7a*, the game cannot run on this phone, and installing it again will not help.
 - **A message appears and the game closes:** read it. It says what the phone's graphics report: the game needs Vulkan 1.1 or newer, and a very old phone (Vulkan 1.0) cannot run it. Whatever it says, please tell us the phone's model and send a screenshot of the message (see the link at the end of this guide). If the game closes with no message, report that too. Open it again: on Android 11 and later, a window titled "Penumbra closed unexpectedly last time" may appear, with what the phone recorded about that run. Tap **Share** and send it with the phone's model (or take a screenshot of it, scrolling down to the end), then tap **OK** to play. To see what a phone has yourself, install the free app *Hardware CapsViewer for Vulkan* (also called *Vulkan Hardware Capability Viewer*, by Sascha Willems), open the *Properties* tab and read the *apiVersion* row (not the one in its About box).
 - **A Samsung phone blocked the install:** see the note for grown-ups in step 2 (Auto Blocker).
 - **Downloaded it on a computer?** Open this page on the phone and download it there.

@@ -16,7 +16,7 @@
 
 Most players should use that guide: it has a download and simple, illustrated steps for every device, in English
 and [Portuguese](docs/install.pt.md).<br>
-Free, with no ads and no accounts. It runs on Windows 10 or 11 (64-bit), on Android 8 or newer, on a Mac with macOS 13.3
+Free, with no ads and no accounts. It runs on Windows 10 or 11 (64-bit), on Android 8 or newer (64-bit phones only), on a Mac with macOS 13.3
 or newer, and on 64-bit Linux from about 2022 on. It needs a graphics driver with Vulkan 1.2: most PCs from the last
 eight years or so have one, and so do many (not all) phones; see [the install guide](docs/install.md#android-phone-or-tablet) for the phones that do not.<br>
 The Windows download is not code-signed yet (it has no digital signature from a publisher), so Windows asks you to

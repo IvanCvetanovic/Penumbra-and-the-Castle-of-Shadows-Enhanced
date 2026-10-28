@@ -1392,3 +1392,15 @@ timestamps in the performance log (the render-path review's first request). Deta
 **Not done.** Any real weak phone (the A05 included: whether the picture is sharp there now is unknown), the arm64 program run at all, the quicker rise in a real run (no emulator run reached 72.5 fps), the Android layout on a real notch, the iOS layout beyond geometry, native readers of ten translations, the Windows exe launched (Smart App Control).
 
 **Open.** The A05 tester's app version, whether a force-stop and relaunch restores the sharpness, and (if it is still blurry) numbers from a PENUMBRA_PERF_DIAG build (the tester must uninstall first and loses the save); per-pass GPU timestamps in the performance log; a hint that the menu is a lower-speed target; a native-resolution HUD; sleeping far enemies and a smoother first-sight asset decode, neither built.
+
+## 2026-10-28 - A report of "the app is not compatible" (Infinix Smart 9, Android 14): the guides say the Android download needs a 64-bit phone
+
+**Why.** A player installed the APK twice on an Infinix Smart 9 (Android 14; the Smart 9 and the Smart 9 HD were not told apart) and Android said the app is not compatible. No guide said the phone must be 64-bit.
+
+**Checked.** The published v1.0.10 Penumbra-Android.apk was downloaded (sha cbda9fb2..., the release's own) and holds lib/x86_64 and lib/arm64-v8a only, no armeabi-v7a; tools/build_android.sh takes no other ABI. minSdk is 26 and targetSdk 35, so Android 14 is not the reason, and the manifest's Vulkan uses-feature is not enforced on a sideload (the game's own Vulkan check runs after the install and shows a dialog). That leaves a phone whose Android is 32-bit, which would not match either library.
+
+**Not verified.** That this phone is 32-bit: owner reviews on GSMArena and a post on itch.io say the Smart 9 runs a 32-bit Android; no Infinix source was found, and nothing here ran on the phone. That "not compatible" is the installer's wording for a missing ABI is from memory, not read in AOSP.
+
+**Changed.** README.md (the requirements line), docs/install.md and docs/install.pt.md: a "64-bit phones only" paragraph in the Android section and a first bullet under "It didn't work?" that names the message and how to read the phone's ABIs (arm64-v8a present: not the reason; only armeabi-v7a: the game cannot run there). Documentation only; no code, no new build.
+
+**Not done / open.** The reporter's answers (exact model, the message's words, the ABI list). An armeabi-v7a build: the engine submodule is not checked out in this session and there is no Android SDK, so it is not known whether the engine compiles for 32-bit ARM, and the weakest GPUs already get a soft picture (E47), so a 32-bit build could install and still play badly.
