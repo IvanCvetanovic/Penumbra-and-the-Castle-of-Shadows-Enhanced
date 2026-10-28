@@ -81,8 +81,11 @@ To be read with what follows it: nothing here ran on a 32-bit phone.
   failure, `test_tilemap`'s segfault above; with the count fixed, the result is in DEVLOG.md.
 - The engine at 64 bits, in full: built, `ctest` run (DEVLOG.md), `test_shadowcache` green with its six new checks.
 - `tools/build_android.sh` on Linux: `bash -n` clean; run without an SDK it stops at the first missing tool, as it should.
-- `android.yml` on GitHub (the run is named in DEVLOG.md): the three libraries in the APK, the `native-code` line
-  `'arm64-v8a' 'armeabi-v7a' 'x86_64'`, the APK's size.
+- `android.yml` on GitHub (run 4 on this branch, `ubuntu-24.04`, NDK 28.2.13676358, 12 minutes; DEVLOG.md has the
+  link): the three libraries built, linked and in the APK (`lib/armeabi-v7a/libPenumbra.so` 6,030,764 bytes stripped,
+  `arm64-v8a` 7,972,160, `x86_64` 8,574,888), aapt2's `native-code: 'arm64-v8a' 'armeabi-v7a' 'x86_64'` and
+  `versionCode='13' versionName='1.0.11'`, apksigner `Verifies`; the debug-signed APK is 25,795,246 bytes, about 2.8 MB
+  more than 1.0.10's release APK.
 
 ## Not verified, and open
 
