@@ -1,0 +1,88 @@
+name: Android
+
+# The APK, built as the release is but on Linux: tools/build_android.sh with
+# the three ABIs a release carries (arm64-v8a for most phones, armeabi-v7a for
+# the ones that run a 32-bit Android, x86_64 for the emulator), debug-signed,
+# uploaded as the artifact Penumbra-Android-debug.
+#
+# What it proves: that the engine and the game compile and link with the NDK
+# for every ABI, which no other workflow does (ci.yml builds for the host, and
+# an armeabi-v7a mistake - a Vulkan handle cast as a pointer, a size_t taken
+# for 64 bits - shows only here). What it does not: nothing runs the APK; the
+# release APK is still made on the development machine, signed with the
+# offline release key (tools/build_android.sh --release), and a debug-signed
+# APK cannot update it on a phone.
+#
+# The NDK and cmake are the ones the script pins (28.2.13676358, 3.22.1):
+# sdkmanager installs them beside the runner image's own, so this build is the
+# release's build. Pillow from apt (tools/android_package.py draws the launcher
+# icon with it); the runner's Python refuses pip installs outside a venv.
+#
+# Public repository: Actions minutes cost nothing. Every push to main and every
+# pull request; a newer push to a pull request cancels the run it supersedes.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  apk:
+    name: Android - APK (arm64-v8a, armeabi-v7a, x86_64)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      ANDROID_SDK: /usr/local/lib/android/sdk
+      JAVA_HOME: ${{ env.JAVA_HOME_17_X64 }}
+    steps:
+      # The engine submodule with it, over https: the engine is public.
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Engine submodule
+        run: git -C engine log --oneline -1
+
+      - name: SDK packages (the NDK and cmake the script pins, build-tools 35, platform 35)
+        run: |
+          SDKMANAGER="$ANDROID_SDK/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKMANAGER" --licenses > /dev/null 2>&1 || true
+          "$SDKMANAGER" --install "ndk;28.2.13676358" "cmake;3.22.1" "build-tools;35.0.0" "platforms;android-35" > /dev/null
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends python3-pil
+          ls "$ANDROID_SDK/ndk" "$ANDROID_SDK/build-tools"
+
+      - name: Build the APK (three ABIs)
+        run: bash tools/build_android.sh --abi all --jobs 4
+
+      # The three libraries are in it, under the names Android looks for, and
+      # the manifest's versions came through the link.
+      - name: Check the APK
+        run: |
+          APK=out/android/Penumbra-debug.apk
+          BADGING="$("$ANDROID_SDK/build-tools/35.0.0/aapt2" dump badging "$APK")"
+          printf '%s\n' "$BADGING" | grep -E "^package: |^sdkVersion|^targetSdkVersion|^native-code: "
+          for abi in arm64-v8a armeabi-v7a x86_64; do
+            printf '%s\n' "$BADGING" | grep "^native-code: " | grep -q "'$abi'" \
+              || { echo "no $abi in the APK's native-code line" >&2; exit 1; }
+          done
+          unzip -l "$APK" | grep -E "lib/[^/]+/libPenumbra.so"
+          "$ANDROID_SDK/build-tools/35.0.0/apksigner" verify --verbose "$APK" | head -3
+          ls -l "$APK"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Penumbra-Android-debug
+          path: out/android/Penumbra-debug.apk
+          if-no-files-found: error
+          retention-days: 14

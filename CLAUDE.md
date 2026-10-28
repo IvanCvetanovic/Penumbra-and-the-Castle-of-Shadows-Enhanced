@@ -50,14 +50,15 @@ tools/check.bat      lock-free compile check of single files (needs no build/, s
 tools/package.bat    a playable folder in out/package/Penumbra (never committed)
 tools/build_linux.sh Linux build (natively or from WSL) in a Linux-filesystem directory, default ~/pn-build-linux; --test runs test_pn_all
 tools/build_android.sh  debug APK without Gradle (android_package.py): out/android/Penumbra-debug.apk;
-                     --release signs with the release key (never in the repository)
+                     --abi all = arm64-v8a, armeabi-v7a (32-bit phones) and x86_64; --release signs
+                     with the release key (never in the repository); runs on Git Bash and on Linux
 tools/make_release.* the release files: `windows` (the zip, from make_release.bat), `linux` (the tar.gz),
                      `sums` (SHA256SUMS.txt)
 tools/apple/         make_app.sh (Penumbra.app for macOS or iOS), make_release.sh (the Mac zip, the .ipa);
                      Apple builds run only in CI
-.github/workflows/   ci.yml (Linux, the gate; Windows, best-effort) and apple.yml: on pushes to main, PRs,
-                     by hand; release.yml (by hand): the Linux, Mac and iPhone/iPad downloads, added to a
-                     release
+.github/workflows/   ci.yml (Linux, the gate; Windows, best-effort), apple.yml and android.yml (the APK with
+                     its three ABIs, debug-signed, on the runner's NDK): on pushes to main, PRs, by hand;
+                     release.yml (by hand): the Linux, Mac and iPhone/iPad downloads, added to a release
 docs/install.md      the install guide, linked from the README: every download's steps, the controls, the credits;
                      the steps also live in game/*/how-to-play.txt: change them together
 docs/install.pt.md   the same in Portuguese; docs/*.md ship in the Windows and Linux downloads, so both travel there

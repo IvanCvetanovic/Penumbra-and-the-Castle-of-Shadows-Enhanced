@@ -2,10 +2,12 @@
 # Build Penumbra for Android and package an APK, without Gradle: a debug APK by
 # default, the release APK with --release.
 #
-#   tools/build_android.sh [options]            (Git Bash, from anywhere)
+#   tools/build_android.sh [options]            (Git Bash on Windows, or Linux; from anywhere)
 #
-#   --abi x86_64|arm64-v8a|all   which ABIs to build (default x86_64, the emulator's;
-#                                 all = both in one APK; --release defaults to all)
+#   --abi x86_64|arm64-v8a|armeabi-v7a|all   which ABIs to build (default x86_64, the emulator's;
+#                                 all = the three in one APK: arm64-v8a for most phones, armeabi-v7a
+#                                 for the ones that run a 32-bit Android, x86_64 for the emulator;
+#                                 --release defaults to all)
 #   --config Release|Debug|RelWithDebInfo       native build type (default Release: without
 #                                 --release the APK is a debug APK - debuggable, debug-signed -
 #                                 either way)
@@ -41,23 +43,57 @@
 #   --jobs <n>                   compile jobs per ABI (default 6; fewer when memory is short)
 #
 # Uses the SDK at $ANDROID_SDK, else $ANDROID_HOME, else $ANDROID_SDK_ROOT, else Android Studio's
-# default %LOCALAPPDATA%/Android/Sdk (Windows paths are taken either way): NDK 28.2.13676358's
-# toolchain file, its cmake 3.22.1 and ninja, build-tools 35.0.0 (aapt2, d8, zipalign,
-# apksigner) and platform 35's android.jar; a JDK 17 for javac, keytool and apksigner; Python 3
-# with Pillow (tools/android_package.py). Build trees: build-android-<abi>/ at the repo
-# root. Output: out/android/Penumbra-debug.apk, or out/release/Penumbra-Android.apk.
+# default (%LOCALAPPDATA%/Android/Sdk on Windows, where Windows paths are taken either way;
+# ~/Android/Sdk on Linux): NDK 28.2.13676358's toolchain file, its cmake 3.22.1 and ninja (on
+# Linux, the cmake and ninja on PATH when the SDK's are not installed), build-tools 35.0.0 (aapt2,
+# d8, zipalign, apksigner) and platform 35's android.jar; a JDK 17 for javac, keytool and
+# apksigner; Python 3 with Pillow (tools/android_package.py). Build trees: build-android-<abi>/
+# at the repo root. Output: out/android/Penumbra-debug.apk, or out/release/Penumbra-Android.apk.
+# On Linux the script is what .github/workflows/android.yml runs: the same APK, debug-signed, so
+# every ABI of a release is compiled and linked on each push.
 set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SDK="${ANDROID_SDK:-${ANDROID_HOME:-${ANDROID_SDK_ROOT:-${LOCALAPPDATA:-C:/Users/$USERNAME/AppData/Local}/Android/Sdk}}}"
-SDK="$(cygpath -u "$SDK")"
+
+# Git Bash on Windows, where the release is built, or Linux. The SDK's tools take Windows paths,
+# so every path handed to one goes through win() (cygpath -m); on Linux a path is a path. The
+# NDK's host tools are under a host tag, and the .exe suffix and the .bat wrappers (d8,
+# apksigner: cmd runs them) are Windows' alone.
+case "$(uname -s)" in
+    MINGW*|MSYS*|CYGWIN*)
+        HOST=windows; EXE=.exe; HOST_TAG=windows-x86_64; PYTHON=python
+        win() { cygpath -m "$1"; }
+        unix() { cygpath -u "$1"; }
+        SDK="${ANDROID_SDK:-${ANDROID_HOME:-${ANDROID_SDK_ROOT:-${LOCALAPPDATA:-C:/Users/$USERNAME/AppData/Local}/Android/Sdk}}}"
+        ;;
+    *)
+        HOST=linux; EXE=""; HOST_TAG=linux-x86_64; PYTHON=python3
+        win() { printf '%s\n' "$1"; }
+        unix() { printf '%s\n' "$1"; }
+        SDK="${ANDROID_SDK:-${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$HOME/Android/Sdk}}}"
+        ;;
+esac
+SDK="$(unix "$SDK")"
 NDK="$SDK/ndk/28.2.13676358"
-CMAKE="$SDK/cmake/3.22.1/bin/cmake.exe"
-NINJA="$SDK/cmake/3.22.1/bin/ninja.exe"
+CMAKE="$SDK/cmake/3.22.1/bin/cmake$EXE"
+NINJA="$SDK/cmake/3.22.1/bin/ninja$EXE"
+if [[ ! -x "$CMAKE" && $HOST == linux ]] && command -v cmake >/dev/null && command -v ninja >/dev/null; then
+    CMAKE="$(command -v cmake)"
+    NINJA="$(command -v ninja)"
+fi
 BUILD_TOOLS="$SDK/build-tools/35.0.0"
+AAPT2="$BUILD_TOOLS/aapt2$EXE"
+ZIPALIGN="$BUILD_TOOLS/zipalign$EXE"
+if [[ $HOST == windows ]]; then
+    D8=(cmd //c "$(win "$BUILD_TOOLS/d8.bat")")
+    APKSIGNER=(cmd //c "$(win "$BUILD_TOOLS/apksigner.bat")")
+else
+    D8=("$BUILD_TOOLS/d8")
+    APKSIGNER=("$BUILD_TOOLS/apksigner")
+fi
 ANDROID_JAR="$SDK/platforms/android-35/android.jar"
-ADB="$SDK/platform-tools/adb.exe"
-STRIP="$NDK/toolchains/llvm/prebuilt/windows-x86_64/bin/llvm-strip.exe"
+ADB="$SDK/platform-tools/adb$EXE"
+STRIP="$NDK/toolchains/llvm/prebuilt/$HOST_TAG/bin/llvm-strip$EXE"
 PACKAGE="com.ivancvetanovic.penumbra"
 MIN_SDK=26
 TARGET_SDK=35
@@ -97,9 +133,9 @@ if [[ -z "$ABI_ARG" ]]; then
     if [[ $RELEASE -eq 1 ]]; then ABI_ARG="all"; else ABI_ARG="x86_64"; fi
 fi
 case "$ABI_ARG" in
-    all) ABIS=(x86_64 arm64-v8a) ;;
-    x86_64|arm64-v8a) ABIS=("$ABI_ARG") ;;
-    *) echo "--abi wants x86_64, arm64-v8a or all" >&2; exit 2 ;;
+    all) ABIS=(x86_64 arm64-v8a armeabi-v7a) ;;
+    x86_64|arm64-v8a|armeabi-v7a) ABIS=("$ABI_ARG") ;;
+    *) echo "--abi wants x86_64, arm64-v8a, armeabi-v7a or all" >&2; exit 2 ;;
 esac
 
 # The release key: flag, else environment, else the files beside the debug
@@ -113,12 +149,12 @@ if [[ $RELEASE -eq 1 ]]; then
     if [[ $RUN -eq 1 && -n "$RUN_FLAGS" ]]; then
         echo "--release: a release APK is not debuggable, so no run-as to leave flags with; use --run \"\"" >&2; exit 2
     fi
-    if [[ -n "${USERPROFILE:-}" ]]; then USER_HOME="$(cygpath -u "$USERPROFILE")"; else USER_HOME="$HOME"; fi
+    if [[ -n "${USERPROFILE:-}" ]]; then USER_HOME="$(unix "$USERPROFILE")"; else USER_HOME="$HOME"; fi
     RELEASE_KEYSTORE="${KEYSTORE_FLAG:-${PENUMBRA_KEYSTORE:-$USER_HOME/.android/penumbra-release.jks}}"
     RELEASE_PASS_FILE="${PASS_FILE_FLAG:-${PENUMBRA_KEYSTORE_PASS_FILE:-$USER_HOME/.android/penumbra-release-password.txt}}"
     RELEASE_ALIAS="${KEY_ALIAS_FLAG:-${PENUMBRA_KEY_ALIAS:-penumbra}}"
-    RELEASE_KEYSTORE="$(cygpath -u "$RELEASE_KEYSTORE")"
-    RELEASE_PASS_FILE="$(cygpath -u "$RELEASE_PASS_FILE")"
+    RELEASE_KEYSTORE="$(unix "$RELEASE_KEYSTORE")"
+    RELEASE_PASS_FILE="$(unix "$RELEASE_PASS_FILE")"
     if [[ ! -f "$RELEASE_KEYSTORE" ]]; then
         echo "--release: no release keystore at $RELEASE_KEYSTORE." >&2
         echo "  Name it with --keystore <file> or PENUMBRA_KEYSTORE. The debug key is never used for a release." >&2
@@ -131,18 +167,17 @@ if [[ $RELEASE -eq 1 ]]; then
     fi
 fi
 
-for tool in "$NDK/build/cmake/android.toolchain.cmake" "$CMAKE" "$NINJA" "$BUILD_TOOLS/aapt2.exe" "$ANDROID_JAR"; do
-    [[ -e "$tool" ]] || { echo "missing: $tool" >&2; exit 1; }
+for tool in "$NDK/build/cmake/android.toolchain.cmake" "$CMAKE" "$NINJA" "$AAPT2" "$ZIPALIGN" "${D8[-1]}" "${APKSIGNER[-1]}" "$STRIP" "$ANDROID_JAR"; do
+    [[ -e "$(unix "$tool")" ]] || { echo "missing: $tool" >&2; exit 1; }
 done
-win() { cygpath -m "$1"; }
 
 # The JDK: JAVA_HOME if it has keytool, else whatever keytool is on PATH.
-if [[ -n "${JAVA_HOME:-}" && -x "$(cygpath -u "$JAVA_HOME")/bin/keytool.exe" ]]; then
-    JAVA_BIN="$(cygpath -u "$JAVA_HOME")/bin"
+if [[ -n "${JAVA_HOME:-}" && -x "$(unix "$JAVA_HOME")/bin/keytool$EXE" ]]; then
+    JAVA_BIN="$(unix "$JAVA_HOME")/bin"
 else
     JAVA_BIN="$(dirname "$(command -v keytool)")"
 fi
-export JAVA_HOME="$(cygpath -m "$(dirname "$JAVA_BIN")")"
+export JAVA_HOME="$(win "$(dirname "$JAVA_BIN")")"
 export PATH="$JAVA_BIN:$PATH"
 
 OUT="$REPO/out/android"
@@ -203,22 +238,22 @@ javac -source 8 -target 8 -Xlint:-options -Xlint:deprecation -encoding UTF-8 \
 mapfile -t CLASS_FILES < <(find "$OUT/classes" -name '*.class')
 CLASS_WIN=()
 for f in "${CLASS_FILES[@]}"; do CLASS_WIN+=("$(win "$f")"); done
-cmd //c "$(win "$BUILD_TOOLS/d8.bat")" --release --min-api "$MIN_SDK" --lib "$(win "$ANDROID_JAR")" \
+"${D8[@]}" --release --min-api "$MIN_SDK" --lib "$(win "$ANDROID_JAR")" \
     --output "$(win "$OUT/dex")" "${CLASS_WIN[@]}"
 [[ -f "$OUT/dex/classes.dex" ]] || { echo "d8 made no classes.dex" >&2; exit 1; }
 LIB_SPECS+=("classes.dex=$(win "$OUT/dex/classes.dex")")
 
 # ---- Package ------------------------------------------------------------------
 STAGE="$OUT/stage"
-python "$(win "$REPO/tools/android_package.py")" stage "$(win "$STAGE")"
+"$PYTHON" "$(win "$REPO/tools/android_package.py")" stage "$(win "$STAGE")"
 
 rm -f "$OUT/res.zip"
-"$BUILD_TOOLS/aapt2.exe" compile --dir "$(win "$STAGE/res")" -o "$(win "$OUT/res.zip")"
+"$AAPT2" compile --dir "$(win "$STAGE/res")" -o "$(win "$OUT/res.zip")"
 # --debug-mode is what makes an APK debuggable (android:debuggable="true", so
 # run-as works); a release links without it.
 LINK_MODE=(--debug-mode)
 if [[ $RELEASE -eq 1 ]]; then LINK_MODE=(); fi
-"$BUILD_TOOLS/aapt2.exe" link \
+"$AAPT2" link \
     -o "$(win "$OUT/unsigned.apk")" \
     -I "$(win "$ANDROID_JAR")" \
     --manifest "$(win "$REPO/game/android/AndroidManifest.xml")" \
@@ -226,10 +261,9 @@ if [[ $RELEASE -eq 1 ]]; then LINK_MODE=(); fi
     -R "$(win "$OUT/res.zip")" \
     --min-sdk-version "$MIN_SDK" --target-sdk-version "$TARGET_SDK" \
     "${LINK_MODE[@]}" --auto-add-overlay
-python "$(win "$REPO/tools/android_package.py")" addlibs "$(win "$OUT/unsigned.apk")" "$(win "$OUT/withlibs.apk")" "${LIB_SPECS[@]}"
-"$BUILD_TOOLS/zipalign.exe" -f -P 16 4 "$(win "$OUT/withlibs.apk")" "$(win "$OUT/aligned.apk")"
+"$PYTHON" "$(win "$REPO/tools/android_package.py")" addlibs "$(win "$OUT/unsigned.apk")" "$(win "$OUT/withlibs.apk")" "${LIB_SPECS[@]}"
+"$ZIPALIGN" -f -P 16 4 "$(win "$OUT/withlibs.apk")" "$(win "$OUT/aligned.apk")"
 
-APKSIGNER="$(win "$BUILD_TOOLS/apksigner.bat")"
 if [[ $RELEASE -eq 1 ]]; then
     # The release key, its password read from its file by apksigner itself:
     # never on this command line, never echoed. No --key-pass: a PKCS12 key's
@@ -240,7 +274,7 @@ if [[ $RELEASE -eq 1 ]]; then
     mkdir -p "$REPO/out/release"
     APK="$REPO/out/release/Penumbra-Android.apk"
     rm -f "$APK" "$APK.idsig"
-    cmd //c "$APKSIGNER" sign --ks "$(win "$RELEASE_KEYSTORE")" --ks-key-alias "$RELEASE_ALIAS" \
+    "${APKSIGNER[@]}" sign --ks "$(win "$RELEASE_KEYSTORE")" --ks-key-alias "$RELEASE_ALIAS" \
         --ks-pass "file:$(win "$RELEASE_PASS_FILE")" \
         --v4-signing-enabled false --out "$(win "$APK")" "$(win "$OUT/aligned.apk")"
 else
@@ -256,7 +290,7 @@ else
         fi
     fi
     APK="$OUT/Penumbra-debug.apk"
-    cmd //c "$APKSIGNER" sign --ks "$(win "$KEYSTORE")" --ks-pass pass:android \
+    "${APKSIGNER[@]}" sign --ks "$(win "$KEYSTORE")" --ks-pass pass:android \
         --key-pass pass:android --ks-key-alias androiddebugkey --out "$(win "$APK")" "$(win "$OUT/aligned.apk")"
 fi
 rm -f "$OUT/unsigned.apk" "$OUT/withlibs.apk" "$OUT/aligned.apk"
@@ -267,7 +301,7 @@ echo "APK: $APK ($(( $(stat -c %s "$APK") / 1024 / 1024 )) MB)"
 # against the keystore's), and the APK is not debuggable and carries the
 # manifest's version.
 if [[ $RELEASE -eq 1 ]]; then
-    CERTS="$(cmd //c "$APKSIGNER" verify --verbose --print-certs "$(win "$APK")" | tr -d '\r')"
+    CERTS="$("${APKSIGNER[@]}" verify --verbose --print-certs "$(win "$APK")" | tr -d '\r')"
     printf '%s\n' "$CERTS" | grep -E '^Verifies$|^Verified using v[0-9]+ scheme|^Signer #1 certificate (DN|SHA-256)'
     APK_SHA="$(printf '%s\n' "$CERTS" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | tr 'A-F' 'a-f')"
     KEY_SHA="$(keytool -list -v -keystore "$(win "$RELEASE_KEYSTORE")" -storetype PKCS12 \
@@ -278,7 +312,7 @@ if [[ $RELEASE -eq 1 ]]; then
         exit 1
     fi
     echo "Certificate matches the release key: $KEY_SHA"
-    BADGING="$("$BUILD_TOOLS/aapt2.exe" dump badging "$(win "$APK")" | tr -d '\r')"
+    BADGING="$("$AAPT2" dump badging "$(win "$APK")" | tr -d '\r')"
     if printf '%s\n' "$BADGING" | grep -q 'application-debuggable'; then
         echo "--release: the APK is debuggable" >&2
         exit 1

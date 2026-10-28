@@ -91,17 +91,18 @@ VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/lvp_icd.json xvfb-run -a -s "-screen 0 
 This build is for the machine it is built on. The Linux download is built another way, so that it
 runs on older systems too: see [The Linux release build](#the-linux-release-build).
 
-## Android (arm64-v8a, x86_64)
+## Android (arm64-v8a, armeabi-v7a, x86_64)
 
-A debug APK is built on Windows from Git Bash (or `tools\build_android.bat` from `cmd`), without
-Gradle. It needs the Android SDK with NDK 28.2.13676358, build-tools 35.0.0, platform 35, the SDK's
-CMake 3.22.1 package and platform-tools (adb, for installing), found
-through `ANDROID_SDK`, `ANDROID_HOME` or `ANDROID_SDK_ROOT`, else at Android Studio's default
-`%LOCALAPPDATA%\Android\Sdk`; a JDK 17; and Python 3 with Pillow:
+A debug APK is built on Windows from Git Bash (or `tools\build_android.bat` from `cmd`), or on
+Linux, without Gradle. It needs the Android SDK with NDK 28.2.13676358, build-tools 35.0.0,
+platform 35, the SDK's CMake 3.22.1 package (on Linux, the `cmake` and `ninja` on PATH do when it is
+not installed) and platform-tools (adb, for installing), found through `ANDROID_SDK`,
+`ANDROID_HOME` or `ANDROID_SDK_ROOT`, else at Android Studio's default (`%LOCALAPPDATA%\Android\Sdk`
+on Windows, `~/Android/Sdk` on Linux); a JDK 17; and Python 3 with Pillow:
 
 ```bash
 bash tools/build_android.sh               # x86_64 (the emulator's): configure, build, package
-bash tools/build_android.sh --abi all     # x86_64 + arm64-v8a (phones) in one APK
+bash tools/build_android.sh --abi all     # x86_64 + arm64-v8a + armeabi-v7a in one APK, as a release is built
 bash tools/build_android.sh --install --serial <device>   # adb install -r
 bash tools/build_android.sh --perf-diag   # a TEST build for a player's phone (E42): the performance panel and a log line every 5 s on
 ```
