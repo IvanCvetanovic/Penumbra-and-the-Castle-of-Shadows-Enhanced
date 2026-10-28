@@ -8,7 +8,7 @@
     (engine/src/platform/android/AndroidApp.cpp).
 
     The release carries three builds of libPenumbra.so (lib/<abi>/, from
-    tools/build_android.sh --abi all): arm64-v8a, which most phones run;
+    tools/build_android.sh with every ABI, its "all"): arm64-v8a, which most phones run;
     armeabi-v7a, for the phones whose Android is 32-bit (budget phones with
     Android Go among them: an APK without it is "not compatible" to the
     installer, however new the phone); and x86_64, the emulator's. The installer
