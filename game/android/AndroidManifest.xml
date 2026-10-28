@@ -7,6 +7,14 @@
     libPenumbra.so (android.app.lib_name), whose android_main is the engine's
     (engine/src/platform/android/AndroidApp.cpp).
 
+    The release carries three builds of libPenumbra.so (lib/<abi>/, from
+    tools/build_android.sh --abi all): arm64-v8a, which most phones run;
+    armeabi-v7a, for the phones whose Android is 32-bit (budget phones with
+    Android Go among them: an APK without it is "not compatible" to the
+    installer, however new the phone); and x86_64, the emulator's. The installer
+    picks the one matching the phone's ABI list. Releases up to 1.0.10 had no
+    armeabi-v7a.
+
     minSdk 26 is where AAudio begins; the game also needs a Vulkan 1.1 device,
     which the engine checks at start (VulkanDevice::isDeviceSuitable;
     GameManifest::minimumVulkanMinor, which main.cpp sets to 1: E39). A sideloaded
@@ -33,8 +41,8 @@
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.ivancvetanovic.penumbra"
-    android:versionCode="12"
-    android:versionName="1.0.10">
+    android:versionCode="13"
+    android:versionName="1.0.11">
 
     <uses-feature android:name="android.hardware.vulkan.level" android:version="0" android:required="true" />
     <uses-feature android:name="android.hardware.vulkan.version" android:version="0x401000" android:required="true" />
