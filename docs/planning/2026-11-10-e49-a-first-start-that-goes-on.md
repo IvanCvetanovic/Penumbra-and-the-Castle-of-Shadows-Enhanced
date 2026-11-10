@@ -128,8 +128,9 @@ window said:
   from here would collide with the Vulkan swapchain made on it later); the unpack is the part a slower phone makes long, so measuring it there
   comes first. Other ways to shorten it, if the tablet's number asks for them: copying on more than one thread, or not copying what the
   game could read straight from the APK.
-- **Docs say "versions up to 1.0.11 began again every time"**; true only once a release newer than 1.0.11 carries this. Release, version
-  bump and the signed APK are the owner's.
+- **Docs say "versions up to 1.0.11 began again every time"**; 1.0.12 (published 2026-11-10 as Latest, tag v1.0.12 = 8a75fe2) is the
+  first release that carries this, so the sentence holds. The install guides' wording was softened after the tag (the unpack's duration
+  on a slower phone is unmeasured, and "should get it through" became "may"); see DEVLOG's entry for 1.0.12.
 - **Questions for the tester,** to settle the rest: a screenshot (and the Share text) of every window it showed, and what the screen did
   after each try (black, back to the home screen, closed by itself) and for about how long; whether the first one came right after
   installing; whether it now opens at once on every later start and after a restart of the tablet; the free storage; whether battery
