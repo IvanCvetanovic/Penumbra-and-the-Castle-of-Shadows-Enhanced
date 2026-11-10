@@ -10,6 +10,8 @@
 
 <a href="https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/releases/latest/download/Penumbra-iOS.ipa"><img alt="Download for iPhone and iPad (experimental, needs a computer to install)" height="56" src="https://img.shields.io/badge/Download%20for-iPhone%20%26%20iPad%20%28experimental%2C%20needs%20a%20computer%29-7A5FA8?style=for-the-badge&labelColor=2F1F42&logo=data:image/svg%2bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0iI2ZmZiIgZD0iTTExIDNoMnY5LjZsMy4zLTMuMyAxLjQgMS40TDEyIDE2LjRsLTUuNy01LjcgMS40LTEuNCAzLjMgMy4zVjN6TTQgMThoMTZ2Mkg0eiIvPjwvc3ZnPg=="></a>
 
+<a href="https://www.paypal.com/donate/?business=icvetanovic99%40gmail.com&amp;no_recurring=0&amp;item_name=Penumbra+and+the+Castle+of+Shadows+Enhanced&amp;currency_code=USD" title="Optional: the game is free"><img alt="Donate with PayPal (optional, the game is free)" height="56" src="https://img.shields.io/badge/Donate%20with-PayPal-0070BA?style=for-the-badge&labelColor=2F1F42&logo=paypal&logoColor=white"></a>
+
 **New to this?** After the download, follow the [step-by-step guide](docs/install.md) ([Português](docs/install.pt.md)): Windows and Android each ask for a few extra clicks the first time. The Mac, Linux, and iPhone and iPad downloads are newer and less tested than Windows and Android (see [Platform status](#platform-status)); the iPhone and iPad one is experimental and needs a computer to install ([read this first](docs/install.md#iphone-and-ipad-experimental)).
 
 ### [How to install: step by step](docs/install.md)
