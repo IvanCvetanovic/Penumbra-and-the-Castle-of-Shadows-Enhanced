@@ -10,6 +10,10 @@
 //    changed - and the game is pointed at them with --original and --data,
 //    exactly as a packaged desktop game can be. The working directory is the
 //    unpacked engine root, which is where the engine looks for assets/shaders.
+//    E49: a start that is stopped while it unpacks (by the system, or the
+//    player) does not cost the next one the work: eth/AssetUnpack.hpp continues
+//    it, and the game's log is opened for it, so the report of a stopped start
+//    says how far the unpack got.
 //  - DEVELOPMENT FLAGS. A phone has no command line, so a run's flags come from
 //    penumbra_args.txt in the app's private files directory, or failing that
 //    its external one: whitespace-separated, double quotes around an argument
@@ -27,18 +31,22 @@
 #include <android_native_app_glue.h>
 #include <unistd.h>
 
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <exception>
 #include <filesystem>
 #include <fstream>
+#include <iterator>
 #include <sstream>
 #include <string>
 #include <system_error>
 #include <vector>
 
 #include "core/Log.hpp"
+#include "eth/AssetUnpack.hpp"   // E49
 #include "eth/StartupErrors.hpp"   // E39
+#include "platform/ExecutablePath.hpp"
 #include "platform/android/AndroidApp.hpp"
 #include "render/Settings.hpp"
 
@@ -52,7 +60,6 @@ namespace fs = std::filesystem;
 // stamp that changes whenever any packed file does, every other line a path
 // under assets/.
 constexpr const char* kAssetList = "penumbra_assets.txt";
-constexpr const char* kStampFile = "penumbra_assets.stamp";
 constexpr const char* kArgsFile = "penumbra_args.txt";
 constexpr const char* kArgsUsed = "penumbra_args.used";
 
@@ -74,8 +81,7 @@ bool readAsset(AAssetManager* manager, const std::string& path, std::string& out
 bool copyAsset(AAssetManager* manager, const std::string& path, const fs::path& target) {
     AAsset* asset = AAssetManager_open(manager, path.c_str(), AASSET_MODE_STREAMING);
     if (asset == nullptr) return false;
-    std::error_code ec;
-    fs::create_directories(target.parent_path(), ec);
+    // The folder exists: the unpack makes it (eth/AssetUnpack.hpp).
     FILE* file = std::fopen(target.c_str(), "wb");
     bool ok = file != nullptr;
     char buffer[64 * 1024];
@@ -96,51 +102,76 @@ std::string readFile(const fs::path& path) {
     return text.str();
 }
 
-// Unpacks the APK's files into `files` unless the last unpack was of this very
-// list. False when the list is missing or a file would not unpack.
-bool unpackAssets(const fs::path& files) {
+// The length of an asset, or -1 when the APK has none: how the unpack tells a whole file of an earlier start from a
+// stopped copy.
+std::int64_t assetLength(AAssetManager* manager, const std::string& path) {
+    AAsset* asset = AAssetManager_open(manager, path.c_str(), AASSET_MODE_STREAMING);
+    if (asset == nullptr) return -1;
+    const std::int64_t length = static_cast<std::int64_t>(AAsset_getLength64(asset));
+    AAsset_close(asset);
+    return length;
+}
+
+// One line of the unpack's story, for logcat and (E49) for the game's own log. That log (main.cpp) is opened after the
+// files are unpacked, so a start stopped during the unpack used to leave none, and the report of it could only say "No game
+// log: the game stopped before it opened one". The unpack opens the log itself, the first time it has something to say (a
+// start whose files are in place says nothing here and leaves the log to main.cpp), under the name main.cpp uses; main.cpp
+// then opens it again, which replaces it, and writes the unpack's summary (Eth::LastUnpackSummary) among its first lines.
+void sayUnpack(const std::string& line) {
+    static bool logOpened = false;
+    if (!logOpened) {
+        logOpened = true;
+        const fs::path folder = Supersonic::UserDataDirectory("Penumbra");   // main.cpp's manifest.title
+        if (!folder.empty()) {
+            std::error_code ignored;
+            fs::create_directories(folder, ignored);
+            Supersonic::Log::SetFileSink((folder / "penumbra.log").string());
+            Supersonic::Log::SetElapsedTimestamps(true);
+            SUPERSONIC_LOG_INFO("Penumbra") << "Penumbra " << PENUMBRA_VERSION << " (mobile build): unpacking the game's files";
+        }
+    }
+    SUPERSONIC_LOG_INFO("Penumbra") << line;
+}
+
+// Unpacks the APK's files into `files` unless the last unpack was of this very list, and continues one that an earlier
+// start left unfinished (E49, eth/AssetUnpack.hpp). Failed when the list is missing or a file would not unpack.
+Penumbra::Eth::UnpackOutcome unpackAssets(const fs::path& files) {
+    using Penumbra::Eth::UnpackOutcome;
     android_app* app = Supersonic::Android::App();
     AAssetManager* manager = app->activity->assetManager;
 
     std::string list;
     if (!readAsset(manager, kAssetList, list)) {
         SUPERSONIC_LOG_ERROR("Penumbra") << "The APK has no " << kAssetList << "; nothing to unpack.";
-        return false;
+        return UnpackOutcome::Failed;
     }
     std::istringstream lines(list);
     std::string stamp;
     std::getline(lines, stamp);
+    if (!stamp.empty() && stamp.back() == '\r') stamp.pop_back();
     std::vector<std::string> paths;
     for (std::string line; std::getline(lines, line);) {
         if (!line.empty() && line.back() == '\r') line.pop_back();
         if (!line.empty()) paths.push_back(line);
     }
 
-    const fs::path stampPath = files / kStampFile;
-    if (readFile(stampPath) == stamp) {
+    Penumbra::Eth::UnpackHooks hooks;
+    hooks.length = [manager](const std::string& path) { return assetLength(manager, path); };
+    hooks.copy = [manager](const std::string& path, const fs::path& target) { return copyAsset(manager, path, target); };
+    // The UI thread waits for this one to read its lifecycle commands; an unpack that stopped reading for seconds would be
+    // an ANR dialog. Asked before each file: a file takes a few milliseconds, the whole unpack a few seconds on a slow phone.
+    hooks.keepGoing = [] { return Supersonic::Android::PumpEvents(); };
+    hooks.log = sayUnpack;
+
+    const std::vector<std::string> roots(std::begin(kUnpackedRoots), std::end(kUnpackedRoots));
+    const Penumbra::Eth::UnpackResult result = Penumbra::Eth::UnpackAssets(files, stamp, paths, roots, hooks);
+    if (result.outcome == UnpackOutcome::UpToDate) {
         SUPERSONIC_LOG_INFO("Penumbra") << "Game files already unpacked (" << paths.size() << ", " << stamp << ").";
-        return true;
+    } else if (result.outcome == UnpackOutcome::Unpacked) {
+        Penumbra::Eth::LastUnpackSummary() = Penumbra::Eth::DescribeUnpack(result);
+        SUPERSONIC_LOG_INFO("Penumbra") << Penumbra::Eth::LastUnpackSummary();
     }
-
-    SUPERSONIC_LOG_INFO("Penumbra") << "Unpacking " << paths.size() << " game files into " << files.string() << "...";
-    std::error_code ec;
-    fs::remove(stampPath, ec);
-    for (const char* root : kUnpackedRoots) fs::remove_all(files / root, ec);
-
-    std::size_t done = 0;
-    for (const std::string& path : paths) {
-        if (!copyAsset(manager, path, files / path)) {
-            SUPERSONIC_LOG_ERROR("Penumbra") << "Could not unpack " << path << ".";
-            return false;
-        }
-        // The UI thread waits for this one to read its lifecycle commands;
-        // an unpack that stopped reading for seconds would be an ANR dialog.
-        if (++done % 16 == 0 && !Supersonic::Android::PumpEvents()) return false;
-    }
-
-    std::ofstream(stampPath, std::ios::binary | std::ios::trunc) << stamp;
-    SUPERSONIC_LOG_INFO("Penumbra") << "Unpacked " << done << " files.";
-    return true;
+    return result.outcome;
 }
 
 // The development flags, if a file of them was left for this launch.
@@ -193,10 +224,17 @@ int SupersonicMain(int argc, char** argv) {
     }
 
     const fs::path files = Supersonic::Android::InternalDataPath();
-    if (files.empty() || !unpackAssets(files)) {
+    const Penumbra::Eth::UnpackOutcome unpacked =
+        files.empty() ? Penumbra::Eth::UnpackOutcome::Failed : unpackAssets(files);
+    if (unpacked == Penumbra::Eth::UnpackOutcome::Cancelled) {
+        // E49: the player left (Back) while the files were being unpacked. That is neither an error the next start
+        // should report nor a dialog for an activity that is going: what was copied stays, and the next start goes on.
+        return EXIT_SUCCESS;
+    }
+    if (unpacked == Penumbra::Eth::UnpackOutcome::Failed) {
         SUPERSONIC_LOG_ERROR("Penumbra") << "The game's files are not available; stopping.";
         // E39: said to the player; before, the activity closed with nothing on the screen. The usual cause is a
-        // full phone (about 25 MB are unpacked). Not for a scripted run (a file of development flags is left for
+        // full phone (about 21 MB are unpacked). Not for a scripted run (a file of development flags is left for
         // it): automation must never meet a dialog nobody closes.
         std::error_code ignored;
         const bool scripted = (!files.empty() && fs::is_regular_file(files / kArgsFile, ignored)) ||

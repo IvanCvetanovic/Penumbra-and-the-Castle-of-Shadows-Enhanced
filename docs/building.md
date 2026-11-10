@@ -118,8 +118,8 @@ The APK is `out/android/Penumbra-debug.apk` (about 25 MB for the three ABIs, as 
 NativeActivity with a few lines of Java (the engine's `SupersonicActivity`: it hides the system
 bars and reports the safe area, and `tools/build_android.sh` compiles it into `classes.dex`); the
 engine's `android_main` (`engine/src/platform/android`) runs the game, and `game/android/AndroidMain.cpp` unpacks the original's files and the port's data from the
-APK into the app's private storage on the first launch (and again only when they change), and
-passes them with `--original`/`--data`.
+APK into the app's private storage on the first launch (and again only when they change; an unpack that a start cut short is
+continued by the next one, `game/eth/AssetUnpack.hpp`, E49), and passes them with `--original`/`--data`.
 
 - Landscape only; minimum Android 8.0 (API 26, for AAudio); a Vulkan 1.1 GPU is the least the phone build takes (main.cpp sets `GameManifest::minimumVulkanMinor` to 1 there; a computer, and the engine's own default, keep 1.2). A start that fails shows the player a dialog with the reason (E39). A run that ended unexpectedly (a native crash, a stop by the system while it was on the screen, a start that ended itself with an error) is reported at the next start, on Android 11 and later, by a dialog with the system's record of how it ended and the end of the game's log, once per end, with a Share button; the game's start waits behind it, and a scripted run (a `penumbra_args.txt` left for it) never meets it (E40). On a phone or tablet the scene target's size follows how fast the GPU draws it, starting at about 2.2 megapixels (E41: `DynamicResolution`, with the scene shader specialised to unlit draws); `--dynamic-res off` (or `--render-scale 1`) gives a scripted run its full-size picture.
 - The touch controls (E16) are on by default and play player 1. Keyboard player 2 is off (a phone

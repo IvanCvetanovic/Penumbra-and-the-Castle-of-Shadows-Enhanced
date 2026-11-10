@@ -93,6 +93,7 @@
 #include "platform/ExecutablePath.hpp"
 #include "renderer/VulkanContext.hpp"
 #if defined(__ANDROID__)
+#include "eth/AssetUnpack.hpp"   // E49
 #include "platform/android/AndroidApp.hpp"
 #endif
 
@@ -793,6 +794,12 @@ int PenumbraMain(int argc, char** argv) {
                                         << (Penumbra::Render::kMobileBuild ? " (mobile build)" : "") << std::endl;
 #if defined(__ANDROID__)
         SUPERSONIC_LOG_INFO("Penumbra") << "Device: " << Supersonic::Android::DeviceSummary() << std::endl;
+        // E49: a start that unpacked the game's files wrote its own log lines while it did (android/AndroidMain.cpp), and
+        // opening this file replaced them: what they said that matters once the game runs is how long the unpack took and
+        // whether it went on from an earlier start's.
+        if (const std::string& unpacked = Penumbra::Eth::LastUnpackSummary(); !unpacked.empty()) {
+            SUPERSONIC_LOG_INFO("Penumbra") << unpacked << std::endl;
+        }
 #endif
     }
 

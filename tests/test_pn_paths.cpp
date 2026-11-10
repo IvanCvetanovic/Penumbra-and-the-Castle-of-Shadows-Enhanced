@@ -10,10 +10,12 @@
 
 #include <chrono>
 #include <cstddef>
+#include <cstdint>
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
+#include <map>
 #include <regex>
 #include <sstream>
 #include <string>
@@ -23,6 +25,7 @@
 
 #include "TestHarness.hpp"
 #include "core/Log.hpp"   // E38
+#include "eth/AssetUnpack.hpp"   // E49
 #include "eth/Audio.hpp"
 #include "eth/Machine.hpp"
 #include "eth/Paths.hpp"
@@ -521,6 +524,320 @@ void TestRepository() {
         const std::string androidMain = ReadText(built / ".." / ".." / "game" / "android" / "AndroidMain.cpp");
         CHECK_MSG(Has(androidMain, "kArgsFile = \"penumbra_args.txt\""),
                   "AndroidMain.cpp's development-flags file must stay penumbra_args.txt, which the manifest's reportSkipWhenFile names (E40)");
+        // E49: the unpack opens the same log before main.cpp does, so a start stopped during it leaves a log for the report.
+        CHECK_MSG(Has(androidMain, "UserDataDirectory(\"Penumbra\")") && Has(androidMain, "\"penumbra.log\""),
+                  "AndroidMain.cpp must open the log main.cpp's title and name give, for the unpack's lines (E49)");
+    }
+}
+
+// ENHANCEMENT E49: THE UNPACK THAT A STOPPED START DOES NOT LOSE (eth/AssetUnpack.hpp). The APK is a map of paths to bytes
+// behind the unpack's hooks; "a start that was stopped" is the event loop saying the app is closing, or a copy that fails
+// halfway. Nothing here knows Android: the point is that every way of being stopped, at every file, leaves a state the next
+// start finishes into exactly the tree a clean unpack makes, and that a tree of another build is never trusted.
+struct FakeApk {
+    std::string tag = "A";                        // the build: its bytes differ from another build's, its lengths need not
+    std::map<std::string, std::string> assets;    // path -> bytes
+    std::vector<std::string> list;                // the APK's list, in order (it may name an asset that is not there)
+    int copies = 0;                               // files written whole, over every run
+    int lengthQueries = 0;
+    int stopAfter = -1;                           // keepGoing says no once it has been asked this many times
+    int asked = 0;
+    std::string cutAt;                            // a copy of this path writes half of it and fails
+    std::vector<std::string> said;
+
+    Penumbra::Eth::UnpackHooks Hooks() {
+        Penumbra::Eth::UnpackHooks hooks;
+        hooks.length = [this](const std::string& path) -> std::int64_t {
+            ++lengthQueries;
+            const auto it = assets.find(path);
+            return it == assets.end() ? -1 : static_cast<std::int64_t>(it->second.size());
+        };
+        hooks.copy = [this](const std::string& path, const fs::path& target) {
+            const auto it = assets.find(path);
+            if (it == assets.end()) return false;
+            std::ofstream out(target, std::ios::binary | std::ios::trunc);
+            if (path == cutAt) {
+                out << it->second.substr(0, it->second.size() / 2);
+                return false;
+            }
+            out << it->second;
+            ++copies;
+            return static_cast<bool>(out);
+        };
+        hooks.keepGoing = [this] { return stopAfter < 0 || ++asked <= stopAfter; };
+        hooks.log = [this](const std::string& line) { said.push_back(line); };
+        return hooks;
+    }
+};
+
+FakeApk MakeApk(const std::string& tag, int count) {
+    FakeApk apk;
+    apk.tag = tag;
+    static const char* const kRoots[] = {"original", "data", "engine"};
+    for (int i = 0; i < count; ++i) {
+        const std::string path = std::string(kRoots[i % 3]) + "/folder" + std::to_string(i % 4) + "/file" + std::to_string(i) + ".bin";
+        std::string bytes;
+        for (int repeat = 0; repeat < (i % 5) + 1; ++repeat) bytes += tag + path + ";";   // lengths differ from file to file
+        apk.assets[path] = bytes;
+        apk.list.push_back(path);
+    }
+    return apk;
+}
+
+// Whether `files` holds exactly the APK's files and the stamp, and nothing of the unpack's marker.
+std::string UnpackedTreeProblem(const fs::path& files, const FakeApk& apk, const std::string& stamp) {
+    using namespace Penumbra::Eth;
+    std::size_t found = 0;
+    for (const char* root : {"original", "data", "engine"}) {
+        std::error_code ec;
+        if (!fs::exists(files / root, ec)) continue;
+        for (const fs::directory_entry& entry : fs::recursive_directory_iterator(files / root, ec)) {
+            if (entry.is_regular_file()) ++found;
+        }
+    }
+    if (found != apk.assets.size()) return "holds " + std::to_string(found) + " files, wants " + std::to_string(apk.assets.size());
+    for (const auto& [path, bytes] : apk.assets) {
+        if (ReadText(files / path) != bytes) return path + " differs";
+    }
+    if (ReadText(files / kUnpackStampFile) != stamp) return "the stamp is not " + stamp;
+    if (fs::exists(files / kUnpackPartialFile)) return "the marker is still there";
+    return {};
+}
+
+void TestAssetUnpack(const Layout& layout) {   // E49
+    using namespace Penumbra::Eth;
+    const std::vector<std::string> roots = {"original", "data", "engine"};
+    const auto run = [&](const fs::path& files, FakeApk& apk, const std::string& stamp) {
+        return UnpackAssets(files, stamp, apk.list, roots, apk.Hooks());
+    };
+    const auto fresh = [&](const std::string& name) {
+        const fs::path files = layout.root / ("unpack_" + name);
+        fs::remove_all(files);
+        fs::create_directories(files);
+        return files;
+    };
+
+    // A first start unpacks all of it, leaves the player's own folder alone, and the next start has nothing to do.
+    {
+        const fs::path files = fresh("first");
+        Touch(files / "Penumbra" / "settings.json");
+        FakeApk apk = MakeApk("A", 130);
+        const UnpackResult first = run(files, apk, "stampA");
+        CHECK(first.outcome == UnpackOutcome::Unpacked);
+        CHECK(!first.resumed);
+        CHECK_EQ(first.copied, std::size_t(130));
+        CHECK_EQ(first.kept, std::size_t(0));
+        CHECK_MSG(UnpackedTreeProblem(files, apk, "stampA").empty(), UnpackedTreeProblem(files, apk, "stampA"));
+        CHECK_MSG(fs::exists(files / "Penumbra" / "settings.json"), "the player's folder is never touched");
+        CHECK_MSG(apk.lengthQueries == 0, "a clean start trusts nothing on the disk, so it measures nothing");
+        bool saidStart = false, saidProgress = false;
+        for (const std::string& line : apk.said) {
+            if (Has(line, "Unpacking 130 game files") && !Has(line, "continuing")) saidStart = true;
+            if (Has(line, "Unpack: 64 of 130")) saidProgress = true;
+        }
+        CHECK_MSG(saidStart && saidProgress, "the log says what the unpack is doing, sparsely");
+        const std::string described = DescribeUnpack(first);
+        CHECK_MSG(Has(described, "unpacked 130 game files, 130 copied") && !Has(described, "kept"), described);
+
+        const int copiesBefore = apk.copies;
+        const UnpackResult second = run(files, apk, "stampA");
+        CHECK(second.outcome == UnpackOutcome::UpToDate);
+        CHECK_MSG(apk.copies == copiesBefore && apk.lengthQueries == 0, "a finished unpack is not touched again");
+        CHECK_MSG(DescribeUnpack(second).empty(), "nothing is said of a start that unpacked nothing");
+    }
+
+    // The core of it: stopped after any number of the event loop's questions (inside the wipe, between any two files, after
+    // the last one), then started again. The second start finishes into the clean tree, copies only what the first did not,
+    // and is a continuation exactly when the first left its marker.
+    for (int stop = 0; stop <= 46; ++stop) {
+        const fs::path files = fresh("stop");
+        FakeApk apk = MakeApk("A", 40);
+        apk.stopAfter = stop;
+        const UnpackResult stopped = run(files, apk, "stampA");
+        const bool markerLeft = fs::exists(files / kUnpackPartialFile);
+        const bool stampLeft = fs::exists(files / kUnpackStampFile) && ReadText(files / kUnpackStampFile) == "stampA";
+        const int copiedByFirst = apk.copies;
+        apk.stopAfter = -1;
+        const UnpackResult resumed = run(files, apk, "stampA");
+
+        std::string problem;
+        if (stopped.outcome == UnpackOutcome::Cancelled) {
+            if (stampLeft) problem += "a stopped start must not leave the stamp; ";
+            if (resumed.outcome != UnpackOutcome::Unpacked) problem += "second start did not unpack; ";
+            if (resumed.resumed != markerLeft) problem += "resumed must follow the marker; ";
+            if (resumed.kept != static_cast<std::size_t>(copiedByFirst)) problem += "kept != what the first copied; ";
+            if (apk.copies != 40) problem += "every file must be copied exactly once over both starts, got " + std::to_string(apk.copies) + "; ";
+        } else {
+            if (stopped.outcome != UnpackOutcome::Unpacked) problem += "a start that was not stopped must finish; ";
+            if (resumed.outcome != UnpackOutcome::UpToDate) problem += "after a finished start: up to date; ";
+        }
+        const std::string tree = UnpackedTreeProblem(files, apk, "stampA");
+        if (!tree.empty()) problem += tree + "; ";
+        CHECK_MSG(problem.empty(), "stopped after " + std::to_string(stop) + " questions: " + problem);
+    }
+
+    // A copy that fails halfway (no room left, or a process killed inside a file): the half file is gone, the others stay,
+    // and the retry copies that file and the rest, not the ones already whole.
+    {
+        const fs::path files = fresh("cut");
+        FakeApk apk = MakeApk("A", 40);
+        apk.cutAt = apk.list[17];
+        const UnpackResult failed = run(files, apk, "stampA");
+        CHECK(failed.outcome == UnpackOutcome::Failed);
+        CHECK_MSG(Has(failed.why, apk.list[17]), "the failure names the file: " + failed.why);
+        CHECK_MSG(!fs::exists(files / apk.list[17]), "the half-written file is removed");
+        CHECK_MSG(fs::exists(files / apk.list[16]) && !fs::exists(files / kUnpackStampFile) && fs::exists(files / kUnpackPartialFile),
+                  "earlier files stay, there is no stamp, the marker stays");
+        apk.cutAt.clear();
+        const UnpackResult retry = run(files, apk, "stampA");
+        CHECK(retry.outcome == UnpackOutcome::Unpacked && retry.resumed);
+        CHECK_EQ(retry.kept, std::size_t(17));
+        CHECK_EQ(retry.copied, std::size_t(23));
+        CHECK_MSG(UnpackedTreeProblem(files, apk, "stampA").empty(), UnpackedTreeProblem(files, apk, "stampA"));
+        const std::string described = DescribeUnpack(retry);
+        CHECK_MSG(Has(described, "23 copied") && Has(described, "17 kept from a start that was cut short"), described);
+    }
+
+    // A file left under its name by a process that was killed inside it (shorter than its asset, or longer: anything but
+    // the asset's length) is copied again, and a whole one beside it is not.
+    {
+        const fs::path files = fresh("killed");
+        FakeApk apk = MakeApk("A", 40);
+        apk.stopAfter = 20;
+        run(files, apk, "stampA");
+        CHECK(fs::exists(files / kUnpackPartialFile));
+        // The edges of "as long as its asset": a stub of 5 bytes, 0 bytes (stopped between the open and the first write: the
+        // likeliest state of a copy that was stopped), one byte short, one byte long, and 5 bytes long.
+        const auto damage = [&](int index, const std::string& bytes) {
+            std::ofstream out(files / apk.list[static_cast<std::size_t>(index)], std::ios::binary | std::ios::trunc);
+            out << bytes;
+        };
+        const auto asset = [&](int index) { return apk.assets[apk.list[static_cast<std::size_t>(index)]]; };
+        damage(3, asset(3).substr(0, 5));
+        damage(4, asset(4) + "extra");
+        damage(5, "");
+        damage(6, asset(6).substr(0, asset(6).size() - 1));
+        damage(7, asset(7) + "x");
+        apk.stopAfter = -1;
+        const int copiesBefore = apk.copies;
+        const UnpackResult resumed = run(files, apk, "stampA");
+        CHECK(resumed.outcome == UnpackOutcome::Unpacked);
+        CHECK_MSG(UnpackedTreeProblem(files, apk, "stampA").empty(), UnpackedTreeProblem(files, apk, "stampA"));
+        CHECK_MSG(apk.copies - copiesBefore == 40 - 17 + 5, "the five damaged files are copied again with the 23 not yet copied");
+    }
+
+    // Another build: never continued. A tree stopped halfway and then an APK of the SAME file sizes but other bytes, a file
+    // more and a file less: every file is the new build's, none of the old build's remains.
+    {
+        const fs::path files = fresh("update");
+        FakeApk oldApk = MakeApk("A", 40);
+        oldApk.assets["original/old_only.bin"] = "gone in the next build";
+        oldApk.list.insert(oldApk.list.begin() + 10, "original/old_only.bin");   // among the 27 files the stopped start copies
+        oldApk.stopAfter = 30;
+        CHECK(run(files, oldApk, "stampA").outcome == UnpackOutcome::Cancelled);
+        CHECK_MSG(fs::exists(files / "original" / "old_only.bin"), "the old build's own file is on the disk before the update");
+        FakeApk newApk = MakeApk("B", 40);   // "B" and "A" are one byte each: every length is the old build's
+        newApk.assets["data/new_only.bin"] = "arrives in this build";
+        newApk.list.push_back("data/new_only.bin");
+        CHECK_EQ(newApk.assets[newApk.list[5]].size(), oldApk.assets[oldApk.list[5]].size());
+        const UnpackResult updated = run(files, newApk, "stampB");
+        CHECK(updated.outcome == UnpackOutcome::Unpacked);
+        CHECK_MSG(!updated.resumed && updated.kept == 0, "a tree of another stamp is never continued");
+        CHECK_MSG(UnpackedTreeProblem(files, newApk, "stampB").empty(), UnpackedTreeProblem(files, newApk, "stampB"));
+        CHECK_MSG(!fs::exists(files / "original" / "old_only.bin"), "a file the new build lacks does not stay behind");
+
+        // A finished older build updated: the same.
+        FakeApk finished = MakeApk("A", 40);
+        const fs::path done = fresh("update_done");
+        CHECK(run(done, finished, "stampA").outcome == UnpackOutcome::Unpacked);
+        const UnpackResult over = run(done, newApk, "stampB");
+        CHECK(over.outcome == UnpackOutcome::Unpacked && !over.resumed);
+        CHECK_MSG(UnpackedTreeProblem(done, newApk, "stampB").empty(), UnpackedTreeProblem(done, newApk, "stampB"));
+    }
+
+    // A start of another build stopped INSIDE its wipe, over a finished tree of the build before: some of the old files are gone and
+    // the rest are still there. The marker must not exist yet (else the restart would "continue" over the old build's files,
+    // keeping the ones whose size happens to match), and the old stamp must already be gone (else going back to the old build
+    // would be "up to date" over a gutted tree).
+    for (int q = 0; q <= 3; ++q) {
+        const bool wipeOver = q >= 3;   // three roots, so three questions are the wipe's
+        FakeApk a = MakeApk("A", 40);
+        FakeApk b = MakeApk("B", 40);   // the same lengths, other bytes
+
+        const fs::path forward = fresh("wipecut_forward");
+        std::string problem;
+        if (run(forward, a, "stampA").outcome != UnpackOutcome::Unpacked) problem += "A did not unpack; ";
+        b.stopAfter = q;
+        if (run(forward, b, "stampB").outcome != UnpackOutcome::Cancelled) problem += "B was not stopped; ";
+        if (fs::exists(forward / kUnpackStampFile)) problem += "the old stamp survived the start of the wipe; ";
+        if (fs::exists(forward / kUnpackPartialFile) != wipeOver) problem += "the marker must exist exactly when the wipe is over; ";
+        b.stopAfter = -1;
+        const UnpackResult again = run(forward, b, "stampB");
+        if (again.outcome != UnpackOutcome::Unpacked || again.resumed != wipeOver) problem += "B's restart; ";
+        const std::string tree = UnpackedTreeProblem(forward, b, "stampB");
+        if (!tree.empty()) problem += "B's tree: " + tree + "; ";
+        CHECK_MSG(problem.empty(), "B stopped after " + std::to_string(q) + " questions of its wipe: " + problem);
+
+        const fs::path backward = fresh("wipecut_backward");
+        FakeApk a2 = MakeApk("A", 40);
+        FakeApk b2 = MakeApk("B", 40);
+        problem.clear();
+        if (run(backward, a2, "stampA").outcome != UnpackOutcome::Unpacked) problem += "A did not unpack; ";
+        b2.stopAfter = q;
+        run(backward, b2, "stampB");
+        const UnpackResult back = run(backward, a2, "stampA");   // the player is back on the old build
+        if (back.outcome != UnpackOutcome::Unpacked) problem += "going back to A was not an unpack; ";
+        const std::string oldTree = UnpackedTreeProblem(backward, a2, "stampA");
+        if (!oldTree.empty()) problem += "A's tree: " + oldTree + "; ";
+        CHECK_MSG(problem.empty(), "back to A after B stopped at " + std::to_string(q) + ": " + problem);
+    }
+
+    // The stamp cannot be written (no room, the rename refused) when every file is in place: the marker stays, so the next start
+    // finds the tree whole in one pass and writes the stamp, instead of wiping 21 MB to copy it again.
+    {
+        const fs::path files = fresh("stampfail");
+        FakeApk apk = MakeApk("A", 40);
+        apk.stopAfter = 20;
+        CHECK(run(files, apk, "stampA").outcome == UnpackOutcome::Cancelled);
+        apk.stopAfter = -1;
+        const fs::path blocker = files / (std::string(kUnpackStampFile) + ".tmp");
+        fs::create_directories(blocker);   // WriteFileAtomic cannot open its temporary
+        const UnpackResult failed = run(files, apk, "stampA");
+        CHECK(failed.outcome == UnpackOutcome::Failed);
+        CHECK_MSG(fs::exists(files / kUnpackPartialFile) && !fs::exists(files / kUnpackStampFile),
+                  "a failed stamp leaves the marker and no stamp");
+        fs::remove_all(blocker);
+        const UnpackResult again = run(files, apk, "stampA");
+        CHECK_MSG(again.outcome == UnpackOutcome::Unpacked && again.resumed && again.copied == 0 && again.kept == 40,
+                  "the next start only writes the stamp: copied " + std::to_string(again.copied) + ", kept " + std::to_string(again.kept));
+        CHECK_MSG(UnpackedTreeProblem(files, apk, "stampA").empty(), UnpackedTreeProblem(files, apk, "stampA"));
+    }
+
+    // An asset the list names and the APK does not have: a failure that names it, the rest kept; found later, it finishes.
+    {
+        const fs::path files = fresh("missing");
+        FakeApk apk = MakeApk("A", 12);
+        apk.list.push_back("original/absent.bin");
+        const UnpackResult failed = run(files, apk, "stampA");
+        CHECK(failed.outcome == UnpackOutcome::Failed && Has(failed.why, "original/absent.bin"));
+        CHECK(!fs::exists(files / kUnpackStampFile));
+        apk.assets["original/absent.bin"] = "found";
+        CHECK(run(files, apk, "stampA").outcome == UnpackOutcome::Unpacked);
+        CHECK_MSG(UnpackedTreeProblem(files, apk, "stampA").empty(), UnpackedTreeProblem(files, apk, "stampA"));
+    }
+
+    // A list with no stamp cannot tell a finished tree from none: nothing is written. And a start with no way to stop it or
+    // to say anything (no hooks for either) still unpacks.
+    {
+        const fs::path files = fresh("nostamp");
+        FakeApk apk = MakeApk("A", 5);
+        CHECK(run(files, apk, "").outcome == UnpackOutcome::Failed);
+        CHECK(fs::is_empty(files));
+        UnpackHooks bare = apk.Hooks();
+        bare.keepGoing = nullptr;
+        bare.log = nullptr;
+        CHECK(UnpackAssets(files, "stampA", apk.list, roots, bare).outcome == UnpackOutcome::Unpacked);
+        CHECK_MSG(UnpackedTreeProblem(files, apk, "stampA").empty(), UnpackedTreeProblem(files, apk, "stampA"));
     }
 }
 
@@ -661,6 +978,7 @@ int main() {
     TestStartupErrors();
     TestPhoneStartupMessages();   // E39
     TestStartRecord(layout);   // E38
+    TestAssetUnpack(layout);   // E49
     TestLogTimes(layout);   // E38
     TestWorkingDirectory(layout);
     TestDescriptions();
@@ -668,5 +986,5 @@ int main() {
     TestRepository();
     std::error_code ec;
     fs::remove_all(layout.root, ec);
-    return test::summary("test_pn_paths", 140);
+    return test::summary("test_pn_paths", 300);
 }
