@@ -2472,6 +2472,14 @@ void CheckPhonePanels(Eth::Machine& machine) {
     entt::registry registry;
     Render::TextureCache textures(kApp);
     Render::FontAtlas fonts;
+    // The stand-ins, as several other checks here use them, not whichever Arial Narrow Bold the machine has: the 2
+    // logical px of slack at the box's left edge below was only ever verified against their glyph boxes. At the body
+    // sizes here (35 to 61 raster px) the real face's lowercase j has its box 2 raster px left of its pen where the
+    // stand-in's is 1, which put the es, fr and it lines that begin with a j up to 0.115 logical px past that slack:
+    // 18 failures with ARIALNB.TTF present, none without it. The stand-in matches that face's cp1252 advances, not its
+    // side bearings; TestFontStandIns compares the line heights, ascents and widths of Arial Narrow and Arial with the
+    // stand-ins' where those faces are installed.
+    fonts.SetSystemFontsEnabled(false);
     Render::Localization loc;
     CHECK(loc.Load());
     loc.SetTouch(true);

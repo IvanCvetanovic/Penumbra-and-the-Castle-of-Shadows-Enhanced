@@ -45,6 +45,8 @@ executable, and a second registration would run each twice.
 
 A full run of `test_pn_all` on Linux is 17 suites, all passing, and at E49 the 17 add up to 58,037 checks (the audio suite's 321 included), 339 of them `test_pn_paths`' (E49 added 104 there; the totals below were written before E47 and E48 and are left as they stood); it was 48,335 checks with E46's row and its tests (48,210 with scenarios 29 to 31, 48,119 with scenario 29, 48,090 with E36's rework committed, 48,461 at E44 before it, 48,435 at E43, 48,418 at E42; 48,011 at E38, 47,580 at E37 as the rework first ran and 48,327 as 1.0.5 shipped, 45,088 at E35, 39,542 at E34, 39,290 at E32, 39,140 at E31, 28,556 at E28, 22,109 before it); every suite prints its own count.
 
+`test_pn_render_hud`'s total depends on the machine's fonts. It measures the Windows faces it finds in `%WINDIR%\Fonts` against the bundled stand-ins, 46 checks per face (Arial Narrow and Arial), so at 1.0.12 it is 15,351 checks where there are none (Linux, macOS), 15,397 where Arial is there and Arial Narrow's `ARIALNB.TTF` is not (GitHub's Windows runner) and 15,443 where both are (a PC with Arial Narrow installed). E25's panel check lays its text out with the stand-ins everywhere: its slack at the box's left edge was only ever verified against their glyph boxes, and the real face's lowercase j stands one raster pixel further left (DEVLOG, 2026-11-12).
+
 | Suite | What it checks |
 |---|---|
 | `test_pn_smoke` | The build finds the original |
