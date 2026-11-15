@@ -28,7 +28,7 @@ relevant spec file before touching a system; where the spec and the original dis
 
 ```
 CMakeLists.txt       engine/ as a subproject, then game/ and tests/ (its project VERSION is the release's)
-LICENSE, LICENSE.md  MIT-0 for the enhanced edition and the engine, and the table of every part's terms;
+LICENSE, LICENSE.md  MIT for the enhanced edition and the engine, and the table of every part's terms;
                      licenses/ holds the GPL and LGPL texts
 engine/              Supersonic, git submodule pinned to a commit
 game/

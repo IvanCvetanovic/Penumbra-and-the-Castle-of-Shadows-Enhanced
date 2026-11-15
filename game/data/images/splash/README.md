@@ -10,7 +10,7 @@ faded; `game/PenumbraLayer.cpp` draws it before the first menu frame.
 | Source | `engine/assets/branding/supersonic-logo.svg` (viewBox 1200 x 320), the engine's own logo, drawn at 2x from a copy with three edits (below) |
 | Ground | `#14171C` (20, 23, 28): the fill of the logo's own panel. The canvas is this colour all round the lockup, and the intro's flat background is the same colour (`kSplashGround` in `Splash.hpp`), so the picture's edge cannot be seen and the lockup floats on the screen |
 | Lockup | The mark, SUPERSONIC, ENGINE and the rule (every pixel more than 30 levels off the ground) fill x 160 to 2096 and y 143 to 496: 160 and 161 px of ground to the left and right (the width is even, so they differ by one) and 143 above and below. The lockup is centred in the picture, so centring the picture centres it |
-| Terms | The author's own work, **MIT-0**, like the engine (`engine/LICENSE`, which covers its branding). It is not the original game's art and not Magic Rampage's |
+| Terms | The author's own work, **MIT**, like the engine (`engine/LICENSE`, which covers its branding). It is not the original game's art and not Magic Rampage's |
 | Magenta | none: not one pixel is exactly `#FF00FF`, which the HUD's sprite loader keys out. The intro loads it with `TextureVariant::Plain`, which keys nothing |
 
 ## How it was made

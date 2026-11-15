@@ -33,7 +33,7 @@ its system version and the game version).
 [![Apple](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/actions/workflows/apple.yml/badge.svg)](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/actions/workflows/apple.yml)
 ![C++20](https://img.shields.io/badge/C%2B%2B-20-00599C?logo=cplusplus&logoColor=white)
 ![Vulkan](https://img.shields.io/badge/Vulkan-1.2-AC162C?logo=vulkan&logoColor=white)
-[![Licence: MIT-0](https://img.shields.io/badge/licence-MIT--0-FF7A3D)](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/blob/main/LICENSE.md)
+[![Licence: MIT](https://img.shields.io/badge/licence-MIT-FF7A3D)](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/blob/main/LICENSE.md)
 [![Built with Claude Code](https://img.shields.io/badge/built%20with-Claude%20Code-D97757?logo=anthropic&logoColor=white)](#how-it-was-made)
 
 <img src="docs/images/menu.jpg" alt="The main menu, filling a 16:9 window" width="860">
@@ -144,8 +144,8 @@ headless ([`docs/testing.md`](docs/testing.md)).
 
 ## Licence
 
-- **Ivan Cvetanović's code and the Supersonic Engine:** [MIT No Attribution](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/blob/main/LICENSE), completely
-  free to use.
+- **Ivan Cvetanović's code and the Supersonic Engine:** [MIT](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/blob/main/LICENSE): free to
+  use, as long as copies keep the copyright notice and the licence text.
 - **The ported scripts** (`game/script/`) **and the Ethanon runtime** (`game/eth/`): LGPL-3.0-or-later.
 - **The original game's files and the Magic Rampage art (the touch buttons, the options screen's frames, buttons and icons, and the touch-controls editor's buttons):** their authors' property.
 

@@ -29,4 +29,4 @@ Thank you for helping. A few things are especially welcome.
 
 ## Licences of what you contribute
 
-New code is under the same terms as the code around it: MIT No Attribution for most of the repository, and LGPL-3.0-or-later for `game/script/` and `game/eth/` ([`LICENSE.md`](LICENSE.md) has the table). Please do not add other people's art, music or code that the licences there do not already cover.
+New code is under the same terms as the code around it: MIT for most of the repository, and LGPL-3.0-or-later for `game/script/` and `game/eth/` ([`LICENSE.md`](LICENSE.md) has the table). Please do not add other people's art, music or code that the licences there do not already cover.
