@@ -112,7 +112,9 @@ good, and a test build must not carry into the next release built in the same tr
 build) shows the frame rate and where each frame's time went, the scene target's size and the touch layer's state, has size buttons that fix
 the scene target's scale for a measurement and a Share button (Android's share sheet, with the end of the game's log appended): the
 log of an installed app is in private storage, which no file manager shows on Android 11 and later. Other developer flags of this work:
-`--perf-log <seconds>`, `--scene-samples 1|2|4`, `--shadow-maps <16-4096>|default` (E42, E43).
+`--perf-log <seconds>`, `--scene-samples 1|2|4`, `--shadow-maps <16-4096>|default` (E42, E43), and `--shadow-strips host|staged`
+(E50: the projected shadows' geometry in host-visible memory, where rebuilding it waits for nothing, or staged through the GPU queue as
+before; host on a phone, staged on a computer, the same geometry either way).
 
 The APK is `out/android/Penumbra-debug.apk` (about 25 MB for the three ABIs, as a debug build: the stripped libraries are 8.6 MB for x86_64, 8.0 MB for arm64-v8a and 6.0 MB for armeabi-v7a, compressed in the file), debug-signed. It is a
 NativeActivity with a few lines of Java (the engine's `SupersonicActivity`: it hides the system

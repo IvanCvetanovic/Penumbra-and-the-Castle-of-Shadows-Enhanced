@@ -274,7 +274,10 @@ bool ShadowRenderer::Upload(entt::registry& registry, Slot& slot, const std::arr
     bool ok = false;
     const std::uint32_t id = m_meshes->Find(slot.meshKey);
     if (id == MeshRegistry::kInvalidMesh) {
-        const std::uint32_t uploaded = m_meshes->Upload(slot.meshKey, data);
+        // E50 (ShadowRenderer.hpp, WHERE THE STRIPS LIVE): the residency is the slot's for good; the Replace below
+        // keeps it.
+        const std::uint32_t uploaded = m_meshes->Upload(
+            slot.meshKey, data, m_hostVisibleStrips ? MeshResidency::HostVisible : MeshResidency::DeviceLocal);
         ok = uploaded != MeshRegistry::kInvalidMesh && uploaded != m_meshes->GetCubeMesh();
     } else {
         ok = m_meshes->Replace(id, data);

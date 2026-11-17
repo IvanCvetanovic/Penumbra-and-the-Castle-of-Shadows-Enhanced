@@ -36,6 +36,10 @@
 //                          the next start. Removes the intro, as every flag a player would not type
 //   --shadow-maps <16-4096>|default  the resolution of the renderer's shadow maps (E43), over the build's: small on a
 //                          phone (the game casts no shadow), the engine's own sizes on a computer
+//   --shadow-strips host|staged  where the projected shadows' strips live (E50), over the build's: host-visible memory
+//                          on a phone, where a strip rebuilt while its light moves then waits for nothing; staged
+//                          through the GPU queue, two waits a rebuild, on a computer, as before. Either on one build,
+//                          for a comparison: the strips' geometry is the same
 //   --perf-log <seconds>   one log line of the same numbers every so many seconds (E42; 0 none). Removes the intro,
 //                          as every flag a player would not type
 //   --modes <WxH@R,...>    the display modes the options screen lists, instead of the monitor's
@@ -133,6 +137,7 @@ constexpr const char* kGameUsage =
     "  --perf-overlay on|off  a readout of the frame rate and its parts, with Share and size buttons (off)\n"   // E42
     "  --scene-samples 1|2|4  the most samples per pixel of the scene target (4)\n"   // E42
     "  --shadow-maps <n>|default  the shadow maps' resolution (a phone: small, nothing casts a shadow here)\n"   // E43
+    "  --shadow-strips host|staged  the projected shadows' geometry in mapped memory or staged (a phone: host)\n"   // E50
     "  --perf-log <seconds>   a log line of the frame rate and its parts every so many seconds (0: none)\n"   // E42
     "  --modes <WxH@R,...>    the display modes the options screen lists (captures; not saved);\n"
     "                         a '*' after one makes it the desktop's mode, else the largest is\n"   // E28
@@ -324,6 +329,7 @@ int PenumbraMain(int argc, char** argv) {
     std::optional<float> perfLogOverride;   // E42
     std::optional<unsigned> sceneSamplesOverride;   // E42
     std::optional<unsigned> shadowMapsOverride;   // E43
+    std::optional<bool> hostVisibleStripsOverride;   // E50
     std::filesystem::path originalFlag;
     std::filesystem::path dataFlag;
     std::vector<char*> engineArgs{argv[0]};
@@ -524,6 +530,13 @@ int PenumbraMain(int argc, char** argv) {
                 std::cerr << "[Penumbra] --shadow-maps wants default or a number from 16 to 4096, got " << value << std::endl;
                 return EXIT_FAILURE;
             }
+        } else if (arg == "--shadow-strips" && hasValue) {   // E50
+            const std::string value = argv[++i];
+            if (value != "host" && value != "staged") {
+                std::cerr << "[Penumbra] --shadow-strips wants host or staged, got " << value << std::endl;
+                return EXIT_FAILURE;
+            }
+            hostVisibleStripsOverride = value == "host";
         } else if (arg == "--scene-samples" && hasValue) {   // E42
             const std::string value = argv[++i];
             if (value != "1" && value != "2" && value != "4") {
@@ -755,6 +768,9 @@ int PenumbraMain(int argc, char** argv) {
     // E43: the renderer allocates 120 MiB of shadow maps whatever a game draws, and this game casts no shadow (every draw is a
     // sprite through the unlit pipelines, which never sample them): a phone gets 16x16 ones. A computer keeps the defaults.
     manifest.shadowMapResolution = shadowMapsOverride.value_or(Penumbra::Render::kMobileBuild ? 16u : 0u);
+    // E50: a staged strip rebuild waits for the GPU queue to go idle twice (38-348 waits a second in the menu under a moving
+    // finger, on lavapipe), so a phone writes strips into mapped memory instead. A computer keeps the path its captures were taken on.
+    layerOptions.hostVisibleStrips = hostVisibleStripsOverride.value_or(Penumbra::Render::kMobileBuild);
     if (renderScaleOverride) {
         // A fixed scale: the floor is the ceiling, so there is no controller, only a size.
         manifest.dynamicResolution.enabled = true;

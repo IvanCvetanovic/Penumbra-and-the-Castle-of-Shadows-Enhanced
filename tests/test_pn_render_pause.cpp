@@ -2626,6 +2626,7 @@ void testSplashWanted() {   // E35
     const Args developer = {"--start", "--tour", "--hold", "--cursor", "--pointer", "--spawn", "--princess", "--hp",
                             "--mobile-layout", "--modes", "--touch-tuning", "--touch-editor", "--finger",
                             "--difficulty",   // E36: a capture's flag, so it removes the intro like the others
+                            "--shadow-strips",   // E50: a measurement's flag, likewise
                             // The engine's.
                             "--frames", "--screenshot", "--screenshot-every", "--fixed-step", "--scene", "--record",
                             "--replay", "--import-assets",

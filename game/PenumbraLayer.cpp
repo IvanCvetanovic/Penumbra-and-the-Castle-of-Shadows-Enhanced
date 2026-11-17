@@ -221,6 +221,7 @@ void PenumbraLayer::OnAttach(entt::registry& registry) {
     m_fonts.Attach(registry);
     m_sprites.Attach(registry, m_textures);
     m_sprites.SetLocalization(&m_localization);   // E5: the menu's worded images and their normal maps
+    m_shadows.SetHostVisibleStrips(m_options.hostVisibleStrips);   // E50: before any strip is uploaded
     m_shadows.Attach(registry, m_textures);
     m_lights.Attach(registry, m_textures);
     m_particles.Attach(registry, m_textures);

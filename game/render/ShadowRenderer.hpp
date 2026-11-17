@@ -75,10 +75,21 @@
 // caster's frame (vertices relative to its position, the transform at the
 // caster), so a static pair never rebuilds, and a moving one rebuilds only when
 // a vertex moves more than kRebuildEpsilon. A rebuild is MeshRegistry::Replace,
-// which stages through the graphics queue and waits for it (twice) and makes
-// every renderable re-resolve its resources that frame: fine for the handful a
-// moving light casts at once, and the reason static pairs never pay it. The
-// same snapshot drawn twice rebuilds nothing.
+// which bumps the registry's generation and so makes every renderable re-resolve
+// its resources that frame: fine for the handful a moving light casts at once,
+// and the reason static pairs never pay it. The same snapshot drawn twice
+// rebuilds nothing.
+//
+// WHERE THE STRIPS LIVE (E50, SetHostVisibleStrips; --shadow-strips host|staged,
+// host by default on a phone): any light that moves rebuilds its strips - the
+// menu's cursor light on every frame a finger moves - and staged through the
+// graphics queue, as every mesh is by default, each rebuild waits for the queue
+// to go idle twice, draining the frames in flight (the menu under a moving
+// finger made 38 to 348 queue waits a second on lavapipe). In host-visible
+// memory (MeshResidency::HostVisible) a rebuild is written where the GPU reads
+// it and waits for nothing; the vertices and indices are the same either way. A
+// computer keeps the staged path by default, which every capture before E50 was
+// taken on.
 //
 // How the layer calls it:
 //   Attach(registry, textures)                   once, after TextureCache::Attach
@@ -154,8 +165,9 @@ public:
     // Below this the light is straight over the caster: no direction to cast
     // along (the shader would normalise a zero vector).
     static constexpr float kMinPlanarDistance = 1e-3f;
-    // A rebuild waits on the GPU; a shadow whose vertices moved less than this
-    // (in pixels) keeps the mesh it has.
+    // A rebuild makes every renderable re-resolve its resources (and, staged,
+    // waits on the GPU twice); a shadow whose vertices moved less than this (in
+    // pixels) keeps the mesh it has.
     static constexpr float kRebuildEpsilon = 1e-3f;
     // Pairs a hidden slot is kept for before it may be handed to a new pair.
     static constexpr std::size_t kPoolSoftCap = 256;
@@ -167,8 +179,9 @@ public:
     // only places each strip at its caster. For the enhanced interpolation
     // between ticks (E8, render/Interpolation.hpp): `snapshot` is the blend
     // and `shapes` the current tick, so a caster moving past a light moves its
-    // shadow every frame but rebuilds its mesh - a GPU wait - once a tick, as
-    // it did before. Ignored when its lists do not line up with `snapshot`'s.
+    // shadow every frame but rebuilds its mesh - a re-resolve of every
+    // renderable, and staged a GPU wait - once a tick, as it did before.
+    // Ignored when its lists do not line up with `snapshot`'s.
     void Draw(entt::registry& registry, const Eth::RenderSnapshot& snapshot, const View& view,
               const DrawOrder& order, const Eth::RenderSnapshot* shapes = nullptr);
 
@@ -181,6 +194,14 @@ public:
     // kBakedShadowsOwnLight, which also decides which sprites take the strips.
     void SetBakedOwnLight(bool own) { m_bakedOwnLight = own; }
     bool BakedOwnLight() const { return m_bakedOwnLight; }
+
+    // WHERE THE STRIPS LIVE above (E50). Off by default - the staged path, the
+    // engine's default - so a renderer nobody configures draws as before E50;
+    // the layer sets it from its options. Read when a slot's mesh is first
+    // uploaded, and every Replace after keeps that mesh where it is: set it
+    // before the first Draw.
+    void SetHostVisibleStrips(bool host) { m_hostVisibleStrips = host; }
+    bool HostVisibleStrips() const { return m_hostVisibleStrips; }
 
     // The last Draw's baked strips, per snapshot light (index for index its
     // `lights`), placed where the snapshot's casters stand: empty for a light
@@ -237,6 +258,7 @@ private:
     std::uint32_t m_nextKey = 0;
     bool m_capBakedLength = true;
     bool m_bakedOwnLight = true;
+    bool m_hostVisibleStrips = false;
     std::vector<LightStrips> m_bakedStrips;
     std::size_t m_bakedStripCount = 0;
     Supersonic::Light2DShadowMask m_mask;     // decoded once, published to the registry's context

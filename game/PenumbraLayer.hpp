@@ -197,6 +197,10 @@ public:
         // E35: play the Supersonic Engine's intro before the menu. Off here, so a layer built by a test or a tool
         // runs from its first tick as before; main.cpp turns it on for a normal start (Render::SplashWanted).
         bool splash = false;
+        // E50: the projected shadows' strips in host-visible memory, so a strip rebuilt while its light moves waits
+        // for nothing (render/ShadowRenderer.hpp, WHERE THE STRIPS LIVE). Off here, so a layer built by a test or a
+        // tool draws on the staged path as before; main.cpp turns it on for a phone, or as --shadow-strips says.
+        bool hostVisibleStrips = false;
         // E38: the file main.cpp wrote when this start began, taken away on the third frame, once the first has been
         // drawn and the display switch the launch asked for has been applied (FinishLaunch): while it exists a start
         // has not got that far, and the next one opens in a window instead of covering the monitor. Empty for a layer
