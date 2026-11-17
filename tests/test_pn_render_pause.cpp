@@ -2627,6 +2627,7 @@ void testSplashWanted() {   // E35
                             "--mobile-layout", "--modes", "--touch-tuning", "--touch-editor", "--finger",
                             "--difficulty",   // E36: a capture's flag, so it removes the intro like the others
                             "--shadow-strips",   // E50: a measurement's flag, likewise
+                            "--hud-res",         // E50: and a capture's
                             // The engine's.
                             "--frames", "--screenshot", "--screenshot-every", "--fixed-step", "--scene", "--record",
                             "--replay", "--import-assets",

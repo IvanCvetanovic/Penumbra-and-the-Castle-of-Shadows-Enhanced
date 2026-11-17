@@ -114,7 +114,11 @@ the scene target's scale for a measurement and a Share button (Android's share s
 log of an installed app is in private storage, which no file manager shows on Android 11 and later. Other developer flags of this work:
 `--perf-log <seconds>`, `--scene-samples 1|2|4`, `--shadow-maps <16-4096>|default` (E42, E43), and `--shadow-strips host|staged`
 (E50: the projected shadows' geometry in host-visible memory, where rebuilding it waits for nothing, or staged through the GPU queue as
-before; host on a phone, staged on a computer, the same geometry either way).
+before; host on a phone, staged on a computer, the same geometry either way), and `--hud-res picture|scaled|window` (E50: the HUD, the
+text and the touch buttons drawn into the scene's picture as before, at the window's resolution whenever the picture is smaller than the
+window, or at the window's resolution always; scaled on a phone, picture on a computer). When the HUD is drawn at the window's
+resolution, `--screenshot` (the scene's picture, at the picture's own size) holds no HUD, and the log says so once; `--screenshot-ui`
+holds the window as the player sees it.
 
 The APK is `out/android/Penumbra-debug.apk` (about 25 MB for the three ABIs, as a debug build: the stripped libraries are 8.6 MB for x86_64, 8.0 MB for arm64-v8a and 6.0 MB for armeabi-v7a, compressed in the file), debug-signed. It is a
 NativeActivity with a few lines of Java (the engine's `SupersonicActivity`: it hides the system

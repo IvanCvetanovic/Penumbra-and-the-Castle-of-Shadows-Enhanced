@@ -40,6 +40,11 @@
 //                          on a phone, where a strip rebuilt while its light moves then waits for nothing; staged
 //                          through the GPU queue, two waits a rebuild, on a computer, as before. Either on one build,
 //                          for a comparison: the strips' geometry is the same
+//   --hud-res picture|scaled|window  where the HUD, the text and the touch buttons are drawn (E50), over the build's:
+//                          scaled (a phone) draws them at the window's resolution whenever the scene's picture is
+//                          smaller than the window, picture (a computer) into the picture as before, window at the
+//                          window's resolution always. On the window, --screenshot (the picture) holds no HUD and
+//                          --screenshot-ui does. Removes the intro, as every flag a player would not type
 //   --perf-log <seconds>   one log line of the same numbers every so many seconds (E42; 0 none). Removes the intro,
 //                          as every flag a player would not type
 //   --modes <WxH@R,...>    the display modes the options screen lists, instead of the monitor's
@@ -138,6 +143,8 @@ constexpr const char* kGameUsage =
     "  --scene-samples 1|2|4  the most samples per pixel of the scene target (4)\n"   // E42
     "  --shadow-maps <n>|default  the shadow maps' resolution (a phone: small, nothing casts a shadow here)\n"   // E43
     "  --shadow-strips host|staged  the projected shadows' geometry in mapped memory or staged (a phone: host)\n"   // E50
+    "  --hud-res picture|scaled|window  the HUD drawn into the scene's picture, at the window's resolution\n"   // E50
+    "                         while the picture is scaled (a phone), or at the window's resolution always\n"   // E50
     "  --perf-log <seconds>   a log line of the frame rate and its parts every so many seconds (0: none)\n"   // E42
     "  --modes <WxH@R,...>    the display modes the options screen lists (captures; not saved);\n"
     "                         a '*' after one makes it the desktop's mode, else the largest is\n"   // E28
@@ -330,6 +337,7 @@ int PenumbraMain(int argc, char** argv) {
     std::optional<unsigned> sceneSamplesOverride;   // E42
     std::optional<unsigned> shadowMapsOverride;   // E43
     std::optional<bool> hostVisibleStripsOverride;   // E50
+    std::optional<Supersonic::ScreenOverlay::Placement> hudPlacementOverride;   // E50
     std::filesystem::path originalFlag;
     std::filesystem::path dataFlag;
     std::vector<char*> engineArgs{argv[0]};
@@ -537,6 +545,19 @@ int PenumbraMain(int argc, char** argv) {
                 return EXIT_FAILURE;
             }
             hostVisibleStripsOverride = value == "host";
+        } else if (arg == "--hud-res" && hasValue) {   // E50
+            const std::string value = argv[++i];
+            using Placement = Supersonic::ScreenOverlay::Placement;
+            if (value == "picture") {
+                hudPlacementOverride = Placement::Picture;
+            } else if (value == "scaled") {
+                hudPlacementOverride = Placement::WindowWhenScaled;
+            } else if (value == "window") {
+                hudPlacementOverride = Placement::Window;
+            } else {
+                std::cerr << "[Penumbra] --hud-res wants picture, scaled or window, got " << value << std::endl;
+                return EXIT_FAILURE;
+            }
         } else if (arg == "--scene-samples" && hasValue) {   // E42
             const std::string value = argv[++i];
             if (value != "1" && value != "2" && value != "4") {
@@ -771,6 +792,14 @@ int PenumbraMain(int argc, char** argv) {
     // E50: a staged strip rebuild waits for the GPU queue to go idle twice (38-348 waits a second in the menu under a moving
     // finger, on lavapipe), so a phone writes strips into mapped memory instead. A computer keeps the path its captures were taken on.
     layerOptions.hostVisibleStrips = hostVisibleStripsOverride.value_or(Penumbra::Render::kMobileBuild);
+    // E50: a phone's picture shrinks to keep its frame rate (to 0.30 of the window on a slow tablet), and the HUD, the text
+    // and the touch buttons, drawn into it, were stretched back up with it until the text could not be read. On a phone they
+    // are drawn at the window's resolution whenever the picture is smaller than the window; at full size nothing changes.
+    // By the build and not by dynamicResolution.enabled, which --render-scale turns on for a computer's captures: those
+    // keep the HUD in the picture --screenshot reads.
+    manifest.screenOverlayPlacement = hudPlacementOverride.value_or(
+        Penumbra::Render::kMobileBuild ? Supersonic::ScreenOverlay::Placement::WindowWhenScaled
+                                       : Supersonic::ScreenOverlay::Placement::Picture);
     if (renderScaleOverride) {
         // A fixed scale: the floor is the ceiling, so there is no controller, only a size.
         manifest.dynamicResolution.enabled = true;
