@@ -10,7 +10,7 @@
 
 <a href="https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/releases/latest/download/Penumbra-iOS.ipa"><img alt="Download for iPhone and iPad (experimental, needs a computer to install)" height="56" src="https://img.shields.io/badge/Download%20for-iPhone%20%26%20iPad%20%28experimental%2C%20needs%20a%20computer%29-7A5FA8?style=for-the-badge&labelColor=2F1F42&logo=data:image/svg%2bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0iI2ZmZiIgZD0iTTExIDNoMnY5LjZsMy4zLTMuMyAxLjQgMS40TDEyIDE2LjRsLTUuNy01LjcgMS40LTEuNCAzLjMgMy4zVjN6TTQgMThoMTZ2Mkg0eiIvPjwvc3ZnPg=="></a>
 
-<a href="https://paypal.me/IvanCvetanovic" title="Optional: the game is free"><img alt="Donate with PayPal (optional, the game is free)" height="56" src="https://img.shields.io/badge/Donate%20with-PayPal-0070BA?style=for-the-badge&labelColor=2F1F42&logo=paypal&logoColor=white"></a>
+<a href="https://youtu.be/DpWjhcfTTGw" title="The trailer, on YouTube"><img alt="Watch the trailer on YouTube" height="56" src="https://img.shields.io/badge/Watch%20the-Trailer-FF0000?style=for-the-badge&labelColor=2F1F42&logo=youtube&logoColor=white"></a>&nbsp;&nbsp;<a href="https://paypal.me/IvanCvetanovic" title="Optional: the game is free"><img alt="Donate with PayPal (optional, the game is free)" height="56" src="https://img.shields.io/badge/Donate%20with-PayPal-0070BA?style=for-the-badge&labelColor=2F1F42&logo=paypal&logoColor=white"></a>
 
 **New to this?** After the download, follow the [step-by-step guide](docs/install.md) ([Português](docs/install.pt.md)): Windows and Android each ask for a few extra clicks the first time. The Mac, Linux, and iPhone and iPad downloads are newer and less tested than Windows and Android (see [Platform status](#platform-status)); the iPhone and iPad one is experimental and needs a computer to install ([read this first](docs/install.md#iphone-and-ipad-experimental)).
 
@@ -35,6 +35,10 @@ its system version and the game version).
 ![Vulkan](https://img.shields.io/badge/Vulkan-1.2-AC162C?logo=vulkan&logoColor=white)
 [![Licence: MIT](https://img.shields.io/badge/licence-MIT-FF7A3D)](https://github.com/IvanCvetanovic/Penumbra-and-the-Castle-of-Shadows-Enhanced/blob/main/LICENSE.md)
 [![Built with Claude Code](https://img.shields.io/badge/built%20with-Claude%20Code-D97757?logo=anthropic&logoColor=white)](#how-it-was-made)
+
+<a href="https://youtu.be/DpWjhcfTTGw"><img src="https://img.youtube.com/vi/DpWjhcfTTGw/maxresdefault.jpg" alt="Watch the trailer on YouTube: Penumbra and the Castle of Shadows: Enhanced Edition, Out Now Trailer" width="860"></a>
+
+<sub>▶ <a href="https://youtu.be/DpWjhcfTTGw">Watch the trailer on YouTube</a></sub>
 
 <img src="docs/images/menu.jpg" alt="The main menu, filling a 16:9 window" width="860">
 
