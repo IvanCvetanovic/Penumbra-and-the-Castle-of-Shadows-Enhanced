@@ -181,9 +181,11 @@ struct Settings {
     // Without the touch controls the levels are not zoomed, whatever it says.
     int zoom = 0;
     // E47: the size of the picture on a phone or tablet (the scene target the engine's DynamicResolution sizes by how
-    // fast the GPU draws it): "auto" lets that controller decide; "sharp", "balanced" and "fast" hold the picture at 100%,
-    // 70% and 50% of the largest size it would start at (never below the readable floor). Written as it is, in lower
-    // case; read in any case, and anything else is "auto". A computer's picture is always the window's, whatever it says.
+    // fast the GPU draws it): "auto" lets that controller decide; "sharp" holds the picture at the largest size it would
+    // start at (never below the readable floor); "balanced" and "fast" are ceilings, since E50, at 70% and 50% of that
+    // size, under which the controller still decides, aiming at 58 fps only, without Automatic's 30 fps tier, so on a
+    // slow GPU the picture can be smaller still (render/PictureSize.hpp). Written as it is, in lower case; read in any
+    // case, and anything else is "auto". A computer's picture is always the window's, whatever it says.
     std::string pictureSize = "auto";
     // E26: the HUD's safe frame while the touch controls are on
     // (render/PhoneUi.hpp): negative is automatic (written "auto": 3.5% on a

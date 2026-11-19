@@ -16,6 +16,7 @@
 #include "render/ParticleRenderer.hpp"
 #include "render/PauseMenu.hpp"
 #include "render/PhoneUi.hpp"
+#include "render/PictureSize.hpp"   // E50
 #include "render/Settings.hpp"
 #include "render/ShadowRenderer.hpp"
 #include "render/Splash.hpp"   // E35

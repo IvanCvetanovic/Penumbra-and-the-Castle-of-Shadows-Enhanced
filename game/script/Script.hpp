@@ -555,8 +555,9 @@ struct PhonePanel {                                   // E25
 };                                                    // E25
 extern Chooser g_zoom;                                // E25: 0 = automatic, then the layer's percentages
 // ENHANCEMENT E47 (not in the original): the size of the picture, a row of a phone's options screen: "Autom\xE1tica"  // E47
-// (the engine's DynamicResolution decides), then "N\xEDtida", "Equilibrada" and "R\xE1pida" (held at 100%, 70% and 50% // E47
-// of the largest size it would start at). The row is laid out only where the layer says there is a controller to ask  // E47
+// (the engine's DynamicResolution decides), then "N\xEDtida" (held at the largest size it would start at), and       // E47
+// "Equilibrada" and "R\xE1pida" (E50: ceilings at 70% and 50% of that size, aiming at 58 fps only, without           // E50
+// Automatic's 30 fps tier). The row is laid out only where the layer says there is a controller to ask               // E50
 // (g_pictureSizeRow): a computer's picture is the window's.                                                          // E47
 extern Chooser g_pictureSize;                         // E47
 extern bool g_pictureSizeRow;                         // E47

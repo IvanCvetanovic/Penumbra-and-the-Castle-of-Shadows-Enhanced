@@ -26,6 +26,7 @@
 #include "render/ParticleRenderer.hpp"
 #include "render/PauseMenu.hpp"
 #include "render/PhoneUi.hpp"
+#include "render/PictureSize.hpp"   // E50
 #include "render/Settings.hpp"
 #include "render/ShadowRenderer.hpp"
 #include "render/Splash.hpp"   // E35
@@ -313,7 +314,7 @@ private:
     // E25: the zoom row's options (Script::g_zoom), from the setting.
     void RefreshZoomChoices();
     // E47: the picture size row's options (Script::g_pictureSize), from the setting; and the engine asked for the setting's
-    // choice (Automatic when "auto").
+    // choice (render/PictureSize.hpp: Automatic, a pin, or E50's ceiling; Automatic for an unknown setting).
     void RefreshPictureChoices();
     void ApplyPictureSize(Supersonic::RenderScaleControl& control) const;
     // The display's safe-area insets now, window px (--safe-area, else the platform's).
@@ -398,6 +399,8 @@ private:
     // yet (the controller exists from the first frame, but not for a capture).
     uint32_t m_pictureChoiceSeeded = 0;
     bool m_pictureApplied = false;
+    // E50: the scene and lines last told to the controller (RenderScaleControl::NoteScene), so it is told once per change.
+    Render::SceneNote m_sceneNoted;
     // E27: the language row's choice as it was last seeded or applied. The row
     // is 0 = automatic (the system's language), then Render::kLanguages in
     // order: index i + 1 is kLanguages[i]. A different index is a pick; what

@@ -28,6 +28,8 @@
 // E37: the combo buttons' cooldown: its length and clock, the refused taps and their flash and cue, a finger that stays down,
 // the buttons resting apart, what cancels a macro or a load clears, the look in play and not in the editor, and the combos
 // typed by hand, which have no limit.   // E37
+// E47, E50: the picture sharpness row's values, what each asks of the engine's controller (a pin, or a ceiling), its words in
+// every language's file, and the scene and lines of art the controller is told of.
 // No window. Only the combo checks run a Machine.
 
 #include "script/Script.hpp"
@@ -37,6 +39,7 @@
 #include <cstddef>
 #include <cstdio>
 #include <filesystem>
+#include <fstream>   // E50
 #include <initializer_list>
 #include <iterator>
 #include <limits>   // E28
@@ -52,6 +55,8 @@
 
 #include "TestHarness.hpp"
 
+#include "core/Json.hpp"   // E50
+#include "core/RenderScaleControl.hpp"   // E50
 #include "eth/Input.hpp"
 #include "eth/Machine.hpp"
 #include "eth/Snapshot.hpp"
@@ -59,9 +64,11 @@
 #include "render/FontAtlas.hpp"
 #include "render/HudRenderer.hpp"
 #include "render/InputMapper.hpp"
+#include "render/Languages.hpp"   // E50
 #include "render/Localization.hpp"
 #include "render/PauseMenu.hpp"
 #include "render/PhoneUi.hpp"
+#include "render/PictureSize.hpp"   // E50
 #include "render/Settings.hpp"
 #include "render/TextureCache.hpp"
 #include "render/TextureDecode.hpp"
@@ -1979,14 +1986,126 @@ void testSetting() {
     CHECK(!warning.empty());
 }
 
-// E47: the size of the picture on a phone. "auto" is the engine's controller; the three others hold the picture at a share of the
-// largest size it would start at.
+// A UTF-8 JSON file of the port's data, parsed (a BOM, which an editor can leave, set aside).
+Supersonic::Json::Value ParseDataJson(const fs::path& path) {
+    std::ifstream in(path, std::ios::binary);
+    std::string text((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    if (text.rfind("\xEF\xBB\xBF", 0) == 0) text.erase(0, 3);
+    Supersonic::Json::Value root;
+    std::string error;
+    CHECK_MSG(Supersonic::Json::Parse(text, root, error), path.generic_string() + ": " + error);
+    return root;
+}
+
+// E47: the size of the picture on a phone. "auto" is the engine's controller; "sharp" holds the picture at the largest size it
+// would start at; E50: "balanced" and "fast" are ceilings on the controller (render/PictureSize.hpp).
 void testPictureSizeSetting() {
+    using Penumbra::Render::kPictureChoiceCount;
+    using Penumbra::Render::kPictureChoices;
+    using Penumbra::Render::PictureChoice;
+    using Penumbra::Render::PictureChoiceFor;
+    using Penumbra::Render::PictureKind;
+    using Supersonic::RenderScaleMode;
+
     const Settings defaults = Settings::Defaults("en");
     CHECK(defaults.pictureSize == "auto");
     CHECK(Settings::Defaults("pt").pictureSize == "auto");
 
-    for (const char* size : {"auto", "sharp", "balanced", "fast"}) {
+    // The row's values, in its order, as E47 wrote them to settings.json: a saved choice reads as before.
+    const char* const ids[] = {"auto", "sharp", "balanced", "fast"};
+    CHECK_EQ(kPictureChoiceCount, std::size(ids));
+    for (std::size_t i = 0; i < kPictureChoiceCount && i < std::size(ids); ++i) {
+        CHECK_MSG(std::string(kPictureChoices[i].id) == ids[i], ids[i]);
+        // Found by its id, in any case, as Settings reads it.
+        CHECK_MSG(PictureChoiceFor(ids[i]) == &kPictureChoices[i], ids[i]);
+        std::string upper = ids[i];
+        for (char& c : upper) c = static_cast<char>(c - 'a' + 'A');
+        CHECK_MSG(PictureChoiceFor(upper) == &kPictureChoices[i], upper);
+    }
+    CHECK(kPictureChoices[0].kind == PictureKind::Automatic);   // the default is the first, as Zoom's and the language's
+    CHECK(PictureChoiceFor("nope") == nullptr);
+    CHECK(PictureChoiceFor("") == nullptr);
+    CHECK(PictureChoiceFor("auto ") == nullptr);
+    // The labels are E47's cp1252, byte for byte: the row's translations are keyed by them.
+    CHECK(std::string(kPictureChoices[0].label) == "Autom\xE1tica");
+    CHECK(std::string(kPictureChoices[1].label) == "N\xEDtida");
+    CHECK(std::string(kPictureChoices[2].label) == "Equilibrada");
+    CHECK(std::string(kPictureChoices[3].label) == "R\xE1pida");
+
+    // What each value asks of the engine: Automatic, a pin at the start size, and two ceilings (Automatic's fraction says
+    // nothing, so it is not compared).
+    struct Expected {
+        const char* id;
+        RenderScaleMode mode;
+        float fraction;
+    };
+    const Expected requests[] = {
+        {"auto", RenderScaleMode::Automatic, 0.0f},
+        {"sharp", RenderScaleMode::Fixed, 1.0f},
+        {"balanced", RenderScaleMode::Capped, 0.7f},
+        {"fast", RenderScaleMode::Capped, 0.5f},
+    };
+    for (const Expected& expected : requests) {
+        const PictureChoice* const choice = PictureChoiceFor(expected.id);
+        CHECK_MSG(choice != nullptr, expected.id);
+        if (choice == nullptr) continue;
+        Supersonic::RenderScaleControl control;
+        control.Publish(true, 1.0f);
+        Penumbra::Render::RequestPicture(*choice, control);
+        Supersonic::RenderScaleRequest request;
+        CHECK_MSG(control.TakeRequest(&request), expected.id);
+        CHECK_MSG(request.mode == expected.mode, expected.id);
+        CHECK_MSG(expected.mode == RenderScaleMode::Automatic || request.fraction == expected.fraction, expected.id);
+        CHECK_MSG(!control.TakeRequest(&request), expected.id);   // asked once
+    }
+    // The ceilings in the order the row offers them, from the sharpest down.
+    const auto fractionOf = [](const char* id) {
+        const PictureChoice* const choice = PictureChoiceFor(id);
+        return choice != nullptr ? choice->fraction : -1.0f;
+    };
+    CHECK(fractionOf("fast") > 0.0f);
+    CHECK(fractionOf("fast") < fractionOf("balanced"));
+    CHECK(fractionOf("balanced") < fractionOf("sharp"));
+    CHECK(fractionOf("sharp") == 1.0f);
+
+    // No new word: every label is a key of strings.json and of each other language's file, worded there.
+    const fs::path dataDir = PENUMBRA_DATA_DIR;
+    std::vector<fs::path> files = {dataDir / "strings.json"};
+    for (const Penumbra::Render::LanguageInfo& info : Penumbra::Render::kLanguages) {
+        if (info.language == Penumbra::Render::Language::English ||
+            info.language == Penumbra::Render::Language::Portuguese) {
+            continue;
+        }
+        files.push_back(dataDir / "strings" / (std::string(info.id) + ".json"));
+    }
+    CHECK_EQ(files.size(), static_cast<std::size_t>(10));
+    for (const fs::path& file : files) {
+        const Supersonic::Json::Value root = ParseDataJson(file);
+        const Supersonic::Json::Value& strings = root["strings"];
+        for (const PictureChoice& choice : kPictureChoices) {
+            const std::string key = Penumbra::Eth::Cp1252ToUtf8(choice.label);
+            CHECK_MSG(strings.Has(key) && !strings[key].AsString().empty(), file.generic_string() + ": " + key);
+        }
+    }
+
+    // E50: the scene the controller is told of, and the lines of art it shows: a menu's 768, a level at 175% zoom fewer.
+    using Penumbra::Render::SceneNoteFor;
+    const Penumbra::Render::SceneNote menu = SceneNoteFor("scenes/menu.esc", kFourThree);
+    CHECK(menu.key == "scenes/menu.esc");
+    CHECK_EQ(menu.lines, 768u);
+    CHECK_EQ(SceneNoteFor("scenes/menu.esc", kWide).lines, 768u);
+    const glm::vec2 zoomed = Penumbra::Render::ZoomedScreen(glm::uvec2(1600, 720), true, 1.75f);
+    const Penumbra::Render::SceneNote level = SceneNoteFor("scenes/level1.esc", zoomed);
+    CHECK(level.key == "scenes/level1.esc");
+    CHECK_EQ(level.lines, 439u);
+    CHECK_EQ(SceneNoteFor("scenes/level1.esc", Penumbra::Render::ZoomedScreen(glm::uvec2(1340, 800), true, 1.25f)).lines,
+             614u);
+    CHECK(level != menu);
+    CHECK(SceneNoteFor("scenes/level1.esc", zoomed) == level);   // told once: the same scene is the same note
+    CHECK_EQ(SceneNoteFor("scenes/menu.esc", glm::vec2(0.0f)).lines, 0u);   // no screen yet: unknown
+
+    for (const PictureChoice& choice : kPictureChoices) {
+        const char* const size = choice.id;
         Settings changed = defaults;
         changed.pictureSize = size;
         const std::string json = changed.ToJson();
@@ -5217,4 +5336,4 @@ void runTests() {
 
 } // namespace
 
-TEST_MAIN("test_pn_render_touch", 300)
+TEST_MAIN("test_pn_render_touch", 400)

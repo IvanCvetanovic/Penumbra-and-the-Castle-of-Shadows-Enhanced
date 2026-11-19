@@ -45,6 +45,11 @@
 //                          smaller than the window, picture (a computer) into the picture as before, window at the
 //                          window's resolution always. On the window, --screenshot (the picture) holds no HUD and
 //                          --screenshot-ui does. Removes the intro, as every flag a player would not type
+//   --low-tier on|off      the dynamic resolution's lower tier (E50), on by default: where 58 fps cannot be held at
+//                          540 lines of picture, a steady 30 at the largest picture that holds it; off, one 58 fps
+//                          target chased down to the floor, as E47's, each scene's size still remembered. Nothing
+//                          without a controller (a computer, unless --dynamic-res on). Removes the intro, as every
+//                          flag a player would not type
 //   --perf-log <seconds>   one log line of the same numbers every so many seconds (E42; 0 none). Removes the intro,
 //                          as every flag a player would not type
 //   --modes <WxH@R,...>    the display modes the options screen lists, instead of the monitor's
@@ -145,6 +150,7 @@ constexpr const char* kGameUsage =
     "  --shadow-strips host|staged  the projected shadows' geometry in mapped memory or staged (a phone: host)\n"   // E50
     "  --hud-res picture|scaled|window  the HUD drawn into the scene's picture, at the window's resolution\n"   // E50
     "                         while the picture is scaled (a phone), or at the window's resolution always\n"   // E50
+    "  --low-tier on|off      a steady 30 fps at a sharp picture where 60 cannot be held at one (on)\n"   // E50
     "  --perf-log <seconds>   a log line of the frame rate and its parts every so many seconds (0: none)\n"   // E42
     "  --modes <WxH@R,...>    the display modes the options screen lists (captures; not saved);\n"
     "                         a '*' after one makes it the desktop's mode, else the largest is\n"   // E28
@@ -338,6 +344,7 @@ int PenumbraMain(int argc, char** argv) {
     std::optional<unsigned> shadowMapsOverride;   // E43
     std::optional<bool> hostVisibleStripsOverride;   // E50
     std::optional<Supersonic::ScreenOverlay::Placement> hudPlacementOverride;   // E50
+    std::optional<bool> lowTierOverride;   // E50
     std::filesystem::path originalFlag;
     std::filesystem::path dataFlag;
     std::vector<char*> engineArgs{argv[0]};
@@ -558,6 +565,13 @@ int PenumbraMain(int argc, char** argv) {
                 std::cerr << "[Penumbra] --hud-res wants picture, scaled or window, got " << value << std::endl;
                 return EXIT_FAILURE;
             }
+        } else if (arg == "--low-tier" && hasValue) {   // E50
+            const std::string value = argv[++i];
+            if (value != "on" && value != "off") {
+                std::cerr << "[Penumbra] --low-tier wants on or off, got " << value << std::endl;
+                return EXIT_FAILURE;
+            }
+            lowTierOverride = value == "on";
         } else if (arg == "--scene-samples" && hasValue) {   // E42
             const std::string value = argv[++i];
             if (value != "1" && value != "2" && value != "4") {
@@ -767,6 +781,14 @@ int PenumbraMain(int argc, char** argv) {
     manifest.dynamicResolution.relaxedRise = true;
     manifest.dynamicResolution.minTargetHeight = 360;
     manifest.dynamicResolution.emergencyBelowFps = 30.0f;
+    // E50: a GPU that cannot keep 58 fps at any picture worth looking at (a PowerVR GE8320 tablet's menu) was chased down
+    // to the floor, 0.30 of the window, for a frame rate it still did not reach. With a lower tier the picture stays
+    // sharp wherever a steady 30 holds, and 60 is aimed for only where it holds at 540 lines of picture
+    // (0.7 of the art's 768; the HUD, drawn at the window's resolution, no longer needs the picture's lines). The game
+    // names its scenes to the controller (PenumbraLayer: NoteScene), so each keeps its own tier. Inert on a computer,
+    // where dynamic resolution is off unless asked.
+    manifest.dynamicResolution.lowTierFps = lowTierOverride.value_or(true) ? 30.0f : 0.0f;
+    manifest.dynamicResolution.qualityTargetHeight = 540;
     // E42: how the frames run, measured where nobody can attach a profiler. Off for a player; a test build sent to a
     // player's phone (PENUMBRA_PERF_DIAG) has the readout on and a log line every 5 seconds, so what comes back says
     // whether the GPU or the CPU is the limit.

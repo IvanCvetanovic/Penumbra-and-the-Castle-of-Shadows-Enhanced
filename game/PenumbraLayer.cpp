@@ -22,6 +22,7 @@
 #include "eth/Paths.hpp"
 #include "platform/SafeArea.hpp"
 #include "render/DrawOrder.hpp"
+#include "render/PictureSize.hpp"   // E50
 #include "render/Splash.hpp"   // E35
 #include "render/WideMenus.hpp"
 #include "render/WindowMode.hpp"
@@ -344,45 +345,23 @@ void PenumbraLayer::RefreshZoomChoices() {
     m_zoomChoiceSeeded = Script::g_zoom.getCurrent();
 }
 
-// E47: the picture size row's steps: the setting's word, the script's Portuguese (strings.json translates it), and the share of
-// the largest size the engine's controller would start at that the picture is held at (0: the controller decides).
-namespace {
-struct PictureStep {
-    const char* id;
-    const char* label;
-    float fraction;
-};
-constexpr PictureStep kPictureSteps[] = {
-    {"auto", "Autom\xE1tica", 0.0f},
-    {"sharp", "N\xEDtida", 1.0f},
-    {"balanced", "Equilibrada", 0.7f},
-    {"fast", "R\xE1pida", 0.5f},
-};
-constexpr std::size_t kPictureStepCount = sizeof(kPictureSteps) / sizeof(kPictureSteps[0]);
-} // namespace
-
+// E47, E50: the picture size row's values are render/PictureSize.hpp's, in its order; an unknown setting is the first,
+// Automatic, as Settings reads one.
 void PenumbraLayer::RefreshPictureChoices() {
+    const Render::PictureChoice* const saved = Render::PictureChoiceFor(m_settings.pictureSize);
     Eth::array<Eth::string> labels;
     uint32_t current = 0;
-    for (std::size_t i = 0; i < kPictureStepCount; ++i) {
-        labels.insertLast(std::string(kPictureSteps[i].label));
-        if (m_settings.pictureSize == kPictureSteps[i].id) current = static_cast<uint32_t>(i);
+    for (std::size_t i = 0; i < Render::kPictureChoiceCount; ++i) {
+        labels.insertLast(std::string(Render::kPictureChoices[i].label));
+        if (saved == &Render::kPictureChoices[i]) current = static_cast<uint32_t>(i);
     }
     Script::g_pictureSize.setOptions(labels, current);
     m_pictureChoiceSeeded = Script::g_pictureSize.getCurrent();
 }
 
 void PenumbraLayer::ApplyPictureSize(Supersonic::RenderScaleControl& control) const {
-    for (const PictureStep& step : kPictureSteps) {
-        if (m_settings.pictureSize != step.id) continue;
-        if (step.fraction > 0.0f) {
-            control.RequestFixed(step.fraction);
-        } else {
-            control.RequestAutomatic();
-        }
-        return;
-    }
-    control.RequestAutomatic();
+    const Render::PictureChoice* const saved = Render::PictureChoiceFor(m_settings.pictureSize);
+    Render::RequestPicture(saved != nullptr ? *saved : Render::kPictureChoices[0], control);
 }
 
 Render::Language PenumbraLayer::CurrentLanguage() const {
@@ -1270,15 +1249,28 @@ void PenumbraLayer::OnFixedUpdate(entt::registry& registry, float fixedDelta) {
     Script::g_pictureSizeRow = pictureAvailable;
     if (pictureAvailable && !m_pictureApplied) {
         m_pictureApplied = true;
-        if (m_settings.pictureSize != "auto") ApplyPictureSize(*pictureControl);
+        // The controller starts as the game configured it, which is Automatic: only another choice needs asking for.
+        const Render::PictureChoice* const saved = Render::PictureChoiceFor(m_settings.pictureSize);
+        if (saved != nullptr && saved->kind != Render::PictureKind::Automatic) ApplyPictureSize(*pictureControl);
     }
     const uint32_t pictureIndex = Script::g_pictureSize.getCurrent();
-    if (pictureIndex != m_pictureChoiceSeeded && pictureIndex < kPictureStepCount) {
-        m_settings.pictureSize = kPictureSteps[pictureIndex].id;
+    if (pictureIndex != m_pictureChoiceSeeded && pictureIndex < Render::kPictureChoiceCount) {
+        m_settings.pictureSize = Render::kPictureChoices[pictureIndex].id;
         SaveSettings();
         SUPERSONIC_LOG_INFO("Penumbra") << "E47 picture size picked: " << m_settings.pictureSize << std::endl;
         if (pictureAvailable) ApplyPictureSize(*pictureControl);
         RefreshPictureChoices();
+    }
+    // E50: the scene on screen and the lines of art it shows, for the controller, which keeps a tier and a size per scene
+    // (a heavy menu no longer decides a light level's size). Told when either changes - a load, or a zoomed level's end
+    // screen going back to 768 lines - not every tick, and only while there is a controller to hear it: a note with none
+    // is dropped, so what was last told stays as it was until one is there.
+    if (pictureAvailable) {
+        Render::SceneNote scene = Render::SceneNoteFor(m_machine->GetSceneFileName(), m_machine->GetScreenSize());
+        if (!scene.key.empty() && scene != m_sceneNoted) {
+            pictureControl->NoteScene(scene.key, scene.lines);
+            m_sceneNoted = std::move(scene);
+        }
     }
 
     // E23: the refresh rate's row. A pick replaces --refresh and is saved; in

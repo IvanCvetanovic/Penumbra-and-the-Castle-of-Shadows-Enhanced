@@ -112,11 +112,14 @@ good, and a test build must not carry into the next release built in the same tr
 build) shows the frame rate and where each frame's time went, the scene target's size and the touch layer's state, has size buttons that fix
 the scene target's scale for a measurement and a Share button (Android's share sheet, with the end of the game's log appended): the
 log of an installed app is in private storage, which no file manager shows on Android 11 and later. Other developer flags of this work:
-`--perf-log <seconds>`, `--scene-samples 1|2|4`, `--shadow-maps <16-4096>|default` (E42, E43), and `--shadow-strips host|staged`
+`--perf-log <seconds>`, `--scene-samples 1|2|4`, `--shadow-maps <16-4096>|default` (E42, E43), `--shadow-strips host|staged`
 (E50: the projected shadows' geometry in host-visible memory, where rebuilding it waits for nothing, or staged through the GPU queue as
-before; host on a phone, staged on a computer, the same geometry either way), and `--hud-res picture|scaled|window` (E50: the HUD, the
+before; host on a phone, staged on a computer, the same geometry either way), `--hud-res picture|scaled|window` (E50: the HUD, the
 text and the touch buttons drawn into the scene's picture as before, at the window's resolution whenever the picture is smaller than the
-window, or at the window's resolution always; scaled on a phone, picture on a computer). When the HUD is drawn at the window's
+window, or at the window's resolution always; scaled on a phone, picture on a computer), and `--low-tier on|off` (E50: the dynamic
+resolution's lower tier, on by default: where 58 fps cannot be held at 540 lines of picture, a steady 30 at the largest picture that
+holds it, remembered per scene; off, for an A/B, one 58 fps target chased down to the floor, as E47's, each scene's size still
+remembered; nothing where there is no controller, as on a computer without `--dynamic-res on`). When the HUD is drawn at the window's
 resolution, `--screenshot` (the scene's picture, at the picture's own size) holds no HUD, and the log says so once; `--screenshot-ui`
 holds the window as the player sees it.
 

@@ -2628,6 +2628,7 @@ void testSplashWanted() {   // E35
                             "--difficulty",   // E36: a capture's flag, so it removes the intro like the others
                             "--shadow-strips",   // E50: a measurement's flag, likewise
                             "--hud-res",         // E50: and a capture's
+                            "--low-tier",        // E50: an A/B measurement's
                             // The engine's.
                             "--frames", "--screenshot", "--screenshot-every", "--fixed-step", "--scene", "--record",
                             "--replay", "--import-assets",
